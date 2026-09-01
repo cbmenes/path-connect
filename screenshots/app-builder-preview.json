@@ -1,0 +1,36 @@
+{
+  "url": "http://127.0.0.1:8080/",
+  "viewports": {
+    "desktop": {
+      "width": 1280,
+      "height": 800,
+      "status": 200,
+      "title": "SweepBook",
+      "hasCanvas": false,
+      "bodyTextLen": 2212,
+      "bodyTextHash": "2acd06c410b68b8730608b91c695085acc2dffc099b84a6fa4d138d9874640df",
+      "bodyTextPrefix": "SweepBook Scheduling Payments Client portal Pricing Log in Get s",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview.png"
+    },
+    "mobile": {
+      "width": 390,
+      "height": 844,
+      "status": 200,
+      "title": "SweepBook",
+      "hasCanvas": false,
+      "bodyTextLen": 2266,
+      "bodyTextHash": "fea42e84c57c82df4391863b1b3746c69a3a4e1dd3f3791477089ffe3347ef5b",
+      "bodyTextPrefix": "SweepBook FOR INDEPENDENT CLEANERS Your books, your clients, one",
+      "horizontalOverflow": false,
+      "consoleErrors": [],
+      "pageErrors": [],
+      "screenshot": "/workspace/screenshots/app-builder-preview-mobile.png"
+    }
+  },
+  "brandWarnings": [],
+  "authWarnings": [],
+  "verdictFile": "/workspace/screenshots/app-builder-preview.json"
+}
