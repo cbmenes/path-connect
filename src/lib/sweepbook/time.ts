@@ -60,6 +60,14 @@ export function chicagoDayKey(date: Date | string) {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+export function calendarAppointmentSearch(jobId: string, startAt?: string | null) {
+  return {
+    view: "day" as const,
+    date: startAt ? chicagoDayKey(startAt) : undefined,
+    job: jobId,
+  };
+}
+
 export function formatDate(date: Date | string, opts?: Intl.DateTimeFormatOptions) {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("en-US", {

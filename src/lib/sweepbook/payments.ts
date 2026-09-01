@@ -4,7 +4,8 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { assertCleaner, assertClient, getActor } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
-import { nid } from "./time";
+import { nid, formatDateTime, money } from "./time";
+import { insertNotification } from "./notifications";
 import type { CardRow, InvoiceWithClient } from "./types";
 
 function receiptNo() {
@@ -467,8 +468,8 @@ export const tipJob = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     assertClient(actor);
     if (data.amountCents < 100) throw new Error("Tips must be at least $1.");
-    const jobs = await sql<{ id: string; service: string; status: string }>`
-      select id, service, status from jobs
+    const jobs = await sql<{ id: string; service: string; status: string; start_at: string }>`
+      select id, service, status, start_at::text as start_at from jobs
       where id = ${data.jobId} and client_id = ${actor.client.id} limit 1
     `;
     const job = jobs[0];
@@ -496,6 +497,16 @@ export const tipJob = createServerFn({ method: "POST" })
       update jobs set tip_cents = tip_cents + ${data.amountCents}, tip_requested = false
       where id = ${job.id}
     `;
+    await insertNotification(sql, {
+      userId: actor.client.cleaner_user_id,
+      kind: "tip",
+      title: `${actor.client.name} left a ${money(data.amountCents)} tip`,
+      body: `${formatDateTime(job.start_at)} · ${job.service}`,
+      jobId: job.id,
+      clientId: actor.client.id,
+      clientName: actor.client.name,
+      requestedStartAt: job.start_at,
+    });
     return { ok: true as const, receiptNumber: rec, amountCents: data.amountCents, brand: card.brand, last4: card.last4 };
   });
 

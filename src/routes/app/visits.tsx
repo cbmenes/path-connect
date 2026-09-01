@@ -10,7 +10,7 @@ import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Field, Input, Textarea } from "@/components/ui/input";
+import { Field, Textarea } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/visits")({ component: VisitsPage });
 
@@ -19,13 +19,13 @@ function VisitsPage() {
   const qc = useQueryClient();
   const upcoming = q.data && isClientDash(q.data) ? q.data.upcoming : [];
   const past = q.data && isClientDash(q.data) ? q.data.past : [];
-  const [active, setActive] = useState<{ id: string; action: "cancel" | "reschedule" } | null>(null);
+  const [activeId, setActiveId] = useState<string | null>(null);
   const [note, setNote] = useState("");
-  const [requestedStart, setRequestedStart] = useState("");
+  const [busy, setBusy] = useState(false);
   const jobMeta = useQuery({
-    queryKey: ["job", active?.id],
-    queryFn: () => getJob({ data: active!.id }),
-    enabled: Boolean(active?.id),
+    queryKey: ["job", activeId],
+    queryFn: () => getJob({ data: activeId! }),
+    enabled: Boolean(activeId),
   });
 
   return (
@@ -34,34 +34,42 @@ function VisitsPage() {
       <section>
         <h2 className="font-display text-xl text-navy">Upcoming</h2>
         <div className="mt-3 grid gap-2">
-          {upcoming.length === 0 ? <p className="text-sm text-muted">Nothing scheduled.</p> : upcoming.map((j) => {
-            const soon = hoursUntil(j.start_at) < 24;
-            return (
-              <Card key={j.id} className="grid gap-2">
-                <div className="flex items-start justify-between gap-3">
-                  <div>
-                    <p className="font-medium">{formatDateTime(j.start_at)}</p>
-                    <p className="text-sm text-muted">
-                      {formatHours(j.duration_min)} · {money(j.price_cents)}
-                    </p>
-                    <p className="text-xs text-muted">{j.address}</p>
+          {upcoming.length === 0 ? (
+            <p className="text-sm text-muted">Nothing scheduled.</p>
+          ) : (
+            upcoming.map((j) => {
+              const soon = hoursUntil(j.start_at) < 24;
+              return (
+                <Card key={j.id} className="grid gap-2">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <p className="font-medium">{formatDateTime(j.start_at)}</p>
+                      <p className="text-sm text-muted">
+                        {formatHours(j.duration_min)} · {money(j.price_cents)}
+                      </p>
+                      <p className="text-xs text-muted">{j.address}</p>
+                    </div>
+                    <VisitStatusBadge job={j} />
                   </div>
-                  <VisitStatusBadge job={j} />
-                </div>
-                {soon ? <p className="text-xs text-warn">Inside 24 hours — the cancellation policy applies.</p> : null}
-                {j.status === "scheduled" ? (
-                  <div className="flex flex-wrap gap-2">
-                    <Button variant="outline" size="sm" onClick={() => { setActive({ id: j.id, action: "reschedule" }); setNote(""); setRequestedStart(""); }}>
-                      Request reschedule
-                    </Button>
-                    <Button variant="ghost" size="sm" onClick={() => { setActive({ id: j.id, action: "cancel" }); setNote(""); }}>
-                      Cancel
-                    </Button>
-                  </div>
-                ) : null}
-              </Card>
-            );
-          })}
+                  {soon ? <p className="text-xs text-warn">Inside 24 hours — the cancellation policy applies.</p> : null}
+                  {j.status === "scheduled" ? (
+                    <div className="flex flex-wrap gap-2">
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        onClick={() => {
+                          setActiveId(j.id);
+                          setNote("");
+                        }}
+                      >
+                        Cancel
+                      </Button>
+                    </div>
+                  ) : null}
+                </Card>
+              );
+            })
+          )}
         </div>
       </section>
       <section>
@@ -78,35 +86,45 @@ function VisitsPage() {
           ))}
         </div>
       </section>
-      <Dialog open={Boolean(active)} onOpenChange={(o) => !o && setActive(null)}>
-        <DialogContent title={active?.action === "cancel" ? "Cancel this visit?" : "Request a new time"}>
+      <Dialog open={Boolean(activeId)} onOpenChange={(o) => !o && setActiveId(null)}>
+        <DialogContent title="Are you sure you want to cancel this appointment?">
           {jobMeta.data?.cancellationPolicy && hoursUntil(jobMeta.data.job.start_at) < 24 ? (
             <p className="mb-3 rounded-md bg-warn/15 p-3 text-sm text-warn">{jobMeta.data.cancellationPolicy}</p>
           ) : null}
-          {active?.action === "reschedule" ? (
-            <Field label="Requested new time">
-              <Input type="datetime-local" value={requestedStart} onChange={(e) => setRequestedStart(e.target.value)} />
-            </Field>
-          ) : null}
+          <p className="mb-3 text-sm text-muted">Your cleaner will be notified. You can ask them to book a new time.</p>
           <Field label="Note for your cleaner">
             <Textarea value={note} onChange={(e) => setNote(e.target.value)} />
           </Field>
-          <Button
-            className="mt-3"
-            onClick={async () => {
-              if (!active) return;
-              const res = await clientCancelOrReschedule({
-                data: { id: active.id, action: active.action, note, requestedStart: requestedStart || undefined },
-              });
-              toast.success(active.action === "cancel" ? "Visit cancelled. Your cleaner was notified." : "Reschedule requested. Your cleaner was notified.");
-              if (res.within24) toast.message("This visit was inside 24 hours.");
-              setActive(null);
-              await qc.invalidateQueries({ queryKey: ["dashboard"] });
-              await qc.invalidateQueries({ queryKey: ["jobs"] });
-            }}
-          >
-            Confirm
-          </Button>
+          <div className="mt-4 flex flex-wrap justify-end gap-2">
+            <Button type="button" variant="outline" disabled={busy} onClick={() => setActiveId(null)}>
+              Keep appointment
+            </Button>
+            <Button
+              type="button"
+              variant="danger"
+              disabled={busy}
+              onClick={async () => {
+                if (!activeId) return;
+                setBusy(true);
+                try {
+                  const res = await clientCancelOrReschedule({
+                    data: { id: activeId, action: "cancel", note },
+                  });
+                  toast.success("Visit cancelled. Your cleaner was notified.");
+                  if (res.within24) toast.message("This visit was inside 24 hours.");
+                  setActiveId(null);
+                  await qc.invalidateQueries({ queryKey: ["dashboard"] });
+                  await qc.invalidateQueries({ queryKey: ["jobs"] });
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not cancel.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? "Cancelling…" : "Cancel appointment"}
+            </Button>
+          </div>
         </DialogContent>
       </Dialog>
     </div>

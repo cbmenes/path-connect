@@ -17,16 +17,16 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed4__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed__) {
-    g.__sweepbookSeed__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed__ = undefined;
+  if (!g.__sweepbookSeed4__) {
+    g.__sweepbookSeed4__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed4__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed__;
+  await g.__sweepbookSeed4__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -38,6 +38,7 @@ async function seedIfNeeded(sql: Sql) {
   }
   await seedV2(sql);
   await seedV3(sql);
+  await seedV4(sql);
 }
 
 async function insertUser(
@@ -321,11 +322,15 @@ async function seedAll(sql: Sql) {
 
   const msg = async (clientId: string, role: "cleaner" | "client", body: string, hoursAgo: number, unread = false) => {
     const at = new Date(Date.now() - hoursAgo * 3600_000).toISOString();
+    const senderUserId = role === "cleaner" ? DEMO_CLEANER_ID : clientId === CAM_CLIENT_ID ? DEMO_CLIENT_USER_ID : null;
+    const senderName = role === "cleaner" ? "Maya Brooks" : clientId === CAM_CLIENT_ID ? "Cam Delgado" : null;
     await sql`
-      insert into messages (id, cleaner_user_id, client_id, sender_role, body, created_at, read_at)
-      values (
+      insert into messages (
+        id, cleaner_user_id, client_id, sender_role, body, created_at, read_at,
+        channel, sender_user_id, sender_name
+      ) values (
         ${nid("msg")}, ${DEMO_CLEANER_ID}, ${clientId}, ${role}, ${body}, ${at},
-        ${unread ? null : at}
+        ${unread ? null : at}, ${"master_client"}, ${senderUserId}, ${senderName}
       )
     `;
   };
@@ -503,12 +508,121 @@ async function seedV3(sql: Sql) {
   if (!unreadCam.length) {
     const at = new Date(Date.now() - 2 * 3600_000).toISOString();
     await sql`
-      insert into messages (id, cleaner_user_id, client_id, sender_role, body, created_at, read_at)
+      insert into messages (id, cleaner_user_id, client_id, sender_role, body, created_at, read_at, channel, team_user_id, sender_user_id, sender_name)
       values (
         ${nid("msg")}, ${DEMO_CLEANER_ID}, ${CAM_CLIENT_ID}, ${"cleaner"},
-        ${"Quick reminder — I'll bring extra glass cleaner this week."}, ${at}, ${null}
+        ${"Quick reminder — I'll bring extra glass cleaner this week."}, ${at}, ${null},
+        ${"master_client"}, ${null}, ${DEMO_CLEANER_ID}, ${"Maya Brooks"}
       )
     `;
   }
 }
+
+async function seedV4(sql: Sql) {
+  await sql`
+    update messages
+    set channel = 'master_client'
+    where channel is null or channel = ''
+  `;
+  await sql`
+    update messages
+    set sender_user_id = cleaner_user_id, sender_name = coalesce(sender_name, 'Maya Brooks')
+    where sender_role = 'cleaner' and sender_user_id is null
+  `;
+  await sql`
+    update messages m
+    set sender_user_id = c.linked_user_id, sender_name = coalesce(m.sender_name, c.name)
+    from clients c
+    where m.sender_role = 'client' and m.client_id = c.id and m.sender_user_id is null
+  `;
+
+  const teamThread = await sql<{ id: string }>`
+    select id from messages where channel = 'team_client' limit 1
+  `;
+  if (!teamThread.length) {
+    const t1 = new Date(Date.now() - 6 * 3600_000).toISOString();
+    const t2 = new Date(Date.now() - 5 * 3600_000).toISOString();
+    await sql`
+      insert into messages (
+        id, cleaner_user_id, client_id, sender_role, body, created_at, read_at,
+        channel, team_user_id, sender_user_id, sender_name
+      ) values
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${"client-harpers"}, ${"cleaner"},
+         ${"Ellen — I'll be there at 9. Scout can stay in the yard."}, ${t1}, ${t1},
+         ${"team_client"}, ${DEMO_TEAM_ID}, ${DEMO_TEAM_ID}, ${"Lena Ruiz"}),
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${"client-harpers"}, ${"client"},
+         ${"Perfect. Extra towels are in the hall closet."}, ${t2}, ${null},
+         ${"team_client"}, ${DEMO_TEAM_ID}, ${null}, ${"The Harpers"})
+    `;
+  }
+
+  const internal = await sql<{ id: string }>`
+    select id from messages where channel = 'master_team' limit 1
+  `;
+  if (!internal.length) {
+    const t1 = new Date(Date.now() - 4 * 3600_000).toISOString();
+    const t2 = new Date(Date.now() - 3 * 3600_000).toISOString();
+    await sql`
+      insert into messages (
+        id, cleaner_user_id, client_id, sender_role, body, created_at, read_at,
+        channel, team_user_id, sender_user_id, sender_name
+      ) values
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${null}, ${"cleaner"},
+         ${"Lena, can you take the Harper Tuesday if I'm running long at Cam's?"}, ${t1}, ${t1},
+         ${"master_team"}, ${DEMO_TEAM_ID}, ${DEMO_CLEANER_ID}, ${"Maya Brooks"}),
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${null}, ${"cleaner"},
+         ${"Yes — already on my book."}, ${t2}, ${null},
+         ${"master_team"}, ${DEMO_TEAM_ID}, ${DEMO_TEAM_ID}, ${"Lena Ruiz"})
+    `;
+  }
+
+  const cancelNote = await sql<{ id: string }>`
+    select id from notifications where kind = 'cancel' and user_id = ${DEMO_CLEANER_ID} limit 1
+  `;
+  if (!cancelNote.length) {
+    const job = await sql<{ id: string; start_at: string; client_id: string }>`
+      select id, start_at::text as start_at, client_id from jobs
+      where cleaner_user_id = ${DEMO_CLEANER_ID} and client_id = ${CAM_CLIENT_ID}
+        and status = 'scheduled' and start_at > now()
+      order by start_at asc limit 1
+    `;
+    if (job[0]) {
+      await sql`
+        insert into notifications (
+          id, user_id, kind, title, body, job_id, client_id, client_name, requested_start_at, status
+        ) values (
+          ${nid("ntf")}, ${DEMO_CLEANER_ID}, ${"cancel"},
+          ${"Cam Delgado cancelled a visit"},
+          ${"Client cancelled this appointment."},
+          ${job[0].id}, ${CAM_CLIENT_ID}, ${"Cam Delgado"}, ${job[0].start_at}::timestamptz, ${"unread"}
+        )
+      `;
+    }
+  }
+
+  const tipNote = await sql<{ id: string }>`
+    select id from notifications where kind = 'tip' and user_id = ${DEMO_CLEANER_ID} limit 1
+  `;
+  if (!tipNote.length) {
+    const past = await sql<{ id: string; start_at: string }>`
+      select id, start_at::text as start_at from jobs
+      where cleaner_user_id = ${DEMO_CLEANER_ID} and client_id = ${CAM_CLIENT_ID}
+        and status = 'completed'
+      order by start_at desc limit 1
+    `;
+    if (past[0]) {
+      await sql`
+        insert into notifications (
+          id, user_id, kind, title, body, job_id, client_id, client_name, requested_start_at, status
+        ) values (
+          ${nid("ntf")}, ${DEMO_CLEANER_ID}, ${"tip"},
+          ${"Cam Delgado left a $20.00 tip"},
+          ${"Tip on a completed visit."},
+          ${past[0].id}, ${CAM_CLIENT_ID}, ${"Cam Delgado"}, ${past[0].start_at}::timestamptz, ${"unread"}
+        )
+      `;
+    }
+  }
+}
+
 

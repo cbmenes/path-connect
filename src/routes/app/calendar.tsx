@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import { assignJob, createJob, getJob, listJobs, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
@@ -25,22 +25,25 @@ import { PageHeader } from "@/components/app/empty-state";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker, assigneeLabel } from "@/components/app/assignee-picker";
+import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
 import type { JobWithClient } from "@/lib/sweepbook/types";
+import { masterClientThread } from "@/lib/sweepbook/threads";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
 type CalView = "day" | "week" | "month";
 
-type Search = { view?: CalView; date?: string; start?: string };
+type Search = { view?: CalView; date?: string; start?: string; job?: string };
 
 export const Route = createFileRoute("/app/calendar")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     view: s.view === "day" || s.view === "month" || s.view === "week" ? s.view : undefined,
     date: typeof s.date === "string" ? s.date : undefined,
     start: typeof s.start === "string" ? s.start : undefined,
+    job: typeof s.job === "string" ? s.job : undefined,
   }),
   component: CalendarPage,
 });
@@ -67,8 +70,12 @@ function CalendarPage() {
   const [mode, setMode] = useState<CalView>(search.view ?? "week");
   const [anchor, setAnchor] = useState(() => parseAnchor(search.date));
   const [addStart, setAddStart] = useState<string | null>(search.start ?? null);
-  const [selectedId, setSelectedId] = useState<string | null>(null);
+  const [selectedId, setSelectedId] = useState<string | null>(search.job ?? null);
   const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (search.job) setSelectedId(search.job);
+  }, [search.job]);
 
   const range = useMemo(() => {
     if (mode === "month") {
@@ -521,6 +528,7 @@ function JobPanel({
   const [busy, setBusy] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
+  const [cancelOpen, setCancelOpen] = useState(false);
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
     queryFn: () => listCardsForClient({ data: q.data!.job.client_id }),
@@ -547,6 +555,7 @@ function JobPanel({
   const selectedIds = assigneeIds ?? currentIds;
 
   return (
+    <>
     <DialogContent title={job.client_name} className="max-h-[90dvh] w-[min(100%-1.5rem,32rem)] overflow-y-auto">
       <div className="grid gap-3">
         <div className="flex items-center justify-between gap-2">
@@ -605,22 +614,13 @@ function JobPanel({
             </Button>
           ) : null}
           {canEdit ? (
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={async () => {
-                await setJobStatus({ data: { id: job.id, status: "cancelled", reason: "Cancelled by cleaner" } });
-                toast.message("Visit cancelled.");
-                await onChanged();
-                onClose();
-              }}
-            >
+            <Button variant="ghost" size="sm" onClick={() => setCancelOpen(true)}>
               Cancel
             </Button>
           ) : null}
           {canMessage ? (
           <Button variant="outline" size="sm" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: job.client_id }}>
+            <Link to="/app/messages/$clientId" params={{ clientId: masterClientThread(job.client_id) }}>
               Message
             </Link>
           </Button>
@@ -706,5 +706,23 @@ function JobPanel({
         ) : null}
       </div>
     </DialogContent>
+    <CancelAppointmentDialog
+      open={cancelOpen}
+      onOpenChange={setCancelOpen}
+      busy={busy}
+      onConfirm={async () => {
+        setBusy(true);
+        try {
+          await setJobStatus({ data: { id: job.id, status: "cancelled", reason: "Cancelled by cleaner" } });
+          toast.message("Visit cancelled.");
+          setCancelOpen(false);
+          await onChanged();
+          onClose();
+        } finally {
+          setBusy(false);
+        }
+      }}
+    />
+  </>
   );
 }

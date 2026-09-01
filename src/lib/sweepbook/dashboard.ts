@@ -4,8 +4,9 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { JOB_FROM, JOB_SELECT, getActor } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { addDaysChicago, startOfChicagoDay, chicagoDate, partsInChicago } from "./time";
-import type { Actor, CardRow, InvoiceWithClient, JobWithClient, RevenueSummary, ThreadSummary } from "./types";
+import type { Actor, CardRow, InvoiceWithClient, JobWithClient, ThreadSummary } from "./types";
 import { hydrateJob, redactJobMoney } from "./assignees";
+import { loadThreads, unreadCount } from "./messages";
 
 export type CleanerDashboard = {
   actor: Extract<Actor, { kind: "cleaner" }>;
@@ -16,7 +17,8 @@ export type CleanerDashboard = {
   unread: number;
   failed: InvoiceWithClient[];
   pendingRequests: number;
-  revenue: RevenueSummary;
+  unreadNotifications: number;
+  revenue: { monthCents: number; ytdCents: number; monthLabel: string; year: number };
 };
 
 export type TeamDashboard = {
@@ -89,31 +91,17 @@ export const getDashboard = createServerFn({ method: "GET" })
          order by i.created_at desc`,
         [context.userId],
       );
-      const threads = await sql.query<ThreadSummary>(
-        `select c.id as client_id, c.name as client_name, last.body as last_body,
-                last.created_at::text as last_at, coalesce(u.unread, 0)::int as unread
-         from clients c
-         join lateral (
-           select body, created_at from messages
-           where client_id = c.id and cleaner_user_id = $1
-           order by created_at desc limit 1
-         ) last on true
-         left join lateral (
-           select count(*) as unread from messages
-           where client_id = c.id and cleaner_user_id = $1
-             and sender_role = 'client' and read_at is null
-         ) u on true
-         where c.cleaner_user_id = $1
-         order by last.created_at desc
-         limit 5`,
-        [context.userId],
-      );
-      const unread = threads.reduce((n, t) => n + Number(t.unread || 0), 0);
+      const threads = (await loadThreads(sql, actor)).slice(0, 5);
+      const unread = await unreadCount(sql, actor);
       const failed = unpaid.filter((i) => i.status === "failed");
       const reqs = await sql<{ n: number }>`
         select count(*)::int as n from notifications
         where user_id = ${context.userId} and status in ('unread', 'read')
           and kind in ('cancel', 'reschedule')
+      `;
+      const unreadNotes = await sql<{ n: number }>`
+        select count(*)::int as n from notifications
+        where user_id = ${context.userId} and status = 'unread'
       `;
       const p = partsInChicago(new Date());
       const monthStart = chicagoDate(p.year, p.month, 1, 0, 0);
@@ -121,23 +109,30 @@ export const getDashboard = createServerFn({ method: "GET" })
       const yearStart = chicagoDate(p.year, 1, 1, 0, 0);
       const yearEnd = chicagoDate(p.year + 1, 1, 1, 0, 0);
       const monthRows = await sql<{ n: number }>`
-        select coalesce(sum(i.amount_cents), 0)::int as n
-        from invoices i
-        where i.cleaner_user_id = ${context.userId}
-          and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
-          and i.paid_at >= ${monthStart.toISOString()}::timestamptz
-          and i.paid_at < ${nextMonth.toISOString()}::timestamptz
+        select coalesce(sum(s.amt), 0)::int as n
+        from (
+          select distinct on (i.job_id) i.amount_cents as amt
+          from invoices i
+          where i.cleaner_user_id = ${context.userId}
+            and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
+            and i.paid_at >= ${monthStart.toISOString()}::timestamptz
+            and i.paid_at < ${nextMonth.toISOString()}::timestamptz
+          order by i.job_id, i.paid_at desc
+        ) s
       `;
       const yearRows = await sql<{ n: number }>`
-        select coalesce(sum(i.amount_cents), 0)::int as n
-        from invoices i
-        where i.cleaner_user_id = ${context.userId}
-          and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
-          and i.paid_at >= ${yearStart.toISOString()}::timestamptz
-          and i.paid_at < ${yearEnd.toISOString()}::timestamptz
+        select coalesce(sum(s.amt), 0)::int as n
+        from (
+          select distinct on (i.job_id) i.amount_cents as amt
+          from invoices i
+          where i.cleaner_user_id = ${context.userId}
+            and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
+            and i.paid_at >= ${yearStart.toISOString()}::timestamptz
+            and i.paid_at < ${yearEnd.toISOString()}::timestamptz
+          order by i.job_id, i.paid_at desc
+        ) s
       `;
       const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "America/Chicago" }).format(new Date());
-      const ytd = Number(yearRows[0]?.n || 0);
       return {
         actor,
         today,
@@ -147,10 +142,10 @@ export const getDashboard = createServerFn({ method: "GET" })
         unread,
         failed,
         pendingRequests: Number(reqs[0]?.n || 0),
+        unreadNotifications: Number(unreadNotes[0]?.n || 0),
         revenue: {
           monthCents: Number(monthRows[0]?.n || 0),
-          ytdCents: ytd,
-          annualCents: ytd,
+          ytdCents: Number(yearRows[0]?.n || 0),
           monthLabel,
           year: p.year,
         },
@@ -176,19 +171,7 @@ export const getDashboard = createServerFn({ method: "GET" })
          order by j.start_at asc`,
         [actor.masterUserId, context.userId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob).map(redactJobMoney));
-      const unreadRows = await sql.query<{ n: number }>(
-        `select count(*)::int as n from messages m
-         where m.cleaner_user_id = $1 and m.sender_role = 'client' and m.read_at is null
-           and (
-             exists (select 1 from client_assignees ca where ca.client_id = m.client_id and ca.user_id = $2)
-             or exists (
-               select 1 from job_assignees ja
-               join jobs j on j.id = ja.job_id
-               where j.client_id = m.client_id and ja.user_id = $2
-             )
-           )`,
-        [actor.masterUserId, context.userId],
-      );
+      const unreadMessages = await unreadCount(sql, actor);
       const reqs = await sql<{ n: number }>`
         select count(*)::int as n from notifications
         where user_id = ${context.userId} and status in ('unread', 'read')
@@ -198,7 +181,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         actor,
         today,
         week,
-        unread: Number(unreadRows[0]?.n || 0),
+        unread: unreadMessages,
         pendingRequests: Number(reqs[0]?.n || 0),
       } satisfies TeamDashboard;
     }

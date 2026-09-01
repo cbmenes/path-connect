@@ -6,8 +6,10 @@ import { assignJob, getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { chargeCard, listCardsForClient, requestTip } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { masterClientThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
+import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
 import { VisitStatusBadge } from "@/components/app/status-badge";
@@ -29,6 +31,7 @@ function JobDetail() {
   const [busy, setBusy] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
+  const [cancelKind, setCancelKind] = useState<"visit" | "series" | null>(null);
   const isCleaner = actor.data?.kind === "cleaner";
   const isTeam = actor.data?.kind === "team";
   const canMessage = actor.data?.kind === "cleaner" || (actor.data?.kind === "team" && actor.data.canMessage);
@@ -99,27 +102,12 @@ function JobDetail() {
             <Button variant="outline" onClick={() => setEditing((v) => !v)}>{editing ? "Close editor" : "Edit"}</Button>
           ) : null}
           {job.status !== "cancelled" && isCleaner ? (
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
-                toast.message("Visit cancelled.");
-                await qc.invalidateQueries({ queryKey: ["job", id] });
-                await qc.invalidateQueries({ queryKey: ["jobs"] });
-              }}
-            >
+            <Button variant="ghost" onClick={() => setCancelKind("visit")}>
               Cancel visit
             </Button>
           ) : null}
-          {job.series_id && isCleaner ? (
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                await setJobStatus({ data: { id, status: "cancelled", series: true, reason: "Series cancelled" } });
-                toast.message("This and future visits in the series were cancelled.");
-                await navigate({ to: "/app/calendar" });
-              }}
-            >
+          {job.series_id && isCleaner && job.status !== "cancelled" ? (
+            <Button variant="ghost" onClick={() => setCancelKind("series")}>
               Cancel series
             </Button>
           ) : null}
@@ -168,7 +156,7 @@ function JobDetail() {
           ) : null}
           {canMessage ? (
           <Button variant="ghost" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: job.client_id }}>Message client</Link>
+            <Link to="/app/messages/$clientId" params={{ clientId: masterClientThread(job.client_id) }}>Message client</Link>
           </Button>
           ) : null}
           {isCleaner ? (
@@ -203,6 +191,32 @@ function JobDetail() {
           }}
         />
       ) : null}
+      <CancelAppointmentDialog
+        open={Boolean(cancelKind)}
+        onOpenChange={(o) => !o && setCancelKind(null)}
+        series={cancelKind === "series"}
+        busy={busy}
+        onConfirm={async () => {
+          if (!cancelKind) return;
+          setBusy(true);
+          try {
+            if (cancelKind === "series") {
+              await setJobStatus({ data: { id, status: "cancelled", series: true, reason: "Series cancelled" } });
+              toast.message("This and future visits in the series were cancelled.");
+              setCancelKind(null);
+              await navigate({ to: "/app/calendar" });
+            } else {
+              await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
+              toast.message("Visit cancelled.");
+              setCancelKind(null);
+              await qc.invalidateQueries({ queryKey: ["job", id] });
+              await qc.invalidateQueries({ queryKey: ["jobs"] });
+            }
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

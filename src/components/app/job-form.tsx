@@ -146,7 +146,7 @@ export function JobForm({
       {showAssign ? (
         <div className="grid gap-1.5">
           <p className="text-sm font-medium text-ink">Assigned cleaners</p>
-          <p className="text-xs text-muted">New recurring visits inherit the client’s team unless you change them here.</p>
+          <p className="text-xs text-muted">If this is a recurring cleaning, the cleaner(s) you choose below will be assigned to future recurring appointments on this schedule.</p>
           <AssigneePicker staff={staff} selected={assignedToUserIds} onChange={setAssignedToUserIds} />
         </div>
       ) : null}

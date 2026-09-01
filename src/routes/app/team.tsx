@@ -8,6 +8,7 @@ import {
   deleteTeamMember,
   listTeam,
   resendTeamInvite,
+  saveTeamMember,
   setTeamMessaging,
   updateTeamMember,
 } from "@/lib/sweepbook/team";
@@ -101,9 +102,35 @@ function TeamPage() {
             <input type="checkbox" checked={canMessage} onChange={(e) => setCanMessage(e.target.checked)} />
             Can message clients
           </label>
-          <div className="md:col-span-2">
+          <div className="flex flex-wrap gap-2 md:col-span-2">
+            <Button
+              type="button"
+              variant="outline"
+              disabled={busy}
+              onClick={async () => {
+                if (!name.trim()) {
+                  toast.error("Name is required.");
+                  return;
+                }
+                setBusy(true);
+                try {
+                  await saveTeamMember({ data: { name, phone, email, canMessage } });
+                  toast.success("Saved to the team list.");
+                  setName("");
+                  setPhone("");
+                  setEmail("");
+                  await qc.invalidateQueries({ queryKey: ["team"] });
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not save.");
+                } finally {
+                  setBusy(false);
+                }
+              }}
+            >
+              {busy ? "Saving…" : "Save"}
+            </Button>
             <Button type="submit" disabled={busy}>
-              {busy ? "Creating…" : "Send invite link"}
+              {busy ? "Sending…" : "Send invite"}
             </Button>
           </div>
         </form>
@@ -121,7 +148,8 @@ function TeamPage() {
                 <div>
                   <p className="font-medium">{m.full_name}</p>
                   <p className="text-xs text-muted">
-                    {m.email || m.phone || "No contact"} · {m.pending ? "Pending invite" : m.team_status}
+                    {m.email || m.phone || "No contact"} ·{" "}
+                    {m.pending ? (m.invite_sent ? "Invite pending" : "Saved") : m.team_status}
                   </p>
                   <p className="mt-1 text-xs text-muted">
                     {m.assigned_clients.length
@@ -142,11 +170,13 @@ function TeamPage() {
                       onClick={async () => {
                         const res = await resendTeamInvite({ data: { inviteToken: m.invite_token } });
                         const url = `${window.location.origin}${res.path}`;
+                        setInviteUrl(url);
                         await navigator.clipboard?.writeText(url).catch(() => undefined);
-                        toast.success("Invite link copied.");
+                        toast.success(m.invite_sent ? "Invite link copied." : "Invite sent. Link copied.");
+                        await qc.invalidateQueries({ queryKey: ["team"] });
                       }}
                     >
-                      Resend invite
+                      {m.invite_sent ? "Resend invite" : "Send invite"}
                     </Button>
                   ) : (
                     <>

@@ -41,7 +41,8 @@ export const listTeam = createServerFn({ method: "GET" })
     );
     const pending = await sql.query<TeamMember>(
       `select id as user_id, name as full_name, phone, email, can_message, 'pending' as team_status,
-              true as pending, token as invite_token
+              true as pending, token as invite_token,
+              (invited_at is not null) as invite_sent
        from team_invites
        where master_user_id = $1 and accepted_at is null
        order by created_at desc`,
@@ -52,7 +53,14 @@ export const listTeam = createServerFn({ method: "GET" })
     `;
     return {
       members: [
-        ...pending.map((m) => ({ ...m, assigned_clients: [] as { id: string; name: string }[] })),
+        ...pending.map((m) => {
+          const sent = m.invite_sent as unknown;
+          return {
+            ...m,
+            invite_sent: sent === true || sent === "t" || sent === "true",
+            assigned_clients: [] as { id: string; name: string }[],
+          };
+        }),
         ...members.map((m) => {
           const { assigned_json: _ignored, ...rest } = m;
           return { ...rest, assigned_clients: parseClientRefs(m.assigned_json) };
@@ -77,28 +85,74 @@ export const listAssignableStaff = createServerFn({ method: "GET" })
     `;
   });
 
-export const createTeamInvite = createServerFn({ method: "POST" })
+async function upsertSavedInvite(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  ownerId: string,
+  data: { name: string; phone: string | null; email: string | null; canMessage: boolean },
+) {
+  if (data.email) {
+    const existing = await sql<{ id: string; token: string; invited_at: string | null }>`
+      select id, token, invited_at::text as invited_at from team_invites
+      where master_user_id = ${ownerId} and accepted_at is null
+        and lower(email) = ${data.email.toLowerCase()}
+      limit 1
+    `;
+    if (existing[0]) {
+      await sql`
+        update team_invites
+        set name = ${data.name}, phone = ${data.phone}, can_message = ${data.canMessage}
+        where id = ${existing[0].id}
+      `;
+      return { id: existing[0].id, token: existing[0].token, alreadyInvited: Boolean(existing[0].invited_at) };
+    }
+  }
+  const token = nid("tinv").replace(/-/g, "").slice(0, 22);
+  const id = nid("tinv");
+  await sql`
+    insert into team_invites (id, token, master_user_id, name, phone, email, can_message)
+    values (${id}, ${token}, ${ownerId}, ${data.name}, ${data.phone}, ${data.email}, ${data.canMessage})
+  `;
+  return { id, token, alreadyInvited: false };
+}
+
+function teamFormInput(input: { name: string; phone?: string; email?: string; canMessage?: boolean }) {
+  const name = input.name.trim();
+  if (!name) throw new Error("Name is required.");
+  return {
+    name,
+    phone: input.phone?.trim() || null,
+    email: input.email?.trim() || null,
+    canMessage: input.canMessage !== false,
+  };
+}
+
+export const saveTeamMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { name: string; phone?: string; email?: string; canMessage?: boolean }) => {
-    const name = input.name.trim();
-    if (!name) throw new Error("Name is required.");
-    return {
-      name,
-      phone: input.phone?.trim() || null,
-      email: input.email?.trim() || null,
-      canMessage: input.canMessage !== false,
-    };
-  })
+  .validator(teamFormInput)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCleaner(actor);
-    const token = nid("tinv").replace(/-/g, "").slice(0, 22);
-    await sql`
-      insert into team_invites (id, token, master_user_id, name, phone, email, can_message)
-      values (${nid("tinv")}, ${token}, ${context.userId}, ${data.name}, ${data.phone}, ${data.email}, ${data.canMessage})
-    `;
-    return { token, path: `/team-invite/${token}`, name: data.name, email: data.email };
+    const saved = await upsertSavedInvite(sql, context.userId, data);
+    return {
+      token: saved.token,
+      path: `/team-invite/${saved.token}`,
+      name: data.name,
+      email: data.email,
+      inviteSent: saved.alreadyInvited,
+    };
+  });
+
+export const createTeamInvite = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(teamFormInput)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertCleaner(actor);
+    const saved = await upsertSavedInvite(sql, context.userId, data);
+    await sql`update team_invites set invited_at = now() where token = ${saved.token}`;
+    return { token: saved.token, path: `/team-invite/${saved.token}`, name: data.name, email: data.email };
   });
 
 export const getTeamInvitePublic = createServerFn({ method: "GET" })
@@ -251,6 +305,7 @@ export const resendTeamInvite = createServerFn({ method: "POST" })
         limit 1
       `;
       if (!rows[0]) throw new Error("Invite not found.");
+      await sql`update team_invites set invited_at = now() where token = ${rows[0].token}`;
       return { token: rows[0].token, path: `/team-invite/${rows[0].token}`, name: rows[0].name, email: rows[0].email };
     }
     if (!data.userId) throw new Error("Choose a team cleaner.");
@@ -261,8 +316,8 @@ export const resendTeamInvite = createServerFn({ method: "POST" })
     if (!member[0]) throw new Error("Team cleaner not found.");
     const token = nid("tinv").replace(/-/g, "").slice(0, 22);
     await sql`
-      insert into team_invites (id, token, master_user_id, name, phone, email, can_message)
-      values (${nid("tinv")}, ${token}, ${context.userId}, ${member[0].full_name}, ${member[0].phone}, ${member[0].email}, ${member[0].can_message})
+      insert into team_invites (id, token, master_user_id, name, phone, email, can_message, invited_at)
+      values (${nid("tinv")}, ${token}, ${context.userId}, ${member[0].full_name}, ${member[0].phone}, ${member[0].email}, ${member[0].can_message}, now())
     `;
     return { token, path: `/team-invite/${token}`, name: member[0].full_name, email: member[0].email };
   });

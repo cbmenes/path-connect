@@ -13,7 +13,7 @@ import {
 } from "./assignees";
 import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
-import { addDaysChicago, addMinutes, chicagoDate, fromDatetimeLocalValue, hoursUntil, nid, partsInChicago } from "./time";
+import { addDaysChicago, addMinutes, chicagoDate, fromDatetimeLocalValue, formatDateTime, hoursUntil, nid, partsInChicago } from "./time";
 import type { JobRow, JobWithClient, Recurrence } from "./types";
 
 export const listJobs = createServerFn({ method: "GET" })
@@ -417,28 +417,16 @@ export const clientCancelOrReschedule = createServerFn({ method: "POST" })
     if (job.status === "cancelled" || job.status === "completed") {
       throw new Error("This visit can no longer be changed.");
     }
-    const within24 = hoursUntil(job.start_at) < 24;
-    const requested = data.requestedStart ? fromDatetimeLocalValue(data.requestedStart) : null;
-    if (data.action === "cancel") {
-      await sql`
-        update jobs set status = 'cancelled', cancel_reason = ${data.note ?? null}
-        where id = ${data.id} and client_id = ${actor.client.id}
-      `;
-    } else {
-      await sql`
-        update jobs set
-          status = 'reschedule_requested',
-          reschedule_note = ${data.note ?? null},
-          reschedule_requested_at = ${requested ? requested.toISOString() : null}
-        where id = ${data.id} and client_id = ${actor.client.id}
-      `;
+    if (data.action === "reschedule") {
+      throw new Error("Rescheduling is no longer available. Cancel this visit if you need a new time.");
     }
-    const kind = data.action === "cancel" ? "cancel" : "reschedule";
-    const title =
-      data.action === "cancel"
-        ? `${actor.client.name} cancelled a visit`
-        : `${actor.client.name} requested a reschedule`;
-    const bodyParts = [data.note ? data.note : null].filter(Boolean);
+    const within24 = hoursUntil(job.start_at) < 24;
+    await sql`
+      update jobs set status = 'cancelled', cancel_reason = ${data.note ?? null}
+      where id = ${data.id} and client_id = ${actor.client.id}
+    `;
+    const title = `${actor.client.name} cancelled a visit`;
+    const bodyParts = [formatDateTime(job.start_at), data.note ? data.note : null].filter(Boolean);
     const recipients = new Set<string>([job.cleaner_user_id]);
     const assignees = await sql<{ user_id: string }>`select user_id from job_assignees where job_id = ${job.id}`;
     for (const a of assignees) recipients.add(a.user_id);
@@ -446,13 +434,13 @@ export const clientCancelOrReschedule = createServerFn({ method: "POST" })
     for (const userId of recipients) {
       await insertNotification(sql, {
         userId,
-        kind,
+        kind: "cancel",
         title,
         body: bodyParts.join(" · ") || null,
         jobId: job.id,
         clientId: actor.client.id,
         clientName: actor.client.name,
-        requestedStartAt: requested ? requested.toISOString() : null,
+        requestedStartAt: job.start_at,
       });
     }
     return { ok: true, within24 };

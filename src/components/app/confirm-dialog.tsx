@@ -6,7 +6,9 @@ export function ConfirmDialog({
   onOpenChange,
   title,
   body,
+  cancelLabel = "Cancel",
   confirmLabel = "Remove",
+  busyLabel = "Removing…",
   busy,
   onConfirm,
 }: {
@@ -14,7 +16,9 @@ export function ConfirmDialog({
   onOpenChange: (open: boolean) => void;
   title: string;
   body: string;
+  cancelLabel?: string;
   confirmLabel?: string;
+  busyLabel?: string;
   busy?: boolean;
   onConfirm: () => void | Promise<void>;
 }) {
@@ -22,15 +26,47 @@ export function ConfirmDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={title}>
         <p className="text-sm text-muted">{body}</p>
-        <div className="mt-5 flex justify-end gap-2">
+        <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
-            Cancel
+            {cancelLabel}
           </Button>
           <Button type="button" variant="danger" disabled={busy} onClick={() => void onConfirm()}>
-            {busy ? "Removing…" : confirmLabel}
+            {busy ? busyLabel : confirmLabel}
           </Button>
         </div>
       </DialogContent>
     </Dialog>
+  );
+}
+
+export function CancelAppointmentDialog({
+  open,
+  onOpenChange,
+  busy,
+  onConfirm,
+  series,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  busy?: boolean;
+  onConfirm: () => void | Promise<void>;
+  series?: boolean;
+}) {
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Are you sure you want to cancel this appointment?"
+      body={
+        series
+          ? "This visit and future visits in the series will be cancelled."
+          : "The visit will be marked cancelled and removed from the book."
+      }
+      cancelLabel="Keep appointment"
+      confirmLabel="Cancel appointment"
+      busyLabel="Cancelling…"
+      busy={busy}
+      onConfirm={onConfirm}
+    />
   );
 }

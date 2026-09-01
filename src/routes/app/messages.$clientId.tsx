@@ -12,13 +12,12 @@ import { cn } from "@/lib/utils";
 export const Route = createFileRoute("/app/messages/$clientId")({ component: ThreadPage });
 
 function ThreadPage() {
-  const { clientId } = Route.useParams();
+  const { clientId: threadId } = Route.useParams();
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
-  const q = useQuery({ queryKey: ["thread", clientId], queryFn: () => getThread({ data: clientId }) });
+  const q = useQuery({ queryKey: ["thread", threadId], queryFn: () => getThread({ data: threadId }) });
   const qc = useQueryClient();
   const [body, setBody] = useState("");
   const bottom = useRef<HTMLDivElement>(null);
-  const myRole = actor.data?.kind === "client" ? "client" : "cleaner";
 
   useEffect(() => {
     bottom.current?.scrollIntoView({ behavior: "smooth" });
@@ -35,12 +34,15 @@ function ThreadPage() {
   return (
     <div className="mx-auto flex min-h-[70dvh] max-w-2xl flex-col">
       <h1 className="font-display text-2xl text-navy">{q.data?.title || "Messages"}</h1>
+      {q.data?.subtitle ? <p className="text-sm text-muted">{q.data.subtitle}</p> : null}
       <div className="mt-4 flex-1 space-y-2">
         {(q.data?.messages ?? []).map((m) => {
-          const mine = m.sender_role === myRole;
+          const mine = m.sender_user_id ? m.sender_user_id === actor.data?.userId : false;
+          const name = m.sender_name || (m.sender_role === "client" ? "Client" : "Cleaner");
           return (
             <div key={m.id} className={cn("flex", mine ? "justify-end" : "justify-start")}>
               <div className={cn("max-w-[80%] rounded-xl px-3 py-2 text-sm", mine ? "bg-navy text-paper" : "bg-paper shadow-soft")}>
+                <p className={cn("text-[11px] font-medium", mine ? "text-paper/70" : "text-sage")}>{name}</p>
                 <p>{m.body}</p>
                 <p className={cn("mt-1 text-[11px]", mine ? "text-paper/60" : "text-muted")}>{formatDateTime(m.created_at)}</p>
               </div>
@@ -54,9 +56,9 @@ function ThreadPage() {
         onSubmit={async (e) => {
           e.preventDefault();
           try {
-            await sendMessage({ data: { clientId, body } });
+            await sendMessage({ data: { threadId, body } });
             setBody("");
-            await qc.invalidateQueries({ queryKey: ["thread", clientId] });
+            await qc.invalidateQueries({ queryKey: ["thread", threadId] });
             await qc.invalidateQueries({ queryKey: ["threads"] });
             await qc.invalidateQueries({ queryKey: ["badges"] });
           } catch (err) {
