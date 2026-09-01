@@ -17,21 +17,22 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed4__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed5__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed4__) {
-    g.__sweepbookSeed4__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed4__ = undefined;
+  if (!g.__sweepbookSeed5__) {
+    g.__sweepbookSeed5__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed5__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed4__;
+  await g.__sweepbookSeed5__;
 }
 
 async function seedIfNeeded(sql: Sql) {
+  await ensureDemoAccounts(sql);
   const existing = await sql<{ x: number }>`
-    select 1 as x from "user" where email = ${DEMO_CLEANER_EMAIL} limit 1
+    select 1 as x from clients where id = ${CAM_CLIENT_ID} limit 1
   `;
   if (!existing.length) {
     await seedAll(sql);
@@ -39,6 +40,41 @@ async function seedIfNeeded(sql: Sql) {
   await seedV2(sql);
   await seedV3(sql);
   await seedV4(sql);
+}
+
+/** Create or repair the three public demo logins (email + password). */
+async function ensureDemoAccounts(sql: Sql) {
+  await insertUser(sql, DEMO_CLEANER_ID, "Maya Brooks", DEMO_CLEANER_EMAIL, DEMO_CLEANER_PASSWORD);
+  await insertUser(sql, DEMO_CLIENT_USER_ID, "Cam Delgado", DEMO_CLIENT_EMAIL, DEMO_CLIENT_PASSWORD);
+  await insertUser(sql, DEMO_TEAM_ID, "Lena Ruiz", DEMO_TEAM_EMAIL, DEMO_TEAM_PASSWORD);
+
+  await sql`
+    insert into profiles (
+      user_id, role, full_name, business_name, phone, cancellation_policy,
+      default_duration_min, default_rate_cents, cleaner_kind, email, plan_status, plan_price_cents
+    ) values (
+      ${DEMO_CLEANER_ID}, ${"cleaner"}, ${"Maya Brooks"}, ${"Brooks Clean Co."},
+      ${"(405) 555-0148"},
+      ${"Cancellations made less than 24 hours before a visit may be charged half the scheduled rate. Weather delays are never charged."},
+      ${120}, ${15000}, ${"master"}, ${DEMO_CLEANER_EMAIL}, ${"active"}, ${1900}
+    )
+    on conflict (user_id) do nothing
+  `;
+  await sql`
+    insert into profiles (user_id, role, full_name, phone)
+    values (${DEMO_CLIENT_USER_ID}, ${"client"}, ${"Cam Delgado"}, ${"(405) 555-0194"})
+    on conflict (user_id) do nothing
+  `;
+  await sql`
+    insert into profiles (
+      user_id, role, full_name, phone, email, cleaner_kind, master_user_id,
+      can_message, team_status
+    ) values (
+      ${DEMO_TEAM_ID}, ${"cleaner"}, ${"Lena Ruiz"}, ${"(405) 555-0160"},
+      ${DEMO_TEAM_EMAIL}, ${"team"}, ${DEMO_CLEANER_ID}, ${true}, ${"active"}
+    )
+    on conflict (user_id) do nothing
+  `;
 }
 
 async function insertUser(
@@ -50,17 +86,42 @@ async function insertUser(
 ) {
   const now = new Date().toISOString();
   const hash = await hashPassword(password);
-  await sql`
-    insert into "user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt")
-    values (${id}, ${name}, ${email}, ${true}, ${null}, ${now}, ${now})
+  const byEmail = await sql<{ id: string }>`
+    select id from "user" where email = ${email} limit 1
   `;
-  await sql`
-    insert into "account" (
-      id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt"
-    ) values (
-      ${nid("acc")}, ${id}, ${"credential"}, ${id}, ${hash}, ${now}, ${now}
-    )
+  const userId = byEmail[0]?.id ?? id;
+  if (!byEmail.length) {
+    await sql`
+      insert into "user" (id, name, email, "emailVerified", image, "createdAt", "updatedAt")
+      values (${userId}, ${name}, ${email}, ${true}, ${null}, ${now}, ${now})
+    `;
+  } else {
+    await sql`
+      update "user"
+      set name = ${name}, "emailVerified" = ${true}, "updatedAt" = ${now}
+      where id = ${userId}
+    `;
+  }
+  const acc = await sql<{ id: string }>`
+    select id from "account"
+    where "userId" = ${userId} and "providerId" = ${"credential"}
+    limit 1
   `;
+  if (acc[0]) {
+    await sql`
+      update "account"
+      set password = ${hash}, "accountId" = ${userId}, "updatedAt" = ${now}
+      where id = ${acc[0].id}
+    `;
+  } else {
+    await sql`
+      insert into "account" (
+        id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt"
+      ) values (
+        ${nid("acc")}, ${userId}, ${"credential"}, ${userId}, ${hash}, ${now}, ${now}
+      )
+    `;
+  }
 }
 
 type SeedClient = {
@@ -97,10 +158,12 @@ async function seedAll(sql: Sql) {
       ${"(405) 555-0148"}, ${policy}, ${120}, ${15000}, ${"master"},
       ${DEMO_CLEANER_EMAIL}, ${"active"}, ${1900}
     )
+    on conflict (user_id) do nothing
   `;
   await sql`
     insert into profiles (user_id, role, full_name, phone)
     values (${DEMO_CLIENT_USER_ID}, ${"client"}, ${"Cam Delgado"}, ${"(405) 555-0194"})
+    on conflict (user_id) do nothing
   `;
 
   const clients: SeedClient[] = [

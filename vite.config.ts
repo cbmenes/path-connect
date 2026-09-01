@@ -39,9 +39,20 @@ function pgliteBootstrapPlugin(): Plugin {
       try {
         const mod = (await server.ssrLoadModule("/src/lib/db.ts")) as {
           ensureDbReady?: () => Promise<void>;
+          getSql?: () => Promise<{
+            (strings: TemplateStringsArray, ...values: unknown[]): Promise<unknown[]>;
+          }>;
         };
         if (typeof mod.ensureDbReady === "function") {
           await mod.ensureDbReady();
+        }
+        if (typeof mod.getSql === "function") {
+          const seed = (await server.ssrLoadModule("/src/lib/sweepbook/seed.ts")) as {
+            ensureDemoSeed?: (sql: unknown) => Promise<void>;
+          };
+          if (typeof seed.ensureDemoSeed === "function") {
+            await seed.ensureDemoSeed(await mod.getSql());
+          }
         }
       } catch (err) {
         console.error("[app-builder] DB bootstrap failed:", err);
