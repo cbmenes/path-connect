@@ -17,16 +17,16 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed6__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed7__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed6__) {
-    g.__sweepbookSeed6__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed6__ = undefined;
+  if (!g.__sweepbookSeed7__) {
+    g.__sweepbookSeed7__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed7__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed6__;
+  await g.__sweepbookSeed7__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -722,6 +722,35 @@ async function seedV5(sql: Sql) {
     update jobs set tip_cents = greatest(tip_cents, 2000)
     where id = ${past[0].id}
   `;
+
+  const openUnpaid = await sql<{ id: string }>`
+    select id from invoices
+    where cleaner_user_id = ${DEMO_CLEANER_ID}
+      and kind = 'visit'
+      and status in ('unpaid', 'failed')
+    limit 1
+  `;
+  if (!openUnpaid.length) {
+    const lastPriya = await sql<{ id: string }>`
+      select id from invoices
+      where cleaner_user_id = ${DEMO_CLEANER_ID}
+        and client_id = ${"client-nair"}
+        and kind = 'visit'
+      order by created_at desc
+      limit 1
+    `;
+    if (lastPriya[0]) {
+      await sql`
+        update invoices
+        set status = 'failed',
+            failure_reason = 'Card declined — issuer did not authorize.',
+            method = 'card',
+            paid_at = null,
+            receipt_number = null
+        where id = ${lastPriya[0].id}
+      `;
+    }
+  }
 }
 
 
