@@ -23,6 +23,42 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   return <Badge tone={m.tone}>{m.label}</Badge>;
 }
 
+export type TilePayLabel = "Paid" | "Unpaid" | "Cancelled";
+
+export function jobTilePayLabel(job: Pick<JobWithClient, "status" | "payment_status">): TilePayLabel {
+  if (job.status === "cancelled") return "Cancelled";
+  if (job.payment_status === "paid") return "Paid";
+  return "Unpaid";
+}
+
+/** Compact Paid / Unpaid / Cancelled chip for calendar tiles. */
+export function TilePayBadge({
+  job,
+  invert,
+}: {
+  job: Pick<JobWithClient, "status" | "payment_status">;
+  invert?: boolean;
+}) {
+  const label = jobTilePayLabel(job);
+  const tone =
+    label === "Paid"
+      ? "bg-sage-soft text-success"
+      : label === "Unpaid"
+        ? invert
+          ? "bg-warn text-ink"
+          : "bg-warn/15 text-warn"
+        : invert
+          ? "bg-paper/20 text-paper"
+          : "bg-secondary text-muted";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-sm px-1 py-px text-[10px] font-semibold uppercase tracking-wide ${tone}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function VisitStatusBadge({
   job,
   hideMoney,

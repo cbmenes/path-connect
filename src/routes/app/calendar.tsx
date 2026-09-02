@@ -1,7 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
-import { ChevronLeft, ChevronRight } from "lucide-react";
 import { assignJob, createJob, getJob, listJobs, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { chargeCard, listCardsForClient } from "@/lib/sweepbook/payments";
@@ -13,11 +12,7 @@ import {
   formatHours,
   formatTime,
   money,
-  partsInChicago,
-  sameChicagoDay,
   startOfChicagoDay,
-  startOfChicagoMonth,
-  startOfChicagoWeek,
   toDatetimeLocalValue,
 } from "@/lib/sweepbook/time";
 import { JobForm } from "@/components/app/job-form";
@@ -25,16 +20,24 @@ import { PageHeader } from "@/components/app/empty-state";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker, assigneeLabel } from "@/components/app/assignee-picker";
+import {
+  CalendarBody,
+  CalendarNav,
+  calendarDays,
+  calendarRange,
+  calendarTitle,
+  isoDay,
+  parseAnchor,
+  readCalView,
+  writeCalView,
+  type CalView,
+} from "@/components/app/calendar-board";
 import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
-import type { JobWithClient } from "@/lib/sweepbook/types";
 import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { toast } from "sonner";
-import { cn } from "@/lib/utils";
-
-type CalView = "day" | "week" | "month";
 
 type Search = { view?: CalView; date?: string; start?: string; job?: string };
 
@@ -48,18 +51,6 @@ export const Route = createFileRoute("/app/calendar")({
   component: CalendarPage,
 });
 
-function parseAnchor(date?: string) {
-  if (!date) return startOfChicagoDay(new Date());
-  const [y, m, d] = date.split("-").map(Number);
-  if (!y || !m || !d) return startOfChicagoDay(new Date());
-  return chicagoDate(y, m, d, 0, 0);
-}
-
-function isoDay(d: Date) {
-  const p = partsInChicago(d);
-  return `${p.year}-${String(p.month).padStart(2, "0")}-${String(p.day).padStart(2, "0")}`;
-}
-
 function CalendarPage() {
   const search = Route.useSearch();
   const navigate = useNavigate();
@@ -67,7 +58,7 @@ function CalendarPage() {
   const qc = useQueryClient();
   const isMaster = actor.data?.kind === "cleaner";
   const isTeam = actor.data?.kind === "team";
-  const [mode, setMode] = useState<CalView>(search.view ?? "week");
+  const [mode, setMode] = useState<CalView>(search.view ?? "month");
   const [anchor, setAnchor] = useState(() => parseAnchor(search.date));
   const [addStart, setAddStart] = useState<string | null>(search.start ?? null);
   const [selectedId, setSelectedId] = useState<string | null>(search.job ?? null);
@@ -77,19 +68,17 @@ function CalendarPage() {
     if (search.job) setSelectedId(search.job);
   }, [search.job]);
 
-  const range = useMemo(() => {
-    if (mode === "month") {
-      const monthStart = startOfChicagoMonth(anchor);
-      const gridStart = startOfChicagoWeek(monthStart);
-      return { from: gridStart, to: addDaysChicago(gridStart, 42) };
+  useEffect(() => {
+    if (search.view) {
+      setMode(search.view);
+      writeCalView(search.view, "staff");
+      return;
     }
-    if (mode === "day") {
-      const from = startOfChicagoDay(anchor);
-      return { from, to: addDaysChicago(from, 1) };
-    }
-    const from = startOfChicagoWeek(anchor);
-    return { from, to: addDaysChicago(from, 7) };
-  }, [anchor, mode]);
+    const stored = readCalView("staff");
+    if (stored) setMode(stored);
+  }, [search.view]);
+
+  const range = useMemo(() => calendarRange(mode, anchor), [anchor, mode]);
 
   const jobs = useQuery({
     queryKey: ["jobs", range.from.toISOString(), range.to.toISOString()],
@@ -97,15 +86,12 @@ function CalendarPage() {
     refetchOnMount: "always",
   });
 
-  const days = useMemo(() => {
-    const n = mode === "month" ? 42 : mode === "week" ? 7 : 1;
-    const start = mode === "month" ? startOfChicagoWeek(startOfChicagoMonth(anchor)) : range.from;
-    return Array.from({ length: n }, (_, i) => addDaysChicago(start, i));
-  }, [anchor, mode, range.from]);
+  const days = useMemo(() => calendarDays(mode, anchor, range.from), [anchor, mode, range.from]);
 
   function setView(next: CalView, day?: Date) {
     const d = day ?? anchor;
     setMode(next);
+    writeCalView(next, "staff");
     setAnchor(startOfChicagoDay(d));
     void navigate({
       to: "/app/calendar",
@@ -136,12 +122,7 @@ function CalendarPage() {
     );
   }
 
-  const title =
-    mode === "month"
-      ? formatDate(startOfChicagoMonth(anchor), { month: "long", year: "numeric" })
-      : mode === "week"
-        ? `${formatDate(range.from, { month: "long", day: "numeric" })} – ${formatDate(addDaysChicago(range.from, 6), { month: "short", day: "numeric" })}`
-        : formatDate(range.from, { weekday: "long", month: "long", day: "numeric" });
+  const title = calendarTitle(mode, anchor, range.from);
 
   return (
     <div className="grid gap-5">
@@ -153,75 +134,32 @@ function CalendarPage() {
           ) : null
         }
       />
-      <div className="flex flex-wrap items-center justify-between gap-2">
-        <div className="flex items-center gap-1">
-          <Button variant="ghost" size="icon" onClick={() => shift(-1)} aria-label="Previous">
-            <ChevronLeft />
-          </Button>
-          <p className="min-w-40 text-center font-medium">{title}</p>
-          <Button variant="ghost" size="icon" onClick={() => shift(1)} aria-label="Next">
-            <ChevronRight />
-          </Button>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {(["day", "week", "month"] as CalView[]).map((v) => (
-            <Button key={v} variant={mode === v ? "primary" : "outline"} size="sm" onClick={() => setView(v)}>
-              {v[0].toUpperCase() + v.slice(1)}
-            </Button>
-          ))}
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              const t = startOfChicagoDay(new Date());
-              setAnchor(t);
-              void navigate({ to: "/app/calendar", search: { view: mode, date: isoDay(t) }, replace: true });
-            }}
-          >
-            Today
-          </Button>
-        </div>
-      </div>
-
-      {mode === "month" ? (
-        <MonthGrid
-          days={days}
-          jobs={jobs.data ?? []}
-          onEmpty={(day) => {
-            if (!isMaster) return;
-            const p = partsInChicago(day);
-            setAddStart(toDatetimeLocalValue(chicagoDate(p.year, p.month, p.day, 9, 0)));
-          }}
-          onJob={(j) => setSelectedId(j.id)}
-        />
-      ) : (
-        <>
-          <div className="hidden md:block">
-            <WeekGrid
-              days={days}
-              jobs={jobs.data ?? []}
-              onEmpty={(dt) => {
-                if (!isMaster) return;
-                setAddStart(toDatetimeLocalValue(dt));
-              }}
-              onJob={(j) => setSelectedId(j.id)}
-            />
-          </div>
-          <div className="md:hidden">
-            <Agenda
-              days={days}
-              jobs={jobs.data ?? []}
-              hideMoney={Boolean(isTeam)}
-              onEmpty={(day) => {
-                if (!isMaster) return;
-                const p = partsInChicago(day);
-                setAddStart(toDatetimeLocalValue(chicagoDate(p.year, p.month, p.day, 9, 0)));
-              }}
-              onJob={(j) => setSelectedId(j.id)}
-            />
-          </div>
-        </>
-      )}
+      <CalendarNav
+        mode={mode}
+        title={title}
+        onPrev={() => shift(-1)}
+        onNext={() => shift(1)}
+        onView={(v) => setView(v)}
+        onToday={() => {
+          const t = startOfChicagoDay(new Date());
+          setAnchor(t);
+          void navigate({ to: "/app/calendar", search: { view: mode, date: isoDay(t) }, replace: true });
+        }}
+      />
+      <CalendarBody
+        mode={mode}
+        days={days}
+        jobs={jobs.data ?? []}
+        showPay={Boolean(isMaster)}
+        showPrices={Boolean(isMaster)}
+        named="client"
+        canAdd={Boolean(isMaster)}
+        onEmpty={(dt) => {
+          if (!isMaster) return;
+          setAddStart(toDatetimeLocalValue(dt));
+        }}
+        onJob={(j) => setSelectedId(j.id)}
+      />
 
       <Dialog open={Boolean(addStart)} onOpenChange={(o) => !o && setAddStart(null)}>
         <DialogContent title="Add appointment" className="max-h-[90dvh] w-[min(100%-1.5rem,36rem)] overflow-y-auto">
@@ -290,219 +228,6 @@ function fromStart(startLocal: string) {
   const [date] = startLocal.split("T");
   const [y, m, d] = date.split("-").map(Number);
   return chicagoDate(y, m, d, 0, 0);
-}
-
-function jobsOnDay(jobs: JobWithClient[], day: Date) {
-  return jobs.filter((j) => j.status !== "cancelled" && sameChicagoDay(j.start_at, day));
-}
-
-function WeekGrid({
-  days,
-  jobs,
-  onEmpty,
-  onJob,
-}: {
-  days: Date[];
-  jobs: JobWithClient[];
-  onEmpty: (dt: Date) => void;
-  onJob: (j: JobWithClient) => void;
-}) {
-  const hours = Array.from({ length: 13 }, (_, i) => i + 7);
-  return (
-    <div className="overflow-x-auto rounded-xl bg-paper shadow-card">
-      <div className="grid min-w-[56rem] grid-cols-8 border-b border-border">
-        <div className="p-2 text-xs text-muted" />
-        {days.map((d) => (
-          <div
-            key={d.toISOString()}
-            className={cn("p-2 text-center text-xs font-medium text-navy", sameChicagoDay(d, new Date()) && "bg-sage-soft")}
-          >
-            {formatDate(d, { weekday: "short" })}
-            <div className="text-lg tabular-nums">{partsInChicago(d).day}</div>
-          </div>
-        ))}
-      </div>
-      <div className="relative grid min-w-[56rem] grid-cols-8">
-        <div>
-          {hours.map((h) => (
-            <div key={h} className="h-16 border-b border-border px-2 text-[11px] text-muted">
-              {h > 12 ? h - 12 : h}
-              {h >= 12 ? "pm" : "am"}
-            </div>
-          ))}
-        </div>
-        {days.map((d) => (
-          <div key={d.toISOString()} className="relative border-l border-border">
-            {hours.map((h) => {
-              const p = partsInChicago(d);
-              return (
-                <button
-                  key={h}
-                  type="button"
-                  className="h-16 w-full border-b border-border/80 hover:bg-sage-soft/50"
-                  onClick={() => onEmpty(chicagoDate(p.year, p.month, p.day, h, 0))}
-                  aria-label={`Add visit at ${h}:00`}
-                />
-              );
-            })}
-            {jobsOnDay(jobs, d).map((j) => {
-              const p = partsInChicago(j.start_at);
-              const top = ((p.hour + p.minute / 60 - 7) / 13) * 100;
-              const height = (j.duration_min / 60 / 13) * 100;
-              return (
-                <button
-                  key={j.id}
-                  type="button"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    onJob(j);
-                  }}
-                  className="absolute inset-x-1 overflow-hidden rounded-md bg-navy px-1.5 py-1 text-left text-paper"
-                  style={{ top: `${Math.max(0, top)}%`, height: `${Math.max(8, height)}%` }}
-                >
-                  <p className="truncate text-[11px] font-medium">{j.client_name}</p>
-                  <p className="truncate text-[10px] text-paper/70">
-                    {formatTime(j.start_at)} · {formatHours(j.duration_min)}
-                    {j.assignees?.length ? ` · ${assigneeLabel(j.assignees)}` : j.assignee_name ? ` · ${j.assignee_name.split(" ")[0]}` : ""}
-                  </p>
-                </button>
-              );
-            })}
-          </div>
-        ))}
-      </div>
-    </div>
-  );
-}
-
-function MonthGrid({
-  days,
-  jobs,
-  onEmpty,
-  onJob,
-}: {
-  days: Date[];
-  jobs: JobWithClient[];
-  onEmpty: (day: Date) => void;
-  onJob: (j: JobWithClient) => void;
-}) {
-  const month = partsInChicago(days[15] ?? days[0]).month;
-  return (
-    <div className="overflow-hidden rounded-xl bg-paper shadow-card">
-      <div className="grid grid-cols-7 border-b border-border">
-        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((d) => (
-          <div key={d} className="p-2 text-center text-[11px] font-medium uppercase tracking-wide text-muted">
-            {d}
-          </div>
-        ))}
-      </div>
-      <div className="grid grid-cols-7">
-        {days.map((d) => {
-          const list = jobsOnDay(jobs, d);
-          const inMonth = partsInChicago(d).month === month;
-          const today = sameChicagoDay(d, new Date());
-          return (
-            <button
-              key={d.toISOString()}
-              type="button"
-              onClick={() => onEmpty(d)}
-              className={cn(
-                "min-h-24 border-b border-r border-border p-1.5 text-left align-top",
-                !inMonth && "bg-secondary/40 text-muted",
-                today && "bg-sage-soft",
-              )}
-            >
-              <span className={cn("text-xs font-medium", today && "text-navy")}>{partsInChicago(d).day}</span>
-              <div className="mt-1 grid gap-0.5">
-                {list.slice(0, 3).map((j) => (
-                  <span
-                    key={j.id}
-                    role="link"
-                    tabIndex={0}
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      onJob(j);
-                    }}
-                    onKeyDown={(e) => {
-                      if (e.key === "Enter") {
-                        e.stopPropagation();
-                        onJob(j);
-                      }
-                    }}
-                    className="block truncate rounded bg-navy px-1 py-0.5 text-[10px] text-paper"
-                  >
-                    {formatTime(j.start_at)} {j.client_name}
-                    {j.assignees?.length ? ` ${assigneeLabel(j.assignees)}` : ""}
-                  </span>
-                ))}
-                {list.length > 3 ? <span className="text-[10px] text-muted">+{list.length - 3} more</span> : null}
-              </div>
-            </button>
-          );
-        })}
-      </div>
-    </div>
-  );
-}
-
-function Agenda({
-  days,
-  jobs,
-  hideMoney,
-  onEmpty,
-  onJob,
-}: {
-  days: Date[];
-  jobs: JobWithClient[];
-  hideMoney?: boolean;
-  onEmpty: (day: Date) => void;
-  onJob: (j: JobWithClient) => void;
-}) {
-  return (
-    <div className="grid gap-4">
-      {days.map((d) => {
-        const list = jobsOnDay(jobs, d);
-        return (
-          <section key={d.toISOString()}>
-            <div className="flex items-center justify-between">
-              <h3 className={cn("text-sm font-medium text-navy", sameChicagoDay(d, new Date()) && "text-sage")}>
-                {formatDate(d, { weekday: "long", month: "short", day: "numeric" })}
-              </h3>
-              <Button variant="ghost" size="sm" onClick={() => onEmpty(d)}>
-                Add
-              </Button>
-            </div>
-            <div className="mt-2 grid gap-2">
-              {list.length === 0 ? (
-                <button type="button" className="rounded-lg border border-dashed border-border px-3 py-4 text-left text-sm text-muted" onClick={() => onEmpty(d)}>
-                  No visits. Tap to add.
-                </button>
-              ) : (
-                list.map((j) => (
-                  <button
-                    key={j.id}
-                    type="button"
-                    onClick={() => onJob(j)}
-                    className="flex items-center justify-between rounded-lg bg-paper px-3 py-3 text-left shadow-soft"
-                  >
-                    <div>
-                      <p className="font-medium">{j.client_name}</p>
-                      <p className="text-xs text-muted">
-                        {formatTime(j.start_at)} · {formatHours(j.duration_min)}
-                        {hideMoney ? "" : ` · ${money(j.price_cents)}`}
-                        {j.assignees?.length ? ` · ${assigneeLabel(j.assignees)}` : j.assignee_name ? ` · ${j.assignee_name.split(" ")[0]}` : ""}
-                      </p>
-                    </div>
-                    <VisitStatusBadge job={j} hideMoney={hideMoney} />
-                  </button>
-                ))
-              )}
-            </div>
-          </section>
-        );
-      })}
-    </div>
-  );
 }
 
 function JobPanel({
