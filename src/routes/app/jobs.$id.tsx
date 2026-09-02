@@ -6,7 +6,7 @@ import { assignJob, getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { chargeCard, listCardsForClient, requestTip } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
-import { masterClientThread } from "@/lib/sweepbook/threads";
+import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
@@ -156,7 +156,18 @@ function JobDetail() {
           ) : null}
           {canMessage ? (
           <Button variant="ghost" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: masterClientThread(job.client_id) }}>Message client</Link>
+            <Link
+              to="/app/messages/$clientId"
+              params={{
+                clientId: appointmentMessageThread({
+                  role: isTeam ? "team" : "cleaner",
+                  teamUserId: actor.data?.userId,
+                  clientId: job.client_id,
+                }),
+              }}
+            >
+              Message client
+            </Link>
           </Button>
           ) : null}
           {isCleaner ? (

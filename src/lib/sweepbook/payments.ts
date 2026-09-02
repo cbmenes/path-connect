@@ -34,11 +34,14 @@ export const listInvoices = createServerFn({ method: "GET" })
       return sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+                i.receipt_number, i.created_at::text as created_at, c.name as client_name,
+                j.start_at::text as job_start_at
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.cleaner_user_id = $1
          order by i.created_at desc
-         limit 80`,
+         limit 400`,
         [context.userId],
       );
     }
@@ -46,11 +49,14 @@ export const listInvoices = createServerFn({ method: "GET" })
       return sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+                i.receipt_number, i.created_at::text as created_at, c.name as client_name,
+                j.start_at::text as job_start_at
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.client_id = $1
          order by i.created_at desc
-         limit 80`,
+         limit 400`,
         [actor.client.id],
       );
     }
@@ -369,9 +375,16 @@ export const recordOutsidePayment = createServerFn({ method: "POST" })
     assertCleaner(actor);
     const rec = receiptNo();
     if (data.invoiceId) {
+      const existing = await sql<{ id: string; status: string }>`
+        select id, status from invoices
+        where id = ${data.invoiceId} and cleaner_user_id = ${context.userId}
+        limit 1
+      `;
+      if (!existing[0]) throw new Error("Invoice not found.");
       await sql`
         update invoices
-        set status = 'paid', method = ${data.method}, paid_at = now(), receipt_number = ${rec}
+        set status = 'paid', method = ${data.method}, paid_at = now(), receipt_number = ${rec},
+            failure_reason = null
         where id = ${data.invoiceId} and cleaner_user_id = ${context.userId}
       `;
       const linked = await sql<{ job_id: string | null; kind: string }>`
@@ -533,8 +546,11 @@ export const getInvoice = createServerFn({ method: "GET" })
     const rows = await sql.query<InvoiceWithClient>(
       `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
               i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-              i.receipt_number, i.created_at::text as created_at, c.name as client_name
-       from invoices i join clients c on c.id = i.client_id
+              i.receipt_number, i.created_at::text as created_at, c.name as client_name,
+              j.start_at::text as job_start_at
+       from invoices i
+       join clients c on c.id = i.client_id
+       left join jobs j on j.id = i.job_id
        where i.id = $1 limit 1`,
       [id],
     );

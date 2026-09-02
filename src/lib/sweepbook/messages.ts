@@ -121,7 +121,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
               coalesce(last.created_at::text, c.created_at::text) as last_at,
               coalesce(u.unread, 0)::int as unread
        from clients c
-       join lateral (
+       left join lateral (
          select body, created_at from messages m
          where m.client_id = c.id and m.cleaner_user_id = $1
            and m.channel = 'master_client' and m.team_user_id is null
@@ -135,7 +135,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
            and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $1)
        ) u on true
        where c.cleaner_user_id = $1
-       order by last.created_at desc`,
+       order by last.created_at desc nulls last, c.name`,
       [ownerId],
     );
     rows.push(...mc);
@@ -177,7 +177,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
               last.created_at::text as last_at,
               coalesce(u.unread, 0)::int as unread
        from profiles p
-       join lateral (
+       left join lateral (
          select body, created_at from messages m
          where m.cleaner_user_id = $1 and m.channel = 'master_team'
            and m.team_user_id = p.user_id and m.client_id is null
@@ -191,7 +191,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
            and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $1)
        ) u on true
        where p.master_user_id = $1 and p.role = 'cleaner'
-       order by last.created_at desc`,
+       order by last.created_at desc nulls last, p.full_name`,
       [ownerId],
     );
     rows.push(...mt);
@@ -204,7 +204,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
               last.created_at::text as last_at,
               coalesce(u.unread, 0)::int as unread
        from profiles p
-       join lateral (
+       left join lateral (
          select body, created_at from messages m
          where m.cleaner_user_id = $1 and m.channel = 'master_team'
            and m.team_user_id = $2 and m.client_id is null
@@ -229,7 +229,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
                 last.created_at::text as last_at,
                 coalesce(u.unread, 0)::int as unread
          from clients c
-         join lateral (
+         left join lateral (
            select body, created_at from messages m
            where m.cleaner_user_id = $1 and m.channel = 'team_client'
              and m.client_id = c.id and m.team_user_id = $2
@@ -280,7 +280,7 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
        where c.id = $1`,
       [actor.client.id, userId],
     );
-    rows.push(...mc.filter((t) => t.last_body));
+    rows.push(...mc);
 
     const tc = await sql.query<ThreadSummary>(
       `select ('tc--' || p.user_id || '--' || c.id) as thread_id,
@@ -288,11 +288,10 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
               coalesce(last.body, '') as last_body,
               last.created_at::text as last_at,
               coalesce(u.unread, 0)::int as unread
-       from client_assignees ca
-       join profiles p on p.user_id = ca.user_id
-       join clients c on c.id = ca.client_id
+       from profiles p
+       join clients c on c.id = $1
        join profiles master on master.user_id = c.cleaner_user_id
-       join lateral (
+       left join lateral (
          select body, created_at from messages m
          where m.client_id = c.id and m.channel = 'team_client' and m.team_user_id = p.user_id
          order by created_at desc limit 1
@@ -303,17 +302,31 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
            and coalesce(m.sender_user_id, '') <> $2
            and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $2)
        ) u on true
-       where ca.client_id = $1
+       where p.role = 'cleaner'
+         and p.master_user_id = c.cleaner_user_id
+         and coalesce(p.team_status, 'active') = 'active'
          and coalesce(p.can_message, true) = true
          and coalesce(master.team_messaging_enabled, true) = true
-         and coalesce(p.team_status, 'active') = 'active'
-       order by last.created_at desc`,
+         and (
+           exists (select 1 from client_assignees ca where ca.client_id = c.id and ca.user_id = p.user_id)
+           or exists (
+             select 1 from job_assignees ja
+             join jobs j on j.id = ja.job_id
+             where j.client_id = c.id and ja.user_id = p.user_id
+           )
+         )
+       order by last.created_at desc nulls last, p.full_name`,
       [actor.client.id, userId],
     );
     rows.push(...tc);
   }
 
-  rows.sort((a, b) => (a.last_at < b.last_at ? 1 : a.last_at > b.last_at ? -1 : 0));
+  rows.sort((a, b) => {
+    if (!a.last_at && b.last_at) return 1;
+    if (a.last_at && !b.last_at) return -1;
+    if (a.last_at === b.last_at) return (a.title || "").localeCompare(b.title || "");
+    return a.last_at < b.last_at ? 1 : -1;
+  });
   return rows.map((r) => ({
     ...r,
     unread: Number(r.unread || 0),
@@ -368,6 +381,28 @@ export const listMessageRecipients = createServerFn({ method: "GET" })
           subtitle: "Team",
         });
       }
+      const labeled = await sql.query<{
+        client_id: string;
+        team_user_id: string;
+        client_name: string;
+        team_name: string;
+      }>(
+        `select distinct m.client_id, m.team_user_id, c.name as client_name, p.full_name as team_name
+         from messages m
+         join clients c on c.id = m.client_id
+         join profiles p on p.user_id = m.team_user_id
+         where m.cleaner_user_id = $1 and m.channel = 'team_client'
+           and m.client_id is not null and m.team_user_id is not null
+         order by c.name, p.full_name`,
+        [context.userId],
+      );
+      for (const t of labeled) {
+        people.push({
+          id: encodeThreadId({ channel: "team_client", clientId: t.client_id, teamUserId: t.team_user_id }),
+          name: `${t.client_name} · ${t.team_name}`,
+          subtitle: "Team ↔ client",
+        });
+      }
       return people;
     }
     if (actor.kind === "team") {
@@ -409,13 +444,21 @@ export const listMessageRecipients = createServerFn({ method: "GET" })
       });
       const team = await sql<{ user_id: string; full_name: string }>`
         select p.user_id, p.full_name
-        from client_assignees ca
-        join profiles p on p.user_id = ca.user_id
+        from profiles p
         join profiles master on master.user_id = ${actor.client.cleaner_user_id}
-        where ca.client_id = ${actor.client.id}
+        where p.role = 'cleaner'
+          and p.master_user_id = ${actor.client.cleaner_user_id}
+          and coalesce(p.team_status, 'active') = 'active'
           and coalesce(p.can_message, true) = true
           and coalesce(master.team_messaging_enabled, true) = true
-          and coalesce(p.team_status, 'active') = 'active'
+          and (
+            exists (select 1 from client_assignees ca where ca.client_id = ${actor.client.id} and ca.user_id = p.user_id)
+            or exists (
+              select 1 from job_assignees ja
+              join jobs j on j.id = ja.job_id
+              where j.client_id = ${actor.client.id} and ja.user_id = p.user_id
+            )
+          )
         order by p.full_name
       `;
       for (const t of team) {
@@ -531,7 +574,12 @@ export const sendMessage = createServerFn({ method: "POST" })
     const body = input.body.trim();
     if (!body) throw new Error("Write a message first.");
     const threadId = input.threadId || input.clientId;
-    if (!threadId) throw new Error("Choose a conversation.");
+    if (!threadId) throw new Error("Choose who to message.");
+    try {
+      parseThreadId(threadId);
+    } catch {
+      throw new Error("Choose who to message.");
+    }
     return { threadId, body };
   })
   .handler(async ({ context, data }) => {

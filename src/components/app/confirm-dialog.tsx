@@ -10,6 +10,7 @@ export function ConfirmDialog({
   confirmLabel = "Remove",
   busyLabel = "Removing…",
   busy,
+  confirmVariant = "danger",
   onConfirm,
 }: {
   open: boolean;
@@ -20,17 +21,18 @@ export function ConfirmDialog({
   confirmLabel?: string;
   busyLabel?: string;
   busy?: boolean;
+  confirmVariant?: "primary" | "danger";
   onConfirm: () => void | Promise<void>;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={title}>
-        <p className="text-sm text-muted">{body}</p>
+        {body ? <p className="text-sm text-muted">{body}</p> : null}
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {cancelLabel}
           </Button>
-          <Button type="button" variant="danger" disabled={busy} onClick={() => void onConfirm()}>
+          <Button type="button" variant={confirmVariant} disabled={busy} onClick={() => void onConfirm()}>
             {busy ? busyLabel : confirmLabel}
           </Button>
         </div>

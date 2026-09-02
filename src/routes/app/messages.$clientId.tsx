@@ -35,6 +35,9 @@ function ThreadPage() {
     <div className="mx-auto flex min-h-[70dvh] max-w-2xl flex-col">
       <h1 className="font-display text-2xl text-navy">{q.data?.title || "Messages"}</h1>
       {q.data?.subtitle ? <p className="text-sm text-muted">{q.data.subtitle}</p> : null}
+      {q.error ? (
+        <p className="mt-4 text-sm text-danger">{(q.error as Error).message || "This conversation is not available."}</p>
+      ) : null}
       <div className="mt-4 flex-1 space-y-2">
         {(q.data?.messages ?? []).map((m) => {
           const mine = m.sender_user_id ? m.sender_user_id === actor.data?.userId : false;
@@ -55,6 +58,10 @@ function ThreadPage() {
         className="sticky bottom-20 mt-4 grid gap-2 bg-bg py-2 md:bottom-0"
         onSubmit={async (e) => {
           e.preventDefault();
+          if (!threadId || q.error || !q.data) {
+            toast.error("Choose who to message.");
+            return;
+          }
           try {
             await sendMessage({ data: { threadId, body } });
             setBody("");
@@ -66,8 +73,10 @@ function ThreadPage() {
           }
         }}
       >
-        <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a message" rows={3} />
-        <Button type="submit">Send</Button>
+        <Textarea value={body} onChange={(e) => setBody(e.target.value)} placeholder="Write a message" rows={3} disabled={Boolean(q.error) || !q.data} />
+        <Button type="submit" disabled={Boolean(q.error) || !q.data || !body.trim()}>
+          Send
+        </Button>
       </form>
     </div>
   );

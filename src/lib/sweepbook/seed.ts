@@ -17,16 +17,16 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed5__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed6__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed5__) {
-    g.__sweepbookSeed5__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed5__ = undefined;
+  if (!g.__sweepbookSeed6__) {
+    g.__sweepbookSeed6__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed6__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed5__;
+  await g.__sweepbookSeed6__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -40,6 +40,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV2(sql);
   await seedV3(sql);
   await seedV4(sql);
+  await seedV5(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -686,6 +687,41 @@ async function seedV4(sql: Sql) {
       `;
     }
   }
+}
+
+async function seedV5(sql: Sql) {
+  const existingTip = await sql<{ id: string }>`
+    select id from invoices
+    where cleaner_user_id = ${DEMO_CLEANER_ID} and kind = 'tip'
+    limit 1
+  `;
+  if (existingTip.length) return;
+  const past = await sql<{ id: string; start_at: string; client_id: string; client_name: string }>`
+    select j.id, j.start_at::text as start_at, j.client_id, c.name as client_name
+    from jobs j
+    join clients c on c.id = j.client_id
+    where j.cleaner_user_id = ${DEMO_CLEANER_ID}
+      and j.client_id = ${CAM_CLIENT_ID}
+      and j.status = 'completed'
+    order by j.start_at desc
+    limit 1
+  `;
+  if (!past[0]) return;
+  const paidAt = new Date().toISOString();
+  await sql`
+    insert into invoices (
+      id, cleaner_user_id, client_id, job_id, amount_cents, description,
+      status, method, kind, paid_at, receipt_number
+    ) values (
+      ${nid("inv")}, ${DEMO_CLEANER_ID}, ${past[0].client_id}, ${past[0].id}, ${2000},
+      ${`Tip — ${past[0].client_name}`}, ${"paid"}, ${"card"}, ${"tip"},
+      ${paidAt}, ${"SB-TIP20"}
+    )
+  `;
+  await sql`
+    update jobs set tip_cents = greatest(tip_cents, 2000)
+    where id = ${past[0].id}
+  `;
 }
 
 

@@ -185,3 +185,15 @@ export function startOfChicagoMonth(d: Date | string) {
   const p = partsInChicago(d);
   return chicagoDate(p.year, p.month, 1, 0, 0);
 }
+
+export function endOfChicagoMonth(d: Date | string) {
+  const p = partsInChicago(d);
+  const next =
+    p.month === 12 ? chicagoDate(p.year + 1, 1, 1, 0, 0) : chicagoDate(p.year, p.month + 1, 1, 0, 0);
+  return addDaysChicago(next, -1);
+}
+
+export function startOfChicagoYear(d: Date | string) {
+  const p = partsInChicago(d);
+  return chicagoDate(p.year, 1, 1, 0, 0);
+}

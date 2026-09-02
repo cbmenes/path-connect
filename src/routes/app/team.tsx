@@ -52,13 +52,20 @@ function TeamPage() {
       <Card className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-medium">Team messaging</p>
-          <p className="text-sm text-muted">Allow team cleaners to message clients on assigned jobs.</p>
+          <p className="text-sm text-muted">
+            {q.data?.teamMessagingEnabled
+              ? "Team members can message. You can turn off individual cleaners below."
+              : "Messaging for all team members is off."}
+          </p>
         </div>
         <Button
           variant={q.data?.teamMessagingEnabled ? "primary" : "outline"}
           onClick={async () => {
             await setTeamMessaging({ data: !q.data?.teamMessagingEnabled });
             await qc.invalidateQueries({ queryKey: ["team"] });
+            await qc.invalidateQueries({ queryKey: ["actor"] });
+            await qc.invalidateQueries({ queryKey: ["threads"] });
+            await qc.invalidateQueries({ queryKey: ["message-recipients"] });
           }}
         >
           {q.data?.teamMessagingEnabled ? "On" : "Off"}
@@ -187,6 +194,9 @@ function TeamPage() {
                           await updateTeamMember({ data: { userId: m.user_id, canMessage: !m.can_message } });
                           toast.message(m.can_message ? "Messaging off." : "Messaging on.");
                           await qc.invalidateQueries({ queryKey: ["team"] });
+                          await qc.invalidateQueries({ queryKey: ["actor"] });
+                          await qc.invalidateQueries({ queryKey: ["threads"] });
+                          await qc.invalidateQueries({ queryKey: ["message-recipients"] });
                         }}
                       >
                         Messaging: {m.can_message ? "On" : "Off"}

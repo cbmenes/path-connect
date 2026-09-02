@@ -39,3 +39,18 @@ export function parseThreadId(raw: string): ThreadRef {
 export function masterClientThread(clientId: string) {
   return encodeThreadId({ channel: "master_client", clientId, teamUserId: null });
 }
+
+export function teamClientThread(teamUserId: string, clientId: string) {
+  return encodeThreadId({ channel: "team_client", teamUserId, clientId });
+}
+
+export function appointmentMessageThread(opts: {
+  role: "cleaner" | "team" | string;
+  teamUserId?: string | null;
+  clientId: string;
+}) {
+  if (opts.role === "team" && opts.teamUserId) {
+    return teamClientThread(opts.teamUserId, opts.clientId);
+  }
+  return masterClientThread(opts.clientId);
+}

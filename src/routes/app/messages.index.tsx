@@ -31,11 +31,11 @@ function MessagesPage() {
       ) : threads.length === 0 ? (
         <EmptyState
           title="No threads yet"
-          body={isClient ? "Send a note to your cleaner." : "Start a conversation from New message."}
+          body={isClient ? "Your cleaner is listed here. Open a name to start a thread." : "Pick someone from New message, or open a name below."}
         />
       ) : (
         <div className="grid gap-2">
-          {          threads.map((t) => (
+          {threads.map((t) => (
             <Link
               key={t.thread_id}
               to="/app/messages/$clientId"

@@ -136,6 +136,7 @@ export type InvoiceRow = {
 
 export type InvoiceWithClient = InvoiceRow & {
   client_name: string;
+  job_start_at?: string | null;
 };
 
 export type CardRow = {

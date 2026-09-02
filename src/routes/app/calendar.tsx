@@ -30,7 +30,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
 import type { JobWithClient } from "@/lib/sweepbook/types";
-import { masterClientThread } from "@/lib/sweepbook/threads";
+import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { toast } from "sonner";
 import { cn } from "@/lib/utils";
 
@@ -270,6 +270,8 @@ function CalendarPage() {
             canMessage={
               actor.data?.kind === "cleaner" || (actor.data?.kind === "team" && actor.data.canMessage)
             }
+            actorKind={actor.data?.kind}
+            actorUserId={actor.data?.userId}
             onClose={() => setSelectedId(null)}
             onChanged={async () => {
               await qc.invalidateQueries({ queryKey: ["jobs"] });
@@ -508,6 +510,8 @@ function JobPanel({
   canEdit,
   isTeam,
   canMessage,
+  actorKind,
+  actorUserId,
   onClose,
   onChanged,
 }: {
@@ -515,6 +519,8 @@ function JobPanel({
   canEdit: boolean;
   isTeam: boolean;
   canMessage: boolean;
+  actorKind?: string;
+  actorUserId?: string;
   onClose: () => void;
   onChanged: () => Promise<void>;
 }) {
@@ -620,7 +626,16 @@ function JobPanel({
           ) : null}
           {canMessage ? (
           <Button variant="outline" size="sm" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: masterClientThread(job.client_id) }}>
+            <Link
+              to="/app/messages/$clientId"
+              params={{
+                clientId: appointmentMessageThread({
+                  role: actorKind === "team" ? "team" : "cleaner",
+                  teamUserId: actorUserId,
+                  clientId: job.client_id,
+                }),
+              }}
+            >
               Message
             </Link>
           </Button>
