@@ -78,7 +78,12 @@ function ClientProfile() {
             <Row k="Usual" v={`${client.usual_day || "—"} ${client.usual_time || ""}`.trim()} />
             <Row k="Price" v={client.default_price_cents ? money(client.default_price_cents) : "—"} />
             <Row k="Duration" v={client.default_duration_min ? formatHours(client.default_duration_min) : "—"} />
-            <Row k="Notes" v={client.notes} />
+            <div>
+              <dt className="text-xs uppercase tracking-[0.12em] text-muted">
+                Notes <span className="font-normal normal-case tracking-normal">(Visible to assigned cleaner(s))</span>
+              </dt>
+              <dd>{client.notes || "—"}</dd>
+            </div>
           </dl>
         </Card>
         <Card>

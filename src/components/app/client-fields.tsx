@@ -117,7 +117,7 @@ export function ClientFields({
           </NativeSelect>
         </Field>
       </div>
-      <Field label="Notes">
+      <Field label="Notes (Visible to assigned cleaner(s))">
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
       <Button type="submit" disabled={submitting}>
