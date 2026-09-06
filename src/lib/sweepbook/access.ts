@@ -4,7 +4,8 @@ import type { Actor, ClientRow, Profile } from "./types";
 export const PROFILE_COLUMNS = `
   user_id, role, full_name, business_name, phone, email, address, cancellation_policy,
   default_duration_min, default_rate_cents, cleaner_kind, master_user_id, can_message,
-  team_status, team_messaging_enabled, plan_status, plan_price_cents,
+  team_status, team_messaging_enabled, email_reminders, reminder_email_team,
+  plan_status, plan_price_cents,
   created_at::text as created_at
 `;
 
@@ -42,6 +43,8 @@ function normalizeProfile(row: Profile): Profile {
     ...row,
     can_message: asBool(row.can_message, true),
     team_messaging_enabled: asBool(row.team_messaging_enabled, true),
+    email_reminders: asBool(row.email_reminders, true),
+    reminder_email_team: asBool(row.reminder_email_team, false),
     cleaner_kind: row.cleaner_kind || (row.role === "cleaner" ? "master" : null),
     plan_status: row.plan_status || "trial",
     plan_price_cents: Number(row.plan_price_cents || 1900),

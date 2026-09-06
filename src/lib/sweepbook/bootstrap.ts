@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getActor } from "./access";
+import { ensureReminderScheduler } from "./reminders";
 import { ensureDemoSeed } from "./seed";
 import type { Actor } from "./types";
 
@@ -16,6 +17,7 @@ export const getMyActor = createServerFn({ method: "GET" })
   .handler(async ({ context }): Promise<Actor> => {
     const sql = await getSql();
     await ensureDemoSeed(sql);
+    ensureReminderScheduler();
     return getActor(sql, context.userId);
   });
 

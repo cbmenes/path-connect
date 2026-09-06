@@ -40,6 +40,8 @@ export type Profile = {
   can_message: boolean;
   team_status: TeamStatus | null;
   team_messaging_enabled: boolean;
+  email_reminders: boolean;
+  reminder_email_team: boolean;
   plan_status: PlanStatus;
   plan_price_cents: number;
   created_at: string;

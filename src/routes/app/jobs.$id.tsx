@@ -12,6 +12,7 @@ import { AssigneePicker } from "@/components/app/assignee-picker";
 import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
+import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -175,6 +176,7 @@ function JobDetail() {
             <Link to="/app/clients/$id" params={{ id: job.client_id }}>Client profile</Link>
           </Button>
           ) : null}
+          {isCleaner ? <ReminderTestButton jobId={job.id} variant="ghost" /> : null}
         </div>
       ) : null}
 

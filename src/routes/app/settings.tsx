@@ -6,6 +6,8 @@ import { authClient } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { updateSettings } from "@/lib/sweepbook/dashboard";
+import { getReminderStatus, updateReminderSettings } from "@/lib/sweepbook/reminders";
+import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import {
   addBillingAch,
   addBillingCard,
@@ -74,11 +76,17 @@ function SettingsPage() {
       </div>
       {active === "profile" ? (
         kind === "cleaner" ? (
-          <MasterProfileSection />
+          <>
+            <MasterProfileSection />
+            <MasterReminderSettings />
+          </>
         ) : kind === "team" ? (
           <TeamProfileSection />
         ) : (
-          <ClientProfileSection />
+          <>
+            <ClientProfileSection />
+            <ClientReminderSettings />
+          </>
         )
       ) : active === "account" ? (
         <AccountSection />
@@ -161,6 +169,133 @@ function MasterProfileSection() {
         {busy ? "Saving…" : "Save profile"}
       </Button>
     </form>
+  );
+}
+
+function MasterReminderSettings() {
+  const q = useQuery({ queryKey: ["reminder-status"], queryFn: () => getReminderStatus() });
+  const qc = useQueryClient();
+  const [emailOn, setEmailOn] = useState(true);
+  const [teamOn, setTeamOn] = useState(false);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!q.data) return;
+    setEmailOn(q.data.emailReminders);
+    setTeamOn(q.data.reminderEmailTeam);
+  }, [q.data]);
+
+  return (
+    <Card className="grid gap-3">
+      <div>
+        <h2 className="font-display text-lg text-navy">Email reminders</h2>
+        <p className="mt-1 text-sm text-muted">
+          When on, SweepBook emails the client 24 hours before a scheduled visit. Cancelled visits are never emailed.
+        </p>
+      </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 size-4"
+          checked={emailOn}
+          onChange={(e) => setEmailOn(e.target.checked)}
+        />
+        <span>Email reminders to clients 24 hours before a visit</span>
+      </label>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 size-4"
+          checked={teamOn}
+          disabled={!emailOn}
+          onChange={(e) => setTeamOn(e.target.checked)}
+        />
+        <span>Also email assigned team cleaner(s) 24 hours before (no prices)</span>
+      </label>
+      {!q.data?.mailConfigured ? (
+        <p className="rounded-md bg-secondary px-3 py-2 text-xs text-muted">
+          Email is not configured yet. Reminders are still queued. Add RESEND_API_KEY on the host to send for real.
+        </p>
+      ) : (
+        <p className="text-xs text-muted">Sending from {q.data.fromEmail}.</p>
+      )}
+      <p className="text-xs text-muted">{q.data?.note}</p>
+      <div className="flex flex-wrap gap-2">
+        <Button
+          type="button"
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await updateReminderSettings({
+                data: { emailReminders: emailOn, reminderEmailTeam: teamOn },
+              });
+              toast.success("Reminder settings saved.");
+              await qc.invalidateQueries({ queryKey: ["reminder-status"] });
+              await qc.invalidateQueries({ queryKey: ["actor"] });
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Could not save.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          {busy ? "Saving…" : "Save reminders"}
+        </Button>
+        <ReminderTestButton />
+      </div>
+    </Card>
+  );
+}
+
+function ClientReminderSettings() {
+  const q = useQuery({ queryKey: ["reminder-status"], queryFn: () => getReminderStatus() });
+  const qc = useQueryClient();
+  const [emailOn, setEmailOn] = useState(true);
+  const [busy, setBusy] = useState(false);
+
+  useEffect(() => {
+    if (!q.data) return;
+    setEmailOn(q.data.emailReminders);
+  }, [q.data]);
+
+  return (
+    <Card className="grid gap-3">
+      <div>
+        <h2 className="font-display text-lg text-navy">Email reminders</h2>
+        <p className="mt-1 text-sm text-muted">
+          Hear from your cleaner 24 hours before a scheduled visit. Turn this off to stop reminder emails.
+        </p>
+      </div>
+      <label className="flex items-start gap-2 text-sm">
+        <input
+          type="checkbox"
+          className="mt-1 size-4"
+          checked={emailOn}
+          onChange={(e) => setEmailOn(e.target.checked)}
+        />
+        <span>Email me a reminder 24 hours before my visits</span>
+      </label>
+      <Button
+        type="button"
+        disabled={busy}
+        onClick={async () => {
+          setBusy(true);
+          try {
+            await updateReminderSettings({ data: { emailReminders: emailOn } });
+            toast.success("Reminder preference saved.");
+            await qc.invalidateQueries({ queryKey: ["reminder-status"] });
+            await qc.invalidateQueries({ queryKey: ["actor"] });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not save.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      >
+        {busy ? "Saving…" : "Save reminders"}
+      </Button>
+    </Card>
   );
 }
 

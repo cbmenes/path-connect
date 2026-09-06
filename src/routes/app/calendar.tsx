@@ -33,6 +33,7 @@ import {
   type CalView,
 } from "@/components/app/calendar-board";
 import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
+import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
@@ -384,6 +385,7 @@ function JobPanel({
               Charge / collect
             </Button>
           ) : null}
+          {canEdit ? <ReminderTestButton jobId={job.id} size="sm" /> : null}
         </div>
 
         {chargeOpen ? (

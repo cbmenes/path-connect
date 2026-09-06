@@ -19,6 +19,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AddCardTokenRouteImport } from './routes/add-card.$token'
+import { Route as ApiRemindersRouteImport } from './routes/api/reminders'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppCardRouteImport } from './routes/app/card'
@@ -91,6 +92,11 @@ const TermsRoute = TermsRouteImport.update({
 const AddCardTokenRoute = AddCardTokenRouteImport.update({
   id: '/add-card/$token',
   path: '/add-card/$token',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ApiRemindersRoute = ApiRemindersRouteImport.update({
+  id: '/api/reminders',
+  path: '/api/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AppIndexRoute = AppIndexRouteImport.update({
@@ -220,6 +226,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
+  '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
   '/app/clients': typeof AppClientsRouteWithChildren
@@ -254,6 +261,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
+  '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
   '/app/data': typeof AppDataRoute
@@ -288,6 +296,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
+  '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
   '/app/clients': typeof AppClientsRouteWithChildren
@@ -325,6 +334,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/terms'
     | '/add-card/$token'
+    | '/api/reminders'
     | '/app/calendar'
     | '/app/card'
     | '/app/clients'
@@ -359,6 +369,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/terms'
     | '/add-card/$token'
+    | '/api/reminders'
     | '/app/calendar'
     | '/app/card'
     | '/app/data'
@@ -392,6 +403,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/terms'
     | '/add-card/$token'
+    | '/api/reminders'
     | '/app/calendar'
     | '/app/card'
     | '/app/clients'
@@ -428,6 +440,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
   AddCardTokenRoute: typeof AddCardTokenRoute
+  ApiRemindersRoute: typeof ApiRemindersRoute
   InviteTokenRoute: typeof InviteTokenRoute
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -503,6 +516,13 @@ declare module '@tanstack/react-router' {
       path: '/add-card/$token'
       fullPath: '/add-card/$token'
       preLoaderRoute: typeof AddCardTokenRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/api/reminders': {
+      id: '/api/reminders'
+      path: '/api/reminders'
+      fullPath: '/api/reminders'
+      preLoaderRoute: typeof ApiRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/app/': {
@@ -748,6 +768,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
   AddCardTokenRoute: AddCardTokenRoute,
+  ApiRemindersRoute: ApiRemindersRoute,
   InviteTokenRoute: InviteTokenRoute,
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
