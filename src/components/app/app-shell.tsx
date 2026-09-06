@@ -4,6 +4,7 @@ import {
   Bell,
   CalendarDays,
   CreditCard,
+  FileSpreadsheet,
   Home,
   LogOut,
   MessageSquare,
@@ -102,6 +103,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
           {isMaster ? (
             <>
               <NavLink item={{ to: "/app/team", label: "Team", icon: UserRound }} pathname={pathname} dark />
+              <NavLink item={{ to: "/app/data", label: "Data", icon: FileSpreadsheet }} pathname={pathname} dark />
               <NavLink item={{ to: "/app/settings", label: "Settings", icon: Settings }} pathname={pathname} dark />
             </>
           ) : (
@@ -126,13 +128,22 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
           <p className="hidden truncate text-sm text-muted md:block">{name}</p>
           <div className="ml-auto flex items-center gap-1">
             {isMaster ? (
-              <Link
-                to="/app/team"
-                className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                aria-label="Team"
-              >
-                <UserRound className="size-5" />
-              </Link>
+              <>
+                <Link
+                  to="/app/team"
+                  className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
+                  aria-label="Team"
+                >
+                  <UserRound className="size-5" />
+                </Link>
+                <Link
+                  to="/app/data"
+                  className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
+                  aria-label="Data"
+                >
+                  <FileSpreadsheet className="size-5" />
+                </Link>
+              </>
             ) : null}
             <Link
               to="/app/settings"

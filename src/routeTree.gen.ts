@@ -23,6 +23,7 @@ import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppCardRouteImport } from './routes/app/card'
 import { Route as AppClientsRouteImport } from './routes/app/clients'
+import { Route as AppDataRouteImport } from './routes/app/data'
 import { Route as AppMessagesRouteImport } from './routes/app/messages'
 import { Route as AppNotificationsRouteImport } from './routes/app/notifications'
 import { Route as AppPaymentsRouteImport } from './routes/app/payments'
@@ -110,6 +111,11 @@ const AppCardRoute = AppCardRouteImport.update({
 const AppClientsRoute = AppClientsRouteImport.update({
   id: '/clients',
   path: '/clients',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppDataRoute = AppDataRouteImport.update({
+  id: '/data',
+  path: '/data',
   getParentRoute: () => AppRoute,
 } as any)
 const AppMessagesRoute = AppMessagesRouteImport.update({
@@ -217,6 +223,7 @@ export interface FileRoutesByFullPath {
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
   '/app/clients': typeof AppClientsRouteWithChildren
+  '/app/data': typeof AppDataRoute
   '/app/messages': typeof AppMessagesRouteWithChildren
   '/app/notifications': typeof AppNotificationsRoute
   '/app/payments': typeof AppPaymentsRoute
@@ -249,6 +256,7 @@ export interface FileRoutesByTo {
   '/add-card/$token': typeof AddCardTokenRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
+  '/app/data': typeof AppDataRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
@@ -283,6 +291,7 @@ export interface FileRoutesById {
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
   '/app/clients': typeof AppClientsRouteWithChildren
+  '/app/data': typeof AppDataRoute
   '/app/messages': typeof AppMessagesRouteWithChildren
   '/app/notifications': typeof AppNotificationsRoute
   '/app/payments': typeof AppPaymentsRoute
@@ -319,6 +328,7 @@ export interface FileRouteTypes {
     | '/app/calendar'
     | '/app/card'
     | '/app/clients'
+    | '/app/data'
     | '/app/messages'
     | '/app/notifications'
     | '/app/payments'
@@ -351,6 +361,7 @@ export interface FileRouteTypes {
     | '/add-card/$token'
     | '/app/calendar'
     | '/app/card'
+    | '/app/data'
     | '/app/notifications'
     | '/app/payments'
     | '/app/receipts'
@@ -384,6 +395,7 @@ export interface FileRouteTypes {
     | '/app/calendar'
     | '/app/card'
     | '/app/clients'
+    | '/app/data'
     | '/app/messages'
     | '/app/notifications'
     | '/app/payments'
@@ -519,6 +531,13 @@ declare module '@tanstack/react-router' {
       path: '/clients'
       fullPath: '/app/clients'
       preLoaderRoute: typeof AppClientsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/data': {
+      id: '/app/data'
+      path: '/data'
+      fullPath: '/app/data'
+      preLoaderRoute: typeof AppDataRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/messages': {
@@ -686,6 +705,7 @@ interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
   AppCardRoute: typeof AppCardRoute
   AppClientsRoute: typeof AppClientsRouteWithChildren
+  AppDataRoute: typeof AppDataRoute
   AppMessagesRoute: typeof AppMessagesRouteWithChildren
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPaymentsRoute: typeof AppPaymentsRoute
@@ -702,6 +722,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppCalendarRoute: AppCalendarRoute,
   AppCardRoute: AppCardRoute,
   AppClientsRoute: AppClientsRouteWithChildren,
+  AppDataRoute: AppDataRoute,
   AppMessagesRoute: AppMessagesRouteWithChildren,
   AppNotificationsRoute: AppNotificationsRoute,
   AppPaymentsRoute: AppPaymentsRoute,

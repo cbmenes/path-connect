@@ -28,7 +28,9 @@ function ClientsPage() {
         action={
           <div className="flex flex-wrap gap-2">
             <Button variant="outline" asChild>
-              <Link to="/app/clients/import">Import CSV</Link>
+              <Link to="/app/data" search={{ kind: "clients" }}>
+                Download / Import
+              </Link>
             </Button>
             <Button asChild>
               <Link to="/app/clients/new">Add client</Link>

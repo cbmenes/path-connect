@@ -1,3 +1,2 @@
-name,phone,email,address,notes,usual_day,usual_time,price,frequency
-The Harpers,(405) 555-0112,ellen.harper@example.com,"1421 Drury Lane, Nichols Hills, OK 73116",Key under mat,tuesday,09:00,175,weekly
-Jordan Ellis,(405) 555-0177,jordan.ellis@example.com,"817 NW 16th Street, Oklahoma City, OK 73103",Door code 4821,thursday,13:00,160,biweekly
+name,phone,email,address,notes,default_price,default_duration_hours,frequency,preferred_weekday,preferred_time,assigned_cleaner_emails
+The Harpers,(405) 555-0112,ellen.harper@example.com,"1421 Drury Lane, Nichols Hills, OK 73116",Key under mat,175.00,2.5,weekly,tue,09:00,team@sweepbook.app

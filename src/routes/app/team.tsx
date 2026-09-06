@@ -1,4 +1,4 @@
-import { createFileRoute } from "@tanstack/react-router";
+import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
@@ -45,7 +45,16 @@ function TeamPage() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader title="Team" />
+      <PageHeader
+        title="Team"
+        action={
+          <Button variant="outline" asChild>
+            <Link to="/app/data" search={{ kind: "team" }}>
+              Download / Import
+            </Link>
+          </Button>
+        }
+      />
       <p className="max-w-xl text-sm text-muted">
         Invite cleaners who already work with you. They see only the jobs you assign — never cards, charges, or billing.
       </p>

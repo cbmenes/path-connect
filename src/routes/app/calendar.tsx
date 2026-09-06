@@ -130,7 +130,14 @@ function CalendarPage() {
         title="Calendar"
         action={
           isMaster ? (
-            <Button onClick={() => setAddStart(toDatetimeLocalValue(new Date()))}>New visit</Button>
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/app/data" search={{ kind: "schedule" }}>
+                  Download / Import
+                </Link>
+              </Button>
+              <Button onClick={() => setAddStart(toDatetimeLocalValue(new Date()))}>New visit</Button>
+            </div>
           ) : null
         }
       />
