@@ -1,7 +1,8 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
-import { assignJob, createJob, getJob, listJobs, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { createJob, getJob, listJobs, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { chargeCard, listCardsForClient } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
@@ -183,7 +184,6 @@ function CalendarPage() {
                 try {
                   const res = await createJob({ data: input });
                   toast.success(res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.");
-                  if (res.conflictCount) toast.message(`${res.conflictCount} overlap warning${res.conflictCount === 1 ? "" : "s"}.`);
                   setAddStart(null);
                   await qc.invalidateQueries({ queryKey: ["jobs"] });
                   await qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -268,6 +268,7 @@ function JobPanel({
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const assignGate = useAssignConflictGate();
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
     queryFn: () => listCardsForClient({ data: q.data!.job.client_id }),
@@ -333,15 +334,17 @@ function JobPanel({
             <Button
               variant="outline"
               size="sm"
-              onClick={async () => {
-                await assignJob({
-                  data: { id: job.id, assignedToUserIds: selectedIds, scope: assignScope },
+              disabled={assignGate.busy}
+              onClick={() => {
+                void assignGate.requestAssign({
+                  jobId: job.id,
+                  assignedToUserIds: selectedIds,
+                  scope: assignScope,
+                  onSaved: onChanged,
                 });
-                toast.success(assignScope === "visit" ? "This visit updated." : "Recurring jobs updated.");
-                await onChanged();
               }}
             >
-              Save assignees
+              {assignGate.busy ? "Checking…" : "Save assignees"}
             </Button>
           </div>
         ) : null}
@@ -446,8 +449,8 @@ function JobPanel({
             }}
             submitLabel="Save visit"
             onSubmit={async (input) => {
-              const res = await updateJob({ data: { ...input, id: job.id } });
-              toast.success(res.conflictCount ? "Saved with an overlap warning." : "Visit updated.");
+              await updateJob({ data: { ...input, id: job.id } });
+              toast.success("Visit updated.");
               setEditing(false);
               await onChanged();
             }}
@@ -472,6 +475,7 @@ function JobPanel({
         }
       }}
     />
+    {assignGate.dialog}
   </>
   );
 }

@@ -141,6 +141,14 @@ function parseJobInput(input: JobInput): JobInput {
   };
 }
 
+export type ConflictHit = {
+  cleanerUserId: string;
+  cleanerName: string;
+  otherJobId: string;
+  otherClientName: string;
+  otherStartAt: string;
+};
+
 async function loadAssigneeMap(sql: Awaited<ReturnType<typeof getSql>>, jobIds: string[]) {
   const map = new Map<string, string[]>();
   if (!jobIds.length) return map;
@@ -157,10 +165,35 @@ async function loadAssigneeMap(sql: Awaited<ReturnType<typeof getSql>>, jobIds: 
   return map;
 }
 
-function assigneesOverlap(a: string[], b: string[]) {
-  if (!a.length && !b.length) return true;
-  if (!a.length || !b.length) return false;
-  return a.some((id) => b.includes(id));
+async function loadNames(sql: Awaited<ReturnType<typeof getSql>>, userIds: string[]) {
+  const unique = [...new Set(userIds.filter(Boolean))];
+  const map = new Map<string, string>();
+  if (!unique.length) return map;
+  const placeholders = unique.map((_, i) => `$${i + 1}`).join(", ");
+  const rows = await sql.query<{ user_id: string; full_name: string }>(
+    `select user_id, full_name from profiles where user_id in (${placeholders})`,
+    unique,
+  );
+  for (const row of rows) map.set(row.user_id, row.full_name);
+  return map;
+}
+
+function timesOverlap(aStart: Date, aMin: number, bStart: Date, bMin: number) {
+  const aEnd = addMinutes(aStart, aMin);
+  const bEnd = addMinutes(bStart, bMin);
+  return aStart < bEnd && bStart < aEnd;
+}
+
+function dedupeHits(hits: ConflictHit[]) {
+  const seen = new Set<string>();
+  const out: ConflictHit[] = [];
+  for (const hit of hits) {
+    const key = `${hit.cleanerUserId}|${hit.otherJobId}|${hit.otherStartAt}`;
+    if (seen.has(key)) continue;
+    seen.add(key);
+    out.push(hit);
+  }
+  return out;
 }
 
 async function findConflicts(
@@ -170,30 +203,67 @@ async function findConflicts(
   durationMin: number,
   ignoreId?: string,
   assignedTo?: string[],
-) {
+): Promise<ConflictHit[]> {
+  const mine = [...new Set((assignedTo ?? []).filter(Boolean))];
+  if (!mine.length) return [];
   const end = addMinutes(start, durationMin);
   const windowStart = addMinutes(start, -8 * 60);
   const windowEnd = addMinutes(end, 8 * 60);
-  const nearby = await sql.query<JobRow>(
-    `select id, start_at::text as start_at, duration_min, status, assigned_to_user_id
-     from jobs
-     where cleaner_user_id = $1
-       and status in ('scheduled', 'reschedule_requested')
-       and start_at >= $2::timestamptz and start_at < $3::timestamptz
-       ${ignoreId ? "and id <> $4" : ""}`,
+  const nearby = await sql.query<{
+    id: string;
+    start_at: string;
+    duration_min: number;
+    assigned_to_user_id: string | null;
+    client_name: string;
+  }>(
+    `select j.id, j.start_at::text as start_at, j.duration_min, j.assigned_to_user_id, c.name as client_name
+     from jobs j
+     join clients c on c.id = j.client_id
+     where j.cleaner_user_id = $1
+       and j.status in ('scheduled', 'reschedule_requested')
+       and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
+       ${ignoreId ? "and j.id <> $4" : ""}`,
     ignoreId
       ? [cleanerId, windowStart.toISOString(), windowEnd.toISOString(), ignoreId]
       : [cleanerId, windowStart.toISOString(), windowEnd.toISOString()],
   );
-  const asg = await loadAssigneeMap(sql, nearby.map((j) => j.id));
-  const mine = assignedTo?.filter(Boolean) ?? [];
-  return nearby.filter((j) => {
+  const asg = await loadAssigneeMap(
+    sql,
+    nearby.map((j) => j.id),
+  );
+  const names = await loadNames(sql, mine);
+  const hits: ConflictHit[] = [];
+  for (const j of nearby) {
     const theirs = asg.get(j.id) ?? (j.assigned_to_user_id ? [j.assigned_to_user_id] : []);
-    if (!assigneesOverlap(mine, theirs)) return false;
-    const js = new Date(j.start_at);
-    const je = addMinutes(js, j.duration_min);
-    return start < je && js < end;
-  });
+    if (!theirs.length) continue;
+    if (!timesOverlap(start, durationMin, new Date(j.start_at), Number(j.duration_min))) continue;
+    for (const uid of mine) {
+      if (!theirs.includes(uid)) continue;
+      hits.push({
+        cleanerUserId: uid,
+        cleanerName: names.get(uid) || "Cleaner",
+        otherJobId: j.id,
+        otherClientName: j.client_name,
+        otherStartAt: j.start_at,
+      });
+    }
+  }
+  return hits;
+}
+
+async function findConflictsForStarts(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  cleanerId: string,
+  starts: Date[],
+  durationMin: number,
+  ignoreId: string | undefined,
+  assignedTo: string[] | undefined,
+) {
+  const hits: ConflictHit[] = [];
+  for (const start of starts) {
+    hits.push(...(await findConflicts(sql, cleanerId, start, durationMin, ignoreId, assignedTo)));
+  }
+  return dedupeHits(hits);
 }
 
 function occurrenceStarts(first: Date, recurrence: Recurrence): Date[] {
@@ -233,21 +303,88 @@ async function notifyAssignees(
 
 export const checkJobConflicts = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { startLocal: string; durationMin: number; ignoreId?: string; assignedToUserIds?: string[] }) => input)
+  .validator((input: {
+    startLocal: string;
+    durationMin: number;
+    ignoreId?: string;
+    assignedToUserIds?: string[];
+    recurrence?: Recurrence;
+  }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCleaner(actor);
-    const start = fromDatetimeLocalValue(data.startLocal);
-    const hits = await findConflicts(
+    const first = fromDatetimeLocalValue(data.startLocal);
+    const starts = occurrenceStarts(first, data.recurrence || "none");
+    const hits = await findConflictsForStarts(
       sql,
       context.userId,
-      start,
+      starts,
       Number(data.durationMin) || 120,
       data.ignoreId,
       data.assignedToUserIds,
     );
-    return { conflicts: hits.map((h) => ({ id: h.id, start_at: h.start_at, duration_min: h.duration_min })) };
+    return { conflicts: hits };
+  });
+
+export const checkAssignConflicts = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { jobId: string; assignedToUserIds: string[]; scope: "visit" | "client_recurring" }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertCleaner(actor);
+    const ids = [...new Set((data.assignedToUserIds ?? []).filter(Boolean))];
+    const jobRows = await sql.query<{
+      id: string;
+      client_id: string;
+      start_at: string;
+      duration_min: number;
+    }>(
+      `select id, client_id, start_at::text as start_at, duration_min
+       from jobs
+       where id = $1 and cleaner_user_id = $2
+       limit 1`,
+      [data.jobId, context.userId],
+    );
+    const job = jobRows[0];
+    if (!job) throw new Error("Visit not found.");
+    if (!ids.length) return { conflicts: [] as ConflictHit[] };
+
+    const extras =
+      data.scope === "client_recurring"
+        ? await sql.query<{ id: string; start_at: string; duration_min: number }>(
+            `select id, start_at::text as start_at, duration_min from jobs
+             where cleaner_user_id = $1
+               and client_id = $2
+               and status in ('scheduled', 'reschedule_requested')
+               and start_at >= now()
+               and recurrence <> 'none'
+             order by start_at asc`,
+            [context.userId, job.client_id],
+          )
+        : [];
+    const seen = new Set<string>([job.id]);
+    const list: { id: string; start_at: string; duration_min: number }[] = [job];
+    for (const row of extras) {
+      if (seen.has(row.id)) continue;
+      seen.add(row.id);
+      list.push(row);
+    }
+    const hits: ConflictHit[] = [];
+    for (const row of list) {
+      hits.push(
+        ...(await findConflicts(
+          sql,
+          context.userId,
+          new Date(row.start_at),
+          Number(row.duration_min),
+          row.id,
+          ids,
+        )),
+      );
+    }
+    return { conflicts: dedupeHits(hits) };
   });
 
 export const createJob = createServerFn({ method: "POST" })

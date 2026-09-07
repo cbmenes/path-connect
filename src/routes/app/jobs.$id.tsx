@@ -2,7 +2,8 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { assignJob, getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { chargeCard, listCardsForClient, requestTip } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
@@ -33,6 +34,7 @@ function JobDetail() {
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
   const [cancelKind, setCancelKind] = useState<"visit" | "series" | null>(null);
+  const assignGate = useAssignConflictGate();
   const isCleaner = actor.data?.kind === "cleaner";
   const isTeam = actor.data?.kind === "team";
   const canMessage = actor.data?.kind === "cleaner" || (actor.data?.kind === "team" && actor.data.canMessage);
@@ -81,15 +83,21 @@ function JobDetail() {
           </Field>
           <Button
             variant="outline"
-            onClick={async () => {
+            disabled={assignGate.busy}
+            onClick={() => {
               const ids = assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id);
-              await assignJob({ data: { id: job.id, assignedToUserIds: ids, scope: assignScope } });
-              toast.success(assignScope === "visit" ? "This visit updated." : "Recurring jobs updated.");
-              await qc.invalidateQueries({ queryKey: ["job", id] });
-              await qc.invalidateQueries({ queryKey: ["jobs"] });
+              void assignGate.requestAssign({
+                jobId: job.id,
+                assignedToUserIds: ids,
+                scope: assignScope,
+                onSaved: async () => {
+                  await qc.invalidateQueries({ queryKey: ["job", id] });
+                  await qc.invalidateQueries({ queryKey: ["jobs"] });
+                },
+              });
             }}
           >
-            Save assignees
+            {assignGate.busy ? "Checking…" : "Save assignees"}
           </Button>
         </Card>
       ) : null}
@@ -197,8 +205,8 @@ function JobDetail() {
           }}
           submitLabel="Save visit"
           onSubmit={async (input) => {
-            const res = await updateJob({ data: { ...input, id: job.id } });
-            toast.success(res.conflictCount ? "Saved with an overlap warning." : "Visit updated.");
+            await updateJob({ data: { ...input, id: job.id } });
+            toast.success("Visit updated.");
             setEditing(false);
             await qc.invalidateQueries({ queryKey: ["job", id] });
           }}
@@ -230,6 +238,7 @@ function JobDetail() {
           }
         }}
       />
+      {assignGate.dialog}
     </div>
   );
 }

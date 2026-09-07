@@ -1,10 +1,12 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { listClients } from "@/lib/sweepbook/clients";
-import { checkJobConflicts, type JobInput } from "@/lib/sweepbook/jobs";
+import { checkJobConflicts, type ConflictHit, type JobInput } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { hoursToMinutes, minutesToHours, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import type { ClientRow, Recurrence } from "@/lib/sweepbook/types";
 import { AssigneePicker } from "./assignee-picker";
+import { conflictLine, ConflictWarningDialog } from "./conflict-warning";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
@@ -36,7 +38,9 @@ export function JobForm({
   const [assignedToUserIds, setAssignedToUserIds] = useState<string[]>(
     initial?.assignedToUserIds ?? (initial?.assignedToUserId ? [initial.assignedToUserId] : []),
   );
-  const [conflicts, setConflicts] = useState(0);
+  const [conflicts, setConflicts] = useState<ConflictHit[]>([]);
+  const [pendingInput, setPendingInput] = useState<JobInput | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     void listClients().then(setClients).catch(() => setClients([]));
@@ -58,13 +62,19 @@ export function JobForm({
   useEffect(() => {
     const t = setTimeout(() => {
       void checkJobConflicts({
-        data: { startLocal, durationMin, ignoreId: initial?.id, assignedToUserIds },
+        data: {
+          startLocal,
+          durationMin,
+          ignoreId: initial?.id,
+          assignedToUserIds,
+          recurrence,
+        },
       })
-        .then((r) => setConflicts(r.conflicts.length))
-        .catch(() => setConflicts(0));
+        .then((r) => setConflicts(r.conflicts))
+        .catch(() => setConflicts([]));
     }, 250);
     return () => clearTimeout(t);
-  }, [startLocal, durationMin, initial?.id, assignedToUserIds]);
+  }, [startLocal, durationMin, initial?.id, assignedToUserIds, recurrence]);
 
   function onClient(id: string) {
     setClientId(id);
@@ -77,22 +87,54 @@ export function JobForm({
     }
   }
 
+  function buildInput(): JobInput {
+    return {
+      clientId,
+      service,
+      address,
+      startLocal,
+      durationMin,
+      priceCents: Number(priceCents),
+      notes,
+      recurrence,
+      assignedToUserIds,
+    };
+  }
+
+  async function submitNow(input: JobInput) {
+    onSubmit(input);
+    setPendingInput(null);
+  }
+
   return (
+    <>
     <form
       className="grid gap-3"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        onSubmit({
-          clientId,
-          service,
-          address,
-          startLocal,
-          durationMin,
-          priceCents: Number(priceCents),
-          notes,
-          recurrence,
-          assignedToUserIds,
-        });
+        const input = buildInput();
+        setChecking(true);
+        try {
+          const res = await checkJobConflicts({
+            data: {
+              startLocal: input.startLocal,
+              durationMin: input.durationMin,
+              ignoreId: initial?.id,
+              assignedToUserIds: input.assignedToUserIds,
+              recurrence: input.recurrence,
+            },
+          });
+          if (res.conflicts.length) {
+            setConflicts(res.conflicts);
+            setPendingInput(input);
+            return;
+          }
+          await submitNow(input);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Could not check for overlaps.");
+        } finally {
+          setChecking(false);
+        }
       }}
     >
       <Field label="Client">
@@ -153,14 +195,27 @@ export function JobForm({
       <Field label="Notes">
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
-      {conflicts > 0 ? (
+      {conflicts.length ? (
         <p className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
-          This overlaps {conflicts} other visit{conflicts === 1 ? "" : "s"} on your book. You can still save it.
+          {conflictLine(conflicts[0])}
+          {conflicts.length > 1
+            ? ` And ${conflicts.length - 1} more overlap${conflicts.length === 2 ? "" : "s"}.`
+            : ""}
         </p>
       ) : null}
-      <Button type="submit" disabled={submitting}>
-        {submitting ? "Saving…" : submitLabel}
+      <Button type="submit" disabled={submitting || checking}>
+        {checking ? "Checking…" : submitting ? "Saving…" : submitLabel}
       </Button>
     </form>
+    <ConflictWarningDialog
+      open={Boolean(pendingInput)}
+      conflicts={conflicts}
+      busy={submitting}
+      onBack={() => setPendingInput(null)}
+      onSaveAnyway={async () => {
+        if (pendingInput) await submitNow(pendingInput);
+      }}
+    />
+    </>
   );
 }
