@@ -175,8 +175,9 @@ function JobDetail() {
               to="/app/messages/$clientId"
               params={{
                 clientId: appointmentMessageThread({
-                  role: isTeam ? "team" : "cleaner",
+                  role: isTeam ? "team" : actor.data?.kind === "admin" ? "admin" : "cleaner",
                   teamUserId: actor.data?.userId,
+                  adminUserId: actor.data?.kind === "admin" ? actor.data.userId : undefined,
                   clientId: job.client_id,
                 }),
               }}

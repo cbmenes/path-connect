@@ -150,8 +150,9 @@ export function JobPanel({
               to="/app/messages/$clientId"
               params={{
                 clientId: appointmentMessageThread({
-                  role: actorKind === "team" ? "team" : "cleaner",
+                  role: actorKind === "team" ? "team" : actorKind === "admin" ? "admin" : "cleaner",
                   teamUserId: actorUserId,
+                  adminUserId: actorKind === "admin" ? actorUserId : undefined,
                   clientId: job.client_id,
                 }),
               }}

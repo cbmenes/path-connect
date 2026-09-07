@@ -109,7 +109,13 @@ export type JobWithClient = JobRow & {
   payment_status: InvoiceStatus | null;
 };
 
-export type MessageChannel = "master_client" | "team_client" | "master_team";
+export type MessageChannel =
+  | "master_client"
+  | "team_client"
+  | "master_team"
+  | "admin_client"
+  | "master_admin"
+  | "admin_team";
 
 export type MessageRow = {
   id: string;

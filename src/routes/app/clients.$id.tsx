@@ -6,7 +6,7 @@ import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib/sweepbook/clients";
 import { actorCanCharge } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
-import { masterClientThread } from "@/lib/sweepbook/threads";
+import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
 import { addCardAuthenticated, chargeCard, createCardLink, recordOutsidePayment } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
@@ -57,7 +57,15 @@ function ClientProfile() {
             {editing ? "Close" : "Edit"}
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: masterClientThread(client.id) }}>
+            <Link
+              to="/app/messages/$clientId"
+              params={{
+                clientId:
+                  actor.data?.kind === "admin"
+                    ? adminClientThread(actor.data.userId, client.id)
+                    : masterClientThread(client.id),
+              }}
+            >
               Message
             </Link>
           </Button>

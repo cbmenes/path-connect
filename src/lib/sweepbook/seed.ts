@@ -20,16 +20,16 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed8__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed9__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed8__) {
-    g.__sweepbookSeed8__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed8__ = undefined;
+  if (!g.__sweepbookSeed9__) {
+    g.__sweepbookSeed9__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed9__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed8__;
+  await g.__sweepbookSeed9__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -44,6 +44,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV3(sql);
   await seedV4(sql);
   await seedV5(sql);
+  await seedV6(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -778,6 +779,48 @@ async function seedV5(sql: Sql) {
         where id = ${lastPriya[0].id}
       `;
     }
+  }
+}
+
+async function seedV6(sql: Sql) {
+  const adminClient = await sql<{ id: string }>`
+    select id from messages where channel = 'admin_client' limit 1
+  `;
+  if (!adminClient.length) {
+    const t1 = new Date(Date.now() - 90 * 60_000).toISOString();
+    const t2 = new Date(Date.now() - 40 * 60_000).toISOString();
+    await sql`
+      insert into messages (
+        id, cleaner_user_id, client_id, sender_role, body, created_at, read_at,
+        channel, team_user_id, admin_user_id, sender_user_id, sender_name
+      ) values
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${CAM_CLIENT_ID}, ${"cleaner"},
+         ${"Cam — Renee here from the office. Confirming Tuesday still works."}, ${t1}, ${t1},
+         ${"admin_client"}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${"Renee Cole"}),
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${CAM_CLIENT_ID}, ${"client"},
+         ${"Yes, Tuesday is good. Thanks Renee."}, ${t2}, ${null},
+         ${"admin_client"}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${DEMO_CLIENT_USER_ID}, ${"Cam Delgado"})
+    `;
+  }
+
+  const masterAdmin = await sql<{ id: string }>`
+    select id from messages where channel = 'master_admin' limit 1
+  `;
+  if (!masterAdmin.length) {
+    const t1 = new Date(Date.now() - 3 * 3600_000).toISOString();
+    const t2 = new Date(Date.now() - 2.5 * 3600_000).toISOString();
+    await sql`
+      insert into messages (
+        id, cleaner_user_id, client_id, sender_role, body, created_at, read_at,
+        channel, team_user_id, admin_user_id, sender_user_id, sender_name
+      ) values
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${null}, ${"cleaner"},
+         ${"Renee, can you confirm Cam's Tuesday window before I leave the shop?"}, ${t1}, ${t1},
+         ${"master_admin"}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${DEMO_CLEANER_ID}, ${"Maya Brooks"}),
+        (${nid("msg")}, ${DEMO_CLEANER_ID}, ${null}, ${"cleaner"},
+         ${"Already texted him. He is set for 10."}, ${t2}, ${null},
+         ${"master_admin"}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${"Renee Cole"})
+    `;
   }
 }
 

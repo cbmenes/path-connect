@@ -91,12 +91,23 @@ export const getClient = createServerFn({ method: "GET" })
             order by is_default desc, created_at desc
           `
         : [];
-      const messages = await sql<MessageRow>`
-        select id, cleaner_user_id, client_id, sender_role, body, created_at::text as created_at,
-               read_at::text as read_at
-        from messages where client_id = ${id} and cleaner_user_id = ${ownerId}
-        order by created_at desc limit 8
-      `;
+      const messages =
+        actor.kind === "admin"
+          ? await sql<MessageRow>`
+              select id, cleaner_user_id, client_id, sender_role, body, created_at::text as created_at,
+                     read_at::text as read_at
+              from messages
+              where client_id = ${id} and cleaner_user_id = ${ownerId}
+                and channel = 'admin_client'
+                and coalesce(admin_user_id, team_user_id) = ${actor.userId}
+              order by created_at desc limit 8
+            `
+          : await sql<MessageRow>`
+              select id, cleaner_user_id, client_id, sender_role, body, created_at::text as created_at,
+                     read_at::text as read_at
+              from messages where client_id = ${id} and cleaner_user_id = ${ownerId}
+              order by created_at desc limit 8
+            `;
       const staff = await sql<{ user_id: string; full_name: string }>`
         select user_id, full_name from profiles
         where master_user_id = ${ownerId} and coalesce(team_status, 'active') = 'active'
