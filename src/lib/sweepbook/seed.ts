@@ -20,16 +20,16 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed7__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed8__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed7__) {
-    g.__sweepbookSeed7__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed7__ = undefined;
+  if (!g.__sweepbookSeed8__) {
+    g.__sweepbookSeed8__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed8__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed7__;
+  await g.__sweepbookSeed8__;
 }
 
 async function seedIfNeeded(sql: Sql) {
