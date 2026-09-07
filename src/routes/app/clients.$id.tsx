@@ -254,7 +254,7 @@ function ClientProfile() {
                 <p className="text-sm font-medium">{formatDateTime(j.start_at)}</p>
                 <p className="text-xs text-muted">{money(j.price_cents)}</p>
               </div>
-              <VisitStatusBadge job={{ status: j.status, payment_status: null }} />
+              <VisitStatusBadge job={j} />
             </Link>
           ))}
         </div>

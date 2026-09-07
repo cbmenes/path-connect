@@ -60,6 +60,16 @@ export function chicagoDayKey(date: Date | string) {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/** Viewer's local civil date vs today. Used for payment badges, not Chicago display time. */
+export function isOnOrBeforeLocalToday(date: Date | string) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return true;
+  const now = new Date();
+  const jobDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return jobDay <= today;
+}
+
 export function calendarAppointmentSearch(jobId: string, startAt?: string | null) {
   return {
     view: "day" as const,

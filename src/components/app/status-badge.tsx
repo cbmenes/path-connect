@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/card";
+import { isOnOrBeforeLocalToday } from "@/lib/sweepbook/time";
 import type { InvoiceStatus, JobStatus, JobWithClient } from "@/lib/sweepbook/types";
 
 export function JobStatusBadge({ status }: { status: JobStatus }) {
@@ -25,9 +26,15 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
 
 export type TilePayLabel = "Paid" | "Unpaid" | "Cancelled";
 
-export function jobTilePayLabel(job: Pick<JobWithClient, "status" | "payment_status">): TilePayLabel {
+type PayJob = Pick<JobWithClient, "status"> & {
+  payment_status?: InvoiceStatus | null;
+  start_at?: string;
+};
+
+export function jobTilePayLabel(job: PayJob): TilePayLabel | null {
   if (job.status === "cancelled") return "Cancelled";
   if (job.payment_status === "paid") return "Paid";
+  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   return "Unpaid";
 }
 
@@ -36,10 +43,11 @@ export function TilePayBadge({
   job,
   invert,
 }: {
-  job: Pick<JobWithClient, "status" | "payment_status">;
+  job: PayJob;
   invert?: boolean;
 }) {
   const label = jobTilePayLabel(job);
+  if (!label) return null;
   const tone =
     label === "Paid"
       ? "bg-sage-soft text-success"
@@ -63,7 +71,7 @@ export function VisitStatusBadge({
   job,
   hideMoney,
 }: {
-  job: Pick<JobWithClient, "status" | "payment_status">;
+  job: PayJob;
   hideMoney?: boolean;
 }) {
   if (hideMoney) {
@@ -74,6 +82,8 @@ export function VisitStatusBadge({
     return <JobStatusBadge status={job.status} />;
   }
   if (job.payment_status === "paid") return <InvoiceStatusBadge status="paid" />;
+  const futureUnpaid = job.start_at ? !isOnOrBeforeLocalToday(job.start_at) : false;
+  if (futureUnpaid) return null;
   if (job.payment_status === "failed") return <InvoiceStatusBadge status="failed" />;
   if (job.payment_status === "unpaid") return <InvoiceStatusBadge status="unpaid" />;
   return <JobStatusBadge status="scheduled" />;
