@@ -80,12 +80,16 @@ function TeamInvitePage() {
           <p className="text-danger">{(invite.error as Error).message}</p>
         ) : invite.data ? (
           <>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">Team invite</p>
+            <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">
+              {invite.data.invite_kind === "admin" ? "Admin invite" : "Team invite"}
+            </p>
             <h1 className="mt-2 font-display text-3xl text-navy">
               Join {invite.data.business_name || invite.data.cleaner_name}
             </h1>
             <p className="mt-2 text-muted">
-              You’ll see the jobs assigned to you — addresses, notes, and times. Payment cards stay with the owner.
+              {invite.data.invite_kind === "admin"
+                ? "You’ll help run the office — clients, the calendar, and team cleaners. The owner’s billing and team pay stay with them."
+                : "You’ll see the jobs assigned to you — addresses, notes, and times. Payment cards stay with the owner."}
             </p>
             {invite.data.accepted_at ? (
               <p className="mt-6 text-sm text-muted">
@@ -100,7 +104,7 @@ function TeamInvitePage() {
               <div className="mt-6 grid gap-3">
                 {error ? <p className="text-sm text-danger">{error}</p> : null}
                 <Button disabled={busy} onClick={() => void join()}>
-                  {busy ? "Joining…" : "Join the team"}
+                  {busy ? "Joining…" : invite.data.invite_kind === "admin" ? "Join as admin" : "Join the team"}
                 </Button>
               </div>
             ) : (
@@ -116,7 +120,7 @@ function TeamInvitePage() {
                 </Field>
                 {error ? <p className="text-sm text-danger">{error}</p> : null}
                 <Button type="submit" disabled={busy}>
-                  {busy ? "Creating…" : "Create team login"}
+                  {busy ? "Creating…" : invite.data.invite_kind === "admin" ? "Create admin login" : "Create team login"}
                 </Button>
                 <p className="text-center text-sm text-muted">
                   Already have an account?{" "}

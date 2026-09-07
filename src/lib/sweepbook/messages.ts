@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import type { Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { canMessageClients, getActor, masterUserId } from "./access";
+import { canMessageClients, getActor, isOffice, masterUserId } from "./access";
 import { teamCanAccessClient } from "./assignees";
 import { ensureDemoSeed } from "./seed";
 import { nid } from "./time";
@@ -32,6 +32,7 @@ async function assertThreadAccess(sql: Sql, actor: Actor, ref: ThreadRef) {
     const team = await sql<{ user_id: string; full_name: string; can_message: boolean }>`
       select user_id, full_name, can_message from profiles
       where user_id = ${ref.teamUserId} and master_user_id = ${ownerId} and role = 'cleaner'
+        and coalesce(cleaner_kind, 'team') = 'team'
       limit 1
     `;
     if (!team[0]) throw new Error("Thread not found.");
@@ -59,6 +60,7 @@ async function assertThreadAccess(sql: Sql, actor: Actor, ref: ThreadRef) {
   const team = await sql<{ user_id: string; full_name: string }>`
     select user_id, full_name from profiles
     where user_id = ${ref.teamUserId} and master_user_id = ${ownerId} and role = 'cleaner'
+      and coalesce(cleaner_kind, 'team') = 'team'
     limit 1
   `;
   if (!team[0]) throw new Error("Thread not found.");
@@ -114,9 +116,9 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
   const userId = actor.userId;
   const rows: ThreadSummary[] = [];
 
-  if (actor.kind === "cleaner") {
+  if (isOffice(actor)) {
     const mc = await sql.query<ThreadSummary>(
-      `select ('mc--' || c.id) as thread_id, c.name as title, null as subtitle,
+      `select ('mc--' || c.id) as thread_id, c.name as title, 'Client' as subtitle,
               coalesce(last.body, '') as last_body,
               coalesce(last.created_at::text, c.created_at::text) as last_at,
               coalesce(u.unread, 0)::int as unread
@@ -131,12 +133,12 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
          select count(*) as unread from messages m
          where m.client_id = c.id and m.cleaner_user_id = $1
            and m.channel = 'master_client' and m.team_user_id is null
-           and coalesce(m.sender_user_id, '') <> $1
-           and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $1)
+           and coalesce(m.sender_user_id, '') <> $2
+           and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $2)
        ) u on true
        where c.cleaner_user_id = $1
        order by last.created_at desc nulls last, c.name`,
-      [ownerId],
+      [ownerId, userId],
     );
     rows.push(...mc);
 
@@ -163,11 +165,12 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
          select count(*) as unread from messages m
          where m.cleaner_user_id = $1 and m.channel = 'team_client'
            and m.client_id = t.client_id and m.team_user_id = t.team_user_id
-           and coalesce(m.sender_user_id, '') <> $1
-           and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $1)
+           and coalesce(m.sender_user_id, '') <> $2
+           and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $2)
        ) u on true
+       where coalesce(p.cleaner_kind, 'team') = 'team'
        order by last.created_at desc`,
-      [ownerId],
+      [ownerId, userId],
     );
     rows.push(...tc);
 
@@ -187,12 +190,13 @@ async function loadThreads(sql: Sql, actor: Actor): Promise<ThreadSummary[]> {
          select count(*) as unread from messages m
          where m.cleaner_user_id = $1 and m.channel = 'master_team'
            and m.team_user_id = p.user_id and m.client_id is null
-           and coalesce(m.sender_user_id, '') <> $1
-           and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $1)
+           and coalesce(m.sender_user_id, '') <> $2
+           and not exists (select 1 from message_reads r where r.message_id = m.id and r.user_id = $2)
        ) u on true
        where p.master_user_id = $1 and p.role = 'cleaner'
+         and coalesce(p.cleaner_kind, 'team') = 'team'
        order by last.created_at desc nulls last, p.full_name`,
-      [ownerId],
+      [ownerId, userId],
     );
     rows.push(...mt);
   } else if (actor.kind === "team") {
@@ -356,22 +360,24 @@ export const listMessageRecipients = createServerFn({ method: "GET" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const people: MessageRecipient[] = [];
-    if (actor.kind === "cleaner") {
+    if (isOffice(actor)) {
+      const ownerId = masterUserId(actor);
       const clients = await sql<{ id: string; name: string; subtitle: string | null }>`
         select id, name, coalesce(address, email, phone) as subtitle
-        from clients where cleaner_user_id = ${context.userId} order by name
+        from clients where cleaner_user_id = ${ownerId} order by name
       `;
       for (const c of clients) {
         people.push({
           id: encodeThreadId({ channel: "master_client", clientId: c.id, teamUserId: null }),
           name: c.name,
-          subtitle: c.subtitle,
+          subtitle: "Client",
         });
       }
       const team = await sql<{ user_id: string; full_name: string }>`
         select user_id, full_name from profiles
-        where master_user_id = ${context.userId} and role = 'cleaner'
+        where master_user_id = ${ownerId} and role = 'cleaner'
           and coalesce(team_status, 'active') = 'active'
+          and coalesce(cleaner_kind, 'team') = 'team'
         order by full_name
       `;
       for (const t of team) {
@@ -393,8 +399,9 @@ export const listMessageRecipients = createServerFn({ method: "GET" })
          join profiles p on p.user_id = m.team_user_id
          where m.cleaner_user_id = $1 and m.channel = 'team_client'
            and m.client_id is not null and m.team_user_id is not null
+           and coalesce(p.cleaner_kind, 'team') = 'team'
          order by c.name, p.full_name`,
-        [context.userId],
+        [ownerId],
       );
       for (const t of labeled) {
         people.push({
@@ -590,7 +597,7 @@ export const sendMessage = createServerFn({ method: "POST" })
     const senderName =
       actor.kind === "client"
         ? actor.client.name
-        : actor.kind === "cleaner" || actor.kind === "team"
+        : actor.kind === "cleaner" || actor.kind === "admin" || actor.kind === "team"
           ? actor.profile.full_name
           : "Someone";
     const senderRole = actor.kind === "client" ? "client" : "cleaner";

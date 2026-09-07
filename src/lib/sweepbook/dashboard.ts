@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { JOB_FROM, JOB_SELECT, getActor } from "./access";
+import { JOB_FROM, JOB_SELECT, canChargeClients, getActor, isOffice, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { addDaysChicago, startOfChicagoDay, chicagoDate, partsInChicago } from "./time";
 import type { Actor, CardRow, InvoiceWithClient, JobWithClient, ThreadSummary } from "./types";
@@ -9,7 +9,7 @@ import { hydrateJob, redactJobMoney } from "./assignees";
 import { loadThreads, unreadCount } from "./messages";
 
 export type CleanerDashboard = {
-  actor: Extract<Actor, { kind: "cleaner" }>;
+  actor: Extract<Actor, { kind: "cleaner" | "admin" }>;
   today: JobWithClient[];
   week: JobWithClient[];
   unpaid: InvoiceWithClient[];
@@ -19,6 +19,8 @@ export type CleanerDashboard = {
   pendingRequests: number;
   unreadNotifications: number;
   revenue: { monthCents: number; ytdCents: number; monthLabel: string; year: number };
+  showRevenue: boolean;
+  canCharge: boolean;
 };
 
 export type TeamDashboard = {
@@ -46,7 +48,7 @@ export type DashboardData =
   | { actor: Extract<Actor, { kind: "none" | "client_unlinked" }> };
 
 export function isCleanerDash(d: DashboardData): d is CleanerDashboard {
-  return d.actor.kind === "cleaner";
+  return d.actor.kind === "cleaner" || d.actor.kind === "admin";
 }
 
 export function isTeamDash(d: DashboardData): d is TeamDashboard {
@@ -67,20 +69,21 @@ export const getDashboard = createServerFn({ method: "GET" })
     const endToday = addDaysChicago(start, 1);
     const endWeek = addDaysChicago(start, 7);
 
-    if (actor.kind === "cleaner") {
+    if (isOffice(actor)) {
+      const ownerId = masterUserId(actor);
       const today = await sql.query<JobWithClient>(
         `select ${JOB_SELECT} from ${JOB_FROM}
          where j.cleaner_user_id = $1 and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
            and j.status <> 'cancelled'
          order by j.start_at asc`,
-        [context.userId, start.toISOString(), endToday.toISOString()],
+        [ownerId, start.toISOString(), endToday.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
       const week = await sql.query<JobWithClient>(
         `select ${JOB_SELECT} from ${JOB_FROM}
          where j.cleaner_user_id = $1 and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
            and j.status <> 'cancelled'
          order by j.start_at asc`,
-        [context.userId, start.toISOString(), endWeek.toISOString()],
+        [ownerId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
@@ -89,7 +92,7 @@ export const getDashboard = createServerFn({ method: "GET" })
          from invoices i join clients c on c.id = i.client_id
          where i.cleaner_user_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,
-        [context.userId],
+        [ownerId],
       );
       const threads = (await loadThreads(sql, actor)).slice(0, 5);
       const unread = await unreadCount(sql, actor);
@@ -113,7 +116,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         from (
           select distinct on (i.job_id) i.amount_cents as amt
           from invoices i
-          where i.cleaner_user_id = ${context.userId}
+          where i.cleaner_user_id = ${ownerId}
             and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
             and i.paid_at >= ${monthStart.toISOString()}::timestamptz
             and i.paid_at < ${nextMonth.toISOString()}::timestamptz
@@ -125,7 +128,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         from (
           select distinct on (i.job_id) i.amount_cents as amt
           from invoices i
-          where i.cleaner_user_id = ${context.userId}
+          where i.cleaner_user_id = ${ownerId}
             and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
             and i.paid_at >= ${yearStart.toISOString()}::timestamptz
             and i.paid_at < ${yearEnd.toISOString()}::timestamptz
@@ -149,6 +152,8 @@ export const getDashboard = createServerFn({ method: "GET" })
           monthLabel,
           year: p.year,
         },
+        showRevenue: actor.kind === "cleaner",
+        canCharge: canChargeClients(actor),
       } satisfies CleanerDashboard;
     }
 
@@ -257,7 +262,7 @@ export const updateSettings = createServerFn({ method: "POST" })
       await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
       return { ok: true };
     }
-    if (actor.kind === "team") {
+    if (actor.kind === "team" || actor.kind === "admin") {
       await sql`
         update profiles set
           full_name = ${fullName},

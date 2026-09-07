@@ -26,16 +26,27 @@ function AppLayout() {
   }, [user, actor.data, actor.isPending, navigate]);
 
   useEffect(() => {
-    if (actor.data?.kind !== "team") return;
-    if (
-      pathname.startsWith("/app/clients") ||
-      pathname.startsWith("/app/payments") ||
-      pathname.startsWith("/app/team") ||
-      pathname.startsWith("/app/team-pay") ||
-      pathname.startsWith("/app/data") ||
-      pathname.startsWith("/app/jobs/new")
-    ) {
-      void navigate({ to: "/app" });
+    if (actor.data?.kind === "team") {
+      if (
+        pathname.startsWith("/app/clients") ||
+        pathname.startsWith("/app/payments") ||
+        pathname.startsWith("/app/team") ||
+        pathname.startsWith("/app/team-pay") ||
+        pathname.startsWith("/app/data") ||
+        pathname.startsWith("/app/jobs/new")
+      ) {
+        void navigate({ to: "/app" });
+      }
+      return;
+    }
+    if (actor.data?.kind === "admin") {
+      if (
+        pathname.startsWith("/app/team-pay") ||
+        pathname.startsWith("/app/data") ||
+        pathname.startsWith("/app/clients/import")
+      ) {
+        void navigate({ to: "/app" });
+      }
     }
   }, [actor.data?.kind, pathname, navigate]);
 

@@ -55,7 +55,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
           </Button>
         }
       />
-      {failed.length ? (
+      {data.canCharge && failed.length ? (
         <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
           {failed.length} failed payment{failed.length === 1 ? "" : "s"}. Ask the client to update their card.
         </div>
@@ -74,6 +74,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
         <StatLink to="/app/messages" label="Messages" value={String(data.unread ?? 0)} hint="unread" />
         <StatLink to="/app/notifications" label="Notifications" value={String(data.unreadNotifications ?? 0)} hint="unread" />
       </div>
+      {data.showRevenue ? (
       <section>
         <h2 className="font-display text-xl text-navy">Revenue</h2>
         <p className="mt-1 text-sm text-muted">Paid visits only — not unpaid invoices or your SweepBook subscription.</p>
@@ -82,6 +83,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
           <Stat label="Year to date" value={money(data.revenue.ytdCents)} hint={`Jan 1 – now, ${data.revenue.year}`} />
         </div>
       </section>
+      ) : null}
       <section>
         <h2 className="font-display text-xl text-navy">Today</h2>
         <div className="mt-3 grid gap-2">

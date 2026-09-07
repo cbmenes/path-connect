@@ -45,8 +45,10 @@ function CalendarPage() {
   const navigate = useNavigate();
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const qc = useQueryClient();
+  const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
   const isMaster = actor.data?.kind === "cleaner";
   const isTeam = actor.data?.kind === "team";
+  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
   const [mode, setMode] = useState<CalView>(search.view ?? "month");
   const [anchor, setAnchor] = useState(() => parseAnchor(search.date));
   const [addStart, setAddStart] = useState<string | null>(search.start ?? null);
@@ -118,13 +120,15 @@ function CalendarPage() {
       <PageHeader
         title="Calendar"
         action={
-          isMaster ? (
+          isOffice ? (
             <div className="flex flex-wrap gap-2">
-              <Button variant="outline" asChild>
-                <Link to="/app/data" search={{ kind: "schedule" }}>
-                  Download / Import
-                </Link>
-              </Button>
+              {isMaster ? (
+                <Button variant="outline" asChild>
+                  <Link to="/app/data" search={{ kind: "schedule" }}>
+                    Download / Import
+                  </Link>
+                </Button>
+              ) : null}
               <Button onClick={() => setAddStart(toDatetimeLocalValue(new Date()))}>New visit</Button>
             </div>
           ) : null
@@ -146,14 +150,14 @@ function CalendarPage() {
         mode={mode}
         days={days}
         jobs={jobs.data ?? []}
-        showPay={Boolean(isMaster)}
-        showPrices={Boolean(isMaster)}
+        showPay={Boolean(isOffice)}
+        showPrices={Boolean(isOffice)}
         showOverlap
         overlapForUserId={isTeam ? actor.data?.userId : undefined}
         named="client"
-        canAdd={Boolean(isMaster)}
+        canAdd={Boolean(isOffice)}
         onEmpty={(dt) => {
-          if (!isMaster) return;
+          if (!isOffice) return;
           setAddStart(toDatetimeLocalValue(dt));
         }}
         onJob={(j) => setSelectedId(j.id)}
@@ -164,7 +168,7 @@ function CalendarPage() {
           {addStart ? (
             <JobForm
               key={addStart}
-              showAssign={isMaster}
+              showAssign={isOffice}
               initial={{ startLocal: addStart, durationMin: 120, recurrence: "none" }}
               submitting={busy}
               submitLabel="Add to the book"
@@ -200,10 +204,13 @@ function CalendarPage() {
         {selectedId ? (
           <JobPanel
             id={selectedId}
-            canEdit={Boolean(isMaster)}
+            canEdit={Boolean(isOffice)}
+            canCharge={Boolean(canCharge)}
             isTeam={Boolean(isTeam)}
             canMessage={
-              actor.data?.kind === "cleaner" || (actor.data?.kind === "team" && actor.data.canMessage)
+              actor.data?.kind === "cleaner" ||
+              actor.data?.kind === "admin" ||
+              (actor.data?.kind === "team" && actor.data.canMessage)
             }
             actorKind={actor.data?.kind}
             actorUserId={actor.data?.userId}

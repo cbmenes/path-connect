@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCleaner, getActor } from "./access";
+import { assertOffice, getActor, masterUserId } from "./access";
 import { MAIL_NOT_CONFIGURED, fromAddress, isMailConfigured, publicAppUrl, sendMail } from "./mail";
 import { formatDate, formatHours, formatTime, nid } from "./time";
 
@@ -485,7 +485,7 @@ export const getReminderStatus = createServerFn({ method: "GET" })
     const actor = await getActor(sql, context.userId);
     ensureReminderScheduler();
     const profile =
-      actor.kind === "cleaner" || actor.kind === "client" || actor.kind === "team"
+      actor.kind === "cleaner" || actor.kind === "admin" || actor.kind === "client" || actor.kind === "team"
         ? actor.profile
         : null;
     return {
@@ -505,8 +505,8 @@ export const updateReminderSettings = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    if (actor.kind === "team") {
-      throw new Error("Team cleaners cannot change reminder settings.");
+    if (actor.kind === "team" || actor.kind === "admin") {
+      throw new Error("Only the account owner can change reminder settings.");
     }
     if (actor.kind === "cleaner") {
       await sql`
@@ -537,7 +537,8 @@ export const sendTestReminder = createServerFn({ method: "POST" })
     ensureReminderScheduler();
 
     if (data.jobId) {
-      assertCleaner(actor);
+      assertOffice(actor);
+      const ownerId = masterUserId(actor);
       const rows = await sql.query<DueJob>(
         `select j.id, j.cleaner_user_id, j.service, j.address, j.start_at::text as start_at,
                 j.duration_min, j.status, c.name as client_name, c.email as client_email,
@@ -549,7 +550,7 @@ export const sendTestReminder = createServerFn({ method: "POST" })
          join profiles m on m.user_id = j.cleaner_user_id
          where j.id = $1 and j.cleaner_user_id = $2
          limit 1`,
-        [data.jobId, context.userId],
+        [data.jobId, ownerId],
       );
       const row = rows[0];
       if (!row) throw new Error("Visit not found.");
@@ -567,7 +568,7 @@ export const sendTestReminder = createServerFn({ method: "POST" })
       if (!email) throw new Error("This client has no email address on file.");
       return deliver(sql, {
         visit: toVisit(row),
-        cleanerUserId: context.userId,
+        cleanerUserId: ownerId,
         email,
         role: "test",
         recipientName: row.client_name,
@@ -576,7 +577,7 @@ export const sendTestReminder = createServerFn({ method: "POST" })
     }
 
     const profile =
-      actor.kind === "cleaner" || actor.kind === "client" || actor.kind === "team"
+      actor.kind === "cleaner" || actor.kind === "admin" || actor.kind === "client" || actor.kind === "team"
         ? actor.profile
         : null;
     const email = normalizeEmail(profile?.email) || normalizeEmail(actor.kind === "client" ? actor.client.email : null);

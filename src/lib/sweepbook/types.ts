@@ -1,6 +1,8 @@
 export type Role = "cleaner" | "client";
 
-export type CleanerKind = "master" | "team";
+export type CleanerKind = "master" | "team" | "admin";
+
+export type OfficeRole = "team" | "admin";
 
 export type TeamStatus = "pending" | "active" | "disabled";
 
@@ -44,6 +46,7 @@ export type Profile = {
   team_messaging_enabled: boolean;
   email_reminders: boolean;
   reminder_email_team: boolean;
+  can_charge: boolean;
   plan_status: PlanStatus;
   plan_price_cents: number;
   created_at: string;
@@ -202,6 +205,8 @@ export type TeamMember = {
   pay_type?: PayType;
   pay_amount?: number;
   pay_note?: string | null;
+  office_role?: OfficeRole;
+  can_charge?: boolean;
 };
 
 export type BillingMethod = {
@@ -229,6 +234,15 @@ export type RevenueSummary = {
 export type Actor =
   | { kind: "cleaner"; userId: string; profile: Profile; masterUserId: string }
   | {
+      kind: "admin";
+      userId: string;
+      profile: Profile;
+      masterUserId: string;
+      canCharge: boolean;
+      canMessage: boolean;
+      disabled: boolean;
+    }
+  | {
       kind: "team";
       userId: string;
       profile: Profile;
@@ -248,8 +262,22 @@ export const DEMO_TEAM_EMAIL = "team@sweepbook.app";
 export const DEMO_TEAM_PASSWORD = "team123";
 export const DEMO_TEAM2_EMAIL = "team2@sweepbook.app";
 export const DEMO_TEAM2_PASSWORD = "team123";
+export const DEMO_ADMIN_EMAIL = "admin@sweepbook.app";
+export const DEMO_ADMIN_PASSWORD = "admin123";
 export const DEMO_CLEANER_ID = "demo-cleaner-maya";
 export const DEMO_CLIENT_USER_ID = "demo-client-cam";
 export const DEMO_TEAM_ID = "demo-team-lena";
 export const DEMO_TEAM2_ID = "demo-team-noah";
+export const DEMO_ADMIN_ID = "demo-admin-renee";
 export const CAM_CLIENT_ID = "client-cam-delgado";
+
+export function isOfficeActor(actor?: Actor | null) {
+  return actor?.kind === "cleaner" || actor?.kind === "admin";
+}
+
+export function actorCanCharge(actor?: Actor | null) {
+  if (!actor) return false;
+  if (actor.kind === "cleaner") return true;
+  if (actor.kind === "admin") return actor.canCharge && !actor.disabled;
+  return false;
+}

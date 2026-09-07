@@ -36,10 +36,14 @@ function JobDetail() {
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
   const [cancelKind, setCancelKind] = useState<"visit" | "series" | null>(null);
   const assignGate = useAssignConflictGate();
-  const isCleaner = actor.data?.kind === "cleaner";
+  const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
+  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
   const isTeam = actor.data?.kind === "team";
-  const canMessage = actor.data?.kind === "cleaner" || (actor.data?.kind === "team" && actor.data.canMessage);
-  const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: isCleaner });
+  const canMessage =
+    actor.data?.kind === "cleaner" ||
+    actor.data?.kind === "admin" ||
+    (actor.data?.kind === "team" && actor.data.canMessage);
+  const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: isOffice });
 
   if (jobQ.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
   if (jobQ.error) return <p className="text-danger">{(jobQ.error as Error).message}</p>;
@@ -66,7 +70,7 @@ function JobDetail() {
           <p className="text-xs text-muted">Assigned to {job.assignee_name}</p>
         ) : null}
       </Card>
-      {isCleaner ? (
+      {isOffice ? (
         <Card className="grid gap-3">
           <h2 className="font-display text-lg text-navy">Assigned cleaners</h2>
           <AssigneePicker
@@ -107,22 +111,22 @@ function JobDetail() {
         <p className="rounded-xl bg-warn/15 p-4 text-sm text-warn">{cancellationPolicy}</p>
       ) : null}
 
-      {isCleaner || isTeam ? (
+      {isOffice || isTeam ? (
         <div className="flex flex-wrap gap-2">
-          {isCleaner ? (
+          {isOffice ? (
             <Button variant="outline" onClick={() => setEditing((v) => !v)}>{editing ? "Close editor" : "Edit"}</Button>
           ) : null}
-          {job.status !== "cancelled" && isCleaner ? (
+          {job.status !== "cancelled" && isOffice ? (
             <Button variant="ghost" onClick={() => setCancelKind("visit")}>
               Cancel visit
             </Button>
           ) : null}
-          {job.series_id && isCleaner && job.status !== "cancelled" ? (
+          {job.series_id && isOffice && job.status !== "cancelled" ? (
             <Button variant="ghost" onClick={() => setCancelKind("series")}>
               Cancel series
             </Button>
           ) : null}
-          {isCleaner ? (
+          {canCharge ? (
           <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
             <DialogTrigger asChild>
               <Button>Charge card</Button>
@@ -154,7 +158,7 @@ function JobDetail() {
             />
           </Dialog>
           ) : null}
-          {isCleaner && (job.payment_status === "paid" || job.status === "completed") ? (
+          {canCharge && (job.payment_status === "paid" || job.status === "completed") ? (
             <Button
               variant="outline"
               onClick={async () => {
@@ -181,16 +185,16 @@ function JobDetail() {
             </Link>
           </Button>
           ) : null}
-          {isCleaner ? (
+          {isOffice ? (
           <Button variant="ghost" asChild>
             <Link to="/app/clients/$id" params={{ id: job.client_id }}>Client profile</Link>
           </Button>
           ) : null}
-          {isCleaner ? <ReminderTestButton jobId={job.id} variant="ghost" /> : null}
+          {isOffice ? <ReminderTestButton jobId={job.id} variant="ghost" /> : null}
         </div>
       ) : null}
 
-      {editing && isCleaner ? (
+      {editing && isOffice ? (
         <JobForm
           showAssign
           initial={{

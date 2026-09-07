@@ -153,8 +153,10 @@ function PaymentsPage() {
   if (actor.data?.kind === "client") {
     return <Navigate to="/app/receipts" />;
   }
+  const isMaster = actor.data?.kind === "cleaner";
+  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
   if (actor.data?.kind === "team") {
-    return <p className="text-muted">Payments are only visible to the account owner.</p>;
+    return <p className="text-muted">Payments are only visible to the office.</p>;
   }
 
   return (
@@ -162,9 +164,11 @@ function PaymentsPage() {
       <PageHeader
         title="Payments"
         action={
-          <Button variant="outline" asChild>
-            <Link to="/app/team-pay">Team pay</Link>
-          </Button>
+          isMaster ? (
+            <Button variant="outline" asChild>
+              <Link to="/app/team-pay">Team pay</Link>
+            </Button>
+          ) : null
         }
       />
       <Card className="grid gap-3">
@@ -182,7 +186,7 @@ function PaymentsPage() {
         rows={unpaid}
         range={unpaidRange}
         onReceipt={setReceiptId}
-        onMark={setMarkTarget}
+        onMark={canCharge ? setMarkTarget : undefined}
       />
       <PaymentSection
         title="Paid"

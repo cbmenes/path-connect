@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib/sweepbook/clients";
+import { actorCanCharge } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
 import { masterClientThread } from "@/lib/sweepbook/threads";
 import { addCardAuthenticated, chargeCard, createCardLink, recordOutsidePayment } from "@/lib/sweepbook/payments";
@@ -23,7 +25,9 @@ export const Route = createFileRoute("/app/clients/$id")({ component: ClientProf
 
 function ClientProfile() {
   const { id } = Route.useParams();
+  const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["client", id], queryFn: () => getClient({ data: id }) });
+  const canCharge = actorCanCharge(actor.data);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -86,6 +90,7 @@ function ClientProfile() {
             </div>
           </dl>
         </Card>
+        {canCharge ? (
         <Card>
           <h2 className="font-display text-lg text-navy">Cards on file</h2>
           <p className="mt-1 text-xs text-muted">Brand and last four only. Default is used for charges and tips.</p>
@@ -166,6 +171,14 @@ function ClientProfile() {
             </Dialog>
           </div>
         </Card>
+        ) : (
+          <Card>
+            <h2 className="font-display text-lg text-navy">Payments</h2>
+            <p className="mt-2 text-sm text-muted">
+              Paid and unpaid show on visits. Charging cards is off for this admin login.
+            </p>
+          </Card>
+        )}
       </div>
 
       <Card>

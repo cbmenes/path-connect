@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
+import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { listClients } from "@/lib/sweepbook/clients";
 import { money } from "@/lib/sweepbook/time";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
@@ -10,7 +11,9 @@ import { Input } from "@/components/ui/input";
 export const Route = createFileRoute("/app/clients/")({ component: ClientsPage });
 
 function ClientsPage() {
+  const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["clients"], queryFn: () => listClients() });
+  const isMaster = actor.data?.kind === "cleaner";
   const [qtext, setQtext] = useState("");
   const filtered = useMemo(() => {
     const t = qtext.trim().toLowerCase();
@@ -27,11 +30,13 @@ function ClientsPage() {
         title="Clients"
         action={
           <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/app/data" search={{ kind: "clients" }}>
-                Download / Import
-              </Link>
-            </Button>
+            {isMaster ? (
+              <Button variant="outline" asChild>
+                <Link to="/app/data" search={{ kind: "clients" }}>
+                  Download / Import
+                </Link>
+              </Button>
+            ) : null}
             <Button asChild>
               <Link to="/app/clients/new">Add client</Link>
             </Button>

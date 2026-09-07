@@ -13,7 +13,7 @@ import {
   updateTeamMember,
 } from "@/lib/sweepbook/team";
 import { formatPayRate, type PayType } from "@/lib/sweepbook/team-pay";
-import type { TeamMember } from "@/lib/sweepbook/types";
+import { isOfficeActor, type OfficeRole, type TeamMember } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
@@ -31,17 +31,24 @@ function TeamPage() {
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [canMessage, setCanMessage] = useState(true);
+  const [inviteKind, setInviteKind] = useState<OfficeRole>("team");
+  const [canCharge, setCanCharge] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
   const [removing, setRemoving] = useState(false);
+  const isMaster = actor.data?.kind === "cleaner";
+  const canManageAdmins = Boolean(q.data?.canManageAdmins);
+  const canEditPay = Boolean(q.data?.canEditPay);
+  const canToggleAccountMessaging = Boolean(q.data?.canToggleAccountMessaging);
 
-  if (actor.data && actor.data.kind !== "cleaner") {
-    return <p className="text-muted">Only the account owner manages the team.</p>;
+  if (actor.data && !isOfficeActor(actor.data)) {
+    return <p className="text-muted">Only the office manages the team.</p>;
   }
 
   const members = q.data?.members ?? [];
+  const admins = q.data?.admins ?? [];
   const clients = q.data?.clients ?? [];
 
   return (
@@ -49,16 +56,18 @@ function TeamPage() {
       <PageHeader
         title="Team"
         action={
-          <div className="flex flex-wrap gap-2">
-            <Button variant="outline" asChild>
-              <Link to="/app/team-pay">Team pay</Link>
-            </Button>
-            <Button variant="outline" asChild>
-              <Link to="/app/data" search={{ kind: "team" }}>
-                Download / Import
-              </Link>
-            </Button>
-          </div>
+          isMaster ? (
+            <div className="flex flex-wrap gap-2">
+              <Button variant="outline" asChild>
+                <Link to="/app/team-pay">Team pay</Link>
+              </Button>
+              <Button variant="outline" asChild>
+                <Link to="/app/data" search={{ kind: "team" }}>
+                  Download / Import
+                </Link>
+              </Button>
+            </div>
+          ) : null
         }
       />
       <p className="max-w-xl text-sm text-muted">
@@ -73,29 +82,35 @@ function TeamPage() {
               : "Messaging for all team members is off."}
           </p>
         </div>
-        <Button
-          variant={q.data?.teamMessagingEnabled ? "primary" : "outline"}
-          onClick={async () => {
-            await setTeamMessaging({ data: !q.data?.teamMessagingEnabled });
-            await qc.invalidateQueries({ queryKey: ["team"] });
-            await qc.invalidateQueries({ queryKey: ["actor"] });
-            await qc.invalidateQueries({ queryKey: ["threads"] });
-            await qc.invalidateQueries({ queryKey: ["message-recipients"] });
-          }}
-        >
-          {q.data?.teamMessagingEnabled ? "On" : "Off"}
-        </Button>
+        {canToggleAccountMessaging ? (
+          <Button
+            variant={q.data?.teamMessagingEnabled ? "primary" : "outline"}
+            onClick={async () => {
+              await setTeamMessaging({ data: !q.data?.teamMessagingEnabled });
+              await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["actor"] });
+              await qc.invalidateQueries({ queryKey: ["threads"] });
+              await qc.invalidateQueries({ queryKey: ["message-recipients"] });
+            }}
+          >
+            {q.data?.teamMessagingEnabled ? "On" : "Off"}
+          </Button>
+        ) : (
+          <p className="text-sm text-muted">{q.data?.teamMessagingEnabled ? "On" : "Off"}</p>
+        )}
       </Card>
 
       <Card>
-        <h2 className="font-display text-lg text-navy">Add a cleaner</h2>
+        <h2 className="font-display text-lg text-navy">Add a person</h2>
         <form
           className="mt-3 grid gap-3 md:grid-cols-2"
           onSubmit={async (e) => {
             e.preventDefault();
             setBusy(true);
             try {
-              const res = await createTeamInvite({ data: { name, phone, email, canMessage } });
+              const res = await createTeamInvite({
+                data: { name, phone, email, canMessage, inviteKind, canCharge },
+              });
               const url = `${window.location.origin}${res.path}`;
               setInviteUrl(url);
               await navigator.clipboard?.writeText(url).catch(() => undefined);
@@ -103,6 +118,8 @@ function TeamPage() {
               setName("");
               setPhone("");
               setEmail("");
+              setCanCharge(false);
+              setInviteKind("team");
               await qc.invalidateQueries({ queryKey: ["team"] });
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Could not create invite.");
@@ -111,6 +128,17 @@ function TeamPage() {
             }
           }}
         >
+          {canManageAdmins ? (
+            <Field label="Role">
+              <NativeSelect
+                value={inviteKind}
+                onChange={(e) => setInviteKind(e.target.value === "admin" ? "admin" : "team")}
+              >
+                <option value="team">Team cleaner</option>
+                <option value="admin">Admin</option>
+              </NativeSelect>
+            </Field>
+          ) : null}
           <Field label="Name">
             <Input value={name} onChange={(e) => setName(e.target.value)} required />
           </Field>
@@ -120,10 +148,17 @@ function TeamPage() {
           <Field label="Email">
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
-          <label className="flex items-center gap-2 text-sm">
-            <input type="checkbox" checked={canMessage} onChange={(e) => setCanMessage(e.target.checked)} />
-            Can message clients
-          </label>
+          {inviteKind === "team" ? (
+            <label className="flex items-center gap-2 text-sm">
+              <input type="checkbox" checked={canMessage} onChange={(e) => setCanMessage(e.target.checked)} />
+              Can message clients
+            </label>
+          ) : (
+            <label className="flex items-center gap-2 text-sm md:col-span-2">
+              <input type="checkbox" checked={canCharge} onChange={(e) => setCanCharge(e.target.checked)} />
+              Can charge clients
+            </label>
+          )}
           <div className="flex flex-wrap gap-2 md:col-span-2">
             <Button
               type="button"
@@ -136,7 +171,7 @@ function TeamPage() {
                 }
                 setBusy(true);
                 try {
-                  await saveTeamMember({ data: { name, phone, email, canMessage } });
+                  await saveTeamMember({ data: { name, phone, email, canMessage, inviteKind, canCharge } });
                   toast.success("Saved to the team list.");
                   setName("");
                   setPhone("");
@@ -191,7 +226,7 @@ function TeamPage() {
                       ? `Clients: ${m.assigned_clients.map((c) => c.name).join(", ")}`
                       : "No clients assigned"}
                   </p>
-                  {m.pending ? null : (
+                  {m.pending || !canEditPay ? null : (
                     <p className="mt-1 text-xs text-muted">
                       Pay: {formatPayRate(m.pay_type ?? "none", m.pay_amount ?? 0)}
                     </p>
@@ -252,16 +287,80 @@ function TeamPage() {
         </div>
       </section>
 
+      {canManageAdmins ? (
+        <section>
+          <h2 className="font-display text-xl text-navy">Admins</h2>
+          <p className="mt-1 text-sm text-muted">
+            Office helpers can book clients and the calendar. Charge permission is off unless you turn it on.
+          </p>
+          <div className="mt-3 grid gap-2">
+            {admins.length === 0 ? (
+              <EmptyState title="No admins yet" body="Add an office helper above and choose Admin as the role." />
+            ) : (
+              admins.map((m) => (
+                <Card key={m.user_id} className="flex flex-wrap items-center justify-between gap-3 p-4">
+                  <div className="min-w-0">
+                    <p className="font-medium">{m.full_name}</p>
+                    <p className="text-xs text-muted">
+                      {m.email || m.phone || "No contact"} ·{" "}
+                      {m.pending ? (m.invite_sent ? "Invite pending" : "Saved") : m.team_status}
+                    </p>
+                    <p className="mt-1 text-xs text-muted">
+                      Can charge clients: {m.can_charge ? "On" : "Off"}
+                    </p>
+                    {m.invite_token ? (
+                      <p className="mt-1 break-all text-[11px] text-muted">
+                        {typeof window !== "undefined"
+                          ? `${window.location.origin}/team-invite/${m.invite_token}`
+                          : m.invite_token}
+                      </p>
+                    ) : null}
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {m.pending ? (
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={async () => {
+                          const res = await resendTeamInvite({ data: { inviteToken: m.invite_token } });
+                          const url = `${window.location.origin}${res.path}`;
+                          setInviteUrl(url);
+                          await navigator.clipboard?.writeText(url).catch(() => undefined);
+                          toast.success(m.invite_sent ? "Invite link copied." : "Invite sent. Link copied.");
+                          await qc.invalidateQueries({ queryKey: ["team"] });
+                        }}
+                      >
+                        {m.invite_sent ? "Resend invite" : "Send invite"}
+                      </Button>
+                    ) : (
+                      <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
+                        Edit
+                      </Button>
+                    )}
+                    <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(m)}>
+                      Remove
+                    </Button>
+                  </div>
+                </Card>
+              ))
+            )}
+          </div>
+        </section>
+      ) : null}
+
       <Dialog open={Boolean(editing)} onOpenChange={(o) => !o && setEditing(null)}>
         {editing ? (
           <EditMember
             member={editing}
             clients={clients}
+            canEditPay={canEditPay}
+            canEditCharge={canManageAdmins && editing.office_role === "admin"}
             onClose={() => setEditing(null)}
             onSaved={async () => {
               setEditing(null);
               await qc.invalidateQueries({ queryKey: ["team"] });
               await qc.invalidateQueries({ queryKey: ["jobs"] });
+              await qc.invalidateQueries({ queryKey: ["actor"] });
             }}
           />
         ) : null}
@@ -270,8 +369,8 @@ function TeamPage() {
       <ConfirmDialog
         open={Boolean(removeTarget)}
         onOpenChange={(o) => !o && setRemoveTarget(null)}
-        title="Remove team cleaner?"
-        body={`Are you sure you want to remove ${removeTarget?.full_name ?? "this cleaner"}? This cannot be undone.`}
+        title={removeTarget?.office_role === "admin" ? "Remove admin?" : "Remove team cleaner?"}
+        body={`Are you sure you want to remove ${removeTarget?.full_name ?? "this person"}? This cannot be undone.`}
         busy={removing}
         onConfirm={async () => {
           if (!removeTarget) return;
@@ -296,19 +395,25 @@ function TeamPage() {
 function EditMember({
   member,
   clients,
+  canEditPay,
+  canEditCharge,
   onClose,
   onSaved,
 }: {
   member: TeamMember;
   clients: { id: string; name: string }[];
+  canEditPay: boolean;
+  canEditCharge: boolean;
   onClose: () => void;
   onSaved: () => Promise<void>;
 }) {
+  const isAdminMember = member.office_role === "admin";
   const [fullName, setFullName] = useState(member.full_name);
   const [phone, setPhone] = useState(member.phone ?? "");
   const [email, setEmail] = useState(member.email ?? "");
   const [active, setActive] = useState(member.team_status !== "disabled");
   const [messaging, setMessaging] = useState(member.can_message);
+  const [charge, setCharge] = useState(Boolean(member.can_charge));
   const [assigned, setAssigned] = useState(member.assigned_clients.map((c) => c.id));
   const [payType, setPayType] = useState<PayType>(member.pay_type ?? "none");
   const [payDollars, setPayDollars] = useState(((member.pay_amount ?? 0) / 100).toFixed(2));
@@ -330,20 +435,25 @@ function EditMember({
                 fullName,
                 phone,
                 email,
-                canMessage: messaging,
+                canMessage: isAdminMember ? undefined : messaging,
                 status: active ? "active" : "disabled",
-                assignedClientIds: assigned,
-                payType,
-                payAmount:
-                  payType === "none"
-                    ? 0
-                    : payType === "percent"
-                      ? Math.round(Number(payPercent) || 0)
-                      : Math.round(Number(payDollars) * 100),
-                payNote,
+                assignedClientIds: isAdminMember ? undefined : assigned,
+                canCharge: canEditCharge ? charge : undefined,
+                ...(canEditPay && !isAdminMember
+                  ? {
+                      payType,
+                      payAmount:
+                        payType === "none"
+                          ? 0
+                          : payType === "percent"
+                            ? Math.round(Number(payPercent) || 0)
+                            : Math.round(Number(payDollars) * 100),
+                      payNote,
+                    }
+                  : {}),
               },
             });
-            toast.success("Team cleaner updated.");
+            toast.success(isAdminMember ? "Admin updated." : "Team cleaner updated.");
             await onSaved();
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not save.");
@@ -365,14 +475,22 @@ function EditMember({
           <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
           Active
         </label>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => setMessaging((v) => !v)}
-        >
-          Messaging: {messaging ? "On" : "Off"}
-        </Button>
-        {member.pending ? null : (
+        {canEditCharge ? (
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input type="checkbox" checked={charge} onChange={(e) => setCharge(e.target.checked)} />
+            Can charge clients
+          </label>
+        ) : null}
+        {isAdminMember ? null : (
+          <Button
+            type="button"
+            variant="outline"
+            onClick={() => setMessaging((v) => !v)}
+          >
+            Messaging: {messaging ? "On" : "Off"}
+          </Button>
+        )}
+        {member.pending || !canEditPay || isAdminMember ? null : (
           <div className="grid gap-3 rounded-xl bg-secondary p-3">
             <p className="text-sm font-medium">Pay rate</p>
             <p className="text-xs text-muted">Used on Team pay. This cleaner never sees the rate.</p>
@@ -412,6 +530,7 @@ function EditMember({
             </Field>
           </div>
         )}
+        {isAdminMember ? null : (
         <div>
           <p className="text-sm font-medium">Assigned clients</p>
           <p className="text-xs text-muted">Their recurring jobs appear on this cleaner’s schedule.</p>
@@ -431,6 +550,7 @@ function EditMember({
             })}
           </div>
         </div>
+        )}
         <Button
           type="button"
           variant="outline"

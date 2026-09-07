@@ -42,7 +42,7 @@ function SettingsPage() {
   const q = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const kind = q.data?.kind;
   const tabs: Tab[] =
-    kind === "cleaner" ? ["profile", "account", "billing"] : kind === "client" ? ["profile", "account", "billing"] : ["profile", "account"];
+    kind === "cleaner" || kind === "client" ? ["profile", "account", "billing"] : ["profile", "account"];
   const active: Tab = tabs.includes(tab) ? tab : "profile";
 
   function tabLabel(t: Tab) {
@@ -52,7 +52,7 @@ function SettingsPage() {
   }
 
   if (q.isPending) return <div className="h-32 animate-pulse rounded-xl bg-secondary" />;
-  if (kind !== "cleaner" && kind !== "team" && kind !== "client") {
+  if (kind !== "cleaner" && kind !== "admin" && kind !== "team" && kind !== "client") {
     return <p className="text-muted">Sign in to manage settings.</p>;
   }
 
@@ -80,7 +80,7 @@ function SettingsPage() {
             <MasterProfileSection />
             <MasterReminderSettings />
           </>
-        ) : kind === "team" ? (
+        ) : kind === "admin" || kind === "team" ? (
           <TeamProfileSection />
         ) : (
           <>
@@ -302,7 +302,7 @@ function ClientReminderSettings() {
 function TeamProfileSection() {
   const q = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const qc = useQueryClient();
-  const profile = q.data?.kind === "team" ? q.data.profile : null;
+  const profile = q.data?.kind === "team" || q.data?.kind === "admin" ? q.data.profile : null;
   const [fullName, setFullName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");

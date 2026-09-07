@@ -22,6 +22,7 @@ import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 export function JobPanel({
   id,
   canEdit,
+  canCharge = canEdit,
   isTeam,
   canMessage,
   actorKind,
@@ -31,6 +32,7 @@ export function JobPanel({
 }: {
   id: string;
   canEdit: boolean;
+  canCharge?: boolean;
   isTeam: boolean;
   canMessage: boolean;
   actorKind?: string;
@@ -53,7 +55,7 @@ export function JobPanel({
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
     queryFn: () => listCardsForClient({ data: q.data!.job.client_id }),
-    enabled: Boolean(q.data?.job.client_id) && canEdit,
+    enabled: Boolean(q.data?.job.client_id) && canCharge,
   });
 
   if (q.isPending) {
@@ -158,7 +160,7 @@ export function JobPanel({
             </Link>
           </Button>
           ) : null}
-          {canEdit ? (
+          {canCharge ? (
             <Button
               size="sm"
               onClick={() => {
@@ -173,7 +175,7 @@ export function JobPanel({
           {canEdit ? <ReminderTestButton jobId={job.id} size="sm" /> : null}
         </div>
 
-        {chargeOpen ? (
+        {chargeOpen && canCharge ? (
           <div className="grid gap-2 rounded-xl bg-secondary p-3">
             <p className="text-sm font-medium">Confirm charge</p>
             <Field label="Amount">

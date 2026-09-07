@@ -5,6 +5,7 @@ export const PROFILE_COLUMNS = `
   user_id, role, full_name, business_name, phone, email, address, cancellation_policy,
   default_duration_min, default_rate_cents, cleaner_kind, master_user_id, can_message,
   team_status, team_messaging_enabled, email_reminders, reminder_email_team,
+  coalesce(can_charge, false) as can_charge,
   plan_status, plan_price_cents,
   created_at::text as created_at
 `;
@@ -45,6 +46,7 @@ function normalizeProfile(row: Profile): Profile {
     team_messaging_enabled: asBool(row.team_messaging_enabled, true),
     email_reminders: asBool(row.email_reminders, true),
     reminder_email_team: asBool(row.reminder_email_team, false),
+    can_charge: asBool(row.can_charge, false),
     cleaner_kind: row.cleaner_kind || (row.role === "cleaner" ? "master" : null),
     plan_status: row.plan_status || "trial",
     plan_price_cents: Number(row.plan_price_cents || 1900),
@@ -61,6 +63,18 @@ export async function getActor(sql: Sql, userId: string): Promise<Actor> {
   const profile = normalizeProfile(raw);
 
   if (profile.role === "cleaner") {
+    if (profile.cleaner_kind === "admin") {
+      const masterId = profile.master_user_id || userId;
+      return {
+        kind: "admin",
+        userId,
+        profile,
+        masterUserId: masterId,
+        canCharge: asBool(profile.can_charge, false),
+        canMessage: true,
+        disabled: profile.team_status === "disabled",
+      };
+    }
     if (profile.cleaner_kind === "team" || profile.master_user_id) {
       const masterId = profile.master_user_id || userId;
       const masterRows = await sql.query<{ team_messaging_enabled: boolean }>(
@@ -102,14 +116,42 @@ export function assertCleaner(actor: Actor): asserts actor is Extract<Actor, { k
   }
 }
 
+export function isOffice(actor: Actor): actor is Extract<Actor, { kind: "cleaner" | "admin" }> {
+  return actor.kind === "cleaner" || actor.kind === "admin";
+}
+
+export function assertOffice(
+  actor: Actor,
+): asserts actor is Extract<Actor, { kind: "cleaner" | "admin" }> {
+  if (actor.kind === "admin" && actor.disabled) {
+    throw new Error("This admin login is disabled.");
+  }
+  if (actor.kind !== "cleaner" && actor.kind !== "admin") {
+    throw new Error("This action is only available to the office.");
+  }
+}
+
+export function canChargeClients(actor: Actor) {
+  if (actor.kind === "cleaner") return true;
+  if (actor.kind === "admin") return actor.canCharge && !actor.disabled;
+  return false;
+}
+
+export function assertCanCharge(actor: Actor) {
+  assertOffice(actor);
+  if (!canChargeClients(actor)) {
+    throw new Error("Charging is off for this admin login.");
+  }
+}
+
 export function assertStaff(
   actor: Actor,
-): asserts actor is Extract<Actor, { kind: "cleaner" | "team" }> {
-  if (actor.kind === "team" && actor.disabled) {
-    throw new Error("This team login is disabled.");
+): asserts actor is Extract<Actor, { kind: "cleaner" | "admin" | "team" }> {
+  if ((actor.kind === "team" || actor.kind === "admin") && actor.disabled) {
+    throw new Error("This login is disabled.");
   }
-  if (actor.kind !== "cleaner" && actor.kind !== "team") {
-    throw new Error("This action is only available to cleaners.");
+  if (actor.kind !== "cleaner" && actor.kind !== "admin" && actor.kind !== "team") {
+    throw new Error("This action is only available to the office or team.");
   }
 }
 
@@ -121,13 +163,14 @@ export function assertClient(actor: Actor): asserts actor is Extract<Actor, { ki
 
 export function masterUserId(actor: Actor): string {
   if (actor.kind === "cleaner") return actor.masterUserId;
+  if (actor.kind === "admin") return actor.masterUserId;
   if (actor.kind === "team") return actor.masterUserId;
   if (actor.kind === "client") return actor.client.cleaner_user_id;
   throw new Error("No business account on this login.");
 }
 
 export function canMessageClients(actor: Actor) {
-  if (actor.kind === "cleaner") return true;
+  if (actor.kind === "cleaner" || actor.kind === "admin") return true;
   if (actor.kind === "team") return actor.canMessage && !actor.disabled;
   return actor.kind === "client";
 }

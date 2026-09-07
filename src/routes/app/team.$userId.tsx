@@ -41,7 +41,7 @@ function TeamMemberSchedulePage() {
   const team = useQuery({
     queryKey: ["team"],
     queryFn: () => listTeam(),
-    enabled: actor.data?.kind === "cleaner",
+    enabled: actor.data?.kind === "cleaner" || actor.data?.kind === "admin",
   });
   const qc = useQueryClient();
   const [mode, setMode] = useState<CalView>(search.view ?? "month");
@@ -75,7 +75,7 @@ function TeamMemberSchedulePage() {
           assignedToUserId: userId,
         },
       }),
-    enabled: actor.data?.kind === "cleaner",
+    enabled: actor.data?.kind === "cleaner" || actor.data?.kind === "admin",
     refetchOnMount: "always",
   });
 
@@ -112,8 +112,10 @@ function TeamMemberSchedulePage() {
     </Button>
   );
 
-  if (actor.data && actor.data.kind !== "cleaner") {
-    return <p className="text-muted">Only the account owner can open a cleaner’s schedule.</p>;
+  const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
+  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
+  if (actor.data && !isOffice) {
+    return <p className="text-muted">Only the office can open a cleaner’s schedule.</p>;
   }
 
   if (team.isPending) {
@@ -173,9 +175,10 @@ function TeamMemberSchedulePage() {
           <JobPanel
             id={selectedId}
             canEdit
+            canCharge={Boolean(canCharge)}
             isTeam={false}
             canMessage
-            actorKind="cleaner"
+            actorKind={actor.data?.kind}
             actorUserId={actor.data?.userId}
             onClose={() => setSelectedId(null)}
             onChanged={async () => {

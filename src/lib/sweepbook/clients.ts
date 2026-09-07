@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCleaner, getActor } from "./access";
+import { assertOffice, canChargeClients, getActor, masterUserId } from "./access";
 import {
   applyAssigneesToClientRecurring,
   parseAssignees,
@@ -45,10 +45,11 @@ export const listClients = createServerFn({ method: "GET" })
     const sql = await getSql();
     await ensureDemoSeed(sql);
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const rows = await sql.query<ClientRow & { assignees_json?: unknown }>(
       `select ${CLIENT_SELECT} from clients where cleaner_user_id = $1 order by name asc`,
-      [context.userId],
+      [ownerId],
     );
     return rows.map(withAssignees);
   });
@@ -59,10 +60,11 @@ export const getClient = createServerFn({ method: "GET" })
   .handler(async ({ context, data: id }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    if (actor.kind === "cleaner") {
+    if (actor.kind === "cleaner" || actor.kind === "admin") {
+      const ownerId = masterUserId(actor);
       const rows = await sql.query<ClientRow & { assignees_json?: unknown }>(
         `select ${CLIENT_SELECT} from clients where id = $1 and cleaner_user_id = $2 limit 1`,
-        [id, context.userId],
+        [id, ownerId],
       );
       const client = rows[0] ? withAssignees(rows[0]) : null;
       if (!client) throw new Error("Client not found.");
@@ -71,31 +73,34 @@ export const getClient = createServerFn({ method: "GET" })
                duration_min, price_cents, notes, status, recurrence, series_id,
                cancel_reason, reschedule_note, tip_cents, tip_requested,
                created_at::text as created_at
-        from jobs where client_id = ${id} and cleaner_user_id = ${context.userId}
+        from jobs where client_id = ${id} and cleaner_user_id = ${ownerId}
         order by start_at desc limit 40
       `;
       const invoices = await sql<InvoiceRow>`
         select id, cleaner_user_id, client_id, job_id, amount_cents, description, status,
                method, kind, paid_at::text as paid_at, failure_reason, receipt_number,
                created_at::text as created_at
-        from invoices where client_id = ${id} and cleaner_user_id = ${context.userId}
+        from invoices where client_id = ${id} and cleaner_user_id = ${ownerId}
         order by created_at desc limit 20
       `;
-      const cards = await sql<CardRow>`
-        select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
-               holder_name, source, is_default, failing, created_at::text as created_at
-        from payment_cards where client_id = ${id} and cleaner_user_id = ${context.userId}
-        order by is_default desc, created_at desc
-      `;
+      const cards = canChargeClients(actor)
+        ? await sql<CardRow>`
+            select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
+                   holder_name, source, is_default, failing, created_at::text as created_at
+            from payment_cards where client_id = ${id} and cleaner_user_id = ${ownerId}
+            order by is_default desc, created_at desc
+          `
+        : [];
       const messages = await sql<MessageRow>`
         select id, cleaner_user_id, client_id, sender_role, body, created_at::text as created_at,
                read_at::text as read_at
-        from messages where client_id = ${id} and cleaner_user_id = ${context.userId}
+        from messages where client_id = ${id} and cleaner_user_id = ${ownerId}
         order by created_at desc limit 8
       `;
       const staff = await sql<{ user_id: string; full_name: string }>`
         select user_id, full_name from profiles
-        where master_user_id = ${context.userId} and coalesce(team_status, 'active') = 'active'
+        where master_user_id = ${ownerId} and coalesce(team_status, 'active') = 'active'
+          and coalesce(cleaner_kind, 'team') = 'team'
         order by full_name
       `;
       return { client, jobs, invoices, cards, messages, staff };
@@ -155,14 +160,15 @@ export const createClient = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const id = nid("client");
     await sql`
       insert into clients (
         id, cleaner_user_id, name, phone, email, address, access_notes, pets, supplies,
         default_price_cents, default_duration_min, usual_day, usual_time, frequency, notes
       ) values (
-        ${id}, ${context.userId}, ${data.name}, ${data.phone}, ${data.email}, ${data.address},
+        ${id}, ${ownerId}, ${data.name}, ${data.phone}, ${data.email}, ${data.address},
         ${data.access_notes}, ${data.pets}, ${data.supplies}, ${data.default_price_cents},
         ${data.default_duration_min}, ${data.usual_day}, ${data.usual_time}, ${data.frequency},
         ${data.notes}
@@ -177,7 +183,8 @@ export const updateClient = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     await sql`
       update clients set
         name = ${data.name},
@@ -193,7 +200,7 @@ export const updateClient = createServerFn({ method: "POST" })
         usual_time = ${data.usual_time},
         frequency = ${data.frequency},
         notes = ${data.notes}
-      where id = ${data.id} and cleaner_user_id = ${context.userId}
+      where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
     return { ok: true };
   });
@@ -204,9 +211,10 @@ export const setClientAssignees = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const owned = await sql<{ id: string; name: string }>`
-      select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${context.userId} limit 1
+      select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
     `;
     if (!owned[0]) throw new Error("Client not found.");
     const unique = [...new Set((data.userIds ?? []).filter(Boolean))];
@@ -231,9 +239,10 @@ export const deleteClient = createServerFn({ method: "POST" })
   .handler(async ({ context, data: id }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const owned = await sql<{ id: string; name: string }>`
-      select id, name from clients where id = ${id} and cleaner_user_id = ${context.userId} limit 1
+      select id, name from clients where id = ${id} and cleaner_user_id = ${ownerId} limit 1
     `;
     if (!owned[0]) throw new Error("Client not found.");
     await sql`delete from job_assignees where job_id in (select id from jobs where client_id = ${id})`;
@@ -245,7 +254,7 @@ export const deleteClient = createServerFn({ method: "POST" })
     await sql`delete from card_links where client_id = ${id}`;
     await sql`delete from notifications where client_id = ${id}`;
     await sql`delete from jobs where client_id = ${id}`;
-    await sql`delete from clients where id = ${id} and cleaner_user_id = ${context.userId}`;
+    await sql`delete from clients where id = ${id} and cleaner_user_id = ${ownerId}`;
     return { ok: true, name: owned[0].name };
   });
 
@@ -273,7 +282,8 @@ export const importClients = createServerFn({ method: "POST" })
   .handler(async ({ context, data: rows }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
 
     const imported: { id: string; name: string; missing: string[] }[] = [];
     let skipped = 0;
@@ -296,7 +306,7 @@ export const importClients = createServerFn({ method: "POST" })
           id, cleaner_user_id, name, phone, email, address, notes,
           usual_day, usual_time, frequency, default_price_cents
         ) values (
-          ${id}, ${context.userId}, ${name}, ${row.phone?.trim() || null},
+          ${id}, ${ownerId}, ${name}, ${row.phone?.trim() || null},
           ${row.email?.trim() || null}, ${row.address?.trim() || null},
           ${row.notes?.trim() || null}, ${row.usual_day?.trim().toLowerCase() || null},
           ${row.usual_time?.trim() || null}, ${row.frequency?.trim().toLowerCase() || null},

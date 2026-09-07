@@ -14,6 +14,9 @@ import {
   DEMO_TEAM2_EMAIL,
   DEMO_TEAM2_ID,
   DEMO_TEAM2_PASSWORD,
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_ID,
+  DEMO_ADMIN_PASSWORD,
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
 
@@ -48,6 +51,7 @@ async function ensureDemoAccounts(sql: Sql) {
   await insertUser(sql, DEMO_CLEANER_ID, "Maya Brooks", DEMO_CLEANER_EMAIL, DEMO_CLEANER_PASSWORD);
   await insertUser(sql, DEMO_CLIENT_USER_ID, "Cam Delgado", DEMO_CLIENT_EMAIL, DEMO_CLIENT_PASSWORD);
   await insertUser(sql, DEMO_TEAM_ID, "Lena Ruiz", DEMO_TEAM_EMAIL, DEMO_TEAM_PASSWORD);
+  await insertUser(sql, DEMO_ADMIN_ID, "Renee Cole", DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD);
 
   await sql`
     insert into profiles (
@@ -84,6 +88,20 @@ async function ensureDemoAccounts(sql: Sql) {
       and coalesce(pay_type, 'none') = 'none'
       and coalesce(pay_amount, 0) = 0
       and pay_note is null
+  `;
+  await sql`
+    insert into profiles (
+      user_id, role, full_name, phone, email, cleaner_kind, master_user_id,
+      can_message, team_status, can_charge
+    ) values (
+      ${DEMO_ADMIN_ID}, ${"cleaner"}, ${"Renee Cole"}, ${"(405) 555-0168"},
+      ${DEMO_ADMIN_EMAIL}, ${"admin"}, ${DEMO_CLEANER_ID}, ${true}, ${"active"}, ${false}
+    )
+    on conflict (user_id) do update set
+      cleaner_kind = 'admin',
+      master_user_id = ${DEMO_CLEANER_ID},
+      email = ${DEMO_ADMIN_EMAIL},
+      can_charge = coalesce(profiles.can_charge, false)
   `;
 }
 

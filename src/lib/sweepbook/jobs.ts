@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { JOB_FROM, JOB_SELECT, assertCleaner, assertClient, assertStaff, getActor, masterUserId } from "./access";
+import { JOB_FROM, JOB_SELECT, assertClient, assertOffice, assertStaff, getActor, isOffice, masterUserId } from "./access";
 import {
   applyAssigneesToClientRecurring,
   getClientAssigneeIds,
@@ -31,16 +31,18 @@ export const listJobs = createServerFn({ method: "GET" })
     const sql = await getSql();
     await ensureDemoSeed(sql);
     const actor = await getActor(sql, context.userId);
-    if (actor.kind === "cleaner") {
-      const params: unknown[] = [context.userId, data.from, data.to];
+    if (isOffice(actor)) {
+      const ownerId = masterUserId(actor);
+      const params: unknown[] = [ownerId, data.from, data.to];
       let assigneeSql = "";
-      // Master-only filter. Team / client callers ignore a client-sent id.
+      // Office-only filter. Team / client callers ignore a client-sent id.
       if (data.assignedToUserId) {
         const member = await sql.query<{ user_id: string }>(
           `select user_id from profiles
            where user_id = $1 and master_user_id = $2 and role = 'cleaner'
+             and coalesce(cleaner_kind, 'team') = 'team'
            limit 1`,
-          [data.assignedToUserId, context.userId],
+          [data.assignedToUserId, ownerId],
         );
         if (!member[0]) throw new Error("Team member not found.");
         params.push(data.assignedToUserId);
@@ -97,7 +99,7 @@ export const getJob = createServerFn({ method: "GET" })
     );
     const job = rows[0] ? hydrateJob(rows[0]) : null;
     if (!job) throw new Error("Visit not found.");
-    if (actor.kind === "cleaner" && job.cleaner_user_id !== context.userId) {
+    if (isOffice(actor) && job.cleaner_user_id !== masterUserId(actor)) {
       throw new Error("Visit not found.");
     }
     if (actor.kind === "team") {
@@ -117,6 +119,12 @@ export const getJob = createServerFn({ method: "GET" })
     const policy =
       actor.kind === "cleaner"
         ? actor.profile.cancellation_policy
+        : actor.kind === "admin"
+          ? (
+              await sql<{ cancellation_policy: string | null }>`
+                select cancellation_policy from profiles where user_id = ${job.cleaner_user_id} limit 1
+              `
+            )[0]?.cancellation_policy
         : (
             await sql<{ cancellation_policy: string | null }>`
               select cancellation_policy from profiles where user_id = ${job.cleaner_user_id} limit 1
@@ -125,6 +133,7 @@ export const getJob = createServerFn({ method: "GET" })
     const staff = await sql<{ user_id: string; full_name: string }>`
       select user_id, full_name from profiles
       where master_user_id = ${job.cleaner_user_id} and coalesce(team_status, 'active') = 'active'
+        and coalesce(cleaner_kind, 'team') = 'team'
       order by full_name
     `;
     const assigneeIds = [
@@ -366,12 +375,13 @@ export const checkJobConflicts = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const first = fromDatetimeLocalValue(data.startLocal);
     const starts = occurrenceStarts(first, data.recurrence || "none");
     const hits = await findConflictsForStarts(
       sql,
-      context.userId,
+      ownerId,
       starts,
       Number(data.durationMin) || 120,
       data.ignoreId,
@@ -386,7 +396,8 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const ids = [...new Set((data.assignedToUserIds ?? []).filter(Boolean))];
     const jobRows = await sql.query<{
       id: string;
@@ -398,7 +409,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
        from jobs
        where id = $1 and cleaner_user_id = $2
        limit 1`,
-      [data.jobId, context.userId],
+      [data.jobId, ownerId],
     );
     const job = jobRows[0];
     if (!job) throw new Error("Visit not found.");
@@ -414,7 +425,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
                and start_at >= now()
                and recurrence <> 'none'
              order by start_at asc`,
-            [context.userId, job.client_id],
+            [ownerId, job.client_id],
           )
         : [];
     const seen = new Set<string>([job.id]);
@@ -429,7 +440,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
       hits.push(
         ...(await findConflicts(
           sql,
-          context.userId,
+          ownerId,
           new Date(row.start_at),
           Number(row.duration_min),
           row.id,
@@ -446,9 +457,10 @@ export const createJob = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const clients = await sql<{ id: string; address: string | null; name: string }>`
-      select id, address, name from clients where id = ${data.clientId} and cleaner_user_id = ${context.userId} limit 1
+      select id, address, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
     `;
     const client = clients[0];
     if (!client) throw new Error("Client not found.");
@@ -460,7 +472,7 @@ export const createJob = createServerFn({ method: "POST" })
     const created: { id: string; start: string }[] = [];
     let conflictCount = 0;
     for (const start of starts) {
-      const hits = await findConflicts(sql, context.userId, start, data.durationMin, undefined, assigneeIds);
+      const hits = await findConflicts(sql, ownerId, start, data.durationMin, undefined, assigneeIds);
       if (hits.length) conflictCount += 1;
       const id = nid("job");
       await sql`
@@ -468,7 +480,7 @@ export const createJob = createServerFn({ method: "POST" })
           id, cleaner_user_id, client_id, service, address, start_at, duration_min,
           price_cents, notes, status, recurrence, series_id, assigned_to_user_id
         ) values (
-          ${id}, ${context.userId}, ${data.clientId}, ${data.service},
+          ${id}, ${ownerId}, ${data.clientId}, ${data.service},
           ${data.address || client.address}, ${start.toISOString()}, ${data.durationMin},
           ${data.priceCents}, ${data.notes ?? null}, ${"scheduled"}, ${data.recurrence}, ${seriesId},
           ${assigneeIds[0] ?? null}
@@ -500,7 +512,8 @@ export const updateJob = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const start = fromDatetimeLocalValue(data.startLocal);
     const assigneeIds = data.assignedToUserIds ?? [];
     await sql`
@@ -514,10 +527,10 @@ export const updateJob = createServerFn({ method: "POST" })
         notes = ${data.notes ?? null},
         status = ${data.status ?? "scheduled"},
         assigned_to_user_id = ${assigneeIds[0] ?? null}
-      where id = ${data.id} and cleaner_user_id = ${context.userId}
+      where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
     await replaceJobAssignees(sql, data.id, assigneeIds);
-    const hits = await findConflicts(sql, context.userId, start, data.durationMin, data.id, assigneeIds);
+    const hits = await findConflicts(sql, ownerId, start, data.durationMin, data.id, assigneeIds);
     return { ok: true, conflictCount: hits.length };
   });
 
@@ -527,9 +540,10 @@ export const assignJob = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const rows = await sql<{ id: string; client_id: string }>`
-      select id, client_id from jobs where id = ${data.id} and cleaner_user_id = ${context.userId} limit 1
+      select id, client_id from jobs where id = ${data.id} and cleaner_user_id = ${ownerId} limit 1
     `;
     const job = rows[0];
     if (!job) throw new Error("Visit not found.");
@@ -575,7 +589,7 @@ export const setJobStatus = createServerFn({ method: "POST" })
     if (actor.kind === "team") {
       throw new Error("Team cleaners cannot change visit status.");
     }
-    if (data.series && job.series_id && actor.kind === "cleaner") {
+    if (data.series && job.series_id && isOffice(actor)) {
       await sql`
         update jobs set status = ${data.status}, cancel_reason = ${data.reason ?? null}
         where series_id = ${job.series_id} and cleaner_user_id = ${ownerId}
