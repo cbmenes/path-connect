@@ -12,13 +12,14 @@ import {
   setTeamMessaging,
   updateTeamMember,
 } from "@/lib/sweepbook/team";
+import { formatPayRate, type PayType } from "@/lib/sweepbook/team-pay";
 import type { TeamMember } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
-import { Field, Input } from "@/components/ui/input";
+import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/team")({ component: TeamPage });
 
@@ -48,11 +49,16 @@ function TeamPage() {
       <PageHeader
         title="Team"
         action={
-          <Button variant="outline" asChild>
-            <Link to="/app/data" search={{ kind: "team" }}>
-              Download / Import
-            </Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/app/team-pay">Team pay</Link>
+            </Button>
+            <Button variant="outline" asChild>
+              <Link to="/app/data" search={{ kind: "team" }}>
+                Download / Import
+              </Link>
+            </Button>
+          </div>
         }
       />
       <p className="max-w-xl text-sm text-muted">
@@ -172,6 +178,11 @@ function TeamPage() {
                       ? `Clients: ${m.assigned_clients.map((c) => c.name).join(", ")}`
                       : "No clients assigned"}
                   </p>
+                  {m.pending ? null : (
+                    <p className="mt-1 text-xs text-muted">
+                      Pay: {formatPayRate(m.pay_type ?? "none", m.pay_amount ?? 0)}
+                    </p>
+                  )}
                   {m.invite_token ? (
                     <p className="mt-1 break-all text-[11px] text-muted">
                       {typeof window !== "undefined" ? `${window.location.origin}/team-invite/${m.invite_token}` : m.invite_token}
@@ -283,6 +294,10 @@ function EditMember({
   const [active, setActive] = useState(member.team_status !== "disabled");
   const [messaging, setMessaging] = useState(member.can_message);
   const [assigned, setAssigned] = useState(member.assigned_clients.map((c) => c.id));
+  const [payType, setPayType] = useState<PayType>(member.pay_type ?? "none");
+  const [payDollars, setPayDollars] = useState(((member.pay_amount ?? 0) / 100).toFixed(2));
+  const [payPercent, setPayPercent] = useState(String(member.pay_type === "percent" ? member.pay_amount ?? 0 : 0));
+  const [payNote, setPayNote] = useState(member.pay_note ?? "");
   const [busy, setBusy] = useState(false);
 
   return (
@@ -302,6 +317,14 @@ function EditMember({
                 canMessage: messaging,
                 status: active ? "active" : "disabled",
                 assignedClientIds: assigned,
+                payType,
+                payAmount:
+                  payType === "none"
+                    ? 0
+                    : payType === "percent"
+                      ? Math.round(Number(payPercent) || 0)
+                      : Math.round(Number(payDollars) * 100),
+                payNote,
               },
             });
             toast.success("Team cleaner updated.");
@@ -333,6 +356,46 @@ function EditMember({
         >
           Messaging: {messaging ? "On" : "Off"}
         </Button>
+        {member.pending ? null : (
+          <div className="grid gap-3 rounded-xl bg-secondary p-3">
+            <p className="text-sm font-medium">Pay rate</p>
+            <p className="text-xs text-muted">Used on Team pay. This cleaner never sees the rate.</p>
+            <Field label="Pay type">
+              <NativeSelect value={payType} onChange={(e) => setPayType(e.target.value as PayType)}>
+                <option value="none">None</option>
+                <option value="hourly">Hourly</option>
+                <option value="per_job">Per job</option>
+                <option value="percent">Percent of job price</option>
+              </NativeSelect>
+            </Field>
+            {payType === "hourly" || payType === "per_job" ? (
+              <Field label={payType === "hourly" ? "Hourly rate" : "Per-job rate"}>
+                <Input
+                  type="number"
+                  min={0}
+                  step="0.01"
+                  value={payDollars}
+                  onChange={(e) => setPayDollars(e.target.value)}
+                />
+              </Field>
+            ) : null}
+            {payType === "percent" ? (
+              <Field label="Percent of job price">
+                <Input
+                  type="number"
+                  min={0}
+                  max={100}
+                  step={1}
+                  value={payPercent}
+                  onChange={(e) => setPayPercent(e.target.value)}
+                />
+              </Field>
+            ) : null}
+            <Field label="Note (optional)">
+              <Textarea value={payNote} onChange={(e) => setPayNote(e.target.value)} />
+            </Field>
+          </div>
+        )}
         <div>
           <p className="text-sm font-medium">Assigned clients</p>
           <p className="text-xs text-muted">Their recurring jobs appear on this cleaner’s schedule.</p>

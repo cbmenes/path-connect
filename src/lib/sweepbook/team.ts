@@ -5,6 +5,7 @@ import { PROFILE_COLUMNS, assertCleaner, getActor } from "./access";
 import { addMemberToClient, removeMemberFromClient } from "./assignees";
 import { ensureDemoSeed } from "./seed";
 import { nid } from "./time";
+import { parsePayType, type PayType } from "./team-pay";
 import type { Profile, TeamMember, TeamStatus } from "./types";
 
 function parseClientRefs(raw: unknown): { id: string; name: string }[] {
@@ -31,6 +32,9 @@ export const listTeam = createServerFn({ method: "GET" })
     const members = await sql.query<TeamMember & { assigned_json?: unknown }>(
       `select user_id, full_name, phone, email, can_message, coalesce(team_status, 'active') as team_status,
               false as pending,
+              coalesce(pay_type, 'none') as pay_type,
+              coalesce(pay_amount, 0)::int as pay_amount,
+              pay_note,
               (select coalesce(json_agg(json_build_object('id', c.id, 'name', c.name) order by c.name), '[]'::json)
                  from client_assignees ca join clients c on c.id = ca.client_id
                  where ca.user_id = profiles.user_id) as assigned_json
@@ -63,7 +67,12 @@ export const listTeam = createServerFn({ method: "GET" })
         }),
         ...members.map((m) => {
           const { assigned_json: _ignored, ...rest } = m;
-          return { ...rest, assigned_clients: parseClientRefs(m.assigned_json) };
+          return {
+            ...rest,
+            pay_type: parsePayType(rest.pay_type),
+            pay_amount: Number(rest.pay_amount || 0),
+            assigned_clients: parseClientRefs(m.assigned_json),
+          };
         }),
       ],
       clients,
@@ -240,6 +249,9 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     canMessage?: boolean;
     status?: TeamStatus;
     assignedClientIds?: string[];
+    payType?: PayType;
+    payAmount?: number;
+    payNote?: string;
   }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -268,6 +280,18 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     }
     if (data.status) {
       await sql`update profiles set team_status = ${data.status} where user_id = ${data.userId}`;
+    }
+    if (data.payType !== undefined) {
+      const payType = parsePayType(data.payType);
+      let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));
+      if (payType === "none") payAmount = 0;
+      if (payType === "percent") payAmount = Math.min(100, payAmount);
+      const payNote = data.payNote?.trim() || null;
+      await sql`
+        update profiles
+        set pay_type = ${payType}, pay_amount = ${payAmount}, pay_note = ${payNote}
+        where user_id = ${data.userId} and master_user_id = ${context.userId}
+      `;
     }
     if (data.assignedClientIds) {
       const owned = await sql<{ id: string }>`

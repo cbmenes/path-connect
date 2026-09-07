@@ -12,6 +12,7 @@ import {
   Settings,
   Users,
   UserRound,
+  Wallet,
 } from "lucide-react";
 import { signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
@@ -103,6 +104,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
           {isMaster ? (
             <>
               <NavLink item={{ to: "/app/team", label: "Team", icon: UserRound }} pathname={pathname} dark />
+              <NavLink item={{ to: "/app/team-pay", label: "Team pay", icon: Wallet }} pathname={pathname} dark />
               <NavLink item={{ to: "/app/data", label: "Data", icon: FileSpreadsheet }} pathname={pathname} dark />
               <NavLink item={{ to: "/app/settings", label: "Settings", icon: Settings }} pathname={pathname} dark />
             </>

@@ -4,6 +4,8 @@ export type CleanerKind = "master" | "team";
 
 export type TeamStatus = "pending" | "active" | "disabled";
 
+export type PayType = "none" | "hourly" | "per_job" | "percent";
+
 export type Frequency = "none" | "weekly" | "biweekly" | "monthly" | "one-off";
 
 export type JobStatus = "scheduled" | "completed" | "cancelled" | "reschedule_requested";
@@ -197,6 +199,9 @@ export type TeamMember = {
   invite_sent?: boolean;
   invite_token?: string;
   assigned_clients: { id: string; name: string }[];
+  pay_type?: PayType;
+  pay_amount?: number;
+  pay_note?: string | null;
 };
 
 export type BillingMethod = {

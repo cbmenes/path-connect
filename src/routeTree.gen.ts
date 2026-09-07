@@ -31,6 +31,7 @@ import { Route as AppPaymentsRouteImport } from './routes/app/payments'
 import { Route as AppReceiptsRouteImport } from './routes/app/receipts'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppTeamRouteImport } from './routes/app/team'
+import { Route as AppTeamPayRouteImport } from './routes/app/team-pay'
 import { Route as AppVisitsRouteImport } from './routes/app/visits'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
@@ -154,6 +155,11 @@ const AppTeamRoute = AppTeamRouteImport.update({
   path: '/team',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTeamPayRoute = AppTeamPayRouteImport.update({
+  id: '/team-pay',
+  path: '/team-pay',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppVisitsRoute = AppVisitsRouteImport.update({
   id: '/visits',
   path: '/visits',
@@ -237,6 +243,7 @@ export interface FileRoutesByFullPath {
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
+  '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
@@ -270,6 +277,7 @@ export interface FileRoutesByTo {
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
+  '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
@@ -307,6 +315,7 @@ export interface FileRoutesById {
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
   '/app/team': typeof AppTeamRoute
+  '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
@@ -345,6 +354,7 @@ export interface FileRouteTypes {
     | '/app/receipts'
     | '/app/settings'
     | '/app/team'
+    | '/app/team-pay'
     | '/app/visits'
     | '/invite/$token'
     | '/team-invite/$token'
@@ -378,6 +388,7 @@ export interface FileRouteTypes {
     | '/app/receipts'
     | '/app/settings'
     | '/app/team'
+    | '/app/team-pay'
     | '/app/visits'
     | '/invite/$token'
     | '/team-invite/$token'
@@ -414,6 +425,7 @@ export interface FileRouteTypes {
     | '/app/receipts'
     | '/app/settings'
     | '/app/team'
+    | '/app/team-pay'
     | '/app/visits'
     | '/invite/$token'
     | '/team-invite/$token'
@@ -602,6 +614,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/team-pay': {
+      id: '/app/team-pay'
+      path: '/team-pay'
+      fullPath: '/app/team-pay'
+      preLoaderRoute: typeof AppTeamPayRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/visits': {
       id: '/app/visits'
       path: '/visits'
@@ -732,6 +751,7 @@ interface AppRouteChildren {
   AppReceiptsRoute: typeof AppReceiptsRoute
   AppSettingsRoute: typeof AppSettingsRoute
   AppTeamRoute: typeof AppTeamRoute
+  AppTeamPayRoute: typeof AppTeamPayRoute
   AppVisitsRoute: typeof AppVisitsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppJobsIdRoute: typeof AppJobsIdRoute
@@ -749,6 +769,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppReceiptsRoute: AppReceiptsRoute,
   AppSettingsRoute: AppSettingsRoute,
   AppTeamRoute: AppTeamRoute,
+  AppTeamPayRoute: AppTeamPayRoute,
   AppVisitsRoute: AppVisitsRoute,
   AppIndexRoute: AppIndexRoute,
   AppJobsIdRoute: AppJobsIdRoute,

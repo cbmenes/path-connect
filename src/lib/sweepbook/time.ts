@@ -191,6 +191,21 @@ export function startOfChicagoWeek(d: Date | string) {
   return addDaysChicago(start, -new Date(utc).getUTCDay());
 }
 
+/** Monday of the current Chicago week (Mon–Sun pay period). */
+export function startOfChicagoMonday(d: Date | string) {
+  const start = startOfChicagoDay(d);
+  const p = partsInChicago(start);
+  const dow = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  return addDaysChicago(start, mondayOffset);
+}
+
+export function chicagoPayWeek(now = new Date()) {
+  const from = startOfChicagoMonday(now);
+  const to = addDaysChicago(from, 6);
+  return { from: chicagoDayKey(from), to: chicagoDayKey(to) };
+}
+
 export function startOfChicagoMonth(d: Date | string) {
   const p = partsInChicago(d);
   return chicagoDate(p.year, p.month, 1, 0, 0);

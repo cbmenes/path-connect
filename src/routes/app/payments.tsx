@@ -159,7 +159,14 @@ function PaymentsPage() {
 
   return (
     <div className="grid gap-6">
-      <PageHeader title="Payments" />
+      <PageHeader
+        title="Payments"
+        action={
+          <Button variant="outline" asChild>
+            <Link to="/app/team-pay">Team pay</Link>
+          </Button>
+        }
+      />
       <Card className="grid gap-3">
         <h2 className="font-display text-xl text-navy">Totals</h2>
         <DateRangeBar {...totalsRange} />

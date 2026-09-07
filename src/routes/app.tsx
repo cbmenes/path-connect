@@ -31,6 +31,7 @@ function AppLayout() {
       pathname.startsWith("/app/clients") ||
       pathname.startsWith("/app/payments") ||
       pathname.startsWith("/app/team") ||
+      pathname.startsWith("/app/team-pay") ||
       pathname.startsWith("/app/data") ||
       pathname.startsWith("/app/jobs/new")
     ) {

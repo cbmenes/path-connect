@@ -69,12 +69,21 @@ async function ensureDemoAccounts(sql: Sql) {
   await sql`
     insert into profiles (
       user_id, role, full_name, phone, email, cleaner_kind, master_user_id,
-      can_message, team_status
+      can_message, team_status, pay_type, pay_amount, pay_note
     ) values (
       ${DEMO_TEAM_ID}, ${"cleaner"}, ${"Lena Ruiz"}, ${"(405) 555-0160"},
-      ${DEMO_TEAM_EMAIL}, ${"team"}, ${DEMO_CLEANER_ID}, ${true}, ${"active"}
+      ${DEMO_TEAM_EMAIL}, ${"team"}, ${DEMO_CLEANER_ID}, ${true}, ${"active"},
+      ${"hourly"}, ${2500}, ${"Demo: $25/hr"}
     )
     on conflict (user_id) do nothing
+  `;
+  await sql`
+    update profiles
+    set pay_type = ${"hourly"}, pay_amount = ${2500}, pay_note = ${"Demo: $25/hr"}
+    where user_id = ${DEMO_TEAM_ID}
+      and coalesce(pay_type, 'none') = 'none'
+      and coalesce(pay_amount, 0) = 0
+      and pay_note is null
   `;
 }
 
@@ -439,10 +448,11 @@ async function seedV2(sql: Sql) {
     await sql`
       insert into profiles (
         user_id, role, full_name, phone, email, cleaner_kind, master_user_id,
-        can_message, team_status
+        can_message, team_status, pay_type, pay_amount, pay_note
       ) values (
         ${DEMO_TEAM_ID}, ${"cleaner"}, ${"Lena Ruiz"}, ${"(405) 555-0160"},
-        ${DEMO_TEAM_EMAIL}, ${"team"}, ${DEMO_CLEANER_ID}, ${true}, ${"active"}
+        ${DEMO_TEAM_EMAIL}, ${"team"}, ${DEMO_CLEANER_ID}, ${true}, ${"active"},
+        ${"hourly"}, ${2500}, ${"Demo: $25/hr"}
       )
       on conflict (user_id) do nothing
     `;
