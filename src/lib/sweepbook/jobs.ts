@@ -26,17 +26,38 @@ export type ConflictHit = {
 
 export const listJobs = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .validator((input: { from: string; to: string }) => input)
+  .validator((input: { from: string; to: string; assignedToUserId?: string }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await ensureDemoSeed(sql);
     const actor = await getActor(sql, context.userId);
     if (actor.kind === "cleaner") {
+      const params: unknown[] = [context.userId, data.from, data.to];
+      let assigneeSql = "";
+      // Master-only filter. Team / client callers ignore a client-sent id.
+      if (data.assignedToUserId) {
+        const member = await sql.query<{ user_id: string }>(
+          `select user_id from profiles
+           where user_id = $1 and master_user_id = $2 and role = 'cleaner'
+           limit 1`,
+          [data.assignedToUserId, context.userId],
+        );
+        if (!member[0]) throw new Error("Team member not found.");
+        params.push(data.assignedToUserId);
+        assigneeSql = `and (
+            exists (select 1 from job_assignees ja where ja.job_id = j.id and ja.user_id = $4)
+            or (
+              not exists (select 1 from job_assignees ja2 where ja2.job_id = j.id)
+              and j.assigned_to_user_id = $4
+            )
+          )`;
+      }
       const rows = await sql.query<JobWithClient & { assignees_json?: unknown }>(
         `select ${JOB_SELECT} from ${JOB_FROM}
          where j.cleaner_user_id = $1 and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
+         ${assigneeSql}
          order by j.start_at asc`,
-        [context.userId, data.from, data.to],
+        params,
       );
       return rows.map(hydrateJob);
     }

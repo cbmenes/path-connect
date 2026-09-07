@@ -44,6 +44,8 @@ import { Route as AppJobsIdRouteImport } from './routes/app/jobs.$id'
 import { Route as AppJobsNewRouteImport } from './routes/app/jobs.new'
 import { Route as AppMessagesIndexRouteImport } from './routes/app/messages.index'
 import { Route as AppMessagesClientIdRouteImport } from './routes/app/messages.$clientId'
+import { Route as AppTeamIndexRouteImport } from './routes/app/team.index'
+import { Route as AppTeamUserIdRouteImport } from './routes/app/team.$userId'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -220,6 +222,16 @@ const AppMessagesClientIdRoute = AppMessagesClientIdRouteImport.update({
   path: '/$clientId',
   getParentRoute: () => AppMessagesRoute,
 } as any)
+const AppTeamIndexRoute = AppTeamIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppTeamRoute,
+} as any)
+const AppTeamUserIdRoute = AppTeamUserIdRouteImport.update({
+  id: '/$userId',
+  path: '/$userId',
+  getParentRoute: () => AppTeamRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -242,7 +254,7 @@ export interface FileRoutesByFullPath {
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
-  '/app/team': typeof AppTeamRoute
+  '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -255,8 +267,10 @@ export interface FileRoutesByFullPath {
   '/app/jobs/$id': typeof AppJobsIdRoute
   '/app/jobs/new': typeof AppJobsNewRoute
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
+  '/app/team/$userId': typeof AppTeamUserIdRoute
   '/app/clients/': typeof AppClientsIndexRoute
   '/app/messages/': typeof AppMessagesIndexRoute
+  '/app/team/': typeof AppTeamIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -276,7 +290,6 @@ export interface FileRoutesByTo {
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
-  '/app/team': typeof AppTeamRoute
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -289,8 +302,10 @@ export interface FileRoutesByTo {
   '/app/jobs/$id': typeof AppJobsIdRoute
   '/app/jobs/new': typeof AppJobsNewRoute
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
+  '/app/team/$userId': typeof AppTeamUserIdRoute
   '/app/clients': typeof AppClientsIndexRoute
   '/app/messages': typeof AppMessagesIndexRoute
+  '/app/team': typeof AppTeamIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -314,7 +329,7 @@ export interface FileRoutesById {
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
-  '/app/team': typeof AppTeamRoute
+  '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -327,8 +342,10 @@ export interface FileRoutesById {
   '/app/jobs/$id': typeof AppJobsIdRoute
   '/app/jobs/new': typeof AppJobsNewRoute
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
+  '/app/team/$userId': typeof AppTeamUserIdRoute
   '/app/clients/': typeof AppClientsIndexRoute
   '/app/messages/': typeof AppMessagesIndexRoute
+  '/app/team/': typeof AppTeamIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -366,8 +383,10 @@ export interface FileRouteTypes {
     | '/app/jobs/$id'
     | '/app/jobs/new'
     | '/app/messages/$clientId'
+    | '/app/team/$userId'
     | '/app/clients/'
     | '/app/messages/'
+    | '/app/team/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -387,7 +406,6 @@ export interface FileRouteTypes {
     | '/app/payments'
     | '/app/receipts'
     | '/app/settings'
-    | '/app/team'
     | '/app/team-pay'
     | '/app/visits'
     | '/invite/$token'
@@ -400,8 +418,10 @@ export interface FileRouteTypes {
     | '/app/jobs/$id'
     | '/app/jobs/new'
     | '/app/messages/$clientId'
+    | '/app/team/$userId'
     | '/app/clients'
     | '/app/messages'
+    | '/app/team'
   id:
     | '__root__'
     | '/'
@@ -437,8 +457,10 @@ export interface FileRouteTypes {
     | '/app/jobs/$id'
     | '/app/jobs/new'
     | '/app/messages/$clientId'
+    | '/app/team/$userId'
     | '/app/clients/'
     | '/app/messages/'
+    | '/app/team/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -705,6 +727,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMessagesClientIdRouteImport
       parentRoute: typeof AppMessagesRoute
     }
+    '/app/team/': {
+      id: '/app/team/'
+      path: '/'
+      fullPath: '/app/team/'
+      preLoaderRoute: typeof AppTeamIndexRouteImport
+      parentRoute: typeof AppTeamRoute
+    }
+    '/app/team/$userId': {
+      id: '/app/team/$userId'
+      path: '/$userId'
+      fullPath: '/app/team/$userId'
+      preLoaderRoute: typeof AppTeamUserIdRouteImport
+      parentRoute: typeof AppTeamRoute
+    }
   }
 }
 
@@ -740,6 +776,19 @@ const AppMessagesRouteWithChildren = AppMessagesRoute._addFileChildren(
   AppMessagesRouteChildren,
 )
 
+interface AppTeamRouteChildren {
+  AppTeamUserIdRoute: typeof AppTeamUserIdRoute
+  AppTeamIndexRoute: typeof AppTeamIndexRoute
+}
+
+const AppTeamRouteChildren: AppTeamRouteChildren = {
+  AppTeamUserIdRoute: AppTeamUserIdRoute,
+  AppTeamIndexRoute: AppTeamIndexRoute,
+}
+
+const AppTeamRouteWithChildren =
+  AppTeamRoute._addFileChildren(AppTeamRouteChildren)
+
 interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
   AppCardRoute: typeof AppCardRoute
@@ -750,7 +799,7 @@ interface AppRouteChildren {
   AppPaymentsRoute: typeof AppPaymentsRoute
   AppReceiptsRoute: typeof AppReceiptsRoute
   AppSettingsRoute: typeof AppSettingsRoute
-  AppTeamRoute: typeof AppTeamRoute
+  AppTeamRoute: typeof AppTeamRouteWithChildren
   AppTeamPayRoute: typeof AppTeamPayRoute
   AppVisitsRoute: typeof AppVisitsRoute
   AppIndexRoute: typeof AppIndexRoute
@@ -768,7 +817,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppPaymentsRoute: AppPaymentsRoute,
   AppReceiptsRoute: AppReceiptsRoute,
   AppSettingsRoute: AppSettingsRoute,
-  AppTeamRoute: AppTeamRoute,
+  AppTeamRoute: AppTeamRouteWithChildren,
   AppTeamPayRoute: AppTeamPayRoute,
   AppVisitsRoute: AppVisitsRoute,
   AppIndexRoute: AppIndexRoute,
