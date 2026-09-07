@@ -16,6 +16,14 @@ import { ensureDemoSeed } from "./seed";
 import { addDaysChicago, addMinutes, chicagoDate, fromDatetimeLocalValue, formatDateTime, hoursUntil, nid, partsInChicago } from "./time";
 import type { JobRow, JobWithClient, Recurrence } from "./types";
 
+export type ConflictHit = {
+  cleanerUserId: string;
+  cleanerName: string;
+  otherJobId: string;
+  otherClientName: string;
+  otherStartAt: string;
+};
+
 export const listJobs = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .validator((input: { from: string; to: string }) => input)
@@ -98,7 +106,35 @@ export const getJob = createServerFn({ method: "GET" })
       where master_user_id = ${job.cleaner_user_id} and coalesce(team_status, 'active') = 'active'
       order by full_name
     `;
-    return { job: visible, cancellationPolicy: policy ?? null, hoursUntil: hoursUntil(job.start_at), staff };
+    const assigneeIds = [
+      ...new Set(
+        [
+          ...(job.assignees ?? []).map((a) => a.user_id),
+          job.assigned_to_user_id,
+        ].filter((id): id is string => Boolean(id)),
+      ),
+    ];
+    const overlapIds =
+      actor.kind === "team" ? assigneeIds.filter((id) => id === context.userId) : assigneeIds;
+    const overlaps =
+      actor.kind === "client" || job.status === "cancelled" || !overlapIds.length
+        ? ([] as ConflictHit[])
+        : await findConflicts(
+            sql,
+            job.cleaner_user_id,
+            new Date(job.start_at),
+            job.duration_min,
+            job.id,
+            overlapIds,
+            { excludeCancelledOnly: true },
+          );
+    return {
+      job: visible,
+      cancellationPolicy: policy ?? null,
+      hoursUntil: hoursUntil(job.start_at),
+      staff,
+      overlaps,
+    };
   });
 
 export type JobInput = {
@@ -140,14 +176,6 @@ function parseJobInput(input: JobInput): JobInput {
     assignedToUserIds,
   };
 }
-
-export type ConflictHit = {
-  cleanerUserId: string;
-  cleanerName: string;
-  otherJobId: string;
-  otherClientName: string;
-  otherStartAt: string;
-};
 
 async function loadAssigneeMap(sql: Awaited<ReturnType<typeof getSql>>, jobIds: string[]) {
   const map = new Map<string, string[]>();
@@ -203,12 +231,16 @@ async function findConflicts(
   durationMin: number,
   ignoreId?: string,
   assignedTo?: string[],
+  opts?: { excludeCancelledOnly?: boolean },
 ): Promise<ConflictHit[]> {
   const mine = [...new Set((assignedTo ?? []).filter(Boolean))];
   if (!mine.length) return [];
   const end = addMinutes(start, durationMin);
   const windowStart = addMinutes(start, -8 * 60);
   const windowEnd = addMinutes(end, 8 * 60);
+  const statusSql = opts?.excludeCancelledOnly
+    ? "and j.status <> 'cancelled'"
+    : "and j.status in ('scheduled', 'reschedule_requested')";
   const nearby = await sql.query<{
     id: string;
     start_at: string;
@@ -220,7 +252,7 @@ async function findConflicts(
      from jobs j
      join clients c on c.id = j.client_id
      where j.cleaner_user_id = $1
-       and j.status in ('scheduled', 'reschedule_requested')
+       ${statusSql}
        and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
        ${ignoreId ? "and j.id <> $4" : ""}`,
     ignoreId

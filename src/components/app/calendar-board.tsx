@@ -1,3 +1,4 @@
+import { useMemo } from "react";
 import { ChevronLeft, ChevronRight } from "lucide-react";
 import {
   addDaysChicago,
@@ -14,9 +15,11 @@ import {
 } from "@/lib/sweepbook/time";
 import type { JobWithClient } from "@/lib/sweepbook/types";
 import { assigneeLabel } from "@/components/app/assignee-picker";
+import { TileOverlapBadge, jobOverlapTitle } from "@/components/app/overlap-mark";
 import { TilePayBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
+import { indexOverlaps, type OverlapNote } from "@/lib/sweepbook/overlaps";
 
 export type CalView = "day" | "week" | "month";
 
@@ -85,6 +88,21 @@ function jobsOnDay(jobs: JobWithClient[], day: Date) {
   return jobs.filter((j) => sameChicagoDay(j.start_at, day));
 }
 
+function notesFor(index: Map<string, OverlapNote[]> | undefined, jobId: string) {
+  return index?.get(jobId) ?? [];
+}
+
+function preferOverlapTiles(
+  list: JobWithClient[],
+  index: Map<string, OverlapNote[]> | undefined,
+  limit: number,
+) {
+  if (!index || list.length <= limit) return list.slice(0, limit);
+  const flagged = list.filter((j) => notesFor(index, j.id).length);
+  const rest = list.filter((j) => !notesFor(index, j.id).length);
+  return [...flagged, ...rest].slice(0, limit);
+}
+
 function jobTitle(job: JobWithClient, named: "client" | "service") {
   return named === "service" ? job.service : job.client_name;
 }
@@ -137,6 +155,7 @@ export function WeekGrid({
   canAdd,
   onEmpty,
   onJob,
+  overlapIndex,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -145,6 +164,7 @@ export function WeekGrid({
   canAdd: boolean;
   onEmpty: (dt: Date) => void;
   onJob: (j: JobWithClient) => void;
+  overlapIndex?: Map<string, OverlapNote[]>;
 }) {
   const hours = Array.from({ length: 13 }, (_, i) => i + 7);
   return (
@@ -189,10 +209,12 @@ export function WeekGrid({
               const top = ((p.hour + p.minute / 60 - 7) / 13) * 100;
               const height = (j.duration_min / 60 / 13) * 100;
               const cancelled = j.status === "cancelled";
+              const notes = notesFor(overlapIndex, j.id);
               return (
                 <button
                   key={j.id}
                   type="button"
+                  title={jobOverlapTitle(notes)}
                   onClick={(e) => {
                     e.stopPropagation();
                     onJob(j);
@@ -200,6 +222,7 @@ export function WeekGrid({
                   className={cn(
                     "absolute inset-x-1 overflow-hidden rounded-md px-1.5 py-1 text-left text-paper",
                     cancelled ? "bg-navy/55" : "bg-navy",
+                    notes.length ? "ring-2 ring-warn" : "",
                   )}
                   style={{ top: `${Math.max(0, top)}%`, height: `${Math.max(8, height)}%` }}
                 >
@@ -212,7 +235,10 @@ export function WeekGrid({
                         ? ` · ${j.assignee_name.split(" ")[0]}`
                         : ""}
                   </p>
-                  {showPay ? <TilePayBadge job={j} invert /> : cancelled ? <TilePayBadge job={j} invert /> : null}
+                  <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                    {notes.length ? <TileOverlapBadge invert /> : null}
+                    {showPay ? <TilePayBadge job={j} invert /> : cancelled ? <TilePayBadge job={j} invert /> : null}
+                  </span>
                 </button>
               );
             })}
@@ -231,6 +257,7 @@ export function MonthGrid({
   canAdd,
   onEmpty,
   onJob,
+  overlapIndex,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -239,6 +266,7 @@ export function MonthGrid({
   canAdd: boolean;
   onEmpty: (day: Date) => void;
   onJob: (j: JobWithClient) => void;
+  overlapIndex?: Map<string, OverlapNote[]>;
 }) {
   const month = partsInChicago(days[15] ?? days[0]).month;
   return (
@@ -266,13 +294,24 @@ export function MonthGrid({
                 today && "bg-sage-soft",
               )}
             >
-              <span className={cn("text-xs font-medium", today && "text-navy")}>{partsInChicago(d).day}</span>
+              <span className="flex items-center justify-between gap-1">
+                <span className={cn("text-xs font-medium", today && "text-navy")}>{partsInChicago(d).day}</span>
+                {list.some((j) => notesFor(overlapIndex, j.id).length) ? (
+                  <span className="inline-flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-wide text-warn">
+                    <span className="h-1.5 w-1.5 rounded-full bg-warn" aria-hidden />
+                    Overlap
+                  </span>
+                ) : null}
+              </span>
               <div className="mt-1 grid gap-0.5">
-                {list.slice(0, 3).map((j) => (
+                {preferOverlapTiles(list, overlapIndex, 3).map((j) => {
+                  const notes = notesFor(overlapIndex, j.id);
+                  return (
                   <span
                     key={j.id}
                     role="link"
                     tabIndex={0}
+                    title={jobOverlapTitle(notes)}
                     onClick={(e) => {
                       e.stopPropagation();
                       onJob(j);
@@ -286,14 +325,19 @@ export function MonthGrid({
                     className={cn(
                       "block rounded px-1 py-0.5 text-paper",
                       j.status === "cancelled" ? "bg-navy/55" : "bg-navy",
+                      notes.length ? "ring-1 ring-warn" : "",
                     )}
                   >
-                    <span className="block truncate text-[10px]">
-                      {formatTime(j.start_at)} {jobTitle(j, named)}
+                    <span className="flex items-center justify-between gap-1">
+                      <span className="truncate text-[10px]">
+                        {formatTime(j.start_at)} {jobTitle(j, named)}
+                      </span>
+                      {notes.length ? <TileOverlapBadge compact invert /> : null}
                     </span>
                     {showPay || j.status === "cancelled" ? <TilePayBadge job={j} invert /> : null}
                   </span>
-                ))}
+                  );
+                })}
                 {list.length > 3 ? <span className="text-[10px] text-muted">+{list.length - 3} more</span> : null}
               </div>
             </button>
@@ -313,6 +357,7 @@ export function Agenda({
   canAdd,
   onEmpty,
   onJob,
+  overlapIndex,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -322,6 +367,7 @@ export function Agenda({
   canAdd: boolean;
   onEmpty: (day: Date) => void;
   onJob: (j: JobWithClient) => void;
+  overlapIndex?: Map<string, OverlapNote[]>;
 }) {
   return (
     <div className="grid gap-4">
@@ -349,12 +395,18 @@ export function Agenda({
                   <p className="rounded-lg border border-dashed border-border px-3 py-4 text-sm text-muted">No visits this day.</p>
                 )
               ) : (
-                list.map((j) => (
+                list.map((j) => {
+                  const notes = notesFor(overlapIndex, j.id);
+                  return (
                   <button
                     key={j.id}
                     type="button"
+                    title={jobOverlapTitle(notes)}
                     onClick={() => onJob(j)}
-                    className="flex min-h-11 items-center justify-between gap-3 rounded-lg bg-paper px-3 py-3 text-left shadow-soft"
+                    className={cn(
+                      "flex min-h-11 items-center justify-between gap-3 rounded-lg bg-paper px-3 py-3 text-left shadow-soft",
+                      notes.length ? "ring-1 ring-warn" : "",
+                    )}
                   >
                     <div>
                       <p className="font-medium">{jobTitle(j, named)}</p>
@@ -368,9 +420,13 @@ export function Agenda({
                             : ""}
                       </p>
                     </div>
-                    {showPay || j.status === "cancelled" ? <TilePayBadge job={j} /> : null}
+                    <span className="flex shrink-0 flex-col items-end gap-1">
+                      {notes.length ? <TileOverlapBadge /> : null}
+                      {showPay || j.status === "cancelled" ? <TilePayBadge job={j} /> : null}
+                    </span>
                   </button>
-                ))
+                  );
+                })
               )}
             </div>
           </section>
@@ -390,6 +446,8 @@ export function CalendarBody({
   canAdd,
   onEmpty,
   onJob,
+  showOverlap = false,
+  overlapForUserId,
 }: {
   mode: CalView;
   days: Date[];
@@ -400,7 +458,13 @@ export function CalendarBody({
   canAdd: boolean;
   onEmpty: (dt: Date) => void;
   onJob: (j: JobWithClient) => void;
+  showOverlap?: boolean;
+  overlapForUserId?: string;
 }) {
+  const overlapIndex = useMemo(
+    () => (showOverlap ? indexOverlaps(jobs, { onlyCleanerUserId: overlapForUserId }) : undefined),
+    [jobs, showOverlap, overlapForUserId],
+  );
   if (mode === "month") {
     return (
       <MonthGrid
@@ -411,6 +475,7 @@ export function CalendarBody({
         canAdd={canAdd}
         onEmpty={onEmpty}
         onJob={onJob}
+        overlapIndex={overlapIndex}
       />
     );
   }
@@ -425,6 +490,7 @@ export function CalendarBody({
           canAdd={canAdd}
           onEmpty={onEmpty}
           onJob={onJob}
+          overlapIndex={overlapIndex}
         />
       </div>
       <div className="md:hidden">
@@ -437,6 +503,7 @@ export function CalendarBody({
           canAdd={canAdd}
           onEmpty={onEmpty}
           onJob={onJob}
+          overlapIndex={overlapIndex}
         />
       </div>
     </>

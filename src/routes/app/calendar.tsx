@@ -18,6 +18,7 @@ import {
 } from "@/lib/sweepbook/time";
 import { JobForm } from "@/components/app/job-form";
 import { PageHeader } from "@/components/app/empty-state";
+import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker, assigneeLabel } from "@/components/app/assignee-picker";
@@ -161,6 +162,8 @@ function CalendarPage() {
         jobs={jobs.data ?? []}
         showPay={Boolean(isMaster)}
         showPrices={Boolean(isMaster)}
+        showOverlap
+        overlapForUserId={isTeam ? actor.data?.userId : undefined}
         named="client"
         canAdd={Boolean(isMaster)}
         onEmpty={(dt) => {
@@ -302,6 +305,7 @@ function JobPanel({
           <VisitStatusBadge job={job} hideMoney={isTeam} />
           {isTeam ? null : <p className="tabular text-navy">{money(job.price_cents)}</p>}
         </div>
+        <OverlapDetails notes={q.data.overlaps ?? []} />
         <p className="text-sm">
           {formatDate(job.start_at, { weekday: "long", month: "long", day: "numeric" })} · {formatTime(job.start_at)} ·{" "}
           {formatHours(job.duration_min)}

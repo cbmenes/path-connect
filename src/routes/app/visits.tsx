@@ -96,6 +96,7 @@ function VisitsPage() {
         jobs={jobs.data ?? []}
         showPay
         showPrices
+        showOverlap={false}
         named="service"
         canAdd={false}
         onEmpty={() => undefined}

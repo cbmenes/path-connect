@@ -14,6 +14,7 @@ import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
+import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -53,6 +54,7 @@ function JobDetail() {
         <p className="mt-1 text-muted">{formatDateTime(job.start_at)} · {formatHours(job.duration_min)}</p>
         <div className="mt-2"><VisitStatusBadge job={job} hideMoney={isTeam} /></div>
       </div>
+      <OverlapDetails notes={jobQ.data.overlaps ?? []} />
       <Card className="grid gap-2">
         <p className="text-sm text-muted">{job.address}</p>
         {isTeam ? null : <p className="tabular text-lg text-navy">{money(job.price_cents)}</p>}
