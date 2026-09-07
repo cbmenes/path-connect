@@ -226,6 +226,11 @@ export function WeekGrid({
                   )}
                   style={{ top: `${Math.max(0, top)}%`, height: `${Math.max(8, height)}%` }}
                 >
+                  {notes.length ? (
+                    <span className="mb-0.5 flex flex-wrap items-center gap-1">
+                      <TileOverlapBadge invert />
+                    </span>
+                  ) : null}
                   <p className="truncate text-xs font-medium">{jobTitle(j, named)}</p>
                   <p className="truncate text-[10px] text-paper/70">
                     {formatTime(j.start_at)} · {formatHours(j.duration_min)}
@@ -236,7 +241,6 @@ export function WeekGrid({
                         : ""}
                   </p>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">
-                    {notes.length ? <TileOverlapBadge invert /> : null}
                     {showPay ? <TilePayBadge job={j} invert /> : cancelled ? <TilePayBadge job={j} invert /> : null}
                   </span>
                 </button>
