@@ -33,8 +33,9 @@ type PayJob = Pick<JobWithClient, "status"> & {
 
 export function jobTilePayLabel(job: PayJob): TilePayLabel | null {
   if (job.status === "cancelled") return "Cancelled";
-  if (job.payment_status === "paid") return "Paid";
+  // Paid / Unpaid only on the viewer's local today or earlier — never on future dates.
   if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
+  if (job.payment_status === "paid") return "Paid";
   return "Unpaid";
 }
 
@@ -81,9 +82,8 @@ export function VisitStatusBadge({
   if (job.status === "cancelled" || job.status === "reschedule_requested") {
     return <JobStatusBadge status={job.status} />;
   }
+  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   if (job.payment_status === "paid") return <InvoiceStatusBadge status="paid" />;
-  const futureUnpaid = job.start_at ? !isOnOrBeforeLocalToday(job.start_at) : false;
-  if (futureUnpaid) return null;
   if (job.payment_status === "failed") return <InvoiceStatusBadge status="failed" />;
   if (job.payment_status === "unpaid") return <InvoiceStatusBadge status="unpaid" />;
   return <JobStatusBadge status="scheduled" />;
