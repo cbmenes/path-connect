@@ -20,16 +20,16 @@ import {
 } from "./types";
 import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed10__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed11__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed10__) {
-    g.__sweepbookSeed10__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed10__ = undefined;
+  if (!g.__sweepbookSeed11__) {
+    g.__sweepbookSeed11__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed11__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed10__;
+  await g.__sweepbookSeed11__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -921,6 +921,17 @@ async function ensureDemoOneOffHistory(sql: Sql) {
     receipt: "SB-TIP20",
   });
   await sql`update jobs set tip_cents = greatest(tip_cents, 2000) where id = ${"demo-oneoff-cam-tip"}`;
+  await ensureInvoice(sql, {
+    id: "demo-inv-cam-tip-visit",
+    clientId: CAM_CLIENT_ID,
+    jobId: "demo-oneoff-cam-tip",
+    amount: 14000,
+    description: "House cleaning — Cam Delgado",
+    status: "paid",
+    kind: "visit",
+    paidAt: tipAt.toISOString(),
+    receipt: "SB-TIPVISIT",
+  });
   await ensureInvoice(sql, {
     id: "demo-inv-harper-paid",
     clientId: "client-harpers",
