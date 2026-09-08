@@ -60,6 +60,26 @@ export function chicagoDayKey(date: Date | string) {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/** YYYY-MM-DD in America/Chicago — for `<input type="date">`. */
+export function chicagoDateInputValue(date: Date | string = new Date()) {
+  return chicagoDayKey(date);
+}
+
+const WEEKDAY_SHORT_TO_NAME: Record<string, string> = {
+  Sun: "sunday",
+  Mon: "monday",
+  Tue: "tuesday",
+  Wed: "wednesday",
+  Thu: "thursday",
+  Fri: "friday",
+  Sat: "saturday",
+};
+
+export function weekdayNameInChicago(date: Date | string) {
+  const short = partsInChicago(date).weekday;
+  return WEEKDAY_SHORT_TO_NAME[short] ?? short.toLowerCase();
+}
+
 /** Viewer's local civil date vs today. Used for payment badges, not Chicago display time. */
 export function isOnOrBeforeLocalToday(date: Date | string) {
   const d = typeof date === "string" ? new Date(date) : date;

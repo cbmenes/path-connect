@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { chargeCard, listCardsForClient } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
@@ -12,7 +12,8 @@ import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
-import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
+import { CancelAppointmentDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
+import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/dialog";
@@ -51,6 +52,8 @@ export function JobPanel({
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const assignGate = useAssignConflictGate();
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
@@ -139,9 +142,19 @@ export function JobPanel({
               {editing ? "Close editor" : "Edit"}
             </Button>
           ) : null}
-          {canEdit ? (
+          {canEdit && job.series_id ? (
+            <Button variant="outline" size="sm" onClick={() => setManageOpen(true)}>
+              Manage recurring
+            </Button>
+          ) : null}
+          {canEdit && job.status !== "cancelled" ? (
             <Button variant="ghost" size="sm" onClick={() => setCancelOpen(true)}>
-              Cancel
+              Cancel appointment
+            </Button>
+          ) : null}
+          {canEdit ? (
+            <Button variant="ghost" size="sm" onClick={() => setRemoveOpen(true)}>
+              Remove appointment
             </Button>
           ) : null}
           {canMessage ? (
@@ -259,6 +272,32 @@ export function JobPanel({
           setBusy(false);
         }
       }}
+    />
+    <RemoveAppointmentDialog
+      open={removeOpen}
+      onOpenChange={setRemoveOpen}
+      busy={busy}
+      onConfirm={async () => {
+        setBusy(true);
+        try {
+          await removeJob({ data: { id: job.id } });
+          toast.message("Appointment removed.");
+          setRemoveOpen(false);
+          await onChanged();
+          onClose();
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Could not remove.");
+        } finally {
+          setBusy(false);
+        }
+      }}
+    />
+    <ManageRecurringDialog
+      open={manageOpen}
+      onOpenChange={setManageOpen}
+      clientId={job.client_id}
+      seriesId={job.series_id}
+      onChanged={onChanged}
     />
     {assignGate.dialog}
   </>

@@ -13,8 +13,20 @@ import {
 } from "./assignees";
 import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
-import { addDaysChicago, addMinutes, chicagoDate, fromDatetimeLocalValue, formatDateTime, hoursUntil, nid, partsInChicago } from "./time";
-import type { JobRow, JobWithClient, Recurrence } from "./types";
+import {
+  addDaysChicago,
+  addMinutes,
+  chicagoDate,
+  fromDatetimeLocalValue,
+  formatDateTime,
+  hoursUntil,
+  nid,
+  nextWeekdayOnOrAfter,
+  partsInChicago,
+  startOfChicagoDay,
+  weekdayNameInChicago,
+} from "./time";
+import type { JobRow, JobWithClient, Recurrence, RecurringPlan } from "./types";
 
 export type ConflictHit = {
   cleanerUserId: string;
@@ -328,18 +340,39 @@ async function findConflictsForStarts(
   return dedupeHits(hits);
 }
 
-function occurrenceStarts(first: Date, recurrence: Recurrence): Date[] {
+/** Occurrences from S forward. Recurring series never materialize history before S or before today. */
+function occurrenceStarts(first: Date, recurrence: Recurrence, now = new Date()): Date[] {
   if (recurrence === "none") return [first];
   const stepDays = recurrence === "weekly" ? 7 : recurrence === "biweekly" ? 14 : 28;
   const count = recurrence === "monthly" ? 12 : 26;
   const p0 = partsInChicago(first);
+  const seriesStart = first.getTime();
+  const notBefore = startOfChicagoDay(now).getTime();
   const out: Date[] = [];
   for (let i = 0; i < count; i++) {
     const day = addDaysChicago(first, i * stepDays);
     const p = partsInChicago(day);
-    out.push(chicagoDate(p.year, p.month, p.day, p0.hour, p0.minute));
+    const start = chicagoDate(p.year, p.month, p.day, p0.hour, p0.minute);
+    if (start.getTime() < seriesStart) continue;
+    if (start.getTime() < notBefore) continue;
+    out.push(start);
   }
   return out;
+}
+
+async function deleteJobsCascade(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  ownerId: string,
+  ids: string[],
+) {
+  for (const id of ids) {
+    await sql`delete from job_assignees where job_id = ${id}`;
+    await sql`update invoices set job_id = null where job_id = ${id} and status = 'paid'`;
+    await sql`delete from invoices where job_id = ${id} and status <> 'paid'`;
+    await sql`delete from notifications where job_id = ${id}`;
+    await sql`delete from reminder_sends where job_id = ${id}`;
+    await sql`delete from jobs where id = ${id} and cleaner_user_id = ${ownerId}`;
+  }
 }
 
 async function notifyAssignees(
@@ -468,6 +501,9 @@ export const createJob = createServerFn({ method: "POST" })
     const assigneeIds = data.assignedToUserIds !== undefined ? data.assignedToUserIds : inherited;
     const first = fromDatetimeLocalValue(data.startLocal);
     const starts = occurrenceStarts(first, data.recurrence);
+    if (!starts.length) {
+      throw new Error("No visits fall on or after today for this schedule.");
+    }
     const seriesId = data.recurrence === "none" ? null : nid("series");
     const created: { id: string; start: string }[] = [];
     let conflictCount = 0;
@@ -573,7 +609,7 @@ export const assignJob = createServerFn({ method: "POST" })
 
 export const setJobStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { id: string; status: "scheduled" | "cancelled"; reason?: string; series?: boolean }) => input)
+  .validator((input: { id: string; status: "scheduled" | "cancelled"; reason?: string }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
@@ -589,18 +625,255 @@ export const setJobStatus = createServerFn({ method: "POST" })
     if (actor.kind === "team") {
       throw new Error("Team cleaners cannot change visit status.");
     }
-    if (data.series && job.series_id && isOffice(actor)) {
+    await sql`
+      update jobs set status = ${data.status}, cancel_reason = ${data.reason ?? null}
+      where id = ${data.id} and cleaner_user_id = ${ownerId}
+    `;
+    return { ok: true };
+  });
+
+function parseEffectiveDate(raw: string) {
+  if (!/^\d{4}-\d{2}-\d{2}$/.test(raw)) throw new Error("Choose an effective date.");
+  return fromDatetimeLocalValue(`${raw}T00:00`);
+}
+
+function parseClock(raw: string) {
+  const [hh, mm] = (raw || "").split(":").map(Number);
+  if (!Number.isFinite(hh) || !Number.isFinite(mm) || hh < 0 || hh > 23 || mm < 0 || mm > 59) {
+    throw new Error("Choose a time.");
+  }
+  return { hour: hh, minute: mm };
+}
+
+async function loadRecurringPlans(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  ownerId: string,
+  clientId: string,
+  seriesId?: string,
+): Promise<RecurringPlan[]> {
+  const params: unknown[] = [ownerId, clientId];
+  let seriesSql = "";
+  if (seriesId) {
+    params.push(seriesId);
+    seriesSql = "and j.series_id = $3";
+  }
+  const seriesRows = await sql.query<{ series_id: string }>(
+    `select distinct j.series_id
+     from jobs j
+     where j.cleaner_user_id = $1 and j.client_id = $2
+       and j.series_id is not null ${seriesSql}`,
+    params,
+  );
+  const plans: RecurringPlan[] = [];
+  for (const row of seriesRows) {
+    const sid = row.series_id;
+    const jobs = await sql<{
+      id: string;
+      start_at: string;
+      duration_min: number;
+      price_cents: number;
+      service: string;
+      recurrence: Recurrence;
+      status: string;
+      client_name: string;
+    }>`
+      select j.id, j.start_at::text as start_at, j.duration_min, j.price_cents, j.service,
+             j.recurrence, j.status, c.name as client_name
+      from jobs j
+      join clients c on c.id = j.client_id
+      where j.series_id = ${sid} and j.cleaner_user_id = ${ownerId}
+      order by j.start_at asc
+    `;
+    if (!jobs.length) continue;
+    const now = Date.now();
+    const futureScheduled = jobs.filter(
+      (j) => new Date(j.start_at).getTime() >= now && (j.status === "scheduled" || j.status === "reschedule_requested"),
+    );
+    const template = futureScheduled[0] ?? jobs[jobs.length - 1];
+    const assigneeIds = await sql<{ user_id: string; full_name: string }>`
+      select ja.user_id, p.full_name
+      from job_assignees ja
+      join profiles p on p.user_id = ja.user_id
+      where ja.job_id = ${template.id}
+      order by p.full_name
+    `;
+    const p = partsInChicago(template.start_at);
+    plans.push({
+      seriesId: sid,
+      clientId,
+      clientName: template.client_name,
+      recurrence: template.recurrence === "none" ? "weekly" : template.recurrence,
+      weekday: weekdayNameInChicago(template.start_at),
+      time: `${String(p.hour).padStart(2, "0")}:${String(p.minute).padStart(2, "0")}`,
+      durationMin: Number(template.duration_min),
+      priceCents: Number(template.price_cents),
+      service: template.service,
+      assignedToUserIds: assigneeIds.map((a) => a.user_id),
+      assignedNames: assigneeIds.map((a) => a.full_name),
+      nextStartAt: futureScheduled[0]?.start_at ?? null,
+      futureCount: futureScheduled.length,
+    });
+  }
+  return plans;
+}
+
+export const listClientSeries = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .validator((input: { clientId: string; seriesId?: string }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    await ensureDemoSeed(sql);
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const owned = await sql<{ id: string }>`
+      select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
+    `;
+    if (!owned[0]) throw new Error("Client not found.");
+    return loadRecurringPlans(sql, ownerId, data.clientId, data.seriesId);
+  });
+
+export const saveRecurringPlan = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: {
+    seriesId: string;
+    clientId: string;
+    frequency: Recurrence;
+    weekday: string;
+    time: string;
+    durationMin: number;
+    priceCents: number;
+    assignedToUserIds: string[];
+    effectiveDate: string;
+  }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    if (data.frequency === "none") throw new Error("Choose weekly, biweekly, or monthly.");
+    const durationMin = Number(data.durationMin);
+    const priceCents = Number(data.priceCents);
+    if (!durationMin || durationMin < 30) throw new Error("Duration must be at least 0.5 hours.");
+    if (priceCents < 0) throw new Error("Price cannot be negative.");
+    const effective = parseEffectiveDate(data.effectiveDate);
+    const clock = parseClock(data.time);
+    const assigneeIds = [...new Set((data.assignedToUserIds ?? []).filter(Boolean))];
+
+    const clients = await sql<{ id: string; name: string; address: string | null; notes: string | null }>`
+      select id, name, address, notes from clients
+      where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
+    `;
+    const client = clients[0];
+    if (!client) throw new Error("Client not found.");
+
+    const seriesJobs = await sql<{
+      id: string;
+      start_at: string;
+      status: string;
+      service: string;
+      address: string | null;
+      notes: string | null;
+    }>`
+      select id, start_at::text as start_at, status, service, address, notes
+      from jobs
+      where series_id = ${data.seriesId} and cleaner_user_id = ${ownerId} and client_id = ${data.clientId}
+      order by start_at asc
+    `;
+    if (!seriesJobs.length) throw new Error("Recurring schedule not found.");
+
+    const template = seriesJobs[seriesJobs.length - 1];
+    const first = nextWeekdayOnOrAfter(effective, data.weekday, clock.hour, clock.minute);
+    const starts = occurrenceStarts(first, data.frequency);
+
+    const keepIds = new Set(
+      seriesJobs
+        .filter((j) => new Date(j.start_at).getTime() < effective.getTime() || j.status === "completed")
+        .map((j) => j.id),
+    );
+    const removeIds = seriesJobs.filter((j) => !keepIds.has(j.id)).map((j) => j.id);
+    await deleteJobsCascade(sql, ownerId, removeIds);
+
+    const remaining = await sql<{ start_at: string }>`
+      select start_at::text as start_at from jobs
+      where series_id = ${data.seriesId} and cleaner_user_id = ${ownerId}
+    `;
+    const taken = new Set(remaining.map((r) => new Date(r.start_at).toISOString()));
+
+    let created = 0;
+    let conflictCount = 0;
+    for (const start of starts) {
+      if (taken.has(start.toISOString())) continue;
+      const hits = await findConflicts(sql, ownerId, start, durationMin, undefined, assigneeIds);
+      if (hits.length) conflictCount += 1;
+      const id = nid("job");
       await sql`
-        update jobs set status = ${data.status}, cancel_reason = ${data.reason ?? null}
-        where series_id = ${job.series_id} and cleaner_user_id = ${ownerId}
-          and start_at >= ${job.start_at}::timestamptz
+        insert into jobs (
+          id, cleaner_user_id, client_id, service, address, start_at, duration_min,
+          price_cents, notes, status, recurrence, series_id, assigned_to_user_id
+        ) values (
+          ${id}, ${ownerId}, ${data.clientId}, ${template.service},
+          ${template.address || client.address}, ${start.toISOString()}, ${durationMin},
+          ${priceCents}, ${template.notes ?? client.notes}, ${"scheduled"}, ${data.frequency}, ${data.seriesId},
+          ${assigneeIds[0] ?? null}
+        )
       `;
-    } else {
-      await sql`
-        update jobs set status = ${data.status}, cancel_reason = ${data.reason ?? null}
-        where id = ${data.id} and cleaner_user_id = ${ownerId}
-      `;
+      await replaceJobAssignees(sql, id, assigneeIds);
+      created += 1;
     }
+
+    await sql`
+      update clients set
+        usual_day = ${data.weekday},
+        usual_time = ${data.time},
+        frequency = ${data.frequency},
+        default_price_cents = ${priceCents},
+        default_duration_min = ${durationMin}
+      where id = ${data.clientId} and cleaner_user_id = ${ownerId}
+    `;
+    await replaceClientAssignees(sql, data.clientId, assigneeIds);
+
+    return { ok: true, created, conflictCount };
+  });
+
+export const cancelFutureRecurring = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { seriesId: string; clientId: string; effectiveDate: string }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const effective = parseEffectiveDate(data.effectiveDate);
+    const owned = await sql<{ id: string }>`
+      select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
+    `;
+    if (!owned[0]) throw new Error("Client not found.");
+    const rows = await sql<{ id: string; status: string }>`
+      select id, status from jobs
+      where series_id = ${data.seriesId}
+        and cleaner_user_id = ${ownerId}
+        and client_id = ${data.clientId}
+        and start_at >= ${effective.toISOString()}::timestamptz
+        and status <> 'completed'
+    `;
+    await deleteJobsCascade(sql, ownerId, rows.map((r) => r.id));
+    return { ok: true, cancelled: rows.length };
+  });
+
+export const removeJob = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { id: string }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const rows = await sql<{ id: string }>`
+      select id from jobs where id = ${data.id} and cleaner_user_id = ${ownerId} limit 1
+    `;
+    if (!rows[0]) throw new Error("Visit not found.");
+    await deleteJobsCascade(sql, ownerId, [data.id]);
     return { ok: true };
   });
 

@@ -18,18 +18,18 @@ import {
   DEMO_ADMIN_ID,
   DEMO_ADMIN_PASSWORD,
 } from "./types";
-import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago } from "./time";
+import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed9__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed10__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed9__) {
-    g.__sweepbookSeed9__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed9__ = undefined;
+  if (!g.__sweepbookSeed10__) {
+    g.__sweepbookSeed10__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed10__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed9__;
+  await g.__sweepbookSeed10__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -45,6 +45,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV4(sql);
   await seedV5(sql);
   await seedV6(sql);
+  await seedV7(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -310,25 +311,20 @@ async function seedAll(sql: Sql) {
   }
 
   const now = new Date();
-  const origin = addDaysChicago(now, -56);
 
   for (const c of clients) {
     const [hh, mm] = c.time.split(":").map(Number);
-    const first = nextWeekdayOnOrAfter(origin, c.day, hh, mm);
+    const first = nextWeekdayOnOrAfter(now, c.day, hh, mm);
     const seriesId = nid("series");
     const step = c.frequency === "weekly" ? 7 : c.frequency === "biweekly" ? 14 : 28;
-    const count = c.frequency === "monthly" ? 8 : c.frequency === "biweekly" ? 12 : 20;
+    const count = c.frequency === "monthly" ? 12 : 26;
+    const notBefore = startOfChicagoDay(now).getTime();
 
     for (let i = 0; i < count; i++) {
-      const start = new Date(first.getTime() + i * step * 24 * 60 * 60 * 1000);
-      // Re-resolve through Chicago so DST doesn't drift the wall clock.
-      const p = partsInChicago(start);
+      const day = addDaysChicago(first, i * step);
+      const p = partsInChicago(day);
       const startAt = chicagoDate(p.year, p.month, p.day, hh, mm);
-      const isPast = startAt.getTime() + c.duration * 60_000 < now.getTime();
-      const isTodayish = Math.abs(startAt.getTime() - now.getTime()) < 12 * 60 * 60 * 1000;
-      let status: "scheduled" | "completed" | "cancelled" = isPast ? "completed" : "scheduled";
-      // A couple of cancelled historical visits for realism
-      if (c.id === "client-ellis" && i === 2) status = "cancelled";
+      if (startAt.getTime() < notBefore) continue;
 
       const jobId = `${c.id}-job-${i}`;
       await sql`
@@ -337,66 +333,14 @@ async function seedAll(sql: Sql) {
           price_cents, notes, status, recurrence, series_id
         ) values (
           ${jobId}, ${DEMO_CLEANER_ID}, ${c.id}, ${"House cleaning"}, ${c.address},
-          ${startAt.toISOString()}, ${c.duration}, ${c.price}, ${c.notes}, ${status},
+          ${startAt.toISOString()}, ${c.duration}, ${c.price}, ${c.notes}, ${"scheduled"},
           ${c.frequency}, ${seriesId}
         )
       `;
-
-      if (status === "completed") {
-        const paid = !(
-          (c.id === "client-nair" && isPast && i === count - 5) ||
-          (c.id === CAM_CLIENT_ID && isPast && !isTodayish && i === Math.max(0, count - 6))
-        );
-        // Mark two specific unpaid invoices instead of heuristic — handled below.
-        await sql`
-          insert into invoices (
-            id, cleaner_user_id, client_id, job_id, amount_cents, description,
-            status, method, kind, paid_at, receipt_number
-          ) values (
-            ${nid("inv")}, ${DEMO_CLEANER_ID}, ${c.id}, ${jobId}, ${c.price},
-            ${`House cleaning — ${c.name}`}, ${paid ? "paid" : "unpaid"},
-            ${"card"}, ${"visit"}, ${paid ? startAt.toISOString() : null},
-            ${paid ? `SB-${1000 + i}` : null}
-          )
-        `;
-      }
     }
   }
 
-  // Two unpaid invoices: Priya's last completed visit, Cam's last completed visit.
-  const unpaidTargets = await sql<{ id: string; client_id: string; price_cents: number; start_at: string }>`
-    select j.id, j.client_id, j.price_cents, j.start_at::text as start_at
-    from jobs j
-    where j.cleaner_user_id = ${DEMO_CLEANER_ID}
-      and j.status = 'completed'
-      and j.client_id in (${"client-nair"}, ${CAM_CLIENT_ID})
-    order by j.start_at desc
-  `;
-  const seen = new Set<string>();
-  for (const row of unpaidTargets) {
-    if (seen.has(row.client_id)) continue;
-    seen.add(row.client_id);
-    await sql`
-      update invoices
-      set status = 'unpaid', method = null, paid_at = null, receipt_number = null
-      where job_id = ${row.id}
-    `;
-  }
-
-  // Failed payment alert on Priya so the cleaner sees it.
-  const priyaFailed = await sql<{ id: string }>`
-    select id from invoices
-    where client_id = ${"client-nair"} and status = 'unpaid'
-    order by created_at desc limit 1
-  `;
-  if (priyaFailed[0]) {
-    await sql`
-      update invoices
-      set status = 'failed', failure_reason = 'Card declined — issuer did not authorize.',
-          method = 'card'
-      where id = ${priyaFailed[0].id}
-    `;
-  }
+  await ensureDemoOneOffHistory(sql);
 
   // Cards on file
   await sql`
@@ -822,6 +766,190 @@ async function seedV6(sql: Sql) {
          ${"master_admin"}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${DEMO_ADMIN_ID}, ${"Renee Cole"})
     `;
   }
+}
+
+async function seedOneOff(
+  sql: Sql,
+  job: {
+    id: string;
+    clientId: string;
+    address: string;
+    startAt: Date;
+    duration: number;
+    price: number;
+    notes: string;
+    status: "completed" | "cancelled";
+    assignees?: string[];
+  },
+) {
+  const existing = await sql<{ id: string }>`select id from jobs where id = ${job.id} limit 1`;
+  if (existing.length) return;
+  await sql`
+    insert into jobs (
+      id, cleaner_user_id, client_id, service, address, start_at, duration_min,
+      price_cents, notes, status, recurrence, series_id
+    ) values (
+      ${job.id}, ${DEMO_CLEANER_ID}, ${job.clientId}, ${"House cleaning"}, ${job.address},
+      ${job.startAt.toISOString()}, ${job.duration}, ${job.price}, ${job.notes}, ${job.status},
+      ${"none"}, ${null}
+    )
+  `;
+  for (const uid of job.assignees ?? []) {
+    await sql`
+      insert into job_assignees (job_id, user_id) values (${job.id}, ${uid})
+      on conflict do nothing
+    `;
+  }
+  if (job.assignees?.[0]) {
+    await sql`update jobs set assigned_to_user_id = ${job.assignees[0]} where id = ${job.id}`;
+  }
+}
+
+async function ensureInvoice(
+  sql: Sql,
+  input: {
+    id: string;
+    clientId: string;
+    jobId: string;
+    amount: number;
+    description: string;
+    status: "paid" | "unpaid" | "failed";
+    kind: "visit" | "tip";
+    paidAt?: string | null;
+    receipt?: string | null;
+    failure?: string | null;
+  },
+) {
+  const existing = await sql<{ id: string }>`select id from invoices where id = ${input.id} limit 1`;
+  if (existing.length) return;
+  await sql`
+    insert into invoices (
+      id, cleaner_user_id, client_id, job_id, amount_cents, description,
+      status, method, kind, paid_at, receipt_number, failure_reason
+    ) values (
+      ${input.id}, ${DEMO_CLEANER_ID}, ${input.clientId}, ${input.jobId}, ${input.amount},
+      ${input.description}, ${input.status},
+      ${input.status === "unpaid" ? null : "card"}, ${input.kind},
+      ${input.paidAt ?? null}, ${input.receipt ?? null}, ${input.failure ?? null}
+    )
+  `;
+}
+
+/** Real past one-offs for payments / tips / team pay — not a backfilled series. */
+async function ensureDemoOneOffHistory(sql: Sql) {
+  const now = new Date();
+  const dayAt = (daysAgo: number, hour: number, minute: number) => {
+    const d = addDaysChicago(now, -daysAgo);
+    const p = partsInChicago(d);
+    return chicagoDate(p.year, p.month, p.day, hour, minute);
+  };
+  const camAt = dayAt(18, 11, 0);
+  const priyaAt = dayAt(4, 8, 0);
+  const tipAt = dayAt(10, 11, 0);
+  const harperAt = dayAt(3, 9, 0);
+
+  await seedOneOff(sql, {
+    id: "demo-oneoff-cam-unpaid",
+    clientId: CAM_CLIENT_ID,
+    address: "200 E Reno Avenue, Apt 612, Oklahoma City, OK 73104",
+    startAt: camAt,
+    duration: 120,
+    price: 14000,
+    notes: "Bricktown loft. Please water the fig if the soil is dry.",
+    status: "completed",
+  });
+  await seedOneOff(sql, {
+    id: "demo-oneoff-cam-tip",
+    clientId: CAM_CLIENT_ID,
+    address: "200 E Reno Avenue, Apt 612, Oklahoma City, OK 73104",
+    startAt: tipAt,
+    duration: 120,
+    price: 14000,
+    notes: "Bricktown loft. Please water the fig if the soil is dry.",
+    status: "completed",
+  });
+  await seedOneOff(sql, {
+    id: "demo-oneoff-nair-failed",
+    clientId: "client-nair",
+    address: "1335 N Hudson Avenue, Oklahoma City, OK 73103",
+    startAt: priyaAt,
+    duration: 180,
+    price: 18000,
+    notes: "Plaza District loft. Windows monthly.",
+    status: "completed",
+  });
+  await seedOneOff(sql, {
+    id: "demo-oneoff-harper-pay",
+    clientId: "client-harpers",
+    address: "1421 Drury Lane, Nichols Hills, OK 73116",
+    startAt: harperAt,
+    duration: 150,
+    price: 17500,
+    notes: "Two stories, extra bathrooms upstairs.",
+    status: "completed",
+    assignees: [DEMO_TEAM_ID, DEMO_TEAM2_ID],
+  });
+
+  await ensureInvoice(sql, {
+    id: "demo-inv-cam-unpaid",
+    clientId: CAM_CLIENT_ID,
+    jobId: "demo-oneoff-cam-unpaid",
+    amount: 14000,
+    description: "House cleaning — Cam Delgado",
+    status: "unpaid",
+    kind: "visit",
+  });
+  await ensureInvoice(sql, {
+    id: "demo-inv-nair-failed",
+    clientId: "client-nair",
+    jobId: "demo-oneoff-nair-failed",
+    amount: 18000,
+    description: "House cleaning — Priya Nair",
+    status: "failed",
+    kind: "visit",
+    failure: "Card declined — issuer did not authorize.",
+  });
+  await ensureInvoice(sql, {
+    id: "demo-inv-cam-tip",
+    clientId: CAM_CLIENT_ID,
+    jobId: "demo-oneoff-cam-tip",
+    amount: 2000,
+    description: "Tip — Cam Delgado",
+    status: "paid",
+    kind: "tip",
+    paidAt: new Date().toISOString(),
+    receipt: "SB-TIP20",
+  });
+  await sql`update jobs set tip_cents = greatest(tip_cents, 2000) where id = ${"demo-oneoff-cam-tip"}`;
+  await ensureInvoice(sql, {
+    id: "demo-inv-harper-paid",
+    clientId: "client-harpers",
+    jobId: "demo-oneoff-harper-pay",
+    amount: 17500,
+    description: "House cleaning — The Harpers",
+    status: "paid",
+    kind: "visit",
+    paidAt: harperAt.toISOString(),
+    receipt: "SB-1880",
+  });
+}
+
+async function seedV7(sql: Sql) {
+  const cutoff = startOfChicagoDay(new Date()).toISOString();
+  const phantoms = await sql<{ id: string }>`
+    select id from jobs
+    where cleaner_user_id = ${DEMO_CLEANER_ID}
+      and id like ${"client-%-job-%"}
+      and start_at < ${cutoff}::timestamptz
+  `;
+  for (const row of phantoms) {
+    await sql`delete from job_assignees where job_id = ${row.id}`;
+    await sql`delete from invoices where job_id = ${row.id}`;
+    await sql`delete from notifications where job_id = ${row.id}`;
+    await sql`delete from reminder_sends where job_id = ${row.id}`;
+    await sql`delete from jobs where id = ${row.id}`;
+  }
+  await ensureDemoOneOffHistory(sql);
 }
 
 

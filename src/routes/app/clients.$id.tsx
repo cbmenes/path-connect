@@ -15,6 +15,7 @@ import { CardForm } from "@/components/app/card-form";
 import { CardManager, CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
+import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -39,6 +40,7 @@ function ClientProfile() {
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   if (q.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
   if (q.error) return <p className="text-danger">{(q.error as Error).message}</p>;
@@ -71,6 +73,9 @@ function ClientProfile() {
           </Button>
           <Button asChild>
             <Link to="/app/jobs/new">Schedule</Link>
+          </Button>
+          <Button variant="outline" onClick={() => setManageOpen(true)}>
+            Manage recurring
           </Button>
           <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
             Remove
@@ -268,6 +273,7 @@ function ClientProfile() {
 
       <section>
         <h2 className="font-display text-xl text-navy">Job history</h2>
+        <p className="mt-1 text-sm text-muted">Past and upcoming visits. Open a visit for details.</p>
         <div className="mt-3 grid gap-2">
           {jobs.map((j) => (
             <Link key={j.id} to="/app/jobs/$id" params={{ id: j.id }} className="flex items-center justify-between rounded-lg bg-paper px-3 py-3 shadow-soft">
@@ -294,6 +300,15 @@ function ClientProfile() {
           ))}
         </div>
       </section>
+      <ManageRecurringDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        clientId={client.id}
+        onChanged={async () => {
+          await qc.invalidateQueries({ queryKey: ["client", id] });
+          await qc.invalidateQueries({ queryKey: ["jobs"] });
+        }}
+      />
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}

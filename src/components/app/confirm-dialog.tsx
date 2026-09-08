@@ -46,27 +46,47 @@ export function CancelAppointmentDialog({
   onOpenChange,
   busy,
   onConfirm,
-  series,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   busy?: boolean;
   onConfirm: () => void | Promise<void>;
-  series?: boolean;
 }) {
   return (
     <ConfirmDialog
       open={open}
       onOpenChange={onOpenChange}
       title="Are you sure you want to cancel this appointment?"
-      body={
-        series
-          ? "This visit and future visits in the series will be cancelled."
-          : "The visit will be marked cancelled and removed from the book."
-      }
+      body="The visit will stay on the calendar as Cancelled."
       cancelLabel="Keep appointment"
       confirmLabel="Cancel appointment"
       busyLabel="Cancelling…"
+      busy={busy}
+      onConfirm={onConfirm}
+    />
+  );
+}
+
+export function RemoveAppointmentDialog({
+  open,
+  onOpenChange,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  busy?: boolean;
+  onConfirm: () => void | Promise<void>;
+}) {
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Remove this appointment?"
+      body="Remove this appointment? It will disappear from the calendar. Use this for a booking mistake."
+      cancelLabel="Keep appointment"
+      confirmLabel="Remove appointment"
+      busyLabel="Removing…"
       busy={busy}
       onConfirm={onConfirm}
     />

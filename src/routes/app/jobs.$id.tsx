@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { chargeCard, listCardsForClient, requestTip } from "@/lib/sweepbook/payments";
@@ -10,12 +10,13 @@ import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
-import { CancelAppointmentDialog } from "@/components/app/confirm-dialog";
+import { CancelAppointmentDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
+import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -34,7 +35,9 @@ function JobDetail() {
   const [busy, setBusy] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
-  const [cancelKind, setCancelKind] = useState<"visit" | "series" | null>(null);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
   const assignGate = useAssignConflictGate();
   const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
   const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
@@ -117,13 +120,18 @@ function JobDetail() {
             <Button variant="outline" onClick={() => setEditing((v) => !v)}>{editing ? "Close editor" : "Edit"}</Button>
           ) : null}
           {job.status !== "cancelled" && isOffice ? (
-            <Button variant="ghost" onClick={() => setCancelKind("visit")}>
-              Cancel visit
+            <Button variant="ghost" onClick={() => setCancelOpen(true)}>
+              Cancel appointment
             </Button>
           ) : null}
-          {job.series_id && isOffice && job.status !== "cancelled" ? (
-            <Button variant="ghost" onClick={() => setCancelKind("series")}>
-              Cancel series
+          {isOffice ? (
+            <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
+              Remove appointment
+            </Button>
+          ) : null}
+          {job.series_id && isOffice ? (
+            <Button variant="outline" onClick={() => setManageOpen(true)}>
+              Manage recurring
             </Button>
           ) : null}
           {canCharge ? (
@@ -220,29 +228,49 @@ function JobDetail() {
         />
       ) : null}
       <CancelAppointmentDialog
-        open={Boolean(cancelKind)}
-        onOpenChange={(o) => !o && setCancelKind(null)}
-        series={cancelKind === "series"}
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
         busy={busy}
         onConfirm={async () => {
-          if (!cancelKind) return;
           setBusy(true);
           try {
-            if (cancelKind === "series") {
-              await setJobStatus({ data: { id, status: "cancelled", series: true, reason: "Series cancelled" } });
-              toast.message("This and future visits in the series were cancelled.");
-              setCancelKind(null);
-              await navigate({ to: "/app/calendar" });
-            } else {
-              await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
-              toast.message("Visit cancelled.");
-              setCancelKind(null);
-              await qc.invalidateQueries({ queryKey: ["job", id] });
-              await qc.invalidateQueries({ queryKey: ["jobs"] });
-            }
+            await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
+            toast.message("Visit cancelled.");
+            setCancelOpen(false);
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
           } finally {
             setBusy(false);
           }
+        }}
+      />
+      <RemoveAppointmentDialog
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        busy={busy}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await removeJob({ data: { id } });
+            toast.message("Appointment removed.");
+            setRemoveOpen(false);
+            await navigate({ to: "/app/calendar" });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not remove.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      <ManageRecurringDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        clientId={job.client_id}
+        seriesId={job.series_id}
+        onChanged={async () => {
+          await qc.invalidateQueries({ queryKey: ["job", id] });
+          await qc.invalidateQueries({ queryKey: ["jobs"] });
+          await qc.invalidateQueries({ queryKey: ["client", job.client_id] });
         }}
       />
       {assignGate.dialog}

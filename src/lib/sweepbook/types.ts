@@ -14,6 +14,22 @@ export type JobStatus = "scheduled" | "completed" | "cancelled" | "reschedule_re
 
 export type Recurrence = "none" | "weekly" | "biweekly" | "monthly";
 
+export type RecurringPlan = {
+  seriesId: string;
+  clientId: string;
+  clientName: string;
+  recurrence: Recurrence;
+  weekday: string;
+  time: string;
+  durationMin: number;
+  priceCents: number;
+  service: string;
+  assignedToUserIds: string[];
+  assignedNames: string[];
+  nextStartAt: string | null;
+  futureCount: number;
+};
+
 export type InvoiceStatus = "unpaid" | "paid" | "failed" | "void";
 
 export type PlanStatus = "trial" | "active" | "past_due";
