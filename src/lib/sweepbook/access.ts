@@ -16,7 +16,7 @@ export const JOB_SELECT = `
   j.recurrence, j.series_id, j.cancel_reason, j.reschedule_note,
   j.reschedule_requested_at::text as reschedule_requested_at,
   j.assigned_to_user_id, j.tip_cents, j.tip_requested, j.created_at::text as created_at,
-  c.name as client_name, c.phone as client_phone,
+  c.name as client_name, c.phone as client_phone, c.notes as client_notes,
   assignee.full_name as assignee_name,
   (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)
      from job_assignees ja join profiles p on p.user_id = ja.user_id

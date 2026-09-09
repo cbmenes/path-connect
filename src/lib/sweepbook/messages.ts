@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import type { Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { canMessageClients, getActor, masterUserId } from "./access";
+import { canMessageClients, getActor, isOffice, masterUserId } from "./access";
 import { teamCanAccessClient } from "./assignees";
 import { ensureDemoSeed } from "./seed";
 import { nid } from "./time";
@@ -965,7 +965,15 @@ export const getNavBadges = createServerFn({ method: "GET" })
       select count(*)::int as n from notifications
       where user_id = ${context.userId} and status = 'unread'
     `;
-    return { unreadMessages, unreadNotifications: Number(notes[0]?.n || 0) };
+    let pendingCleanRequests = 0;
+    if (isOffice(actor)) {
+      const cleans = await sql<{ n: number }>`
+        select count(*)::int as n from clean_requests
+        where cleaner_user_id = ${masterUserId(actor)} and status = 'pending'
+      `;
+      pendingCleanRequests = Number(cleans[0]?.n || 0);
+    }
+    return { unreadMessages, unreadNotifications: Number(notes[0]?.n || 0), pendingCleanRequests };
   });
 
 async function loadThreadMessages(sql: Sql, ownerId: string, thread: ThreadRef) {

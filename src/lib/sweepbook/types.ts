@@ -40,7 +40,31 @@ export type NotificationKind =
   | "request_approved"
   | "request_declined"
   | "job_assigned"
-  | "tip";
+  | "tip"
+  | "clean_request";
+
+export type CleanServiceType = "one-time" | "weekly" | "biweekly" | "monthly";
+
+export type CleanRequestStatus = "pending" | "accepted" | "declined";
+
+export type CleanRequest = {
+  id: string;
+  cleaner_user_id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  service_type: CleanServiceType;
+  preferred_date: string | null;
+  preferred_time: string | null;
+  notes: string | null;
+  status: CleanRequestStatus;
+  decline_note: string | null;
+  job_id: string | null;
+  client_id: string | null;
+  created_at: string;
+  handled_at: string | null;
+};
 
 export type NotificationStatus = "unread" | "read" | "approved" | "declined";
 
@@ -120,6 +144,7 @@ export type JobRow = {
 export type JobWithClient = JobRow & {
   client_name: string;
   client_phone: string | null;
+  client_notes: string | null;
   assignee_name: string | null;
   assignees: AssigneeRef[];
   payment_status: InvoiceStatus | null;
@@ -207,6 +232,7 @@ export type NotificationRow = {
   job_id: string | null;
   client_id: string | null;
   client_name: string | null;
+  request_id: string | null;
   requested_start_at: string | null;
   status: NotificationStatus;
   created_at: string;
@@ -292,6 +318,7 @@ export const DEMO_TEAM_ID = "demo-team-lena";
 export const DEMO_TEAM2_ID = "demo-team-noah";
 export const DEMO_ADMIN_ID = "demo-admin-renee";
 export const CAM_CLIENT_ID = "client-cam-delgado";
+export const DEMO_REQUEST_ID = "demo-request-riley";
 
 export function isOfficeActor(actor?: Actor | null) {
   return actor?.kind === "cleaner" || actor?.kind === "admin";

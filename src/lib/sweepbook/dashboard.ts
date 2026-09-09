@@ -17,6 +17,7 @@ export type CleanerDashboard = {
   unread: number;
   failed: InvoiceWithClient[];
   pendingRequests: number;
+  pendingCleanRequests: number;
   unreadNotifications: number;
   revenue: { monthCents: number; ytdCents: number; monthLabel: string; year: number };
   showRevenue: boolean;
@@ -102,6 +103,10 @@ export const getDashboard = createServerFn({ method: "GET" })
         where user_id = ${context.userId} and status in ('unread', 'read')
           and kind in ('cancel', 'reschedule')
       `;
+      const cleanReqs = await sql<{ n: number }>`
+        select count(*)::int as n from clean_requests
+        where cleaner_user_id = ${ownerId} and status = 'pending'
+      `;
       const unreadNotes = await sql<{ n: number }>`
         select count(*)::int as n from notifications
         where user_id = ${context.userId} and status = 'unread'
@@ -145,6 +150,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         unread,
         failed,
         pendingRequests: Number(reqs[0]?.n || 0),
+        pendingCleanRequests: Number(cleanReqs[0]?.n || 0),
         unreadNotifications: Number(unreadNotes[0]?.n || 0),
         revenue: {
           monthCents: Number(monthRows[0]?.n || 0),

@@ -23,6 +23,7 @@ import { CardForm } from "@/components/app/card-form";
 import { CardManager } from "@/components/app/card-manager";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
+import { PublicBookUrl } from "@/components/app/public-book-url";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
@@ -78,10 +79,14 @@ function SettingsPage() {
         kind === "cleaner" ? (
           <>
             <MasterProfileSection />
+            <PublicBookUrl />
             <MasterReminderSettings />
           </>
         ) : kind === "admin" || kind === "team" ? (
-          <TeamProfileSection />
+          <>
+            <TeamProfileSection />
+            {kind === "admin" ? <PublicBookUrl /> : null}
+          </>
         ) : (
           <>
             <ClientProfileSection />

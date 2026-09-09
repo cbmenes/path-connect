@@ -33,9 +33,9 @@ type PayJob = Pick<JobWithClient, "status"> & {
 
 export function jobTilePayLabel(job: PayJob): TilePayLabel | null {
   if (job.status === "cancelled") return "Cancelled";
-  // Paid / Unpaid only on the viewer's local today or earlier — never on future dates.
-  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   if (job.payment_status === "paid") return "Paid";
+  // Unpaid only on the viewer's local today or earlier — never on future dates.
+  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   return "Unpaid";
 }
 

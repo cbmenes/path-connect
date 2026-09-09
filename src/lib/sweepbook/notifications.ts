@@ -17,19 +17,20 @@ export async function insertNotification(
     jobId?: string | null;
     clientId?: string | null;
     clientName?: string | null;
+    requestId?: string | null;
     requestedStartAt?: string | null;
   },
 ) {
   await sql`
     insert into notifications (
-      id, user_id, kind, title, body, job_id, client_id, client_name, requested_start_at, status
+      id, user_id, kind, title, body, job_id, client_id, client_name, request_id, requested_start_at, status
     ) values (
       ${nid("ntf")}, ${input.userId}, ${input.kind}, ${input.title}, ${input.body ?? null},
       ${input.jobId ?? null}, ${input.clientId ?? null}, ${input.clientName ?? null},
-      ${input.requestedStartAt ?? null}, ${"unread"}
+      ${input.requestId ?? null}, ${input.requestedStartAt ?? null}, ${"unread"}
     )
   `;
-  if (input.kind === "cancel" || input.kind === "reschedule" || input.kind === "tip") {
+  if (input.kind === "cancel" || input.kind === "reschedule" || input.kind === "tip" || input.kind === "clean_request") {
     const master = await sql<{ user_id: string }>`
       select user_id from profiles
       where user_id = ${input.userId} and role = 'cleaner'
@@ -46,11 +47,11 @@ export async function insertNotification(
       for (const admin of admins) {
         await sql`
           insert into notifications (
-            id, user_id, kind, title, body, job_id, client_id, client_name, requested_start_at, status
+            id, user_id, kind, title, body, job_id, client_id, client_name, request_id, requested_start_at, status
           ) values (
             ${nid("ntf")}, ${admin.user_id}, ${input.kind}, ${input.title}, ${input.body ?? null},
             ${input.jobId ?? null}, ${input.clientId ?? null}, ${input.clientName ?? null},
-            ${input.requestedStartAt ?? null}, ${"unread"}
+            ${input.requestId ?? null}, ${input.requestedStartAt ?? null}, ${"unread"}
           )
         `;
       }
@@ -66,7 +67,7 @@ export const listNotifications = createServerFn({ method: "GET" })
     await getActor(sql, context.userId);
     return sql<NotificationRow>`
       select id, user_id, kind, title, body, job_id, client_id, client_name,
-             requested_start_at::text as requested_start_at, status,
+             request_id, requested_start_at::text as requested_start_at, status,
              created_at::text as created_at, handled_at::text as handled_at
       from notifications
       where user_id = ${context.userId}
@@ -105,7 +106,7 @@ export const handleNotification = createServerFn({ method: "POST" })
     }
     const rows = await sql<NotificationRow>`
       select id, user_id, kind, title, body, job_id, client_id, client_name,
-             requested_start_at::text as requested_start_at, status,
+             request_id, requested_start_at::text as requested_start_at, status,
              created_at::text as created_at, handled_at::text as handled_at
       from notifications where id = ${data.id} and user_id = ${context.userId} limit 1
     `;

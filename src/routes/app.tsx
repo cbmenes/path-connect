@@ -33,7 +33,8 @@ function AppLayout() {
         pathname.startsWith("/app/team") ||
         pathname.startsWith("/app/team-pay") ||
         pathname.startsWith("/app/data") ||
-        pathname.startsWith("/app/jobs/new")
+        pathname.startsWith("/app/jobs/new") ||
+        pathname.startsWith("/app/requests")
       ) {
         void navigate({ to: "/app" });
       }
@@ -46,6 +47,12 @@ function AppLayout() {
         pathname.startsWith("/app/clients/import")
       ) {
         void navigate({ to: "/app" });
+      }
+      return;
+    }
+    if (actor.data?.kind === "client" || actor.data?.kind === "client_unlinked") {
+      if (pathname.startsWith("/app/sheet") || pathname.startsWith("/app/requests")) {
+        void navigate({ to: "/app/visits" });
       }
     }
   }, [actor.data?.kind, pathname, navigate]);

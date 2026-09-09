@@ -17,19 +17,20 @@ import {
   DEMO_ADMIN_EMAIL,
   DEMO_ADMIN_ID,
   DEMO_ADMIN_PASSWORD,
+  DEMO_REQUEST_ID,
 } from "./types";
-import { addDaysChicago, chicagoDate, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
+import { addDaysChicago, chicagoDate, chicagoDateInputValue, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed11__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed12__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed11__) {
-    g.__sweepbookSeed11__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed11__ = undefined;
+  if (!g.__sweepbookSeed12__) {
+    g.__sweepbookSeed12__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed12__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed11__;
+  await g.__sweepbookSeed12__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -46,6 +47,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV5(sql);
   await seedV6(sql);
   await seedV7(sql);
+  await seedV8(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -961,6 +963,52 @@ async function seedV7(sql: Sql) {
     await sql`delete from jobs where id = ${row.id}`;
   }
   await ensureDemoOneOffHistory(sql);
+}
+
+async function seedV8(sql: Sql) {
+  const existing = await sql<{ id: string }>`
+    select id from clean_requests where id = ${DEMO_REQUEST_ID} limit 1
+  `;
+  if (existing.length) return;
+  const preferred = chicagoDateInputValue(addDaysChicago(new Date(), 3));
+  await sql`
+    insert into clean_requests (
+      id, cleaner_user_id, name, phone, email, address, service_type,
+      preferred_date, preferred_time, notes, status
+    ) values (
+      ${DEMO_REQUEST_ID}, ${DEMO_CLEANER_ID}, ${"Riley Quinn"}, ${"(405) 555-0142"},
+      ${"riley.quinn@example.com"}, ${"904 NW 23rd Street, Oklahoma City, OK 73103"},
+      ${"weekly"}, ${preferred}, ${"10:00"},
+      ${"Two dogs. Please text on the way. Prefer after 10 if the morning runs long."},
+      ${"pending"}
+    )
+  `;
+  const already = await sql<{ id: string }>`
+    select id from notifications
+    where request_id = ${DEMO_REQUEST_ID} and kind = ${"clean_request"}
+    limit 1
+  `;
+  if (already.length) return;
+  await sql`
+    insert into notifications (
+      id, user_id, kind, title, body, request_id, client_name, status
+    ) values (
+      ${nid("ntf")}, ${DEMO_CLEANER_ID}, ${"clean_request"},
+      ${"New clean request from Riley Quinn"},
+      ${"Weekly · " + preferred + " 10:00"},
+      ${DEMO_REQUEST_ID}, ${"Riley Quinn"}, ${"unread"}
+    )
+  `;
+  await sql`
+    insert into notifications (
+      id, user_id, kind, title, body, request_id, client_name, status
+    ) values (
+      ${nid("ntf")}, ${DEMO_ADMIN_ID}, ${"clean_request"},
+      ${"New clean request from Riley Quinn"},
+      ${"Weekly · " + preferred + " 10:00"},
+      ${DEMO_REQUEST_ID}, ${"Riley Quinn"}, ${"unread"}
+    )
+  `;
 }
 
 

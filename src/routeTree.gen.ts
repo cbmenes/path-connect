@@ -12,10 +12,12 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AppRouteImport } from './routes/app'
+import { Route as BookRouteImport } from './routes/book'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as LoginRouteImport } from './routes/login'
 import { Route as OnboardingRouteImport } from './routes/onboarding'
 import { Route as PrivacyRouteImport } from './routes/privacy'
+import { Route as RequestRouteImport } from './routes/request'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AddCardTokenRouteImport } from './routes/add-card.$token'
@@ -29,7 +31,9 @@ import { Route as AppMessagesRouteImport } from './routes/app/messages'
 import { Route as AppNotificationsRouteImport } from './routes/app/notifications'
 import { Route as AppPaymentsRouteImport } from './routes/app/payments'
 import { Route as AppReceiptsRouteImport } from './routes/app/receipts'
+import { Route as AppRequestsRouteImport } from './routes/app/requests'
 import { Route as AppSettingsRouteImport } from './routes/app/settings'
+import { Route as AppSheetRouteImport } from './routes/app/sheet'
 import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as AppTeamPayRouteImport } from './routes/app/team-pay'
 import { Route as AppVisitsRouteImport } from './routes/app/visits'
@@ -44,6 +48,8 @@ import { Route as AppJobsIdRouteImport } from './routes/app/jobs.$id'
 import { Route as AppJobsNewRouteImport } from './routes/app/jobs.new'
 import { Route as AppMessagesIndexRouteImport } from './routes/app/messages.index'
 import { Route as AppMessagesClientIdRouteImport } from './routes/app/messages.$clientId'
+import { Route as AppRequestsIndexRouteImport } from './routes/app/requests.index'
+import { Route as AppRequestsIdRouteImport } from './routes/app/requests.$id'
 import { Route as AppTeamIndexRouteImport } from './routes/app/team.index'
 import { Route as AppTeamUserIdRouteImport } from './routes/app/team.$userId'
 
@@ -60,6 +66,11 @@ const AboutRoute = AboutRouteImport.update({
 const AppRoute = AppRouteImport.update({
   id: '/app',
   path: '/app',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const BookRoute = BookRouteImport.update({
+  id: '/book',
+  path: '/book',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -80,6 +91,11 @@ const OnboardingRoute = OnboardingRouteImport.update({
 const PrivacyRoute = PrivacyRouteImport.update({
   id: '/privacy',
   path: '/privacy',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const RequestRoute = RequestRouteImport.update({
+  id: '/request',
+  path: '/request',
   getParentRoute: () => rootRouteImport,
 } as any)
 const SignupRoute = SignupRouteImport.update({
@@ -147,9 +163,19 @@ const AppReceiptsRoute = AppReceiptsRouteImport.update({
   path: '/receipts',
   getParentRoute: () => AppRoute,
 } as any)
+const AppRequestsRoute = AppRequestsRouteImport.update({
+  id: '/requests',
+  path: '/requests',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppSettingsRoute = AppSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppSheetRoute = AppSheetRouteImport.update({
+  id: '/sheet',
+  path: '/sheet',
   getParentRoute: () => AppRoute,
 } as any)
 const AppTeamRoute = AppTeamRouteImport.update({
@@ -222,6 +248,16 @@ const AppMessagesClientIdRoute = AppMessagesClientIdRouteImport.update({
   path: '/$clientId',
   getParentRoute: () => AppMessagesRoute,
 } as any)
+const AppRequestsIndexRoute = AppRequestsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => AppRequestsRoute,
+} as any)
+const AppRequestsIdRoute = AppRequestsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => AppRequestsRoute,
+} as any)
 const AppTeamIndexRoute = AppTeamIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -237,10 +273,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
+  '/book': typeof BookRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/request': typeof RequestRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
@@ -253,7 +291,9 @@ export interface FileRoutesByFullPath {
   '/app/notifications': typeof AppNotificationsRoute
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
+  '/app/requests': typeof AppRequestsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
+  '/app/sheet': typeof AppSheetRoute
   '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
@@ -267,18 +307,22 @@ export interface FileRoutesByFullPath {
   '/app/jobs/$id': typeof AppJobsIdRoute
   '/app/jobs/new': typeof AppJobsNewRoute
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
+  '/app/requests/$id': typeof AppRequestsIdRoute
   '/app/team/$userId': typeof AppTeamUserIdRoute
   '/app/clients/': typeof AppClientsIndexRoute
   '/app/messages/': typeof AppMessagesIndexRoute
+  '/app/requests/': typeof AppRequestsIndexRoute
   '/app/team/': typeof AppTeamIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/book': typeof BookRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/request': typeof RequestRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
@@ -290,6 +334,7 @@ export interface FileRoutesByTo {
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
   '/app/settings': typeof AppSettingsRoute
+  '/app/sheet': typeof AppSheetRoute
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -302,9 +347,11 @@ export interface FileRoutesByTo {
   '/app/jobs/$id': typeof AppJobsIdRoute
   '/app/jobs/new': typeof AppJobsNewRoute
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
+  '/app/requests/$id': typeof AppRequestsIdRoute
   '/app/team/$userId': typeof AppTeamUserIdRoute
   '/app/clients': typeof AppClientsIndexRoute
   '/app/messages': typeof AppMessagesIndexRoute
+  '/app/requests': typeof AppRequestsIndexRoute
   '/app/team': typeof AppTeamIndexRoute
 }
 export interface FileRoutesById {
@@ -312,10 +359,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
+  '/book': typeof BookRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
+  '/request': typeof RequestRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
@@ -328,7 +377,9 @@ export interface FileRoutesById {
   '/app/notifications': typeof AppNotificationsRoute
   '/app/payments': typeof AppPaymentsRoute
   '/app/receipts': typeof AppReceiptsRoute
+  '/app/requests': typeof AppRequestsRouteWithChildren
   '/app/settings': typeof AppSettingsRoute
+  '/app/sheet': typeof AppSheetRoute
   '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
@@ -342,9 +393,11 @@ export interface FileRoutesById {
   '/app/jobs/$id': typeof AppJobsIdRoute
   '/app/jobs/new': typeof AppJobsNewRoute
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
+  '/app/requests/$id': typeof AppRequestsIdRoute
   '/app/team/$userId': typeof AppTeamUserIdRoute
   '/app/clients/': typeof AppClientsIndexRoute
   '/app/messages/': typeof AppMessagesIndexRoute
+  '/app/requests/': typeof AppRequestsIndexRoute
   '/app/team/': typeof AppTeamIndexRoute
 }
 export interface FileRouteTypes {
@@ -353,10 +406,12 @@ export interface FileRouteTypes {
     | '/'
     | '/about'
     | '/app'
+    | '/book'
     | '/contact'
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/request'
     | '/signup'
     | '/terms'
     | '/add-card/$token'
@@ -369,7 +424,9 @@ export interface FileRouteTypes {
     | '/app/notifications'
     | '/app/payments'
     | '/app/receipts'
+    | '/app/requests'
     | '/app/settings'
+    | '/app/sheet'
     | '/app/team'
     | '/app/team-pay'
     | '/app/visits'
@@ -383,18 +440,22 @@ export interface FileRouteTypes {
     | '/app/jobs/$id'
     | '/app/jobs/new'
     | '/app/messages/$clientId'
+    | '/app/requests/$id'
     | '/app/team/$userId'
     | '/app/clients/'
     | '/app/messages/'
+    | '/app/requests/'
     | '/app/team/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
     | '/about'
+    | '/book'
     | '/contact'
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/request'
     | '/signup'
     | '/terms'
     | '/add-card/$token'
@@ -406,6 +467,7 @@ export interface FileRouteTypes {
     | '/app/payments'
     | '/app/receipts'
     | '/app/settings'
+    | '/app/sheet'
     | '/app/team-pay'
     | '/app/visits'
     | '/invite/$token'
@@ -418,19 +480,23 @@ export interface FileRouteTypes {
     | '/app/jobs/$id'
     | '/app/jobs/new'
     | '/app/messages/$clientId'
+    | '/app/requests/$id'
     | '/app/team/$userId'
     | '/app/clients'
     | '/app/messages'
+    | '/app/requests'
     | '/app/team'
   id:
     | '__root__'
     | '/'
     | '/about'
     | '/app'
+    | '/book'
     | '/contact'
     | '/login'
     | '/onboarding'
     | '/privacy'
+    | '/request'
     | '/signup'
     | '/terms'
     | '/add-card/$token'
@@ -443,7 +509,9 @@ export interface FileRouteTypes {
     | '/app/notifications'
     | '/app/payments'
     | '/app/receipts'
+    | '/app/requests'
     | '/app/settings'
+    | '/app/sheet'
     | '/app/team'
     | '/app/team-pay'
     | '/app/visits'
@@ -457,9 +525,11 @@ export interface FileRouteTypes {
     | '/app/jobs/$id'
     | '/app/jobs/new'
     | '/app/messages/$clientId'
+    | '/app/requests/$id'
     | '/app/team/$userId'
     | '/app/clients/'
     | '/app/messages/'
+    | '/app/requests/'
     | '/app/team/'
   fileRoutesById: FileRoutesById
 }
@@ -467,10 +537,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AppRoute: typeof AppRouteWithChildren
+  BookRoute: typeof BookRoute
   ContactRoute: typeof ContactRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
+  RequestRoute: typeof RequestRoute
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
   AddCardTokenRoute: typeof AddCardTokenRoute
@@ -503,6 +575,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/book': {
+      id: '/book'
+      path: '/book'
+      fullPath: '/book'
+      preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/contact': {
       id: '/contact'
       path: '/contact'
@@ -529,6 +608,13 @@ declare module '@tanstack/react-router' {
       path: '/privacy'
       fullPath: '/privacy'
       preLoaderRoute: typeof PrivacyRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/request': {
+      id: '/request'
+      path: '/request'
+      fullPath: '/request'
+      preLoaderRoute: typeof RequestRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/signup': {
@@ -622,11 +708,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppReceiptsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/requests': {
+      id: '/app/requests'
+      path: '/requests'
+      fullPath: '/app/requests'
+      preLoaderRoute: typeof AppRequestsRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/settings': {
       id: '/app/settings'
       path: '/settings'
       fullPath: '/app/settings'
       preLoaderRoute: typeof AppSettingsRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/sheet': {
+      id: '/app/sheet'
+      path: '/sheet'
+      fullPath: '/app/sheet'
+      preLoaderRoute: typeof AppSheetRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/team': {
@@ -727,6 +827,20 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppMessagesClientIdRouteImport
       parentRoute: typeof AppMessagesRoute
     }
+    '/app/requests/': {
+      id: '/app/requests/'
+      path: '/'
+      fullPath: '/app/requests/'
+      preLoaderRoute: typeof AppRequestsIndexRouteImport
+      parentRoute: typeof AppRequestsRoute
+    }
+    '/app/requests/$id': {
+      id: '/app/requests/$id'
+      path: '/$id'
+      fullPath: '/app/requests/$id'
+      preLoaderRoute: typeof AppRequestsIdRouteImport
+      parentRoute: typeof AppRequestsRoute
+    }
     '/app/team/': {
       id: '/app/team/'
       path: '/'
@@ -776,6 +890,20 @@ const AppMessagesRouteWithChildren = AppMessagesRoute._addFileChildren(
   AppMessagesRouteChildren,
 )
 
+interface AppRequestsRouteChildren {
+  AppRequestsIdRoute: typeof AppRequestsIdRoute
+  AppRequestsIndexRoute: typeof AppRequestsIndexRoute
+}
+
+const AppRequestsRouteChildren: AppRequestsRouteChildren = {
+  AppRequestsIdRoute: AppRequestsIdRoute,
+  AppRequestsIndexRoute: AppRequestsIndexRoute,
+}
+
+const AppRequestsRouteWithChildren = AppRequestsRoute._addFileChildren(
+  AppRequestsRouteChildren,
+)
+
 interface AppTeamRouteChildren {
   AppTeamUserIdRoute: typeof AppTeamUserIdRoute
   AppTeamIndexRoute: typeof AppTeamIndexRoute
@@ -798,7 +926,9 @@ interface AppRouteChildren {
   AppNotificationsRoute: typeof AppNotificationsRoute
   AppPaymentsRoute: typeof AppPaymentsRoute
   AppReceiptsRoute: typeof AppReceiptsRoute
+  AppRequestsRoute: typeof AppRequestsRouteWithChildren
   AppSettingsRoute: typeof AppSettingsRoute
+  AppSheetRoute: typeof AppSheetRoute
   AppTeamRoute: typeof AppTeamRouteWithChildren
   AppTeamPayRoute: typeof AppTeamPayRoute
   AppVisitsRoute: typeof AppVisitsRoute
@@ -816,7 +946,9 @@ const AppRouteChildren: AppRouteChildren = {
   AppNotificationsRoute: AppNotificationsRoute,
   AppPaymentsRoute: AppPaymentsRoute,
   AppReceiptsRoute: AppReceiptsRoute,
+  AppRequestsRoute: AppRequestsRouteWithChildren,
   AppSettingsRoute: AppSettingsRoute,
+  AppSheetRoute: AppSheetRoute,
   AppTeamRoute: AppTeamRouteWithChildren,
   AppTeamPayRoute: AppTeamPayRoute,
   AppVisitsRoute: AppVisitsRoute,
@@ -831,10 +963,12 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AppRoute: AppRouteWithChildren,
+  BookRoute: BookRoute,
   ContactRoute: ContactRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
+  RequestRoute: RequestRoute,
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
   AddCardTokenRoute: AddCardTokenRoute,

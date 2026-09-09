@@ -1,3 +1,4 @@
+import type { ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 
@@ -12,6 +13,7 @@ export function ConfirmDialog({
   busy,
   confirmVariant = "danger",
   onConfirm,
+  children,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
@@ -23,11 +25,13 @@ export function ConfirmDialog({
   busy?: boolean;
   confirmVariant?: "primary" | "danger";
   onConfirm: () => void | Promise<void>;
+  children?: ReactNode;
 }) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent title={title}>
         {body ? <p className="text-sm text-muted">{body}</p> : null}
+        {children}
         <div className="mt-5 flex flex-wrap justify-end gap-2">
           <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={busy}>
             {cancelLabel}

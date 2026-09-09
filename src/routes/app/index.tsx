@@ -50,15 +50,29 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
         eyebrow={actor.profile.business_name || "SweepBook"}
         title={`Good day, ${actor.profile.full_name.split(" ")[0]}.`}
         action={
-          <Button asChild>
-            <Link to="/app/jobs/new">New visit</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/app/sheet">Day sheet</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/app/jobs/new">New visit</Link>
+            </Button>
+          </div>
         }
       />
       {data.canCharge && failed.length ? (
         <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
           {failed.length} failed payment{failed.length === 1 ? "" : "s"}. Ask the client to update their card.
         </div>
+      ) : null}
+      {data.pendingCleanRequests ? (
+        <Link
+          to="/app/requests"
+          className="rounded-xl border border-sage/40 bg-sage-soft p-4 text-sm text-navy"
+        >
+          {data.pendingCleanRequests} new clean request{data.pendingCleanRequests === 1 ? "" : "s"}. Review and accept or
+          decline.
+        </Link>
       ) : null}
       {data.pendingRequests ? (
         <Link
@@ -172,6 +186,11 @@ function TeamHome({ data }: { data: TeamDashboard }) {
       <PageHeader
         eyebrow="Team cleaner"
         title={`Hi, ${actor.profile.full_name.split(" ")[0]}.`}
+        action={
+          <Button variant="outline" asChild>
+            <Link to="/app/sheet">Day sheet</Link>
+          </Button>
+        }
       />
       <div className="grid gap-4 md:grid-cols-3">
         <Stat label="Today" value={String(data.today.length)} hint="assigned visits" />

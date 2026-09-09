@@ -3,9 +3,11 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   CalendarDays,
+  ClipboardList,
   CreditCard,
   FileSpreadsheet,
   Home,
+  Inbox,
   LogOut,
   MessageSquare,
   Receipt,
@@ -34,6 +36,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
   });
   const unreadMessages = badges.data?.unreadMessages ?? 0;
   const unreadNotes = badges.data?.unreadNotifications ?? 0;
+  const pendingCleans = badges.data?.pendingCleanRequests ?? 0;
   const isMaster = actor.kind === "cleaner";
   const isAdmin = actor.kind === "admin";
   const isOffice = isMaster || isAdmin;
@@ -68,6 +71,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
       ? [
           { to: "/app", label: "Home", icon: Home },
           { to: "/app/calendar", label: "Calendar", icon: CalendarDays },
+          { to: "/app/sheet", label: "Day sheet", icon: ClipboardList },
           ...(messaging
             ? [{ to: "/app/messages", label: "Messages", icon: MessageSquare, badge: unreadMessages }]
             : []),
@@ -94,7 +98,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
 
   return (
     <div className="min-h-dvh bg-bg text-ink md:grid md:grid-cols-[16rem_1fr]">
-      <aside className="hidden border-r border-border bg-navy text-paper md:flex md:flex-col">
+      <aside className="hidden border-r border-border bg-navy text-paper print:hidden md:flex md:flex-col">
         <div className="px-5 py-5">
           <Wordmark to="/app" light />
           <p className="mt-4 text-xs uppercase tracking-[0.16em] text-paper/50">{roleLabel}</p>
@@ -106,6 +110,16 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
           ))}
           {isOffice ? (
             <>
+              <NavLink
+                item={{ to: "/app/sheet", label: "Day sheet", icon: ClipboardList }}
+                pathname={pathname}
+                dark
+              />
+              <NavLink
+                item={{ to: "/app/requests", label: "Requests", icon: Inbox, badge: pendingCleans }}
+                pathname={pathname}
+                dark
+              />
               <NavLink item={{ to: "/app/team", label: "Team", icon: UserRound }} pathname={pathname} dark />
               {isMaster ? (
                 <>
@@ -130,7 +144,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
       </aside>
 
       <div className="flex min-h-dvh flex-col pb-20 md:pb-0">
-        <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4">
+        <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 print:hidden">
           <div className="md:hidden">
             <Wordmark to="/app" />
           </div>
@@ -138,6 +152,21 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
           <div className="ml-auto flex items-center gap-1">
             {isOffice ? (
               <>
+                <Link
+                  to="/app/sheet"
+                  className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
+                  aria-label="Day sheet"
+                >
+                  <ClipboardList className="size-5" />
+                </Link>
+                <Link
+                  to="/app/requests"
+                  className="relative grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
+                  aria-label="Requests"
+                >
+                  <Inbox className="size-5" />
+                  {pendingCleans > 0 ? <CountBadge value={pendingCleans} /> : null}
+                </Link>
                 <Link
                   to="/app/team"
                   className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
@@ -176,11 +205,11 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
             </button>
           </div>
         </header>
-        <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6">{children}</div>
+        <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 print:max-w-none print:px-2 print:py-0">{children}</div>
       </div>
 
       <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-paper pb-[env(safe-area-inset-bottom)] md:hidden"
+        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-paper pb-[env(safe-area-inset-bottom)] print:hidden md:hidden"
         style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
       >
         {nav.map((item) => (
