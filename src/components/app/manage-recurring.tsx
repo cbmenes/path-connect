@@ -3,6 +3,8 @@ import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
 import { cancelFutureRecurring, listClientSeries, saveRecurringPlan } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { checkTimeOffConflicts } from "@/lib/sweepbook/time-off";
+import type { TimeOffHit } from "@/lib/sweepbook/time-off";
 import {
   chicagoDateInputValue,
   formatDate,
@@ -10,10 +12,14 @@ import {
   hoursToMinutes,
   minutesToHours,
   money,
+  nextWeekdayOnOrAfter,
+  toDatetimeLocalValue,
 } from "@/lib/sweepbook/time";
 import type { Recurrence, RecurringPlan } from "@/lib/sweepbook/types";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
+import { ConflictWarningDialog } from "@/components/app/conflict-warning";
+import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect } from "@/components/ui/input";
@@ -119,6 +125,11 @@ function PlanEditor({
   const [effectiveDate, setEffectiveDate] = useState(chicagoDateInputValue());
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
+  const [offHits, setOffHits] = useState<TimeOffHit[]>([]);
+  const [pendingSave, setPendingSave] = useState(false);
+  const [hh, mm] = time.split(":").map(Number);
+  const hintStart = nextWeekdayOnOrAfter(new Date(), weekday, hh || 9, mm || 0);
+  const offHints = useTimeOffHints(hintStart, hoursToMinutes(Number(durationHours) || 0));
 
   useEffect(() => {
     setFrequency(plan.recurrence);
@@ -135,6 +146,37 @@ function PlanEditor({
     day: "numeric",
     year: "numeric",
   });
+
+  async function persistPlan() {
+    setBusy(true);
+    try {
+      const res = await saveRecurringPlan({
+        data: {
+          seriesId: plan.seriesId,
+          clientId: plan.clientId,
+          frequency,
+          weekday,
+          time,
+          durationMin: hoursToMinutes(Number(durationHours)),
+          priceCents: Math.round(Number(price) * 100),
+          assignedToUserIds: assignees,
+          effectiveDate,
+        },
+      });
+      toast.success(
+        res.created
+          ? `Saved. ${res.created} upcoming visit${res.created === 1 ? "" : "s"} from ${effectiveLabel}.`
+          : "Saved. Upcoming visits were updated from the effective date.",
+      );
+      setPendingSave(false);
+      setOffHits([]);
+      await onSaved();
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Could not save.");
+    } finally {
+      setBusy(false);
+    }
+  }
 
   return (
     <div className="grid gap-3">
@@ -192,7 +234,7 @@ function PlanEditor({
       </Field>
       <div className="grid gap-1.5">
         <p className="text-sm font-medium text-ink">Assigned cleaners</p>
-        <AssigneePicker staff={staff} selected={assignees} onChange={setAssignees} />
+        <AssigneePicker staff={staff} selected={assignees} onChange={setAssignees} hints={offHints} />
       </div>
       <Field label="Effective date" hint="Default is today. Visits before this date are not rewritten.">
         <Input type="date" value={effectiveDate} onChange={(e) => setEffectiveDate(e.target.value)} />
@@ -205,28 +247,26 @@ function PlanEditor({
           onClick={async () => {
             setBusy(true);
             try {
-              const res = await saveRecurringPlan({
+              const [h, m] = time.split(":").map(Number);
+              const first = nextWeekdayOnOrAfter(new Date(), weekday, h || 9, m || 0);
+              const check = await checkTimeOffConflicts({
                 data: {
-                  seriesId: plan.seriesId,
-                  clientId: plan.clientId,
-                  frequency,
-                  weekday,
-                  time,
+                  startLocal: toDatetimeLocalValue(first),
                   durationMin: hoursToMinutes(Number(durationHours)),
-                  priceCents: Math.round(Number(price) * 100),
                   assignedToUserIds: assignees,
-                  effectiveDate,
+                  recurrence: frequency,
+                  horizonWeeks: 8,
                 },
               });
-              toast.success(
-                res.created
-                  ? `Saved. ${res.created} upcoming visit${res.created === 1 ? "" : "s"} from ${effectiveLabel}.`
-                  : "Saved. Upcoming visits were updated from the effective date.",
-              );
-              await onSaved();
+              if ((check.timeOff ?? []).some((hit) => hit.status === "approved")) {
+                setOffHits(check.timeOff ?? []);
+                setPendingSave(true);
+                setBusy(false);
+                return;
+              }
+              await persistPlan();
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Could not save.");
-            } finally {
               setBusy(false);
             }
           }}
@@ -266,6 +306,15 @@ function PlanEditor({
             setBusy(false);
           }
         }}
+      />
+      <ConflictWarningDialog
+        open={pendingSave}
+        conflicts={[]}
+        timeOff={offHits}
+        busy={busy}
+        onBack={() => setPendingSave(false)}
+        onSaveAnyway={persistPlan}
+        saveLabel="Assign anyway"
       />
     </div>
   );

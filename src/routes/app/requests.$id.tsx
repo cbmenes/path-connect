@@ -6,8 +6,10 @@ import { formatPhoneAsTyped } from "@/lib/sweepbook/people";
 import { acceptCleanRequest, declineCleanRequest, getCleanRequest, serviceTypeLabel } from "@/lib/sweepbook/requests";
 import { checkJobConflicts } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
-import { calendarAppointmentSearch, hoursToMinutes, minutesToHours, money } from "@/lib/sweepbook/time";
+import { calendarAppointmentSearch, fromDatetimeLocalValue, hoursToMinutes, minutesToHours, money } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
+import { useTimeOffHints } from "@/components/app/use-time-off-hints";
+import { timeOffLine } from "@/components/app/conflict-warning";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
@@ -22,6 +24,10 @@ function RequestDetailPage() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["clean-request", id], queryFn: () => getCleanRequest({ data: id }) });
   const staff = useQuery({ queryKey: ["assignable-staff"], queryFn: () => listAssignableStaff() });
+  const offHints = useTimeOffHints(
+    startLocal ? fromDatetimeLocalValue(startLocal) : null,
+    hoursToMinutes(Number(durationHours) || 0),
+  );
   const [startLocal, setStartLocal] = useState("");
   const [durationHours, setDurationHours] = useState("2");
   const [priceCents, setPriceCents] = useState(15000);
@@ -114,6 +120,10 @@ function RequestDetailPage() {
                 if (conflicts.conflicts.length) {
                   toast.message("A cleaner already has a visit overlapping this time. You can still accept.");
                 }
+                const approvedOff = (conflicts.timeOff ?? []).filter((h) => h.status === "approved");
+                if (approvedOff.length) {
+                  toast.message(approvedOff.map(timeOffLine).join(" ") + " Accept anyway, or pick someone else.");
+                }
                 const res = await acceptCleanRequest({
                   data: {
                     id: r.id,
@@ -175,7 +185,7 @@ function RequestDetailPage() {
             <div className="grid gap-1.5">
               <p className="text-sm font-medium text-ink">Assigned cleaners</p>
               <p className="text-xs text-muted">Leave empty if you will assign later. Nothing is auto-assigned.</p>
-              <AssigneePicker staff={staff.data ?? []} selected={assignees} onChange={setAssignees} />
+              <AssigneePicker staff={staff.data ?? []} selected={assignees} onChange={setAssignees} hints={offHints} />
             </div>
             <Field label="Visit notes">
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />

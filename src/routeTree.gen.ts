@@ -36,6 +36,7 @@ import { Route as AppSettingsRouteImport } from './routes/app/settings'
 import { Route as AppSheetRouteImport } from './routes/app/sheet'
 import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as AppTeamPayRouteImport } from './routes/app/team-pay'
+import { Route as AppTimeOffRouteImport } from './routes/app/time-off'
 import { Route as AppVisitsRouteImport } from './routes/app/visits'
 import { Route as BookIndexRouteImport } from './routes/book.index'
 import { Route as BookSlugRouteImport } from './routes/book.$slug'
@@ -192,6 +193,11 @@ const AppTeamPayRoute = AppTeamPayRouteImport.update({
   path: '/team-pay',
   getParentRoute: () => AppRoute,
 } as any)
+const AppTimeOffRoute = AppTimeOffRouteImport.update({
+  id: '/time-off',
+  path: '/time-off',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppVisitsRoute = AppVisitsRouteImport.update({
   id: '/visits',
   path: '/visits',
@@ -320,6 +326,7 @@ export interface FileRoutesByFullPath {
   '/app/sheet': typeof AppSheetRoute
   '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
+  '/app/time-off': typeof AppTimeOffRoute
   '/app/visits': typeof AppVisitsRoute
   '/book/$slug': typeof BookSlugRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -362,6 +369,7 @@ export interface FileRoutesByTo {
   '/app/settings': typeof AppSettingsRoute
   '/app/sheet': typeof AppSheetRoute
   '/app/team-pay': typeof AppTeamPayRoute
+  '/app/time-off': typeof AppTimeOffRoute
   '/app/visits': typeof AppVisitsRoute
   '/book/$slug': typeof BookSlugRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -412,6 +420,7 @@ export interface FileRoutesById {
   '/app/sheet': typeof AppSheetRoute
   '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
+  '/app/time-off': typeof AppTimeOffRoute
   '/app/visits': typeof AppVisitsRoute
   '/book/$slug': typeof BookSlugRoute
   '/invite/$token': typeof InviteTokenRoute
@@ -463,6 +472,7 @@ export interface FileRouteTypes {
     | '/app/sheet'
     | '/app/team'
     | '/app/team-pay'
+    | '/app/time-off'
     | '/app/visits'
     | '/book/$slug'
     | '/invite/$token'
@@ -505,6 +515,7 @@ export interface FileRouteTypes {
     | '/app/settings'
     | '/app/sheet'
     | '/app/team-pay'
+    | '/app/time-off'
     | '/app/visits'
     | '/book/$slug'
     | '/invite/$token'
@@ -554,6 +565,7 @@ export interface FileRouteTypes {
     | '/app/sheet'
     | '/app/team'
     | '/app/team-pay'
+    | '/app/time-off'
     | '/app/visits'
     | '/book/$slug'
     | '/invite/$token'
@@ -787,6 +799,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamPayRouteImport
       parentRoute: typeof AppRoute
     }
+    '/app/time-off': {
+      id: '/app/time-off'
+      path: '/time-off'
+      fullPath: '/app/time-off'
+      preLoaderRoute: typeof AppTimeOffRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/visits': {
       id: '/app/visits'
       path: '/visits'
@@ -1003,6 +1022,7 @@ interface AppRouteChildren {
   AppSheetRoute: typeof AppSheetRoute
   AppTeamRoute: typeof AppTeamRouteWithChildren
   AppTeamPayRoute: typeof AppTeamPayRoute
+  AppTimeOffRoute: typeof AppTimeOffRoute
   AppVisitsRoute: typeof AppVisitsRoute
   AppIndexRoute: typeof AppIndexRoute
   AppJobsIdRoute: typeof AppJobsIdRoute
@@ -1023,6 +1043,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppSheetRoute: AppSheetRoute,
   AppTeamRoute: AppTeamRouteWithChildren,
   AppTeamPayRoute: AppTeamPayRoute,
+  AppTimeOffRoute: AppTimeOffRoute,
   AppVisitsRoute: AppVisitsRoute,
   AppIndexRoute: AppIndexRoute,
   AppJobsIdRoute: AppJobsIdRoute,

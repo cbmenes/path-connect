@@ -41,7 +41,8 @@ export type NotificationKind =
   | "request_declined"
   | "job_assigned"
   | "tip"
-  | "clean_request";
+  | "clean_request"
+  | "time_off";
 
 export type CleanServiceType = "one-time" | "weekly" | "biweekly" | "monthly";
 
@@ -354,6 +355,8 @@ export const DEMO_TEAM2_ID = "demo-team-noah";
 export const DEMO_ADMIN_ID = "demo-admin-renee";
 export const CAM_CLIENT_ID = "client-cam-delgado";
 export const DEMO_REQUEST_ID = "demo-request-riley";
+export const DEMO_TIME_OFF_APPROVED_ID = "toff-lena-approved";
+export const DEMO_TIME_OFF_PENDING_ID = "toff-lena-pending";
 
 export function isOfficeActor(actor?: Actor | null) {
   return actor?.kind === "cleaner" || actor?.kind === "admin";

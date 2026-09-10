@@ -51,7 +51,11 @@ function AppLayout() {
       return;
     }
     if (actor.data?.kind === "client" || actor.data?.kind === "client_unlinked") {
-      if (pathname.startsWith("/app/sheet") || pathname.startsWith("/app/requests")) {
+      if (
+        pathname.startsWith("/app/sheet") ||
+        pathname.startsWith("/app/requests") ||
+        pathname.startsWith("/app/time-off")
+      ) {
         void navigate({ to: "/app/visits" });
       }
     }

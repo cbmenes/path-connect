@@ -18,20 +18,22 @@ import {
   DEMO_ADMIN_ID,
   DEMO_ADMIN_PASSWORD,
   DEMO_REQUEST_ID,
+  DEMO_TIME_OFF_APPROVED_ID,
+  DEMO_TIME_OFF_PENDING_ID,
 } from "./types";
 import { addressPartsFrom, ensureBookingSlug, namesFrom, storePhone } from "./people";
 import { addDaysChicago, chicagoDate, chicagoDateInputValue, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed13__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed14__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed13__) {
-    g.__sweepbookSeed13__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed13__ = undefined;
+  if (!g.__sweepbookSeed14__) {
+    g.__sweepbookSeed14__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed14__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed13__;
+  await g.__sweepbookSeed14__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -50,6 +52,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV7(sql);
   await seedV8(sql);
   await seedV9(sql);
+  await seedV10(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -1141,6 +1144,84 @@ async function seedV9(sql: Sql) {
     set title = replace(title, 'New clean request from', 'New booking request from')
     where kind = ${"clean_request"} and title like 'New clean request from%'
   `;
+}
+
+async function seedV10(sql: Sql) {
+  const existing = await sql<{ id: string }>`
+    select id from time_off where id in (${DEMO_TIME_OFF_APPROVED_ID}, ${DEMO_TIME_OFF_PENDING_ID})
+  `;
+  const have = new Set(existing.map((r) => r.id));
+
+  const nextJob = await sql<{ start_at: string }>`
+    select j.start_at::text as start_at
+    from jobs j
+    where j.cleaner_user_id = ${DEMO_CLEANER_ID}
+      and j.status = 'scheduled'
+      and j.start_at >= now()
+      and (
+        j.assigned_to_user_id = ${DEMO_TEAM_ID}
+        or exists (select 1 from job_assignees ja where ja.job_id = j.id and ja.user_id = ${DEMO_TEAM_ID})
+      )
+    order by j.start_at asc
+    limit 1
+  `;
+  const approvedDate = nextJob[0]
+    ? chicagoDateInputValue(nextJob[0].start_at)
+    : chicagoDateInputValue(addDaysChicago(startOfChicagoDay(new Date()), 3));
+  const pendingStart = chicagoDateInputValue(addDaysChicago(startOfChicagoDay(new Date()), 14));
+  const pendingEnd = chicagoDateInputValue(addDaysChicago(startOfChicagoDay(new Date()), 16));
+
+  if (!have.has(DEMO_TIME_OFF_APPROVED_ID)) {
+    await sql`
+      insert into time_off (
+        id, master_user_id, user_id, kind, start_date, end_date, start_time, end_time,
+        note, status, created_by_user_id, handled_by_user_id, handled_at
+      ) values (
+        ${DEMO_TIME_OFF_APPROVED_ID}, ${DEMO_CLEANER_ID}, ${DEMO_TEAM_ID}, ${"all_day"},
+        ${approvedDate}, ${approvedDate}, ${null}, ${null},
+        ${"Doctor appointment"}, ${"approved"}, ${DEMO_CLEANER_ID}, ${DEMO_CLEANER_ID}, now()
+      )
+    `;
+  }
+
+  if (!have.has(DEMO_TIME_OFF_PENDING_ID)) {
+    await sql`
+      insert into time_off (
+        id, master_user_id, user_id, kind, start_date, end_date, start_time, end_time,
+        note, status, created_by_user_id
+      ) values (
+        ${DEMO_TIME_OFF_PENDING_ID}, ${DEMO_CLEANER_ID}, ${DEMO_TEAM_ID}, ${"all_day"},
+        ${pendingStart}, ${pendingEnd}, ${null}, ${null},
+        ${"Long weekend"}, ${"pending"}, ${DEMO_TEAM_ID}
+      )
+    `;
+    const already = await sql<{ id: string }>`
+      select id from notifications
+      where kind = ${"time_off"} and user_id = ${DEMO_CLEANER_ID}
+        and body like ${"%" + pendingStart + "%"}
+      limit 1
+    `;
+    if (!already.length) {
+      await sql`
+        insert into notifications (id, user_id, kind, title, body, status)
+        values (
+          ${nid("ntf")}, ${DEMO_CLEANER_ID}, ${"time_off"},
+          ${"Lena Ruiz requested time off"},
+          ${pendingStart + " – " + pendingEnd + " · Long weekend"},
+          ${"unread"}
+        )
+      `;
+      await sql`
+        insert into notifications (id, user_id, kind, title, body, status)
+        values (
+          ${nid("ntf")}, ${DEMO_ADMIN_ID}, ${"time_off"},
+          ${"Lena Ruiz requested time off"},
+          ${pendingStart + " – " + pendingEnd + " · Long weekend"},
+          ${"unread"}
+        )
+      `;
+    }
+  }
 }
 
 

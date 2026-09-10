@@ -60,18 +60,23 @@ function TeamPage() {
       <PageHeader
         title="Team"
         action={
-          isMaster ? (
-            <div className="flex flex-wrap gap-2">
-              <Button variant="outline" asChild>
-                <Link to="/app/team-pay">Team pay</Link>
-              </Button>
-              <Button variant="outline" asChild>
-                <Link to="/app/data" search={{ kind: "team" }}>
-                  Download / Import
-                </Link>
-              </Button>
-            </div>
-          ) : null
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/app/time-off">Time off</Link>
+            </Button>
+            {isMaster ? (
+              <>
+                <Button variant="outline" asChild>
+                  <Link to="/app/team-pay">Team pay</Link>
+                </Button>
+                <Button variant="outline" asChild>
+                  <Link to="/app/data" search={{ kind: "team" }}>
+                    Download / Import
+                  </Link>
+                </Button>
+              </>
+            ) : null}
+          </div>
         }
       />
       <p className="max-w-xl text-sm text-muted">

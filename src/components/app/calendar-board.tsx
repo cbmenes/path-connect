@@ -20,6 +20,9 @@ import { TilePayBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { indexOverlaps, type OverlapNote } from "@/lib/sweepbook/overlaps";
+import { firstName } from "@/lib/sweepbook/time-off-overlap";
+
+export type DayOffMark = { userId: string; name: string; status: "approved" | "pending" };
 
 export type CalView = "day" | "week" | "month";
 
@@ -262,6 +265,7 @@ export function MonthGrid({
   onEmpty,
   onJob,
   overlapIndex,
+  offByDay,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -271,6 +275,7 @@ export function MonthGrid({
   onEmpty: (day: Date) => void;
   onJob: (j: JobWithClient) => void;
   overlapIndex?: Map<string, OverlapNote[]>;
+  offByDay?: Map<string, DayOffMark[]>;
 }) {
   const month = partsInChicago(days[15] ?? days[0]).month;
   return (
@@ -287,6 +292,7 @@ export function MonthGrid({
           const list = jobsOnDay(jobs, d);
           const inMonth = partsInChicago(d).month === month;
           const today = sameChicagoDay(d, new Date());
+          const offs = offByDay?.get(isoDay(d)) ?? [];
           return (
             <button
               key={d.toISOString()}
@@ -307,6 +313,21 @@ export function MonthGrid({
                   </span>
                 ) : null}
               </span>
+              {offs.length ? (
+                <div className="mt-1 flex flex-wrap gap-0.5">
+                  {offs.map((mark) => (
+                    <span
+                      key={mark.userId}
+                      className={cn(
+                        "rounded px-1 text-[10px] font-semibold uppercase tracking-wide",
+                        mark.status === "approved" ? "bg-warn/20 text-warn" : "bg-secondary text-muted",
+                      )}
+                    >
+                      Off {firstName(mark.name)}
+                    </span>
+                  ))}
+                </div>
+              ) : null}
               <div className="mt-1 grid gap-0.5">
                 {preferOverlapTiles(list, overlapIndex, 3).map((j) => {
                   const notes = notesFor(overlapIndex, j.id);
@@ -452,6 +473,7 @@ export function CalendarBody({
   onJob,
   showOverlap = false,
   overlapForUserId,
+  offByDay,
 }: {
   mode: CalView;
   days: Date[];
@@ -464,6 +486,7 @@ export function CalendarBody({
   onJob: (j: JobWithClient) => void;
   showOverlap?: boolean;
   overlapForUserId?: string;
+  offByDay?: Map<string, DayOffMark[]>;
 }) {
   const overlapIndex = useMemo(
     () => (showOverlap ? indexOverlaps(jobs, { onlyCleanerUserId: overlapForUserId }) : undefined),
@@ -480,6 +503,7 @@ export function CalendarBody({
         onEmpty={onEmpty}
         onJob={onJob}
         overlapIndex={overlapIndex}
+        offByDay={offByDay}
       />
     );
   }

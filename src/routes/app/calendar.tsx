@@ -3,6 +3,9 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState, useEffect } from "react";
 import { createJob, listJobs } from "@/lib/sweepbook/jobs";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
+import { listTimeOff } from "@/lib/sweepbook/time-off";
+import { firstName, timeOffCoversDay } from "@/lib/sweepbook/time-off-overlap";
+import type { DayOffMark } from "@/components/app/calendar-board";
 import {
   addDaysChicago,
   chicagoDate,
@@ -76,8 +79,45 @@ function CalendarPage() {
     queryFn: () => listJobs({ data: { from: range.from.toISOString(), to: range.to.toISOString() } }),
     refetchOnMount: "always",
   });
+  const timeOff = useQuery({
+    queryKey: ["time-off", "calendar", isoDay(range.from), isoDay(range.to)],
+    queryFn: () =>
+      listTimeOff({
+        data: { from: isoDay(range.from), to: isoDay(addDaysChicago(range.to, -1)), upcomingOnly: false },
+      }),
+    enabled: isOffice || isTeam,
+  });
 
   const days = useMemo(() => calendarDays(mode, anchor, range.from), [anchor, mode, range.from]);
+  const offByDay = useMemo(() => {
+    const map = new Map<string, DayOffMark[]>();
+    const rows = (timeOff.data ?? []).filter((r) => r.status === "approved" || r.status === "pending");
+    for (const day of days) {
+      const key = isoDay(day);
+      const marks: DayOffMark[] = [];
+      for (const row of rows) {
+        if (!timeOffCoversDay(row, key)) continue;
+        if (isTeam && actor.data?.userId && row.user_id !== actor.data.userId) continue;
+        marks.push({
+          userId: row.user_id,
+          name: row.user_name,
+          status: row.status === "approved" ? "approved" : "pending",
+        });
+      }
+      if (marks.length) map.set(key, marks);
+    }
+    return map;
+  }, [days, timeOff.data, isTeam, actor.data?.userId]);
+  const offChips = useMemo(() => {
+    const seen = new Map<string, string>();
+    for (const marks of offByDay.values()) {
+      for (const m of marks) {
+        if (m.status !== "approved") continue;
+        if (!seen.has(m.userId)) seen.set(m.userId, m.name);
+      }
+    }
+    return [...seen.entries()].map(([userId, name]) => ({ userId, name }));
+  }, [offByDay]);
 
   function setView(next: CalView, day?: Date) {
     const d = day ?? anchor;
@@ -146,6 +186,18 @@ function CalendarPage() {
           void navigate({ to: "/app/calendar", search: { view: mode, date: isoDay(t) }, replace: true });
         }}
       />
+      {isOffice && offChips.length ? (
+        <div className="flex flex-wrap gap-1.5">
+          {offChips.map((c) => (
+            <span
+              key={c.userId}
+              className="rounded-full bg-warn/15 px-2.5 py-1 text-xs font-medium text-warn"
+            >
+              Off · {firstName(c.name)}
+            </span>
+          ))}
+        </div>
+      ) : null}
       <CalendarBody
         mode={mode}
         days={days}
@@ -156,6 +208,7 @@ function CalendarPage() {
         overlapForUserId={isTeam ? actor.data?.userId : undefined}
         named="client"
         canAdd={Boolean(isOffice)}
+        offByDay={isOffice || isTeam ? offByDay : undefined}
         onEmpty={(dt) => {
           if (!isOffice) return;
           setAddStart(toDatetimeLocalValue(dt));

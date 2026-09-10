@@ -3,12 +3,15 @@ import { toast } from "sonner";
 import { listClients } from "@/lib/sweepbook/clients";
 import { checkJobConflicts, type ConflictHit, type JobInput } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { listTimeOff } from "@/lib/sweepbook/time-off";
+import type { TimeOffHit } from "@/lib/sweepbook/time-off";
+import { timeOffHintForJob } from "@/lib/sweepbook/time-off-overlap";
 import { addressPartsFrom } from "@/lib/sweepbook/people";
-import { hoursToMinutes, minutesToHours, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
+import { fromDatetimeLocalValue, hoursToMinutes, minutesToHours, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import type { ClientRow, Recurrence } from "@/lib/sweepbook/types";
 import { AddressFields } from "./address-fields";
-import { AssigneePicker } from "./assignee-picker";
-import { conflictLine, ConflictWarningDialog } from "./conflict-warning";
+import { AssigneePicker, type AssigneeHint } from "./assignee-picker";
+import { conflictLine, ConflictWarningDialog, timeOffLine } from "./conflict-warning";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
@@ -41,6 +44,8 @@ export function JobForm({
     initial?.assignedToUserIds ?? (initial?.assignedToUserId ? [initial.assignedToUserId] : []),
   );
   const [conflicts, setConflicts] = useState<ConflictHit[]>([]);
+  const [timeOff, setTimeOff] = useState<TimeOffHit[]>([]);
+  const [offRows, setOffRows] = useState<Awaited<ReturnType<typeof listTimeOff>>>([]);
   const [pendingInput, setPendingInput] = useState<JobInput | null>(null);
   const [checking, setChecking] = useState(false);
 
@@ -50,6 +55,9 @@ export function JobForm({
       void listAssignableStaff()
         .then(setStaff)
         .catch(() => setStaff([]));
+      void listTimeOff({ data: { upcomingOnly: false } })
+        .then(setOffRows)
+        .catch(() => setOffRows([]));
     }
   }, [showAssign]);
 
@@ -72,8 +80,14 @@ export function JobForm({
           recurrence,
         },
       })
-        .then((r) => setConflicts(r.conflicts))
-        .catch(() => setConflicts([]));
+        .then((r) => {
+          setConflicts(r.conflicts);
+          setTimeOff(r.timeOff ?? []);
+        })
+        .catch(() => {
+          setConflicts([]);
+          setTimeOff([]);
+        });
     }, 250);
     return () => clearTimeout(t);
   }, [startLocal, durationMin, initial?.id, assignedToUserIds, recurrence]);
@@ -127,8 +141,10 @@ export function JobForm({
               recurrence: input.recurrence,
             },
           });
-          if (res.conflicts.length) {
+          const approvedOff = (res.timeOff ?? []).filter((h) => h.status === "approved");
+          if (res.conflicts.length || approvedOff.length) {
             setConflicts(res.conflicts);
+            setTimeOff(res.timeOff ?? []);
             setPendingInput(input);
             return;
           }
@@ -190,7 +206,12 @@ export function JobForm({
         <div className="grid gap-1.5">
           <p className="text-sm font-medium text-ink">Assigned cleaners</p>
           <p className="text-xs text-muted">If this is a recurring cleaning, the cleaner(s) you choose below will be assigned to future recurring appointments on this schedule.</p>
-          <AssigneePicker staff={staff} selected={assignedToUserIds} onChange={setAssignedToUserIds} />
+          <AssigneePicker
+            staff={staff}
+            selected={assignedToUserIds}
+            onChange={setAssignedToUserIds}
+            hints={assigneeHints(offRows, startLocal, durationMin)}
+          />
         </div>
       ) : null}
       <Field label="Notes">
@@ -204,6 +225,9 @@ export function JobForm({
             : ""}
         </p>
       ) : null}
+      {timeOff.some((h) => h.status === "pending") && !timeOff.some((h) => h.status === "approved") ? (
+        <p className="text-sm text-muted">{timeOff.filter((h) => h.status === "pending").map(timeOffLine).join(" ")}</p>
+      ) : null}
       <Button type="submit" disabled={submitting || checking}>
         {checking ? "Checking…" : submitting ? "Saving…" : submitLabel}
       </Button>
@@ -211,12 +235,29 @@ export function JobForm({
     <ConflictWarningDialog
       open={Boolean(pendingInput)}
       conflicts={conflicts}
+      timeOff={timeOff}
       busy={submitting}
       onBack={() => setPendingInput(null)}
       onSaveAnyway={async () => {
         if (pendingInput) await submitNow(pendingInput);
       }}
+      saveLabel="Save anyway"
     />
     </>
   );
+}
+
+function assigneeHints(
+  rows: Awaited<ReturnType<typeof listTimeOff>>,
+  startLocal: string,
+  durationMin: number,
+): Record<string, AssigneeHint> {
+  const start = fromDatetimeLocalValue(startLocal);
+  const hints: Record<string, AssigneeHint> = {};
+  const ids = new Set(rows.map((r) => r.user_id));
+  for (const id of ids) {
+    const hint = timeOffHintForJob(rows, id, start, durationMin);
+    if (hint) hints[id] = hint;
+  }
+  return hints;
 }

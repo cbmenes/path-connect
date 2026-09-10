@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import {
   Bell,
   CalendarDays,
+  CalendarOff,
   ClipboardList,
   CreditCard,
   FileSpreadsheet,
@@ -37,6 +38,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
   const unreadMessages = badges.data?.unreadMessages ?? 0;
   const unreadNotes = badges.data?.unreadNotifications ?? 0;
   const pendingCleans = badges.data?.pendingCleanRequests ?? 0;
+  const pendingTimeOff = badges.data?.pendingTimeOff ?? 0;
   const isMaster = actor.kind === "cleaner";
   const isAdmin = actor.kind === "admin";
   const isOffice = isMaster || isAdmin;
@@ -71,6 +73,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
       ? [
           { to: "/app", label: "Home", icon: Home },
           { to: "/app/calendar", label: "Calendar", icon: CalendarDays },
+          { to: "/app/time-off", label: "Time off", icon: CalendarOff },
           { to: "/app/sheet", label: "Day sheet", icon: ClipboardList },
           ...(messaging
             ? [{ to: "/app/messages", label: "Messages", icon: MessageSquare, badge: unreadMessages }]
@@ -121,6 +124,11 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
                 dark
               />
               <NavLink item={{ to: "/app/team", label: "Team", icon: UserRound }} pathname={pathname} dark />
+              <NavLink
+                item={{ to: "/app/time-off", label: "Time off", icon: CalendarOff, badge: pendingTimeOff }}
+                pathname={pathname}
+                dark
+              />
               {isMaster ? (
                 <>
                   <NavLink item={{ to: "/app/team-pay", label: "Team pay", icon: Wallet }} pathname={pathname} dark />
@@ -173,6 +181,14 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
                   aria-label="Team"
                 >
                   <UserRound className="size-5" />
+                </Link>
+                <Link
+                  to="/app/time-off"
+                  className="relative grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
+                  aria-label="Time off"
+                >
+                  <CalendarOff className="size-5" />
+                  {pendingTimeOff > 0 ? <CountBadge value={pendingTimeOff} /> : null}
                 </Link>
                 {isMaster ? (
                   <Link

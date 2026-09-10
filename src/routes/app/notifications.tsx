@@ -16,6 +16,7 @@ function kindLabel(kind: string) {
   if (kind === "tip") return "Tip";
   if (kind === "reschedule") return "Reschedule";
   if (kind === "clean_request") return "Clean request";
+  if (kind === "time_off") return "Time off";
   return kind.replaceAll("_", " ");
 }
 
@@ -38,7 +39,7 @@ function NotificationsPage() {
       {q.isPending ? (
         <div className="h-32 animate-pulse rounded-xl bg-secondary" />
       ) : rows.length === 0 ? (
-        <EmptyState title="All quiet" body="Cancellations, clean requests, tips, and team updates will show up here." />
+        <EmptyState title="All quiet" body="Cancellations, clean requests, time off, tips, and team updates will show up here." />
       ) : (
         <div className="grid gap-2">
           {rows.map((n) => {
@@ -100,6 +101,18 @@ function NotificationsPage() {
                         }}
                       >
                         Payments
+                      </Link>
+                    </Button>
+                  ) : null}
+                  {n.kind === "time_off" ? (
+                    <Button variant="ghost" size="sm" asChild>
+                      <Link
+                        to="/app/time-off"
+                        onClick={() => {
+                          void markNotificationsRead({ data: { id: n.id } });
+                        }}
+                      >
+                        Time off
                       </Link>
                     </Button>
                   ) : null}

@@ -12,6 +12,7 @@ import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
+import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
@@ -55,6 +56,7 @@ export function JobPanel({
   const [removeOpen, setRemoveOpen] = useState(false);
   const [manageOpen, setManageOpen] = useState(false);
   const assignGate = useAssignConflictGate();
+  const offHints = useTimeOffHints(q.data?.job.start_at, q.data?.job.duration_min);
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
     queryFn: () => listCardsForClient({ data: q.data!.job.client_id }),
@@ -108,6 +110,7 @@ export function JobPanel({
               staff={staff.data ?? []}
               selected={selectedIds}
               onChange={setAssigneeIds}
+              hints={offHints}
             />
             <Field label="Apply assignment">
               <NativeSelect

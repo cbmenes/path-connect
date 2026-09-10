@@ -10,6 +10,7 @@ import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
+import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
@@ -47,6 +48,7 @@ function JobDetail() {
     actor.data?.kind === "admin" ||
     (actor.data?.kind === "team" && actor.data.canMessage);
   const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: isOffice });
+  const offHints = useTimeOffHints(jobQ.data?.job.start_at, jobQ.data?.job.duration_min);
 
   if (jobQ.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
   if (jobQ.error) return <p className="text-danger">{(jobQ.error as Error).message}</p>;
@@ -80,6 +82,7 @@ function JobDetail() {
             staff={staff.data ?? []}
             selected={assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id)}
             onChange={setAssigneeIds}
+            hints={offHints}
           />
           <Field label="Apply assignment">
             <NativeSelect

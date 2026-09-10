@@ -966,14 +966,21 @@ export const getNavBadges = createServerFn({ method: "GET" })
       where user_id = ${context.userId} and status = 'unread'
     `;
     let pendingCleanRequests = 0;
+    let pendingTimeOff = 0;
     if (isOffice(actor)) {
+      const ownerId = masterUserId(actor);
       const cleans = await sql<{ n: number }>`
         select count(*)::int as n from clean_requests
-        where cleaner_user_id = ${masterUserId(actor)} and status = 'pending'
+        where cleaner_user_id = ${ownerId} and status = 'pending'
       `;
       pendingCleanRequests = Number(cleans[0]?.n || 0);
+      const offs = await sql<{ n: number }>`
+        select count(*)::int as n from time_off
+        where master_user_id = ${ownerId} and status = 'pending'
+      `;
+      pendingTimeOff = Number(offs[0]?.n || 0);
     }
-    return { unreadMessages, unreadNotifications: Number(notes[0]?.n || 0), pendingCleanRequests };
+    return { unreadMessages, unreadNotifications: Number(notes[0]?.n || 0), pendingCleanRequests, pendingTimeOff };
   });
 
 async function loadThreadMessages(sql: Sql, ownerId: string, thread: ThreadRef) {

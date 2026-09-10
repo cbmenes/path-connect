@@ -30,7 +30,13 @@ export async function insertNotification(
       ${input.requestId ?? null}, ${input.requestedStartAt ?? null}, ${"unread"}
     )
   `;
-  if (input.kind === "cancel" || input.kind === "reschedule" || input.kind === "tip" || input.kind === "clean_request") {
+  if (
+    input.kind === "cancel" ||
+    input.kind === "reschedule" ||
+    input.kind === "tip" ||
+    input.kind === "clean_request" ||
+    input.kind === "time_off"
+  ) {
     const master = await sql<{ user_id: string }>`
       select user_id from profiles
       where user_id = ${input.userId} and role = 'cleaner'

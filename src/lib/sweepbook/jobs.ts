@@ -14,6 +14,7 @@ import {
 import { insertNotification } from "./notifications";
 import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
+import { findTimeOffHits, type TimeOffHit } from "./time-off";
 import {
   addDaysChicago,
   addMinutes,
@@ -424,15 +425,24 @@ export const checkJobConflicts = createServerFn({ method: "POST" })
     const ownerId = masterUserId(actor);
     const first = fromDatetimeLocalValue(data.startLocal);
     const starts = occurrenceStarts(first, data.recurrence || "none");
+    const durationMin = Number(data.durationMin) || 120;
     const hits = await findConflictsForStarts(
       sql,
       ownerId,
       starts,
-      Number(data.durationMin) || 120,
+      durationMin,
       data.ignoreId,
       data.assignedToUserIds,
     );
-    return { conflicts: hits };
+    const timeOff = await findTimeOffHits(
+      sql,
+      ownerId,
+      starts,
+      durationMin,
+      data.assignedToUserIds ?? [],
+      { horizonWeeks: data.recurrence && data.recurrence !== "none" ? 8 : undefined },
+    );
+    return { conflicts: hits, timeOff };
   });
 
 export const checkAssignConflicts = createServerFn({ method: "POST" })
@@ -458,7 +468,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
     );
     const job = jobRows[0];
     if (!job) throw new Error("Visit not found.");
-    if (!ids.length) return { conflicts: [] as ConflictHit[] };
+    if (!ids.length) return { conflicts: [] as ConflictHit[], timeOff: [] as TimeOffHit[] };
 
     const extras =
       data.scope === "client_recurring"
@@ -481,19 +491,31 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
       list.push(row);
     }
     const hits: ConflictHit[] = [];
+    const timeOff: TimeOffHit[] = [];
+    const seenOff = new Set<string>();
+    const horizon = addDaysChicago(startOfChicagoDay(new Date()), 56);
     for (const row of list) {
+      const start = new Date(row.start_at);
       hits.push(
         ...(await findConflicts(
           sql,
           ownerId,
-          new Date(row.start_at),
+          start,
           Number(row.duration_min),
           row.id,
           ids,
         )),
       );
+      if (data.scope === "client_recurring" && start >= horizon) continue;
+      const offs = await findTimeOffHits(sql, ownerId, [start], Number(row.duration_min), ids);
+      for (const hit of offs) {
+        const key = `${hit.userId}|${hit.requestId}|${hit.status}`;
+        if (seenOff.has(key)) continue;
+        seenOff.add(key);
+        timeOff.push(hit);
+      }
     }
-    return { conflicts: dedupeHits(hits) };
+    return { conflicts: dedupeHits(hits), timeOff };
   });
 
 export const createJob = createServerFn({ method: "POST" })
