@@ -5,13 +5,13 @@ import { toast } from "sonner";
 import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
-import { chargeCard, listCardsForClient, requestTip } from "@/lib/sweepbook/payments";
+import { chargeCard, listCardsForClient, markAsPaid, requestTip } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
-import { CancelAppointmentDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
+import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
@@ -33,6 +33,7 @@ function JobDetail() {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [markOpen, setMarkOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
@@ -169,6 +170,11 @@ function JobDetail() {
             />
           </Dialog>
           ) : null}
+          {canCharge && job.payment_status !== "paid" && job.status !== "cancelled" ? (
+            <Button variant="outline" onClick={() => setMarkOpen(true)}>
+              Mark as Paid
+            </Button>
+          ) : null}
           {canCharge && (job.payment_status === "paid" || job.status === "completed") ? (
             <Button
               variant="outline"
@@ -279,6 +285,27 @@ function JobDetail() {
           await qc.invalidateQueries({ queryKey: ["job", id] });
           await qc.invalidateQueries({ queryKey: ["jobs"] });
           await qc.invalidateQueries({ queryKey: ["client", job.client_id] });
+        }}
+      />
+      <MarkPaidDialog
+        open={markOpen}
+        onOpenChange={setMarkOpen}
+        busy={busy}
+        onConfirm={async (note) => {
+          setBusy(true);
+          try {
+            const res = await markAsPaid({ data: { jobId: job.id, note } });
+            toast.success(`Marked as paid. Receipt ${res.receiptNumber}`);
+            setMarkOpen(false);
+            await qc.invalidateQueries({ queryKey: ["invoices"] });
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
+            await qc.invalidateQueries({ queryKey: ["dashboard"] });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not mark paid.");
+          } finally {
+            setBusy(false);
+          }
         }}
       />
       {assignGate.dialog}

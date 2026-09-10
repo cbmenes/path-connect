@@ -4,7 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { useAssignConflictGate } from "@/components/app/conflict-warning";
-import { chargeCard, listCardsForClient } from "@/lib/sweepbook/payments";
+import { chargeCard, listCardsForClient, markAsPaid } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { formatDate, formatHours, formatTime, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { JobForm } from "@/components/app/job-form";
@@ -13,7 +13,7 @@ import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
-import { CancelAppointmentDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
+import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { Button } from "@/components/ui/button";
@@ -46,6 +46,7 @@ export function JobPanel({
   const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: canEdit });
   const [editing, setEditing] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [markOpen, setMarkOpen] = useState(false);
   const [amt, setAmt] = useState("");
   const [desc, setDesc] = useState("");
   const [cardId, setCardId] = useState("");
@@ -189,6 +190,11 @@ export function JobPanel({
               Charge / collect
             </Button>
           ) : null}
+          {canCharge && job.payment_status !== "paid" && job.status !== "cancelled" ? (
+            <Button variant="outline" size="sm" onClick={() => setMarkOpen(true)}>
+              Mark as Paid
+            </Button>
+          ) : null}
           {canEdit ? <ReminderTestButton jobId={job.id} size="sm" /> : null}
         </div>
 
@@ -306,6 +312,24 @@ export function JobPanel({
       clientId={job.client_id}
       seriesId={job.series_id}
       onChanged={onChanged}
+    />
+    <MarkPaidDialog
+      open={markOpen}
+      onOpenChange={setMarkOpen}
+      busy={busy}
+      onConfirm={async (note) => {
+        setBusy(true);
+        try {
+          const res = await markAsPaid({ data: { jobId: job.id, note } });
+          toast.success(`Marked as paid. Receipt ${res.receiptNumber}`);
+          setMarkOpen(false);
+          await onChanged();
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Could not mark paid.");
+        } finally {
+          setBusy(false);
+        }
+      }}
     />
     {assignGate.dialog}
   </>

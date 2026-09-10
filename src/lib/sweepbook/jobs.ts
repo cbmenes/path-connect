@@ -40,7 +40,7 @@ export type ConflictHit = {
 
 export const listJobs = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
-  .validator((input: { from: string; to: string; assignedToUserId?: string }) => input)
+  .validator((input: { from: string; to: string; assignedToUserId?: string; clientId?: string }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     await ensureDemoSeed(sql);
@@ -48,8 +48,9 @@ export const listJobs = createServerFn({ method: "GET" })
     if (isOffice(actor)) {
       const ownerId = masterUserId(actor);
       const params: unknown[] = [ownerId, data.from, data.to];
-      let assigneeSql = "";
-      // Office-only filter. Team / client callers ignore a client-sent id.
+      let extraSql = "";
+      let next = 4;
+      // Office-only filters. Team / client callers ignore a client-sent id.
       if (data.assignedToUserId) {
         const member = await sql.query<{ user_id: string }>(
           `select user_id from profiles
@@ -59,19 +60,30 @@ export const listJobs = createServerFn({ method: "GET" })
           [data.assignedToUserId, ownerId],
         );
         if (!member[0]) throw new Error("Team member not found.");
+        const slot = next++;
         params.push(data.assignedToUserId);
-        assigneeSql = `and (
-            exists (select 1 from job_assignees ja where ja.job_id = j.id and ja.user_id = $4)
+        extraSql += ` and (
+            exists (select 1 from job_assignees ja where ja.job_id = j.id and ja.user_id = $${slot})
             or (
               not exists (select 1 from job_assignees ja2 where ja2.job_id = j.id)
-              and j.assigned_to_user_id = $4
+              and j.assigned_to_user_id = $${slot}
             )
           )`;
+      }
+      if (data.clientId) {
+        const owned = await sql.query<{ id: string }>(
+          `select id from clients where id = $1 and cleaner_user_id = $2 limit 1`,
+          [data.clientId, ownerId],
+        );
+        if (!owned[0]) throw new Error("Client not found.");
+        const slot = next++;
+        params.push(data.clientId);
+        extraSql += ` and j.client_id = $${slot}`;
       }
       const rows = await sql.query<JobWithClient & { assignees_json?: unknown }>(
         `select ${JOB_SELECT} from ${JOB_FROM}
          where j.cleaner_user_id = $1 and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
-         ${assigneeSql}
+         ${extraSql}
          order by j.start_at asc`,
         params,
       );

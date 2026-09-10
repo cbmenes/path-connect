@@ -21,12 +21,14 @@ export function JobForm({
   submitting,
   submitLabel,
   showAssign,
+  lockClient,
 }: {
   initial?: Partial<JobInput> & { id?: string };
   onSubmit: (input: JobInput) => void;
   submitting?: boolean;
   submitLabel: string;
   showAssign?: boolean;
+  lockClient?: boolean;
 }) {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [staff, setStaff] = useState<{ user_id: string; full_name: string }[]>([]);
@@ -60,6 +62,19 @@ export function JobForm({
         .catch(() => setOffRows([]));
     }
   }, [showAssign]);
+
+  useEffect(() => {
+    if (initial?.id) return;
+    if (!initial?.clientId || !clients.length) return;
+    const c = clients.find((x) => x.id === initial.clientId);
+    if (!c) return;
+    setAddress((prev) => (prev.address_line1 || prev.city ? prev : addressPartsFrom(c)));
+    if (c.default_duration_min) setDurationHours(String(minutesToHours(c.default_duration_min)));
+    if (c.default_price_cents) setPriceCents(c.default_price_cents);
+    if (c.assigned_user_ids?.length) {
+      setAssignedToUserIds((prev) => (prev.length ? prev : c.assigned_user_ids ?? prev));
+    }
+  }, [clients, initial?.clientId, initial?.id]);
 
   useEffect(() => {
     if (!clientId || assignedToUserIds.length) return;
@@ -157,7 +172,12 @@ export function JobForm({
       }}
     >
       <Field label="Client">
-        <NativeSelect value={clientId} onChange={(e) => onClient(e.target.value)} required>
+        <NativeSelect
+          value={clientId}
+          onChange={(e) => onClient(e.target.value)}
+          required
+          disabled={lockClient}
+        >
           <option value="">Select a client</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>

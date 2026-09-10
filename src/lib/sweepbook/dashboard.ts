@@ -90,7 +90,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
+                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name
          from invoices i join clients c on c.id = i.client_id
          where i.cleaner_user_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,
@@ -216,7 +216,7 @@ export const getDashboard = createServerFn({ method: "GET" })
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
+                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name
          from invoices i join clients c on c.id = i.client_id
          where i.client_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,

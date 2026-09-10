@@ -82,8 +82,8 @@ export function VisitStatusBadge({
   if (job.status === "cancelled" || job.status === "reschedule_requested") {
     return <JobStatusBadge status={job.status} />;
   }
-  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   if (job.payment_status === "paid") return <InvoiceStatusBadge status="paid" />;
+  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   if (job.payment_status === "failed") return <InvoiceStatusBadge status="failed" />;
   if (job.payment_status === "unpaid") return <InvoiceStatusBadge status="unpaid" />;
   return <JobStatusBadge status="scheduled" />;

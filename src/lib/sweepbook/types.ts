@@ -219,6 +219,7 @@ export type InvoiceRow = {
   paid_at: string | null;
   failure_reason: string | null;
   receipt_number: string | null;
+  paid_note: string | null;
   created_at: string;
 };
 

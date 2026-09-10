@@ -81,7 +81,7 @@ export const getClient = createServerFn({ method: "GET" })
       const invoices = await sql<InvoiceRow>`
         select id, cleaner_user_id, client_id, job_id, amount_cents, description, status,
                method, kind, paid_at::text as paid_at, failure_reason, receipt_number,
-               created_at::text as created_at
+               paid_note, created_at::text as created_at
         from invoices where client_id = ${id} and cleaner_user_id = ${ownerId}
         order by created_at desc limit 20
       `;

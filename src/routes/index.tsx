@@ -38,7 +38,7 @@ function Home() {
           {[
             { k: "Invite-only", v: "No public cleaner search. You send the link." },
             { k: "Oklahoma-ready", v: "Built around real weekly routes, not gig matching." },
-            { k: "Cards, not chase", v: "Charge a saved card. Record Venmo as paid outside." },
+            { k: "Cards, not chase", v: "Charge a saved card. Mark Venmo or cash as paid." },
             { k: "Works everywhere", v: "Phone, iPad, laptop — same website, same logins." },
           ].map((item) => (
             <div key={item.k}>
@@ -61,7 +61,7 @@ function Home() {
         icon={CreditCard}
         kicker="Payments"
         title="A card on file. A receipt after."
-        body="Clients add a card themselves, or you collect one on site through a secure form. Charge it for later visits. Request a tip. Mark cash or Venmo paid outside SweepBook."
+        body="Clients add a card themselves, or you collect one on site through a secure form. Charge it for later visits. Request a tip. Mark a visit as paid when they Venmo, pay cash, or send a check."
         flip
       />
       <Feature

@@ -2,7 +2,7 @@ import { createFileRoute, Link, Navigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
-import { listInvoices, recordOutsidePayment } from "@/lib/sweepbook/payments";
+import { listInvoices, markAsPaid } from "@/lib/sweepbook/payments";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import {
   chicagoDayKey,
@@ -15,7 +15,7 @@ import {
 import type { InvoiceWithClient } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { InvoiceStatusBadge } from "@/components/app/status-badge";
-import { ReceiptBody } from "@/components/app/receipt";
+import { paidMethodLabel, ReceiptBody } from "@/components/app/receipt";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -122,6 +122,7 @@ function PaymentsPage() {
   const rows = q.data ?? [];
   const [receiptId, setReceiptId] = useState<string | null>(null);
   const [markTarget, setMarkTarget] = useState<InvoiceWithClient | null>(null);
+  const [markNote, setMarkNote] = useState("");
   const [marking, setMarking] = useState(false);
   const receipt = rows.find((r) => r.id === receiptId) ?? null;
 
@@ -186,7 +187,14 @@ function PaymentsPage() {
         rows={unpaid}
         range={unpaidRange}
         onReceipt={setReceiptId}
-        onMark={canCharge ? setMarkTarget : undefined}
+        onMark={
+          canCharge
+            ? (row) => {
+                setMarkNote("");
+                setMarkTarget(row);
+              }
+            : undefined
+        }
       />
       <PaymentSection
         title="Paid"
@@ -227,11 +235,16 @@ function PaymentsPage() {
 
       <ConfirmDialog
         open={Boolean(markTarget)}
-        onOpenChange={(o) => !o && setMarkTarget(null)}
-        title="Are you sure you want to mark this as paid?"
+        onOpenChange={(o) => {
+          if (!o) {
+            setMarkTarget(null);
+            setMarkNote("");
+          }
+        }}
+        title="Mark this appointment as paid without charging a card?"
         body={
           markTarget
-            ? `${markTarget.client_name} · ${money(cents(markTarget.amount_cents))}. This updates the existing invoice.`
+            ? `${markTarget.client_name} · ${money(cents(markTarget.amount_cents))}. No card is charged.`
             : ""
         }
         cancelLabel="Cancel"
@@ -243,26 +256,34 @@ function PaymentsPage() {
           if (!markTarget) return;
           setMarking(true);
           try {
-            const res = await recordOutsidePayment({
+            const res = await markAsPaid({
               data: {
                 invoiceId: markTarget.id,
-                clientId: markTarget.client_id,
-                amountCents: cents(markTarget.amount_cents),
-                description: markTarget.description,
-                method: "outside",
+                note: markNote.trim() || null,
               },
             });
             toast.success(`Marked as paid. Receipt ${res.receiptNumber}`);
             setMarkTarget(null);
+            setMarkNote("");
             await qc.invalidateQueries({ queryKey: ["invoices"] });
             await qc.invalidateQueries({ queryKey: ["dashboard"] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not mark paid.");
           } finally {
             setMarking(false);
           }
         }}
-      />
+      >
+        <Field label="How they paid" hint="Optional — Venmo, cash, Zelle, check, etc.">
+          <Input
+            value={markNote}
+            maxLength={120}
+            placeholder="Venmo, cash, Zelle, check…"
+            onChange={(e) => setMarkNote(e.target.value)}
+          />
+        </Field>
+      </ConfirmDialog>
 
       <Dialog open={Boolean(receipt)} onOpenChange={(o) => !o && setReceiptId(null)}>
         {receipt ? (
@@ -274,6 +295,7 @@ function PaymentsPage() {
               method={receipt.method}
               paidAt={receipt.paid_at}
               client={receipt.client_name}
+              note={receipt.paid_note}
             />
           </DialogContent>
         ) : null}
@@ -315,6 +337,8 @@ function PaymentSection({
               <p className="font-medium">{i.client_name}</p>
               <p className="text-xs text-muted">
                 {i.description} · {formatDate(i.job_start_at || i.created_at)}
+                {i.status === "paid" ? ` · ${paidMethodLabel(i.method)}` : ""}
+                {i.status === "paid" && i.method !== "card" && i.paid_note ? ` · ${i.paid_note}` : ""}
               </p>
             </div>
             <div className="flex items-center gap-3">

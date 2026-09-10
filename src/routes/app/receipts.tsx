@@ -60,6 +60,7 @@ function ReceiptsPage() {
               method={current.method}
               paidAt={current.paid_at}
               client={current.client_name}
+              note={current.paid_note}
             />
           </DialogContent>
         ) : null}

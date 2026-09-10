@@ -1,6 +1,7 @@
-import type { ReactNode } from "react";
+import { useEffect, useState, type ReactNode } from "react";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Field, Input } from "@/components/ui/input";
 
 export function ConfirmDialog({
   open,
@@ -94,5 +95,45 @@ export function RemoveAppointmentDialog({
       busy={busy}
       onConfirm={onConfirm}
     />
+  );
+}
+
+export function MarkPaidDialog({
+  open,
+  onOpenChange,
+  busy,
+  onConfirm,
+}: {
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  busy?: boolean;
+  onConfirm: (note: string | null) => void | Promise<void>;
+}) {
+  const [note, setNote] = useState("");
+  useEffect(() => {
+    if (open) setNote("");
+  }, [open]);
+  return (
+    <ConfirmDialog
+      open={open}
+      onOpenChange={onOpenChange}
+      title="Mark this appointment as paid without charging a card?"
+      body="The visit is marked paid. No card is charged. Home revenue and Payments will include it."
+      cancelLabel="Cancel"
+      confirmLabel="Mark as Paid"
+      busyLabel="Saving…"
+      confirmVariant="primary"
+      busy={busy}
+      onConfirm={() => onConfirm(note.trim() || null)}
+    >
+      <Field label="How they paid" hint="Optional — Venmo, cash, Zelle, check, etc.">
+        <Input
+          value={note}
+          maxLength={120}
+          placeholder="Venmo, cash, Zelle, check…"
+          onChange={(e) => setNote(e.target.value)}
+        />
+      </Field>
+    </ConfirmDialog>
   );
 }

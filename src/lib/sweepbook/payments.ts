@@ -6,7 +6,21 @@ import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
 import { nid, formatDateTime, money } from "./time";
 import { insertNotification } from "./notifications";
-import type { CardRow, InvoiceWithClient } from "./types";
+import type { CardRow, InvoiceWithClient, JobRow } from "./types";
+
+const INVOICE_SELECT = `
+  i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
+  i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
+  i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name,
+  j.start_at::text as job_start_at
+`;
+
+function trimPaidNote(note?: string | null) {
+  const t = (note ?? "").trim();
+  if (!t) return null;
+  if (t.length > 120) throw new Error("Note is too long.");
+  return t;
+}
 
 function receiptNo() {
   return `SB-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -32,10 +46,7 @@ export const listInvoices = createServerFn({ method: "GET" })
     const actor = await getActor(sql, context.userId);
     if (isOffice(actor)) {
       return sql.query<InvoiceWithClient>(
-        `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
-                i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name,
-                j.start_at::text as job_start_at
+        `select ${INVOICE_SELECT}
          from invoices i
          join clients c on c.id = i.client_id
          left join jobs j on j.id = i.job_id
@@ -47,10 +58,7 @@ export const listInvoices = createServerFn({ method: "GET" })
     }
     if (actor.kind === "client") {
       return sql.query<InvoiceWithClient>(
-        `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
-                i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name,
-                j.start_at::text as job_start_at
+        `select ${INVOICE_SELECT}
          from invoices i
          join clients c on c.id = i.client_id
          left join jobs j on j.id = i.job_id
@@ -371,66 +379,87 @@ export const chargeCard = createServerFn({ method: "POST" })
     };
   });
 
-export const recordOutsidePayment = createServerFn({ method: "POST" })
+export const markAsPaid = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { invoiceId?: string; clientId: string; amountCents: number; description: string; method: "cash" | "venmo" | "outside"; jobId?: string }) => input)
+  .validator((input: { jobId?: string; invoiceId?: string; note?: string | null }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCanCharge(actor);
     const ownerId = masterUserId(actor);
+    const note = trimPaidNote(data.note);
+    const now = new Date().toISOString();
     const rec = receiptNo();
+
     if (data.invoiceId) {
-      const existing = await sql<{ id: string; status: string }>`
-        select id, status from invoices
+      const existing = await sql<{
+        id: string;
+        status: string;
+        job_id: string | null;
+        kind: string;
+        receipt_number: string | null;
+      }>`
+        select id, status, job_id, kind, receipt_number
+        from invoices
         where id = ${data.invoiceId} and cleaner_user_id = ${ownerId}
         limit 1
       `;
-      if (!existing[0]) throw new Error("Invoice not found.");
+      const row = existing[0];
+      if (!row) throw new Error("Invoice not found.");
+      if (row.status === "paid") throw new Error("Already paid.");
+      const receipt = row.receipt_number || rec;
       await sql`
         update invoices
-        set status = 'paid', method = ${data.method}, paid_at = now(), receipt_number = ${rec},
-            failure_reason = null
-        where id = ${data.invoiceId} and cleaner_user_id = ${ownerId}
+        set status = 'paid', method = ${"marked"}, paid_at = ${now}, paid_note = ${note},
+            receipt_number = ${receipt}, failure_reason = null
+        where id = ${row.id} and cleaner_user_id = ${ownerId}
       `;
-      const linked = await sql<{ job_id: string | null; kind: string }>`
-        select job_id, kind from invoices where id = ${data.invoiceId} limit 1
-      `;
-      if (linked[0]?.job_id && linked[0].kind === "visit") {
-        await sql`update jobs set status = 'completed' where id = ${linked[0].job_id} and cleaner_user_id = ${ownerId}`;
-      }
-      return { ok: true, receiptNumber: rec, invoiceId: data.invoiceId };
+      return { ok: true as const, receiptNumber: receipt, invoiceId: row.id };
     }
-    if (data.jobId) {
-      const existing = await sql<{ id: string }>`
-        select id from invoices
-        where job_id = ${data.jobId} and kind = 'visit' and cleaner_user_id = ${ownerId}
-        limit 1
+
+    if (!data.jobId) throw new Error("Missing appointment.");
+    const jobs = await sql<Pick<JobRow, "id" | "client_id" | "service" | "price_cents" | "status">>`
+      select id, client_id, service, price_cents, status
+      from jobs
+      where id = ${data.jobId} and cleaner_user_id = ${ownerId}
+      limit 1
+    `;
+    const job = jobs[0];
+    if (!job) throw new Error("Appointment not found.");
+    if (job.status === "cancelled") throw new Error("This visit was cancelled.");
+
+    const found = await sql<{ id: string; status: string; receipt_number: string | null }>`
+      select id, status, receipt_number
+      from invoices
+      where job_id = ${job.id} and kind = 'visit' and cleaner_user_id = ${ownerId}
+      limit 1
+    `;
+    const inv = found[0];
+    if (inv?.status === "paid") throw new Error("Already paid.");
+
+    if (inv) {
+      const receipt = inv.receipt_number || rec;
+      await sql`
+        update invoices
+        set status = 'paid', method = ${"marked"}, paid_at = ${now}, paid_note = ${note},
+            receipt_number = ${receipt}, failure_reason = null
+        where id = ${inv.id}
       `;
-      if (existing[0]) {
-        await sql`
-          update invoices
-          set status = 'paid', method = ${data.method}, paid_at = now(), receipt_number = ${rec},
-              amount_cents = ${data.amountCents}, description = ${data.description}, failure_reason = null
-          where id = ${existing[0].id}
-        `;
-        await sql`update jobs set status = 'completed' where id = ${data.jobId} and cleaner_user_id = ${ownerId}`;
-        return { ok: true, receiptNumber: rec, invoiceId: existing[0].id };
-      }
+      return { ok: true as const, receiptNumber: receipt, invoiceId: inv.id };
     }
+
     const id = nid("inv");
+    const receipt = `SB-${id.slice(-6).toUpperCase()}`;
     await sql`
       insert into invoices (
-        id, cleaner_user_id, client_id, job_id, amount_cents, description, status, method, kind, paid_at, receipt_number
+        id, cleaner_user_id, client_id, job_id, amount_cents, description, status,
+        method, kind, paid_at, paid_note, receipt_number
       ) values (
-        ${id}, ${ownerId}, ${data.clientId}, ${data.jobId ?? null}, ${data.amountCents},
-        ${data.description}, ${"paid"}, ${data.method}, ${"visit"}, ${new Date().toISOString()}, ${rec}
+        ${id}, ${ownerId}, ${job.client_id}, ${job.id}, ${job.price_cents},
+        ${job.service}, ${"paid"}, ${"marked"}, ${"visit"}, ${now}, ${note}, ${receipt}
       )
     `;
-    if (data.jobId) {
-      await sql`update jobs set status = 'completed' where id = ${data.jobId} and cleaner_user_id = ${ownerId}`;
-    }
-    return { ok: true, receiptNumber: rec, invoiceId: id };
+    return { ok: true as const, receiptNumber: receipt, invoiceId: id };
   });
 
 export const payInvoiceAsClient = createServerFn({ method: "POST" })
@@ -550,10 +579,7 @@ export const getInvoice = createServerFn({ method: "GET" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const rows = await sql.query<InvoiceWithClient>(
-      `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
-              i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-              i.receipt_number, i.created_at::text as created_at, c.name as client_name,
-              j.start_at::text as job_start_at
+      `select ${INVOICE_SELECT}
        from invoices i
        join clients c on c.id = i.client_id
        left join jobs j on j.id = i.job_id

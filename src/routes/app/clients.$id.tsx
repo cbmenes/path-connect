@@ -7,20 +7,21 @@ import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib
 import { actorCanCharge } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
 import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
-import { addCardAuthenticated, chargeCard, createCardLink, recordOutsidePayment } from "@/lib/sweepbook/payments";
+import { addCardAuthenticated, chargeCard, createCardLink } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
-import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
+import { formatHours, money } from "@/lib/sweepbook/time";
 import { ClientFields } from "@/components/app/client-fields";
 import { CardForm } from "@/components/app/card-form";
 import { CardManager, CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
-import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
+import { InvoiceStatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Field, Input, NativeSelect } from "@/components/ui/input";
+import { Field, Input } from "@/components/ui/input";
+import { OfficeCalendar } from "@/components/app/office-calendar";
 
 export const Route = createFileRoute("/app/clients/$id")({ component: ClientProfile });
 
@@ -36,7 +37,6 @@ function ClientProfile() {
   const [cardLink, setCardLink] = useState<string | null>(null);
   const [collectCard, setCollectCard] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
-  const [outsideOpen, setOutsideOpen] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
@@ -44,7 +44,7 @@ function ClientProfile() {
 
   if (q.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
   if (q.error) return <p className="text-danger">{(q.error as Error).message}</p>;
-  const { client, jobs, invoices, cards, staff } = q.data;
+  const { client, invoices, cards, staff } = q.data;
 
   return (
     <div className="grid gap-6">
@@ -72,7 +72,9 @@ function ClientProfile() {
             </Link>
           </Button>
           <Button asChild>
-            <Link to="/app/jobs/new">Schedule</Link>
+            <Link to="/app/jobs/new" search={{ clientId: client.id }}>
+              Schedule
+            </Link>
           </Button>
           <Button variant="outline" onClick={() => setManageOpen(true)}>
             Manage recurring
@@ -163,21 +165,6 @@ function ClientProfile() {
                       setChargeOpen(false);
                       await qc.invalidateQueries({ queryKey: ["client", id] });
                     } else toast.error(res.reason);
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
-            <Dialog open={outsideOpen} onOpenChange={setOutsideOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost">Record cash or Venmo</Button>
-              </DialogTrigger>
-              <DialogContent title="Paid outside SweepBook">
-                <OutsideForm
-                  clientId={client.id}
-                  amount={client.default_price_cents ?? 15000}
-                  onDone={async () => {
-                    setOutsideOpen(false);
-                    await qc.invalidateQueries({ queryKey: ["client", id] });
                   }}
                 />
               </DialogContent>
@@ -281,21 +268,14 @@ function ClientProfile() {
         />
       ) : null}
 
-      <section>
-        <h2 className="font-display text-xl text-navy">Job history</h2>
-        <p className="mt-1 text-sm text-muted">Past and upcoming visits. Open a visit for details.</p>
-        <div className="mt-3 grid gap-2">
-          {jobs.map((j) => (
-            <Link key={j.id} to="/app/jobs/$id" params={{ id: j.id }} className="flex items-center justify-between rounded-lg bg-paper px-3 py-3 shadow-soft">
-              <div>
-                <p className="text-sm font-medium">{formatDateTime(j.start_at)}</p>
-                <p className="text-xs text-muted">{money(j.price_cents)}</p>
-              </div>
-              <VisitStatusBadge job={j} />
-            </Link>
-          ))}
-        </div>
-      </section>
+      <OfficeCalendar
+        clientId={client.id}
+        variant="embed"
+        showTimeOff={false}
+        named="service"
+        showImport={false}
+        viewScope={`client-${client.id}`}
+      />
       <section>
         <h2 className="font-display text-xl text-navy">Invoices</h2>
         <div className="mt-3 grid gap-2">
@@ -379,47 +359,5 @@ function ChargeForm({
         Charge {money(Math.round(Number(amt) * 100))}
       </Button>
     </div>
-  );
-}
-
-function OutsideForm({
-  clientId,
-  amount,
-  onDone,
-}: {
-  clientId: string;
-  amount: number;
-  onDone: () => void;
-}) {
-  const [amt, setAmt] = useState((amount / 100).toFixed(2));
-  const [method, setMethod] = useState<"cash" | "venmo" | "outside">("venmo");
-  const [desc, setDesc] = useState("House cleaning (paid outside SweepBook)");
-  return (
-    <form
-      className="grid gap-3"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const res = await recordOutsidePayment({
-          data: { clientId, amountCents: Math.round(Number(amt) * 100), description: desc, method },
-        });
-        toast.success(`Recorded. Receipt ${res.receiptNumber}`);
-        onDone();
-      }}
-    >
-      <Field label="Method">
-        <NativeSelect value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
-          <option value="venmo">Venmo</option>
-          <option value="cash">Cash</option>
-          <option value="outside">Other</option>
-        </NativeSelect>
-      </Field>
-      <Field label="Amount">
-        <Input type="number" step="0.01" value={amt} onChange={(e) => setAmt(e.target.value)} />
-      </Field>
-      <Field label="Description">
-        <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </Field>
-      <Button type="submit">Save as paid</Button>
-    </form>
   );
 }
