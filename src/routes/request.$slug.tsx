@@ -36,19 +36,25 @@ function RequestCleanPage() {
   const [preferredTime, setPreferredTime] = useState("10:00");
   const [notes, setNotes] = useState("");
 
-  const business = info.data?.businessName || "SweepBook";
+  const business = info.data?.businessName;
+  const ready = Boolean(info.data && !info.error);
 
   return (
     <SiteChrome>
       <div className="mx-auto max-w-lg px-4 py-14">
         <p className="text-xs font-medium uppercase tracking-[0.16em] text-sage">Booking request</p>
-        <h1 className="mt-2 font-display text-4xl text-navy">{business}</h1>
+        <h1 className="mt-2 font-display text-4xl text-navy">{ready ? business : "Booking form"}</h1>
         <p className="mt-2 text-muted">
-          Tell us when you would like the house cleaned. This is a request — it is not on the calendar until the office
-          accepts it. Nothing is charged from this form.
+          {ready
+            ? "Tell us when you would like the house cleaned. This is a request — it is not on the calendar until the office accepts it. Nothing is charged from this form."
+            : "This public booking form is unique to each company."}
         </p>
-        {info.error ? (
-          <p className="mt-8 rounded-xl bg-danger/10 p-5 text-danger">{(info.error as Error).message}</p>
+        {info.isPending ? (
+          <div className="mt-8 h-40 animate-pulse rounded-xl bg-secondary" />
+        ) : info.error || !info.data ? (
+          <p className="mt-8 rounded-xl bg-danger/10 p-5 text-danger">
+            {(info.error as Error | undefined)?.message || "This booking link is not valid."}
+          </p>
         ) : sent ? (
           <div className="mt-8 rounded-xl bg-sage-soft p-5">
             <p className="font-medium text-navy">Request sent.</p>
