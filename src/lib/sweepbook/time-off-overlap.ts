@@ -11,15 +11,18 @@ import {
 export type TimeOffKind = "all_day" | "range";
 export type TimeOffStatus = "pending" | "approved" | "denied" | "cancelled";
 
-export type TimeOffLite = {
-  id: string;
-  user_id: string;
-  user_name?: string;
+export type TimeOffWindow = {
   kind: TimeOffKind;
   start_date: string;
   end_date: string;
   start_time: string | null;
   end_time: string | null;
+};
+
+export type TimeOffLite = TimeOffWindow & {
+  id: string;
+  user_id: string;
+  user_name?: string;
   status: TimeOffStatus;
 };
 
@@ -28,7 +31,7 @@ function parseYmd(ymd: string) {
   return { y, m, d };
 }
 
-export function timeOffWindow(row: TimeOffLite): { start: Date; end: Date } {
+export function timeOffWindow(row: TimeOffWindow): { start: Date; end: Date } {
   const a = parseYmd(row.start_date);
   const b = parseYmd(row.end_date);
   if (row.kind === "all_day") {
@@ -49,7 +52,7 @@ export function intervalsOverlap(a0: Date, a1: Date, b0: Date, b1: Date) {
   return a0 < b1 && a1 > b0;
 }
 
-export function jobOverlapsTimeOff(jobStart: Date, durationMin: number, row: TimeOffLite) {
+export function jobOverlapsTimeOff(jobStart: Date, durationMin: number, row: TimeOffWindow) {
   const jobEnd = addMinutes(jobStart, durationMin);
   const w = timeOffWindow(row);
   return intervalsOverlap(jobStart, jobEnd, w.start, w.end);

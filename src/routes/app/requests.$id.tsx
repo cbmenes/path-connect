@@ -24,10 +24,6 @@ function RequestDetailPage() {
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["clean-request", id], queryFn: () => getCleanRequest({ data: id }) });
   const staff = useQuery({ queryKey: ["assignable-staff"], queryFn: () => listAssignableStaff() });
-  const offHints = useTimeOffHints(
-    startLocal ? fromDatetimeLocalValue(startLocal) : null,
-    hoursToMinutes(Number(durationHours) || 0),
-  );
   const [startLocal, setStartLocal] = useState("");
   const [durationHours, setDurationHours] = useState("2");
   const [priceCents, setPriceCents] = useState(15000);
@@ -37,6 +33,10 @@ function RequestDetailPage() {
   const [busy, setBusy] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
   const [declineNote, setDeclineNote] = useState("");
+  const offHints = useTimeOffHints(
+    startLocal ? fromDatetimeLocalValue(startLocal) : null,
+    hoursToMinutes(Number(durationHours) || 0),
+  );
 
   useEffect(() => {
     if (!q.data) return;
