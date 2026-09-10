@@ -584,7 +584,7 @@ export const updateJob = createServerFn({ method: "POST" })
       update jobs set
         client_id = ${data.clientId},
         service = ${data.service},
-        address = ${data.address ?? formatAddress(parts) || null},
+        address = ${data.address ?? (formatAddress(parts) || null)},
         address_line1 = ${parts.address_line1 || null},
         address_line2 = ${parts.address_line2 || null},
         city = ${parts.city || null},
