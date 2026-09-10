@@ -1,8 +1,7 @@
-import { createFileRoute, redirect } from "@tanstack/react-router";
+import { createFileRoute, Outlet } from "@tanstack/react-router";
 
-export const Route = createFileRoute("/book")({
-  beforeLoad: () => {
-    throw redirect({ to: "/request" });
-  },
-  component: () => null,
-});
+export const Route = createFileRoute("/book")({ component: BookLayout });
+
+function BookLayout() {
+  return <Outlet />;
+}

@@ -2,6 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { formatPhoneAsTyped } from "@/lib/sweepbook/people";
 import { acceptCleanRequest, declineCleanRequest, getCleanRequest, serviceTypeLabel } from "@/lib/sweepbook/requests";
 import { checkJobConflicts } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
@@ -51,7 +52,7 @@ function RequestDetailPage() {
   return (
     <div className="mx-auto grid max-w-lg gap-5">
       <PageHeader
-        eyebrow="Clean request"
+        eyebrow="Booking request"
         title={r.name}
         action={
           <Button variant="ghost" asChild>
@@ -67,8 +68,19 @@ function RequestDetailPage() {
           {r.preferred_time ? ` ${r.preferred_time}` : ""}
         </p>
         <p className="text-sm">{r.address}</p>
+        {r.bedrooms != null || r.bathrooms != null || r.square_footage != null ? (
+          <p className="text-sm text-muted">
+            {[
+              r.bedrooms != null ? `${r.bedrooms} bed` : null,
+              r.bathrooms != null ? `${r.bathrooms} bath` : null,
+              r.square_footage != null ? `${r.square_footage} sq ft` : null,
+            ]
+              .filter(Boolean)
+              .join(" · ")}
+          </p>
+        ) : null}
         <p className="text-sm text-muted">
-          {r.phone || "No phone"}
+          {formatPhoneAsTyped(r.phone) || "No phone"}
           {r.email ? ` · ${r.email}` : ""}
         </p>
         {r.notes ? <p className="text-sm text-muted">{r.notes}</p> : null}

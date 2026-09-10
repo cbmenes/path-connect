@@ -116,7 +116,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
                 dark
               />
               <NavLink
-                item={{ to: "/app/requests", label: "Requests", icon: Inbox, badge: pendingCleans }}
+                item={{ to: "/app/requests", label: "Booking Form / Requests", icon: Inbox, badge: pendingCleans }}
                 pathname={pathname}
                 dark
               />
@@ -162,7 +162,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
                 <Link
                   to="/app/requests"
                   className="relative grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                  aria-label="Requests"
+                  aria-label="Booking Form / Requests"
                 >
                   <Inbox className="size-5" />
                   {pendingCleans > 0 ? <CountBadge value={pendingCleans} /> : null}

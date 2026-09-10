@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getActor } from "./access";
+import { ensureBookingSlug, namesFrom } from "./people";
 import { ensureReminderScheduler } from "./reminders";
 import { ensureDemoSeed } from "./seed";
 import type { Actor } from "./types";
@@ -23,11 +24,15 @@ export const getMyActor = createServerFn({ method: "GET" })
 
 export const completeOnboarding = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { role: "cleaner" | "client"; fullName: string; businessName?: string }) => {
-    const fullName = input.fullName.trim();
-    if (!fullName) throw new Error("Name is required.");
+  .validator((input: { role: "cleaner" | "client"; firstName: string; lastName: string; businessName?: string }) => {
+    const names = namesFrom(input.firstName, input.lastName);
+    if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
     if (input.role !== "cleaner" && input.role !== "client") throw new Error("Choose a role.");
-    return { role: input.role, fullName, businessName: input.businessName?.trim() || null };
+    return {
+      role: input.role,
+      ...names,
+      businessName: input.businessName?.trim() || null,
+    };
   })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -39,13 +44,17 @@ export const completeOnboarding = createServerFn({ method: "POST" })
         : null;
     await sql`
       insert into profiles (
-        user_id, role, full_name, business_name, cancellation_policy,
+        user_id, role, full_name, first_name, last_name, business_name, cancellation_policy,
         default_duration_min, default_rate_cents, cleaner_kind, email, plan_status, plan_price_cents
       ) values (
-        ${context.userId}, ${data.role}, ${data.fullName}, ${data.businessName},
+        ${context.userId}, ${data.role}, ${data.name}, ${data.first_name}, ${data.last_name}, ${data.businessName},
         ${policy}, ${120}, ${15000}, ${data.role === "cleaner" ? "master" : null},
         ${null}, ${data.role === "cleaner" ? "trial" : "trial"}, ${1900}
       )
     `;
+    if (data.role === "cleaner") {
+      await ensureBookingSlug(sql, context.userId, data.businessName || data.name);
+    }
+    await sql`update "user" set name = ${data.name} where id = ${context.userId}`;
     return { ok: true };
   });

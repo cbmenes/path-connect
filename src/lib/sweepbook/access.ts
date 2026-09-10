@@ -2,7 +2,8 @@ import type { Sql } from "@/lib/db";
 import type { Actor, ClientRow, Profile } from "./types";
 
 export const PROFILE_COLUMNS = `
-  user_id, role, full_name, business_name, phone, email, address, cancellation_policy,
+  user_id, role, full_name, first_name, last_name, business_name, phone, email, address,
+  address_line1, address_line2, city, state, zip, booking_slug, cancellation_policy,
   default_duration_min, default_rate_cents, cleaner_kind, master_user_id, can_message,
   team_status, team_messaging_enabled, email_reminders, reminder_email_team,
   coalesce(can_charge, false) as can_charge,
@@ -12,6 +13,7 @@ export const PROFILE_COLUMNS = `
 
 export const JOB_SELECT = `
   j.id, j.cleaner_user_id, j.client_id, j.service, j.address,
+  j.address_line1, j.address_line2, j.city, j.state, j.zip,
   j.start_at::text as start_at, j.duration_min, j.price_cents, j.notes, j.status,
   j.recurrence, j.series_id, j.cancel_reason, j.reschedule_note,
   j.reschedule_requested_at::text as reschedule_requested_at,
@@ -95,7 +97,8 @@ export async function getActor(sql: Sql, userId: string): Promise<Actor> {
   }
 
   const clients = await sql<ClientRow>`
-    select id, cleaner_user_id, linked_user_id, name, phone, email, address,
+    select id, cleaner_user_id, linked_user_id, name, first_name, last_name, phone, email, address,
+           address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
            access_notes, pets, supplies, default_price_cents, default_duration_min,
            usual_day, usual_time, frequency, notes, created_at::text as created_at
     from clients where linked_user_id = ${userId} limit 1

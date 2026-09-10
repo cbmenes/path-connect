@@ -4,6 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { PROFILE_COLUMNS, assertCleaner, assertOffice, getActor, masterUserId } from "./access";
 import { addMemberToClient, removeMemberFromClient } from "./assignees";
 import { ensureDemoSeed } from "./seed";
+import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
 import { parsePayType, type PayType } from "./team-pay";
 import type { OfficeRole, Profile, TeamMember, TeamStatus } from "./types";
@@ -61,7 +62,7 @@ export const listTeam = createServerFn({ method: "GET" })
     const ownerId = masterUserId(actor);
     const includePay = actor.kind === "cleaner";
     const members = await sql.query<TeamMember & { assigned_json?: unknown }>(
-      `select user_id, full_name, phone, email, can_message, coalesce(team_status, 'active') as team_status,
+      `select user_id, full_name, first_name, last_name, phone, email, can_message, coalesce(team_status, 'active') as team_status,
               false as pending,
               coalesce(cleaner_kind, 'team') as office_role,
               coalesce(can_charge, false) as can_charge,
@@ -180,19 +181,23 @@ async function upsertSavedInvite(
 }
 
 function teamFormInput(input: {
-  name: string;
+  firstName?: string;
+  lastName?: string;
+  name?: string;
   phone?: string;
   email?: string;
   canMessage?: boolean;
   inviteKind?: OfficeRole;
   canCharge?: boolean;
 }) {
-  const name = input.name.trim();
-  if (!name) throw new Error("Name is required.");
+  const names = namesFrom(input.firstName, input.lastName, input.name);
+  if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
   const inviteKind: OfficeRole = input.inviteKind === "admin" ? "admin" : "team";
   return {
-    name,
-    phone: input.phone?.trim() || null,
+    name: names.name,
+    firstName: names.first_name,
+    lastName: names.last_name,
+    phone: storePhone(input.phone),
     email: input.email?.trim() || null,
     canMessage: inviteKind === "admin" ? true : input.canMessage !== false,
     inviteKind,
@@ -303,12 +308,14 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
     const u = users[0];
     const kind = parseOfficeRole(invite.invite_kind);
     const canCharge = kind === "admin" ? asBool(invite.can_charge, false) : false;
+    const names = namesFrom(undefined, undefined, u?.name || invite.name);
     await sql`
       insert into profiles (
-        user_id, role, full_name, phone, email, cleaner_kind, master_user_id,
+        user_id, role, full_name, first_name, last_name, phone, email, cleaner_kind, master_user_id,
         can_message, team_status, can_charge
       ) values (
-        ${context.userId}, ${"cleaner"}, ${u?.name || invite.name}, ${invite.phone},
+        ${context.userId}, ${"cleaner"}, ${names.name}, ${names.first_name || null}, ${names.last_name || null},
+        ${storePhone(invite.phone)},
         ${u?.email || invite.email}, ${kind}, ${invite.master_user_id},
         ${invite.can_message}, ${"active"}, ${canCharge}
       )
@@ -328,6 +335,8 @@ export const updateTeamMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: {
     userId: string;
+    firstName?: string;
+    lastName?: string;
     fullName?: string;
     phone?: string;
     email?: string;
@@ -359,14 +368,18 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     if (actor.kind === "admin" && member.cleaner_kind === "admin") {
       throw new Error("Admins cannot edit other office admins.");
     }
-    if (data.fullName != null) {
-      const name = data.fullName.trim();
-      if (!name) throw new Error("Name is required.");
-      await sql`update profiles set full_name = ${name} where user_id = ${data.userId}`;
-      await sql`update "user" set name = ${name} where id = ${data.userId}`;
+    if (data.firstName != null || data.lastName != null || data.fullName != null) {
+      const names = namesFrom(data.firstName, data.lastName, data.fullName);
+      if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
+      await sql`
+        update profiles
+        set full_name = ${names.name}, first_name = ${names.first_name}, last_name = ${names.last_name}
+        where user_id = ${data.userId}
+      `;
+      await sql`update "user" set name = ${names.name} where id = ${data.userId}`;
     }
     if (data.phone !== undefined) {
-      await sql`update profiles set phone = ${data.phone.trim() || null} where user_id = ${data.userId}`;
+      await sql`update profiles set phone = ${storePhone(data.phone)} where user_id = ${data.userId}`;
     }
     if (data.email !== undefined) {
       const email = data.email.trim() || null;

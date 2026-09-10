@@ -18,12 +18,15 @@ import {
 } from "@/lib/sweepbook/billing";
 import { listCardsForClient } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
+import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
 import { money } from "@/lib/sweepbook/time";
 import { CardForm } from "@/components/app/card-form";
 import { CardManager } from "@/components/app/card-manager";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
-import { PublicBookUrl } from "@/components/app/public-book-url";
+import { AddressFields } from "@/components/app/address-fields";
+import { NameFields } from "@/components/app/name-fields";
+import { PhoneInput } from "@/components/app/phone-input";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
@@ -79,13 +82,13 @@ function SettingsPage() {
         kind === "cleaner" ? (
           <>
             <MasterProfileSection />
-            <PublicBookUrl />
+            <BookingFormLink />
             <MasterReminderSettings />
           </>
         ) : kind === "admin" || kind === "team" ? (
           <>
             <TeamProfileSection />
-            {kind === "admin" ? <PublicBookUrl /> : null}
+            {kind === "admin" ? <BookingFormLink /> : null}
           </>
         ) : (
           <>
@@ -104,25 +107,42 @@ function SettingsPage() {
   );
 }
 
+function BookingFormLink() {
+  return (
+    <Card className="grid gap-2">
+      <h2 className="font-display text-lg text-navy">Booking Form / Requests</h2>
+      <p className="text-sm text-muted">
+        Your public booking URL and incoming requests live on the Booking Form / Requests tab — not only here.
+      </p>
+      <Button variant="outline" asChild>
+        <Link to="/app/requests">Open Booking Form / Requests</Link>
+      </Button>
+    </Card>
+  );
+}
+
 function MasterProfileSection() {
   const q = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const qc = useQueryClient();
   const profile = q.data?.kind === "cleaner" ? q.data.profile : null;
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [business, setBusiness] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(emptyAddress());
   const [policy, setPolicy] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
-    setFullName(profile.full_name);
+    const names = namesFrom(profile.first_name, profile.last_name, profile.full_name);
+    setFirstName(names.first_name);
+    setLastName(names.last_name);
     setBusiness(profile.business_name ?? "");
     setPhone(profile.phone ?? "");
     setEmail(profile.email ?? "");
-    setAddress(profile.address ?? "");
+    setAddress(addressPartsFrom(profile));
     setPolicy(profile.cancellation_policy ?? "");
   }, [profile]);
 
@@ -135,11 +155,12 @@ function MasterProfileSection() {
         try {
           await updateSettings({
             data: {
-              fullName,
+              firstName,
+              lastName,
               businessName: business,
               phone,
               email,
-              address,
+              ...address,
               cancellationPolicy: policy,
             },
           });
@@ -152,21 +173,17 @@ function MasterProfileSection() {
         }
       }}
     >
-      <Field label="Display name">
-        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-      </Field>
+      <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
       <Field label="Business name">
         <Input value={business} onChange={(e) => setBusiness(e.target.value)} />
       </Field>
       <Field label="Phone">
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <PhoneInput value={phone} onChange={setPhone} />
       </Field>
       <Field label="Email">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
-      <Field label="Address">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-      </Field>
+      <AddressFields value={address} onChange={setAddress} />
       <Field label="Cancellation policy" hint="Shown when a client cancels inside 24 hours.">
         <Textarea value={policy} onChange={(e) => setPolicy(e.target.value)} rows={4} />
       </Field>
@@ -308,14 +325,17 @@ function TeamProfileSection() {
   const q = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const qc = useQueryClient();
   const profile = q.data?.kind === "team" || q.data?.kind === "admin" ? q.data.profile : null;
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
-    setFullName(profile.full_name);
+    const names = namesFrom(profile.first_name, profile.last_name, profile.full_name);
+    setFirstName(names.first_name);
+    setLastName(names.last_name);
     setPhone(profile.phone ?? "");
     setEmail(profile.email ?? "");
   }, [profile]);
@@ -327,7 +347,7 @@ function TeamProfileSection() {
         e.preventDefault();
         setBusy(true);
         try {
-          await updateSettings({ data: { fullName, phone, email } });
+          await updateSettings({ data: { firstName, lastName, phone, email } });
           toast.success("Contact saved.");
           await qc.invalidateQueries({ queryKey: ["actor"] });
         } catch (err) {
@@ -337,11 +357,9 @@ function TeamProfileSection() {
         }
       }}
     >
-      <Field label="Name">
-        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-      </Field>
+      <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
       <Field label="Phone">
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <PhoneInput value={phone} onChange={setPhone} />
       </Field>
       <Field label="Email">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -358,18 +376,21 @@ function ClientProfileSection() {
   const qc = useQueryClient();
   const profile = q.data?.kind === "client" ? q.data.profile : null;
   const client = q.data?.kind === "client" ? q.data.client : null;
-  const [fullName, setFullName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
-  const [address, setAddress] = useState("");
+  const [address, setAddress] = useState(emptyAddress());
   const [busy, setBusy] = useState(false);
 
   useEffect(() => {
     if (!profile) return;
-    setFullName(profile.full_name);
+    const names = namesFrom(profile.first_name || client?.first_name, profile.last_name || client?.last_name, profile.full_name);
+    setFirstName(names.first_name);
+    setLastName(names.last_name);
     setPhone(profile.phone ?? client?.phone ?? "");
     setEmail(profile.email ?? client?.email ?? "");
-    setAddress(profile.address ?? client?.address ?? "");
+    setAddress(addressPartsFrom(profile.address_line1 ? profile : client));
   }, [profile, client]);
 
   return (
@@ -379,7 +400,7 @@ function ClientProfileSection() {
         e.preventDefault();
         setBusy(true);
         try {
-          await updateSettings({ data: { fullName, phone, email, address } });
+          await updateSettings({ data: { firstName, lastName, phone, email, ...address } });
           toast.success("Contact saved.");
           await qc.invalidateQueries({ queryKey: ["actor"] });
         } catch (err) {
@@ -389,18 +410,14 @@ function ClientProfileSection() {
         }
       }}
     >
-      <Field label="Name">
-        <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-      </Field>
+      <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
       <Field label="Phone">
-        <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+        <PhoneInput value={phone} onChange={setPhone} />
       </Field>
       <Field label="Email">
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
-      <Field label="Address">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-      </Field>
+      <AddressFields value={address} onChange={setAddress} />
       <Button type="submit" disabled={busy}>
         {busy ? "Saving…" : "Save contact"}
       </Button>

@@ -22,6 +22,15 @@ import {
   type CsvKind,
   type ImportMode,
 } from "./csv";
+import {
+  formatAddress,
+  formatPhoneAsTyped,
+  intOrNull,
+  namesFrom,
+  numberOrNull,
+  storePhone,
+  addressPartsFrom,
+} from "./people";
 import { chicagoDate, hoursToMinutes, minutesToHours, nid, partsInChicago } from "./time";
 
 export type ImportSkip = { row: number; reason: string };
@@ -75,10 +84,19 @@ export const exportCsv = createServerFn({ method: "GET" })
 
     if (kind === "clients") {
       const rows = await sql<{
+        first_name: string | null;
+        last_name: string | null;
         name: string;
         phone: string | null;
         email: string | null;
-        address: string | null;
+        address_line1: string | null;
+        address_line2: string | null;
+        city: string | null;
+        state: string | null;
+        zip: string | null;
+        bedrooms: number | null;
+        bathrooms: number | null;
+        square_footage: number | null;
         notes: string | null;
         default_price_cents: number | null;
         default_duration_min: number | null;
@@ -87,7 +105,10 @@ export const exportCsv = createServerFn({ method: "GET" })
         usual_time: string | null;
         assigned: string | null;
       }>`
-        select c.name, c.phone, c.email, c.address, c.notes, c.default_price_cents, c.default_duration_min,
+        select c.first_name, c.last_name, c.name, c.phone, c.email,
+               c.address_line1, c.address_line2, c.city, c.state, c.zip,
+               c.bedrooms, c.bathrooms, c.square_footage,
+               c.notes, c.default_price_cents, c.default_duration_min,
                c.frequency, c.usual_day, c.usual_time,
                (select string_agg(p.email, ';' order by p.email)
                   from client_assignees ca
@@ -99,10 +120,18 @@ export const exportCsv = createServerFn({ method: "GET" })
       `;
       const csv = toCsv(
         [
-          "name",
+          "first_name",
+          "last_name",
           "phone",
           "email",
-          "address",
+          "address_line1",
+          "address_line2",
+          "city",
+          "state",
+          "zip",
+          "bedrooms",
+          "bathrooms",
+          "square_footage",
           "notes",
           "default_price",
           "default_duration_hours",
@@ -111,19 +140,30 @@ export const exportCsv = createServerFn({ method: "GET" })
           "preferred_time",
           "assigned_cleaner_emails",
         ],
-        rows.map((r) => ({
-          name: r.name,
-          phone: r.phone,
-          email: r.email,
-          address: r.address,
-          notes: r.notes,
-          default_price: centsToPrice(r.default_price_cents),
-          default_duration_hours: r.default_duration_min ? String(minutesToHours(r.default_duration_min)) : "",
-          frequency: frequencyToCsv(r.frequency),
-          preferred_weekday: weekdayToCsv(r.usual_day),
-          preferred_time: r.usual_time ?? "",
-          assigned_cleaner_emails: r.assigned ?? "",
-        })),
+        rows.map((r) => {
+          const names = namesFrom(r.first_name, r.last_name, r.name);
+          return {
+            first_name: names.first_name,
+            last_name: names.last_name,
+            phone: formatPhoneAsTyped(r.phone),
+            email: r.email,
+            address_line1: r.address_line1 ?? "",
+            address_line2: r.address_line2 ?? "",
+            city: r.city ?? "",
+            state: r.state ?? "",
+            zip: r.zip ?? "",
+            bedrooms: r.bedrooms ?? "",
+            bathrooms: r.bathrooms ?? "",
+            square_footage: r.square_footage ?? "",
+            notes: r.notes,
+            default_price: centsToPrice(r.default_price_cents),
+            default_duration_hours: r.default_duration_min ? String(minutesToHours(r.default_duration_min)) : "",
+            frequency: frequencyToCsv(r.frequency),
+            preferred_weekday: weekdayToCsv(r.usual_day),
+            preferred_time: r.usual_time ?? "",
+            assigned_cleaner_emails: r.assigned ?? "",
+          };
+        }),
       );
       return { filename: "sweepbook-clients.csv", csv };
     }
@@ -131,11 +171,19 @@ export const exportCsv = createServerFn({ method: "GET" })
     if (kind === "team") {
       const members = await sql<{
         full_name: string;
+        first_name: string | null;
+        last_name: string | null;
         phone: string | null;
         email: string | null;
         can_message: boolean | string;
+        cleaner_kind: string | null;
+        pay_type: string | null;
+        pay_amount: number | null;
+        pay_note: string | null;
       }>`
-        select full_name, phone, email, can_message
+        select full_name, first_name, last_name, phone, email, can_message,
+               coalesce(cleaner_kind, 'team') as cleaner_kind,
+               pay_type, pay_amount, pay_note
         from profiles
         where master_user_id = ${context.userId} and role = ${"cleaner"}
         order by full_name
@@ -145,28 +193,45 @@ export const exportCsv = createServerFn({ method: "GET" })
         phone: string | null;
         email: string | null;
         can_message: boolean | string;
+        invite_kind: string | null;
       }>`
-        select name, phone, email, can_message
+        select name, phone, email, can_message, coalesce(invite_kind, 'team') as invite_kind
         from team_invites
         where master_user_id = ${context.userId} and accepted_at is null
         order by name
       `;
       const yes = (v: boolean | string) => (v === true || v === "t" || v === "true" ? "yes" : "no");
       const csv = toCsv(
-        ["name", "phone", "email", "messaging_enabled"],
+        ["first_name", "last_name", "phone", "email", "office_role", "messaging_enabled", "pay_type", "pay_amount", "pay_note"],
         [
-          ...members.map((m) => ({
-            name: m.full_name,
-            phone: m.phone,
-            email: m.email,
-            messaging_enabled: yes(m.can_message),
-          })),
-          ...pending.map((m) => ({
-            name: m.name,
-            phone: m.phone,
-            email: m.email,
-            messaging_enabled: yes(m.can_message),
-          })),
+          ...members.map((m) => {
+            const names = namesFrom(m.first_name, m.last_name, m.full_name);
+            return {
+              first_name: names.first_name,
+              last_name: names.last_name,
+              phone: formatPhoneAsTyped(m.phone),
+              email: m.email,
+              office_role: m.cleaner_kind === "admin" ? "admin" : "team",
+              messaging_enabled: yes(m.can_message),
+              pay_type: m.pay_type ?? "",
+              pay_amount: m.pay_amount ?? "",
+              pay_note: m.pay_note ?? "",
+            };
+          }),
+          ...pending.map((m) => {
+            const names = namesFrom(undefined, undefined, m.name);
+            return {
+              first_name: names.first_name,
+              last_name: names.last_name,
+              phone: formatPhoneAsTyped(m.phone),
+              email: m.email,
+              office_role: m.invite_kind === "admin" ? "admin" : "team",
+              messaging_enabled: yes(m.can_message),
+              pay_type: "",
+              pay_amount: "",
+              pay_note: "",
+            };
+          }),
         ],
       );
       return { filename: "sweepbook-team.csv", csv };
@@ -238,11 +303,12 @@ async function importClientRows(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const n = i + 1;
-    const name = (row.name || "").trim();
-    if (!name) {
-      skips.push({ row: n, reason: "missing name" });
+    const names = namesFrom(row.first_name, row.last_name, row.name);
+    if (!names.first_name) {
+      skips.push({ row: n, reason: "missing first name" });
       continue;
     }
+    const parts = addressPartsFrom(row);
     const email = (row.email || "").trim().toLowerCase();
     const price = parseMoneyToCents(row.default_price || "");
     const hours = parseHours(row.default_duration_hours || "");
@@ -251,10 +317,20 @@ async function importClientRows(
     const time = row.preferred_time?.trim() || null;
     const assignees = resolveAssignees(row.assigned_cleaner_emails || "", team, n, warnings);
     const payload = {
-      name,
-      phone: row.phone?.trim() || null,
+      name: names.name,
+      first_name: names.first_name,
+      last_name: names.last_name,
+      phone: storePhone(row.phone),
       email: email || null,
-      address: row.address?.trim() || null,
+      address: formatAddress(parts) || null,
+      address_line1: parts.address_line1 || null,
+      address_line2: parts.address_line2 || null,
+      city: parts.city || null,
+      state: parts.state || null,
+      zip: parts.zip || null,
+      bedrooms: intOrNull(row.bedrooms),
+      bathrooms: numberOrNull(row.bathrooms),
+      square_footage: intOrNull(row.square_footage),
       notes: row.notes?.trim() || null,
       default_price_cents: price,
       default_duration_min: hours ? hoursToMinutes(hours) : null,
@@ -272,9 +348,19 @@ async function importClientRows(
       await sql`
         update clients set
           name = ${payload.name},
+          first_name = ${payload.first_name},
+          last_name = ${payload.last_name},
           phone = ${payload.phone},
           email = ${payload.email},
           address = ${payload.address},
+          address_line1 = ${payload.address_line1},
+          address_line2 = ${payload.address_line2},
+          city = ${payload.city},
+          state = ${payload.state},
+          zip = ${payload.zip},
+          bedrooms = ${payload.bedrooms},
+          bathrooms = ${payload.bathrooms},
+          square_footage = ${payload.square_footage},
           notes = ${payload.notes},
           default_price_cents = ${payload.default_price_cents},
           default_duration_min = ${payload.default_duration_min},
@@ -290,11 +376,15 @@ async function importClientRows(
     const id = nid("client");
     await sql`
       insert into clients (
-        id, cleaner_user_id, name, phone, email, address, notes,
-        default_price_cents, default_duration_min, frequency, usual_day, usual_time
+        id, cleaner_user_id, name, first_name, last_name, phone, email, address,
+        address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
+        notes, default_price_cents, default_duration_min, frequency, usual_day, usual_time
       ) values (
-        ${id}, ${ownerId}, ${payload.name}, ${payload.phone}, ${payload.email},
-        ${payload.address}, ${payload.notes}, ${payload.default_price_cents},
+        ${id}, ${ownerId}, ${payload.name}, ${payload.first_name}, ${payload.last_name},
+        ${payload.phone}, ${payload.email}, ${payload.address},
+        ${payload.address_line1}, ${payload.address_line2}, ${payload.city}, ${payload.state}, ${payload.zip},
+        ${payload.bedrooms}, ${payload.bathrooms}, ${payload.square_footage},
+        ${payload.notes}, ${payload.default_price_cents},
         ${payload.default_duration_min}, ${payload.frequency}, ${payload.usual_day},
         ${payload.usual_time}
       )
@@ -329,18 +419,22 @@ async function importTeamRows(
   for (let i = 0; i < rows.length; i++) {
     const row = rows[i];
     const n = i + 1;
-    const name = (row.name || "").trim();
-    if (!name) {
-      skips.push({ row: n, reason: "missing name" });
+    const names = namesFrom(row.first_name, row.last_name, row.name);
+    if (!names.first_name) {
+      skips.push({ row: n, reason: "missing first name" });
       continue;
     }
     const email = (row.email || "").trim().toLowerCase();
-    const phone = row.phone?.trim() || null;
+    const phone = storePhone(row.phone);
     const messaging = parseYesNo(row.messaging_enabled || "yes");
     const canMessage = messaging !== false;
+    const officeRole = (row.office_role || "").trim().toLowerCase() === "admin" ? "admin" : "team";
     if (row.messaging_enabled?.trim() && messaging == null) {
       warnings.push({ row: n, message: "messaging_enabled should be yes or no; defaulted to yes" });
     }
+    const payType = (row.pay_type || "").trim() || null;
+    const payAmount = row.pay_amount ? Number(row.pay_amount) : null;
+    const payNote = row.pay_note?.trim() || null;
 
     if (email && memberByEmail.has(email)) {
       if (mode === "add") {
@@ -350,9 +444,18 @@ async function importTeamRows(
       const userId = memberByEmail.get(email)!;
       await sql`
         update profiles
-        set full_name = ${name}, phone = ${phone}, can_message = ${canMessage}
+        set full_name = ${names.name}, first_name = ${names.first_name}, last_name = ${names.last_name},
+            phone = ${phone}, can_message = ${canMessage}
         where user_id = ${userId}
       `;
+      if (payType) {
+        await sql`
+          update profiles
+          set pay_type = ${payType}, pay_amount = ${Number.isFinite(payAmount) ? Math.round(payAmount!) : 0},
+              pay_note = ${payNote}
+          where user_id = ${userId}
+        `;
+      }
       imported += 1;
       continue;
     }
@@ -363,7 +466,7 @@ async function importTeamRows(
       }
       await sql`
         update team_invites
-        set name = ${name}, phone = ${phone}, can_message = ${canMessage}
+        set name = ${names.name}, phone = ${phone}, can_message = ${canMessage}, invite_kind = ${officeRole}
         where id = ${inviteByEmail.get(email)!}
       `;
       imported += 1;
@@ -373,8 +476,8 @@ async function importTeamRows(
     const token = nid("tinv").replace(/-/g, "").slice(0, 22);
     const id = nid("tinv");
     await sql`
-      insert into team_invites (id, token, master_user_id, name, phone, email, can_message)
-      values (${id}, ${token}, ${ownerId}, ${name}, ${phone}, ${email || null}, ${canMessage})
+      insert into team_invites (id, token, master_user_id, name, phone, email, can_message, invite_kind)
+      values (${id}, ${token}, ${ownerId}, ${names.name}, ${phone}, ${email || null}, ${canMessage}, ${officeRole})
     `;
     if (email) inviteByEmail.set(email, id);
     imported += 1;
@@ -470,9 +573,10 @@ async function importScheduleRows(
         continue;
       }
       const id = nid("client");
+      const inferredNames = namesFrom(undefined, undefined, inferred);
       await sql`
-        insert into clients (id, cleaner_user_id, name, email)
-        values (${id}, ${ownerId}, ${inferred}, ${email})
+        insert into clients (id, cleaner_user_id, name, first_name, last_name, email)
+        values (${id}, ${ownerId}, ${inferred}, ${inferredNames.first_name || null}, ${inferredNames.last_name || null}, ${email})
       `;
       client = {
         id,

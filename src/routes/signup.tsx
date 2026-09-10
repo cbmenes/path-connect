@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { completeOnboarding } from "@/lib/sweepbook/bootstrap";
+import { displayName } from "@/lib/sweepbook/people";
 import { Wordmark } from "@/components/brand/logo";
+import { NameFields } from "@/components/app/name-fields";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { SiteChrome } from "@/components/marketing/site-chrome";
@@ -20,7 +22,8 @@ function storeBearer(token?: string | null) {
 
 function Signup() {
   const navigate = useNavigate();
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [business, setBusiness] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -36,6 +39,7 @@ function Signup() {
     setBusy(true);
     setError(null);
     try {
+      const name = displayName(firstName, lastName);
       const { data, error: err } = await authClient.signUp.email({ email, password, name });
       if (err) throw new Error(err.message || "Could not create the account.");
       storeBearer(data?.token);
@@ -44,7 +48,7 @@ function Signup() {
         if (signed.error) throw new Error(signed.error.message || "Account created. Please log in.");
         storeBearer(signed.data?.token);
       }
-      await completeOnboarding({ data: { role: "cleaner", fullName: name, businessName: business } });
+      await completeOnboarding({ data: { role: "cleaner", firstName, lastName, businessName: business } });
       await navigate({ to: "/app" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the account.");
@@ -62,9 +66,7 @@ function Signup() {
           <p className="mt-1 text-sm text-muted">$19/month after you settle in. Clients join from your invite.</p>
         </div>
         <form onSubmit={onSubmit} className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">
-          <Field label="Your name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} required autoComplete="name" />
-          </Field>
+          <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
           <Field label="Business name" hint="Shown to your clients.">
             <Input value={business} onChange={(e) => setBusiness(e.target.value)} placeholder="Brooks Clean Co." />
           </Field>

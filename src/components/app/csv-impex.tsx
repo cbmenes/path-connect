@@ -92,7 +92,11 @@ export function CsvImportPanel({ initialKind = "clients" }: { initialKind?: CsvK
   }
 
   function confirmMapping() {
-    const missing = REQUIRED_FIELDS[kind].filter((f) => !mapping[f]);
+    const missing = REQUIRED_FIELDS[kind].filter((f) => {
+      if (mapping[f]) return false;
+      if (f === "first_name" && (headers.includes("name") || headers.includes("full_name"))) return false;
+      return true;
+    });
     if (missing.length) {
       toast.error(`Map these fields: ${missing.join(", ")}`);
       return;

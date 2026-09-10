@@ -12,6 +12,7 @@ import {
   teamCanAccessJob,
 } from "./assignees";
 import { insertNotification } from "./notifications";
+import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
 import {
   addDaysChicago,
@@ -183,6 +184,11 @@ export type JobInput = {
   clientId: string;
   service: string;
   address?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
   startLocal: string;
   durationMin: number;
   priceCents: number;
@@ -206,10 +212,16 @@ function parseJobInput(input: JobInput): JobInput {
   } else if (input.assignedToUserId) {
     assignedToUserIds = [input.assignedToUserId];
   }
+  const parts = addressPartsFrom(input);
   return {
     clientId: input.clientId,
     service: input.service.trim() || "House cleaning",
-    address: input.address?.trim() || undefined,
+    address: formatAddress(parts, input.address?.trim() || "") || undefined,
+    address_line1: parts.address_line1 || undefined,
+    address_line2: parts.address_line2 || undefined,
+    city: parts.city || undefined,
+    state: parts.state || undefined,
+    zip: parts.zip || undefined,
     startLocal: input.startLocal,
     durationMin,
     priceCents,
@@ -492,11 +504,23 @@ export const createJob = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     const ownerId = masterUserId(actor);
-    const clients = await sql<{ id: string; address: string | null; name: string }>`
-      select id, address, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
+    const clients = await sql<{
+      id: string;
+      address: string | null;
+      name: string;
+      address_line1: string | null;
+      address_line2: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+    }>`
+      select id, address, name, address_line1, address_line2, city, state, zip
+      from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
     `;
     const client = clients[0];
     if (!client) throw new Error("Client not found.");
+    const jobParts = data.address_line1 || data.city ? addressPartsFrom(data) : addressPartsFrom(client);
+    const jobAddress = formatAddress(jobParts, data.address || client.address || "");
     const inherited = await getClientAssigneeIds(sql, data.clientId);
     const assigneeIds = data.assignedToUserIds !== undefined ? data.assignedToUserIds : inherited;
     const first = fromDatetimeLocalValue(data.startLocal);
@@ -513,11 +537,14 @@ export const createJob = createServerFn({ method: "POST" })
       const id = nid("job");
       await sql`
         insert into jobs (
-          id, cleaner_user_id, client_id, service, address, start_at, duration_min,
-          price_cents, notes, status, recurrence, series_id, assigned_to_user_id
+          id, cleaner_user_id, client_id, service, address,
+          address_line1, address_line2, city, state, zip,
+          start_at, duration_min, price_cents, notes, status, recurrence, series_id, assigned_to_user_id
         ) values (
           ${id}, ${ownerId}, ${data.clientId}, ${data.service},
-          ${data.address || client.address}, ${start.toISOString()}, ${data.durationMin},
+          ${jobAddress || null}, ${jobParts.address_line1 || null}, ${jobParts.address_line2 || null},
+          ${jobParts.city || null}, ${jobParts.state || null}, ${jobParts.zip || null},
+          ${start.toISOString()}, ${data.durationMin},
           ${data.priceCents}, ${data.notes ?? null}, ${"scheduled"}, ${data.recurrence}, ${seriesId},
           ${assigneeIds[0] ?? null}
         )
@@ -552,11 +579,17 @@ export const updateJob = createServerFn({ method: "POST" })
     const ownerId = masterUserId(actor);
     const start = fromDatetimeLocalValue(data.startLocal);
     const assigneeIds = data.assignedToUserIds ?? [];
+    const parts = addressPartsFrom(data);
     await sql`
       update jobs set
         client_id = ${data.clientId},
         service = ${data.service},
-        address = ${data.address ?? null},
+        address = ${data.address ?? formatAddress(parts) || null},
+        address_line1 = ${parts.address_line1 || null},
+        address_line2 = ${parts.address_line2 || null},
+        city = ${parts.city || null},
+        state = ${parts.state || null},
+        zip = ${parts.zip || null},
         start_at = ${start.toISOString()},
         duration_min = ${data.durationMin},
         price_cents = ${data.priceCents},

@@ -70,7 +70,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
           to="/app/requests"
           className="rounded-xl border border-sage/40 bg-sage-soft p-4 text-sm text-navy"
         >
-          {data.pendingCleanRequests} new clean request{data.pendingCleanRequests === 1 ? "" : "s"}. Review and accept or
+          {data.pendingCleanRequests} new booking request{data.pendingCleanRequests === 1 ? "" : "s"}. Review and accept or
           decline.
         </Link>
       ) : null}

@@ -3,7 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { authClient } from "@/lib/auth/client";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { displayName, splitDisplayName } from "@/lib/sweepbook/people";
 import { acceptTeamInvite, getTeamInvitePublic } from "@/lib/sweepbook/team";
+import { NameFields } from "@/components/app/name-fields";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { SiteChrome } from "@/components/marketing/site-chrome";
@@ -24,7 +26,8 @@ function TeamInvitePage() {
   const { user, isPending } = useCurrentUserState();
   const navigate = useNavigate();
   const invite = useQuery({ queryKey: ["team-invite", token], queryFn: () => getTeamInvitePublic({ data: token }) });
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [busy, setBusy] = useState(false);
@@ -32,7 +35,11 @@ function TeamInvitePage() {
 
   useEffect(() => {
     if (invite.data?.email) setEmail(invite.data.email);
-    if (invite.data?.name) setName(invite.data.name);
+    if (invite.data?.name) {
+      const names = splitDisplayName(invite.data.name);
+      setFirstName(names.first_name);
+      setLastName(names.last_name);
+    }
   }, [invite.data]);
 
   async function join() {
@@ -57,6 +64,7 @@ function TeamInvitePage() {
     setBusy(true);
     setError(null);
     try {
+      const name = displayName(firstName, lastName);
       const { data, error: err } = await authClient.signUp.email({ email, password, name });
       if (err) throw new Error(err.message || "Could not create the account.");
       storeBearer(data?.token);
@@ -109,9 +117,7 @@ function TeamInvitePage() {
               </div>
             ) : (
               <form onSubmit={signup} className="mt-6 grid gap-3 rounded-xl bg-paper p-5 shadow-card">
-                <Field label="Your name">
-                  <Input value={name} onChange={(e) => setName(e.target.value)} required />
-                </Field>
+                <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
                 <Field label="Email">
                   <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required />
                 </Field>

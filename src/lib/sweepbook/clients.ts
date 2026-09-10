@@ -9,6 +9,7 @@ import {
 } from "./assignees";
 import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
+import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
 import { nid } from "./time";
 import type { AssigneeRef, CardRow, ClientRow, InvoiceRow, JobRow, MessageRow } from "./types";
 
@@ -25,7 +26,8 @@ export type CsvRow = {
 };
 
 const CLIENT_SELECT = `
-  id, cleaner_user_id, linked_user_id, name, phone, email, address,
+  id, cleaner_user_id, linked_user_id, name, first_name, last_name, phone, email, address,
+  address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
   access_notes, pets, supplies, default_price_cents, default_duration_min,
   usual_day, usual_time, frequency, notes, created_at::text as created_at,
   (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)
@@ -130,10 +132,18 @@ export const getClient = createServerFn({ method: "GET" })
   });
 
 export type ClientInput = {
-  name: string;
+  first_name: string;
+  last_name: string;
   phone?: string;
   email?: string;
-  address?: string;
+  address_line1?: string;
+  address_line2?: string;
+  city?: string;
+  state?: string;
+  zip?: string;
+  bedrooms?: number | null;
+  bathrooms?: number | null;
+  square_footage?: number | null;
   access_notes?: string;
   pets?: string;
   supplies?: string;
@@ -146,13 +156,32 @@ export type ClientInput = {
 };
 
 function cleanClient(input: ClientInput) {
-  const name = input.name.trim();
-  if (!name) throw new Error("Name is required.");
+  const first_name = input.first_name.trim();
+  const last_name = input.last_name.trim();
+  const name = displayName(first_name, last_name);
+  if (!name) throw new Error("First and last name are required.");
+  const parts: AddressParts = {
+    address_line1: input.address_line1?.trim() || "",
+    address_line2: input.address_line2?.trim() || "",
+    city: input.city?.trim() || "",
+    state: (input.state?.trim() || "").toUpperCase(),
+    zip: input.zip?.trim() || "",
+  };
   return {
     name,
-    phone: input.phone?.trim() || null,
+    first_name,
+    last_name,
+    phone: storePhone(input.phone),
     email: input.email?.trim() || null,
-    address: input.address?.trim() || null,
+    address: formatAddress(parts) || null,
+    address_line1: parts.address_line1 || null,
+    address_line2: parts.address_line2 || null,
+    city: parts.city || null,
+    state: parts.state || null,
+    zip: parts.zip || null,
+    bedrooms: input.bedrooms ?? null,
+    bathrooms: input.bathrooms ?? null,
+    square_footage: input.square_footage ?? null,
     access_notes: input.access_notes?.trim() || null,
     pets: input.pets?.trim() || null,
     supplies: input.supplies?.trim() || null,
@@ -176,10 +205,14 @@ export const createClient = createServerFn({ method: "POST" })
     const id = nid("client");
     await sql`
       insert into clients (
-        id, cleaner_user_id, name, phone, email, address, access_notes, pets, supplies,
+        id, cleaner_user_id, name, first_name, last_name, phone, email, address,
+        address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
+        access_notes, pets, supplies,
         default_price_cents, default_duration_min, usual_day, usual_time, frequency, notes
       ) values (
-        ${id}, ${ownerId}, ${data.name}, ${data.phone}, ${data.email}, ${data.address},
+        ${id}, ${ownerId}, ${data.name}, ${data.first_name}, ${data.last_name}, ${data.phone}, ${data.email}, ${data.address},
+        ${data.address_line1}, ${data.address_line2}, ${data.city}, ${data.state}, ${data.zip},
+        ${data.bedrooms}, ${data.bathrooms}, ${data.square_footage},
         ${data.access_notes}, ${data.pets}, ${data.supplies}, ${data.default_price_cents},
         ${data.default_duration_min}, ${data.usual_day}, ${data.usual_time}, ${data.frequency},
         ${data.notes}
@@ -199,9 +232,19 @@ export const updateClient = createServerFn({ method: "POST" })
     await sql`
       update clients set
         name = ${data.name},
+        first_name = ${data.first_name},
+        last_name = ${data.last_name},
         phone = ${data.phone},
         email = ${data.email},
         address = ${data.address},
+        address_line1 = ${data.address_line1},
+        address_line2 = ${data.address_line2},
+        city = ${data.city},
+        state = ${data.state},
+        zip = ${data.zip},
+        bedrooms = ${data.bedrooms},
+        bathrooms = ${data.bathrooms},
+        square_footage = ${data.square_footage},
         access_notes = ${data.access_notes},
         pets = ${data.pets},
         supplies = ${data.supplies},

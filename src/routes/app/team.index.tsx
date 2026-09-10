@@ -19,6 +19,9 @@ import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { NameFields } from "@/components/app/name-fields";
+import { PhoneInput } from "@/components/app/phone-input";
+import { namesFrom } from "@/lib/sweepbook/people";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/team/")({ component: TeamPage });
@@ -27,7 +30,8 @@ function TeamPage() {
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["team"], queryFn: () => listTeam() });
   const qc = useQueryClient();
-  const [name, setName] = useState("");
+  const [firstName, setFirstName] = useState("");
+  const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
   const [email, setEmail] = useState("");
   const [canMessage, setCanMessage] = useState(true);
@@ -109,13 +113,14 @@ function TeamPage() {
             setBusy(true);
             try {
               const res = await createTeamInvite({
-                data: { name, phone, email, canMessage, inviteKind, canCharge },
+                data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge },
               });
               const url = `${window.location.origin}${res.path}`;
               setInviteUrl(url);
               await navigator.clipboard?.writeText(url).catch(() => undefined);
               toast.success("Invite link copied.");
-              setName("");
+              setFirstName("");
+              setLastName("");
               setPhone("");
               setEmail("");
               setCanCharge(false);
@@ -139,11 +144,11 @@ function TeamPage() {
               </NativeSelect>
             </Field>
           ) : null}
-          <Field label="Name">
-            <Input value={name} onChange={(e) => setName(e.target.value)} required />
-          </Field>
+          <div className="md:col-span-2">
+            <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
+          </div>
           <Field label="Phone">
-            <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+            <PhoneInput value={phone} onChange={setPhone} />
           </Field>
           <Field label="Email">
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
@@ -165,15 +170,16 @@ function TeamPage() {
               variant="outline"
               disabled={busy}
               onClick={async () => {
-                if (!name.trim()) {
-                  toast.error("Name is required.");
+                if (!firstName.trim() || !lastName.trim()) {
+                  toast.error("First and last name are required.");
                   return;
                 }
                 setBusy(true);
                 try {
-                  await saveTeamMember({ data: { name, phone, email, canMessage, inviteKind, canCharge } });
+                  await saveTeamMember({ data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge } });
                   toast.success("Saved to the team list.");
-                  setName("");
+                  setFirstName("");
+                  setLastName("");
                   setPhone("");
                   setEmail("");
                   await qc.invalidateQueries({ queryKey: ["team"] });
@@ -408,7 +414,9 @@ function EditMember({
   onSaved: () => Promise<void>;
 }) {
   const isAdminMember = member.office_role === "admin";
-  const [fullName, setFullName] = useState(member.full_name);
+  const names = namesFrom(member.first_name, member.last_name, member.full_name);
+  const [firstName, setFirstName] = useState(names.first_name);
+  const [lastName, setLastName] = useState(names.last_name);
   const [phone, setPhone] = useState(member.phone ?? "");
   const [email, setEmail] = useState(member.email ?? "");
   const [active, setActive] = useState(member.team_status !== "disabled");
@@ -432,7 +440,8 @@ function EditMember({
             await updateTeamMember({
               data: {
                 userId: member.user_id,
-                fullName,
+                firstName,
+                lastName,
                 phone,
                 email,
                 canMessage: isAdminMember ? undefined : messaging,
@@ -462,11 +471,9 @@ function EditMember({
           }
         }}
       >
-        <Field label="Name">
-          <Input value={fullName} onChange={(e) => setFullName(e.target.value)} required />
-        </Field>
+        <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
         <Field label="Phone">
-          <Input value={phone} onChange={(e) => setPhone(e.target.value)} />
+          <PhoneInput value={phone} onChange={setPhone} />
         </Field>
         <Field label="Email">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />

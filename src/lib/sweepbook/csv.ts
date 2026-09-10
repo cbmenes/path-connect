@@ -1,11 +1,21 @@
+import { parseAddress, splitDisplayName } from "./people";
+
 export type CsvKind = "clients" | "team" | "schedule";
 export type ImportMode = "add" | "replace";
 
 export const CLIENT_FIELDS = [
-  "name",
+  "first_name",
+  "last_name",
   "phone",
   "email",
-  "address",
+  "address_line1",
+  "address_line2",
+  "city",
+  "state",
+  "zip",
+  "bedrooms",
+  "bathrooms",
+  "square_footage",
   "notes",
   "default_price",
   "default_duration_hours",
@@ -15,7 +25,17 @@ export const CLIENT_FIELDS = [
   "assigned_cleaner_emails",
 ] as const;
 
-export const TEAM_FIELDS = ["name", "phone", "email", "messaging_enabled"] as const;
+export const TEAM_FIELDS = [
+  "first_name",
+  "last_name",
+  "phone",
+  "email",
+  "office_role",
+  "messaging_enabled",
+  "pay_type",
+  "pay_amount",
+  "pay_note",
+] as const;
 
 export const SCHEDULE_FIELDS = [
   "client_email",
@@ -40,16 +60,24 @@ export const TEMPLATE_FIELDS: Record<CsvKind, readonly string[]> = {
 };
 
 export const REQUIRED_FIELDS: Record<CsvKind, readonly string[]> = {
-  clients: ["name"],
-  team: ["name"],
+  clients: ["first_name"],
+  team: ["first_name"],
   schedule: ["client_email", "date", "time"],
 };
 
 const ALIASES: Record<string, string[]> = {
-  name: ["full_name", "client_name", "cleaner_name"],
+  first_name: ["firstname", "given_name", "fname", "name", "full_name", "client_name", "cleaner_name"],
+  last_name: ["lastname", "surname", "lname", "family_name"],
   phone: ["phone_number", "mobile"],
   email: ["e_mail", "client_email"],
-  address: ["street", "street_address"],
+  address_line1: ["address1", "address_1", "street", "street_address", "address"],
+  address_line2: ["address2", "address_2", "apt", "apartment", "unit", "suite"],
+  city: ["town"],
+  state: ["region", "province"],
+  zip: ["zipcode", "zip_code", "postal", "postal_code"],
+  bedrooms: ["beds", "br"],
+  bathrooms: ["baths", "ba"],
+  square_footage: ["sqft", "sq_ft", "square_feet", "sq_footage"],
   notes: ["note", "comments"],
   default_price: ["price", "usual_price", "rate"],
   default_duration_hours: ["duration", "duration_hours", "hours"],
@@ -57,7 +85,11 @@ const ALIASES: Record<string, string[]> = {
   preferred_weekday: ["usual_day", "weekday", "day"],
   preferred_time: ["usual_time", "start_time"],
   assigned_cleaner_emails: ["assigned", "cleaners", "assignees", "team"],
+  office_role: ["role", "kind", "invite_kind"],
   messaging_enabled: ["can_message", "messaging"],
+  pay_type: ["paytype", "compensation_type"],
+  pay_amount: ["pay", "rate_amount", "pay_cents"],
+  pay_note: ["pay_notes"],
   client_email: ["email", "customer_email"],
   date: ["day", "visit_date", "start_date"],
   time: ["start", "start_time"],
@@ -144,6 +176,15 @@ export function guessMapping(kind: CsvKind, uploaded: string[]) {
       mapping[field] = "";
     }
   }
+  if (kind !== "schedule") {
+    if (!mapping.first_name && uploaded.includes("name") && !used.has("name")) {
+      mapping.first_name = "name";
+      used.add("name");
+    }
+    if (!mapping.address_line1 && uploaded.includes("address") && !used.has("address")) {
+      mapping.address_line1 = "address";
+    }
+  }
   return mapping;
 }
 
@@ -151,6 +192,48 @@ export function headersMatchTemplate(kind: CsvKind, uploaded: string[]) {
   const fields = TEMPLATE_FIELDS[kind];
   if (uploaded.length !== fields.length) return false;
   return fields.every((f, i) => uploaded[i] === f);
+}
+
+export function hydratePersonRow(row: Record<string, string>) {
+  const next = { ...row };
+  const rawName = (next.name || "").trim();
+  if (!(next.first_name || "").trim() && rawName) {
+    const split = splitDisplayName(rawName);
+    next.first_name = split.first_name;
+    next.last_name = next.last_name || split.last_name;
+  } else if ((next.first_name || "").trim() && !(next.last_name || "").trim()) {
+    const split = splitDisplayName(next.first_name);
+    if (split.last_name) {
+      next.first_name = split.first_name;
+      next.last_name = split.last_name;
+    }
+  }
+  const structured = Boolean(next.city || next.state || next.zip || next.address_line2);
+  const rawAddress = (next.address || "").trim();
+  if (rawAddress && !structured) {
+    const parsed = parseAddress(rawAddress);
+    if (parsed.city || parsed.state || parsed.zip) {
+      next.address_line1 = parsed.address_line1;
+      next.address_line2 = parsed.address_line2;
+      next.city = parsed.city;
+      next.state = parsed.state;
+      next.zip = parsed.zip;
+    } else if (!(next.address_line1 || "").trim()) {
+      next.address_line1 = rawAddress;
+    }
+  } else if (!(next.address_line1 || "").trim() && rawAddress) {
+    next.address_line1 = rawAddress;
+  } else if ((next.address_line1 || "").trim() && !structured) {
+    const parsed = parseAddress(next.address_line1);
+    if (parsed.city || parsed.state || parsed.zip) {
+      next.address_line1 = parsed.address_line1;
+      next.address_line2 = parsed.address_line2;
+      next.city = parsed.city;
+      next.state = parsed.state;
+      next.zip = parsed.zip;
+    }
+  }
+  return next;
 }
 
 export function applyMapping(
@@ -167,7 +250,12 @@ export function applyMapping(
       const idx = src ? index.get(src) : undefined;
       row[field] = idx == null ? "" : (cols[idx] ?? "").trim();
     }
-    return row;
+    for (const legacy of ["name", "address"]) {
+      if (row[legacy]) continue;
+      const idx = index.get(legacy);
+      if (idx != null) row[legacy] = (cols[idx] ?? "").trim();
+    }
+    return hydratePersonRow(row);
   });
 }
 

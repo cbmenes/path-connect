@@ -37,7 +37,11 @@ import { Route as AppSheetRouteImport } from './routes/app/sheet'
 import { Route as AppTeamRouteImport } from './routes/app/team'
 import { Route as AppTeamPayRouteImport } from './routes/app/team-pay'
 import { Route as AppVisitsRouteImport } from './routes/app/visits'
+import { Route as BookIndexRouteImport } from './routes/book.index'
+import { Route as BookSlugRouteImport } from './routes/book.$slug'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
+import { Route as RequestIndexRouteImport } from './routes/request.index'
+import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as AppClientsIndexRouteImport } from './routes/app/clients.index'
@@ -193,10 +197,30 @@ const AppVisitsRoute = AppVisitsRouteImport.update({
   path: '/visits',
   getParentRoute: () => AppRoute,
 } as any)
+const BookIndexRoute = BookIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => BookRoute,
+} as any)
+const BookSlugRoute = BookSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => BookRoute,
+} as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
   path: '/invite/$token',
   getParentRoute: () => rootRouteImport,
+} as any)
+const RequestIndexRoute = RequestIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => RequestRoute,
+} as any)
+const RequestSlugRoute = RequestSlugRouteImport.update({
+  id: '/$slug',
+  path: '/$slug',
+  getParentRoute: () => RequestRoute,
 } as any)
 const TeamInviteTokenRoute = TeamInviteTokenRouteImport.update({
   id: '/team-invite/$token',
@@ -273,12 +297,12 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
-  '/book': typeof BookRoute
+  '/book': typeof BookRouteWithChildren
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
-  '/request': typeof RequestRoute
+  '/request': typeof RequestRouteWithChildren
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
@@ -297,9 +321,13 @@ export interface FileRoutesByFullPath {
   '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
+  '/book/$slug': typeof BookSlugRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/request/$slug': typeof RequestSlugRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
   '/app/': typeof AppIndexRoute
+  '/book/': typeof BookIndexRoute
+  '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
@@ -317,12 +345,10 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
-  '/book': typeof BookRoute
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
-  '/request': typeof RequestRoute
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
@@ -337,9 +363,13 @@ export interface FileRoutesByTo {
   '/app/sheet': typeof AppSheetRoute
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
+  '/book/$slug': typeof BookSlugRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/request/$slug': typeof RequestSlugRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
   '/app': typeof AppIndexRoute
+  '/book': typeof BookIndexRoute
+  '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
@@ -359,12 +389,12 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
-  '/book': typeof BookRoute
+  '/book': typeof BookRouteWithChildren
   '/contact': typeof ContactRoute
   '/login': typeof LoginRoute
   '/onboarding': typeof OnboardingRoute
   '/privacy': typeof PrivacyRoute
-  '/request': typeof RequestRoute
+  '/request': typeof RequestRouteWithChildren
   '/signup': typeof SignupRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
@@ -383,9 +413,13 @@ export interface FileRoutesById {
   '/app/team': typeof AppTeamRouteWithChildren
   '/app/team-pay': typeof AppTeamPayRoute
   '/app/visits': typeof AppVisitsRoute
+  '/book/$slug': typeof BookSlugRoute
   '/invite/$token': typeof InviteTokenRoute
+  '/request/$slug': typeof RequestSlugRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
   '/app/': typeof AppIndexRoute
+  '/book/': typeof BookIndexRoute
+  '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
@@ -430,9 +464,13 @@ export interface FileRouteTypes {
     | '/app/team'
     | '/app/team-pay'
     | '/app/visits'
+    | '/book/$slug'
     | '/invite/$token'
+    | '/request/$slug'
     | '/team-invite/$token'
     | '/app/'
+    | '/book/'
+    | '/request/'
     | '/api/auth/$'
     | '/app/clients/$id'
     | '/app/clients/import'
@@ -450,12 +488,10 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
-    | '/book'
     | '/contact'
     | '/login'
     | '/onboarding'
     | '/privacy'
-    | '/request'
     | '/signup'
     | '/terms'
     | '/add-card/$token'
@@ -470,9 +506,13 @@ export interface FileRouteTypes {
     | '/app/sheet'
     | '/app/team-pay'
     | '/app/visits'
+    | '/book/$slug'
     | '/invite/$token'
+    | '/request/$slug'
     | '/team-invite/$token'
     | '/app'
+    | '/book'
+    | '/request'
     | '/api/auth/$'
     | '/app/clients/$id'
     | '/app/clients/import'
@@ -515,9 +555,13 @@ export interface FileRouteTypes {
     | '/app/team'
     | '/app/team-pay'
     | '/app/visits'
+    | '/book/$slug'
     | '/invite/$token'
+    | '/request/$slug'
     | '/team-invite/$token'
     | '/app/'
+    | '/book/'
+    | '/request/'
     | '/api/auth/$'
     | '/app/clients/$id'
     | '/app/clients/import'
@@ -537,12 +581,12 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AboutRoute: typeof AboutRoute
   AppRoute: typeof AppRouteWithChildren
-  BookRoute: typeof BookRoute
+  BookRoute: typeof BookRouteWithChildren
   ContactRoute: typeof ContactRoute
   LoginRoute: typeof LoginRoute
   OnboardingRoute: typeof OnboardingRoute
   PrivacyRoute: typeof PrivacyRoute
-  RequestRoute: typeof RequestRoute
+  RequestRoute: typeof RequestRouteWithChildren
   SignupRoute: typeof SignupRoute
   TermsRoute: typeof TermsRoute
   AddCardTokenRoute: typeof AddCardTokenRoute
@@ -750,12 +794,40 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppVisitsRouteImport
       parentRoute: typeof AppRoute
     }
+    '/book/': {
+      id: '/book/'
+      path: '/'
+      fullPath: '/book/'
+      preLoaderRoute: typeof BookIndexRouteImport
+      parentRoute: typeof BookRoute
+    }
+    '/book/$slug': {
+      id: '/book/$slug'
+      path: '/$slug'
+      fullPath: '/book/$slug'
+      preLoaderRoute: typeof BookSlugRouteImport
+      parentRoute: typeof BookRoute
+    }
     '/invite/$token': {
       id: '/invite/$token'
       path: '/invite/$token'
       fullPath: '/invite/$token'
       preLoaderRoute: typeof InviteTokenRouteImport
       parentRoute: typeof rootRouteImport
+    }
+    '/request/': {
+      id: '/request/'
+      path: '/'
+      fullPath: '/request/'
+      preLoaderRoute: typeof RequestIndexRouteImport
+      parentRoute: typeof RequestRoute
+    }
+    '/request/$slug': {
+      id: '/request/$slug'
+      path: '/$slug'
+      fullPath: '/request/$slug'
+      preLoaderRoute: typeof RequestSlugRouteImport
+      parentRoute: typeof RequestRoute
     }
     '/team-invite/$token': {
       id: '/team-invite/$token'
@@ -959,16 +1031,41 @@ const AppRouteChildren: AppRouteChildren = {
 
 const AppRouteWithChildren = AppRoute._addFileChildren(AppRouteChildren)
 
+interface BookRouteChildren {
+  BookSlugRoute: typeof BookSlugRoute
+  BookIndexRoute: typeof BookIndexRoute
+}
+
+const BookRouteChildren: BookRouteChildren = {
+  BookSlugRoute: BookSlugRoute,
+  BookIndexRoute: BookIndexRoute,
+}
+
+const BookRouteWithChildren = BookRoute._addFileChildren(BookRouteChildren)
+
+interface RequestRouteChildren {
+  RequestSlugRoute: typeof RequestSlugRoute
+  RequestIndexRoute: typeof RequestIndexRoute
+}
+
+const RequestRouteChildren: RequestRouteChildren = {
+  RequestSlugRoute: RequestSlugRoute,
+  RequestIndexRoute: RequestIndexRoute,
+}
+
+const RequestRouteWithChildren =
+  RequestRoute._addFileChildren(RequestRouteChildren)
+
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AboutRoute: AboutRoute,
   AppRoute: AppRouteWithChildren,
-  BookRoute: BookRoute,
+  BookRoute: BookRouteWithChildren,
   ContactRoute: ContactRoute,
   LoginRoute: LoginRoute,
   OnboardingRoute: OnboardingRoute,
   PrivacyRoute: PrivacyRoute,
-  RequestRoute: RequestRoute,
+  RequestRoute: RequestRouteWithChildren,
   SignupRoute: SignupRoute,
   TermsRoute: TermsRoute,
   AddCardTokenRoute: AddCardTokenRoute,

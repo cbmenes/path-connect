@@ -247,10 +247,20 @@ function ClientProfile() {
       {editing ? (
         <ClientFields
           initial={{
+            first_name: client.first_name ?? undefined,
+            last_name: client.last_name ?? undefined,
             name: client.name,
             phone: client.phone ?? undefined,
             email: client.email ?? undefined,
             address: client.address ?? undefined,
+            address_line1: client.address_line1 ?? undefined,
+            address_line2: client.address_line2 ?? undefined,
+            city: client.city ?? undefined,
+            state: client.state ?? undefined,
+            zip: client.zip ?? undefined,
+            bedrooms: client.bedrooms,
+            bathrooms: client.bathrooms,
+            square_footage: client.square_footage,
             access_notes: client.access_notes ?? undefined,
             pets: client.pets ?? undefined,
             supplies: client.supplies ?? undefined,

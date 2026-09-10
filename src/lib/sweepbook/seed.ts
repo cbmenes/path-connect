@@ -19,18 +19,19 @@ import {
   DEMO_ADMIN_PASSWORD,
   DEMO_REQUEST_ID,
 } from "./types";
+import { addressPartsFrom, ensureBookingSlug, namesFrom, storePhone } from "./people";
 import { addDaysChicago, chicagoDate, chicagoDateInputValue, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed12__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed13__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed12__) {
-    g.__sweepbookSeed12__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed12__ = undefined;
+  if (!g.__sweepbookSeed13__) {
+    g.__sweepbookSeed13__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed13__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed12__;
+  await g.__sweepbookSeed13__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -48,6 +49,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV6(sql);
   await seedV7(sql);
   await seedV8(sql);
+  await seedV9(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -1010,5 +1012,136 @@ async function seedV8(sql: Sql) {
     )
   `;
 }
+
+async function seedV9(sql: Sql) {
+  await sql`
+    update profiles
+    set booking_slug = ${"brooks-clean-co"}
+    where user_id = ${DEMO_CLEANER_ID}
+      and (booking_slug is null or booking_slug <> ${"brooks-clean-co"})
+  `;
+
+  const profiles = await sql<{
+    user_id: string;
+    full_name: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    address: string | null;
+    address_line1: string | null;
+    business_name: string | null;
+    cleaner_kind: string | null;
+    booking_slug: string | null;
+  }>`
+    select user_id, full_name, first_name, last_name, phone, address, address_line1,
+           business_name, cleaner_kind, booking_slug
+    from profiles
+  `;
+  for (const p of profiles) {
+    const names = namesFrom(p.first_name, p.last_name, p.full_name);
+    const parts = addressPartsFrom(p);
+    await sql`
+      update profiles set
+        first_name = ${names.first_name || null},
+        last_name = ${names.last_name || null},
+        phone = ${storePhone(p.phone)},
+        address = ${p.address},
+        address_line1 = ${parts.address_line1 || p.address_line1},
+        address_line2 = ${parts.address_line2 || null},
+        city = ${parts.city || null},
+        state = ${parts.state || null},
+        zip = ${parts.zip || null}
+      where user_id = ${p.user_id}
+    `;
+    if ((p.cleaner_kind === "master" || !p.cleaner_kind) && !p.booking_slug && p.user_id !== DEMO_CLEANER_ID) {
+      await ensureBookingSlug(sql, p.user_id, p.business_name || p.full_name);
+    }
+  }
+
+  const clients = await sql<{
+    id: string;
+    name: string;
+    first_name: string | null;
+    last_name: string | null;
+    phone: string | null;
+    address: string | null;
+    address_line1: string | null;
+  }>`
+    select id, name, first_name, last_name, phone, address, address_line1 from clients
+  `;
+  for (const c of clients) {
+    const names = namesFrom(c.first_name, c.last_name, c.name);
+    const parts = addressPartsFrom(c);
+    let bedrooms: number | null = null;
+    let bathrooms: number | null = null;
+    let sqft: number | null = null;
+    if (c.id === CAM_CLIENT_ID) {
+      bedrooms = 1;
+      bathrooms = 1;
+      sqft = 900;
+    } else if (c.id === "client-harpers") {
+      bedrooms = 4;
+      bathrooms = 3;
+      sqft = 2800;
+    }
+    await sql`
+      update clients set
+        first_name = ${names.first_name || null},
+        last_name = ${names.last_name || null},
+        phone = ${storePhone(c.phone)},
+        address_line1 = ${parts.address_line1 || null},
+        address_line2 = ${parts.address_line2 || null},
+        city = ${parts.city || null},
+        state = ${parts.state || null},
+        zip = ${parts.zip || null},
+        bedrooms = coalesce(bedrooms, ${bedrooms}),
+        bathrooms = coalesce(bathrooms, ${bathrooms}),
+        square_footage = coalesce(square_footage, ${sqft})
+      where id = ${c.id}
+    `;
+    await sql`
+      update jobs set
+        address_line1 = coalesce(nullif(address_line1, ''), ${parts.address_line1 || null}),
+        address_line2 = coalesce(nullif(address_line2, ''), ${parts.address_line2 || null}),
+        city = coalesce(nullif(city, ''), ${parts.city || null}),
+        state = coalesce(nullif(state, ''), ${parts.state || null}),
+        zip = coalesce(nullif(zip, ''), ${parts.zip || null})
+      where client_id = ${c.id} and coalesce(address_line1, '') = ''
+    `;
+  }
+
+  const reqs = await sql<{
+    id: string;
+    name: string;
+    phone: string | null;
+    address: string | null;
+    first_name: string | null;
+  }>`
+    select id, name, phone, address, first_name from clean_requests
+  `;
+  for (const r of reqs) {
+    const names = namesFrom(r.first_name, null, r.name);
+    const parts = addressPartsFrom(r);
+    await sql`
+      update clean_requests set
+        first_name = ${names.first_name || null},
+        last_name = ${names.last_name || null},
+        phone = ${storePhone(r.phone)},
+        address_line1 = ${parts.address_line1 || null},
+        address_line2 = ${parts.address_line2 || null},
+        city = ${parts.city || null},
+        state = ${parts.state || null},
+        zip = ${parts.zip || null}
+      where id = ${r.id}
+    `;
+  }
+
+  await sql`
+    update notifications
+    set title = replace(title, 'New clean request from', 'New booking request from')
+    where kind = ${"clean_request"} and title like 'New clean request from%'
+  `;
+}
+
 
 

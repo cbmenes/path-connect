@@ -3,8 +3,10 @@ import { toast } from "sonner";
 import { listClients } from "@/lib/sweepbook/clients";
 import { checkJobConflicts, type ConflictHit, type JobInput } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { addressPartsFrom } from "@/lib/sweepbook/people";
 import { hoursToMinutes, minutesToHours, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import type { ClientRow, Recurrence } from "@/lib/sweepbook/types";
+import { AddressFields } from "./address-fields";
 import { AssigneePicker } from "./assignee-picker";
 import { conflictLine, ConflictWarningDialog } from "./conflict-warning";
 import { Button } from "@/components/ui/button";
@@ -27,7 +29,7 @@ export function JobForm({
   const [staff, setStaff] = useState<{ user_id: string; full_name: string }[]>([]);
   const [clientId, setClientId] = useState(initial?.clientId ?? "");
   const [service, setService] = useState(initial?.service ?? "House cleaning");
-  const [address, setAddress] = useState(initial?.address ?? "");
+  const [address, setAddress] = useState(addressPartsFrom(initial));
   const [startLocal, setStartLocal] = useState(initial?.startLocal ?? toDatetimeLocalValue(new Date()));
   const [durationHours, setDurationHours] = useState(
     String(minutesToHours(initial?.durationMin ?? 120) || 2),
@@ -80,7 +82,7 @@ export function JobForm({
     setClientId(id);
     const c = clients.find((x) => x.id === id);
     if (c) {
-      if (c.address) setAddress(c.address);
+      setAddress(addressPartsFrom(c));
       if (c.default_duration_min) setDurationHours(String(minutesToHours(c.default_duration_min)));
       if (c.default_price_cents) setPriceCents(c.default_price_cents);
       if (c.assigned_user_ids) setAssignedToUserIds(c.assigned_user_ids);
@@ -91,7 +93,8 @@ export function JobForm({
     return {
       clientId,
       service,
-      address,
+      address: undefined,
+      ...address,
       startLocal,
       durationMin,
       priceCents: Number(priceCents),
@@ -150,9 +153,7 @@ export function JobForm({
       <Field label="Service">
         <Input value={service} onChange={(e) => setService(e.target.value)} />
       </Field>
-      <Field label="Address">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-      </Field>
+      <AddressFields value={address} onChange={setAddress} />
       <Field label="Date and time">
         <Input type="datetime-local" value={startLocal} onChange={(e) => setStartLocal(e.target.value)} required />
       </Field>

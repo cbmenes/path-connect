@@ -7,6 +7,7 @@ import { addDaysChicago, startOfChicagoDay, chicagoDate, partsInChicago } from "
 import type { Actor, CardRow, InvoiceWithClient, JobWithClient, ThreadSummary } from "./types";
 import { hydrateJob, redactJobMoney } from "./assignees";
 import { loadThreads, unreadCount } from "./messages";
+import { addressPartsFrom, formatAddress, namesFrom, storePhone } from "./people";
 
 export type CleanerDashboard = {
   actor: Extract<Actor, { kind: "cleaner" | "admin" }>;
@@ -242,59 +243,91 @@ export const getDashboard = createServerFn({ method: "GET" })
 export const updateSettings = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: {
-    fullName: string;
+    firstName: string;
+    lastName: string;
     businessName?: string;
     phone?: string;
     email?: string;
-    address?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
     cancellationPolicy?: string;
   }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    const fullName = data.fullName.trim();
-    if (!fullName) throw new Error("Name is required.");
+    const names = namesFrom(data.firstName, data.lastName);
+    if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
+    const phone = storePhone(data.phone);
+    const email = data.email?.trim() || null;
+    const parts = addressPartsFrom(data);
+    const address = formatAddress(parts) || null;
     if (actor.kind === "cleaner") {
       await sql`
         update profiles set
-          full_name = ${fullName},
+          full_name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
           business_name = ${data.businessName?.trim() || null},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null},
-          address = ${data.address?.trim() || null},
+          phone = ${phone},
+          email = ${email},
+          address = ${address},
+          address_line1 = ${parts.address_line1 || null},
+          address_line2 = ${parts.address_line2 || null},
+          city = ${parts.city || null},
+          state = ${parts.state || null},
+          zip = ${parts.zip || null},
           cancellation_policy = ${data.cancellationPolicy?.trim() || null}
         where user_id = ${context.userId}
       `;
-      await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
+      await sql`update "user" set name = ${names.name} where id = ${context.userId}`;
       return { ok: true };
     }
     if (actor.kind === "team" || actor.kind === "admin") {
       await sql`
         update profiles set
-          full_name = ${fullName},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null}
+          full_name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
+          phone = ${phone},
+          email = ${email}
         where user_id = ${context.userId}
       `;
-      await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
+      await sql`update "user" set name = ${names.name} where id = ${context.userId}`;
       return { ok: true };
     }
     if (actor.kind === "client") {
       await sql`
         update profiles set
-          full_name = ${fullName},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null},
-          address = ${data.address?.trim() || null}
+          full_name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
+          phone = ${phone},
+          email = ${email},
+          address = ${address},
+          address_line1 = ${parts.address_line1 || null},
+          address_line2 = ${parts.address_line2 || null},
+          city = ${parts.city || null},
+          state = ${parts.state || null},
+          zip = ${parts.zip || null}
         where user_id = ${context.userId}
       `;
-      await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
+      await sql`update "user" set name = ${names.name} where id = ${context.userId}`;
       await sql`
         update clients set
-          name = ${fullName},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null},
-          address = ${data.address?.trim() || null}
+          name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
+          phone = ${phone},
+          email = ${email},
+          address = ${address},
+          address_line1 = ${parts.address_line1 || null},
+          address_line2 = ${parts.address_line2 || null},
+          city = ${parts.city || null},
+          state = ${parts.state || null},
+          zip = ${parts.zip || null}
         where linked_user_id = ${context.userId}
       `;
       return { ok: true };

@@ -4,17 +4,35 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, getActor, masterUserId } from "./access";
 import { replaceJobAssignees } from "./assignees";
 import { insertNotification } from "./notifications";
+import {
+  addressPartsFrom,
+  displayName,
+  ensureBookingSlug,
+  formatAddress,
+  intOrNull,
+  namesFrom,
+  numberOrNull,
+  storePhone,
+  type AddressParts,
+} from "./people";
 import { ensureDemoSeed } from "./seed";
 import { fromDatetimeLocalValue, nid, toDatetimeLocalValue, weekdayNameInChicago } from "./time";
-import { DEMO_CLEANER_ID } from "./types";
 import type { CleanRequest, CleanServiceType } from "./types";
 
 const SERVICE_TYPES: CleanServiceType[] = ["one-time", "weekly", "biweekly", "monthly"];
+
+const REQUEST_SELECT = `
+  id, cleaner_user_id, name, first_name, last_name, phone, email, address,
+  address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
+  service_type, preferred_date, preferred_time, notes, status, decline_note, job_id, client_id,
+  created_at::text as created_at, handled_at::text as handled_at
+`;
 
 type MasterRow = {
   user_id: string;
   full_name: string;
   business_name: string | null;
+  booking_slug: string | null;
   default_duration_min: number;
   default_rate_cents: number;
 };
@@ -47,22 +65,30 @@ function startLocalFromPreferred(date: string | null, time: string | null) {
   return toDatetimeLocalValue(new Date());
 }
 
-async function resolveMaster(sql: Awaited<ReturnType<typeof getSql>>): Promise<MasterRow | null> {
-  const preferred = await sql<MasterRow>`
-    select user_id, full_name, business_name, default_duration_min, default_rate_cents
-    from profiles
-    where user_id = ${DEMO_CLEANER_ID} and role = 'cleaner'
-    limit 1
-  `;
-  if (preferred[0]) return preferred[0];
+function normalizeSlug(raw?: string | null) {
+  return String(raw || "")
+    .trim()
+    .toLowerCase()
+    .replace(/[^a-z0-9-]+/g, "-")
+    .replace(/^-+|-+$/g, "");
+}
+
+async function resolveMasterBySlug(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  slug: string,
+): Promise<MasterRow> {
+  const key = normalizeSlug(slug);
+  if (!key) throw new Error("This booking link needs a business name in the URL.");
   const rows = await sql<MasterRow>`
-    select user_id, full_name, business_name, default_duration_min, default_rate_cents
+    select user_id, full_name, business_name, booking_slug, default_duration_min, default_rate_cents
     from profiles
-    where role = 'cleaner' and coalesce(cleaner_kind, 'master') = 'master'
-    order by created_at asc
+    where booking_slug = ${key}
+      and role = 'cleaner'
+      and coalesce(cleaner_kind, 'master') = 'master'
     limit 1
   `;
-  return rows[0] ?? null;
+  if (!rows[0]) throw new Error("This booking link is not valid.");
+  return rows[0];
 }
 
 async function loadRequest(
@@ -70,57 +96,92 @@ async function loadRequest(
   id: string,
   ownerId: string,
 ) {
-  const rows = await sql<CleanRequest>`
-    select id, cleaner_user_id, name, phone, email, address, service_type,
-           preferred_date, preferred_time, notes, status, decline_note, job_id, client_id,
-           created_at::text as created_at, handled_at::text as handled_at
-    from clean_requests
-    where id = ${id} and cleaner_user_id = ${ownerId}
-    limit 1
-  `;
+  const rows = await sql.query<CleanRequest>(
+    `select ${REQUEST_SELECT} from clean_requests where id = $1 and cleaner_user_id = $2 limit 1`,
+    [id, ownerId],
+  );
   return rows[0] ?? null;
 }
 
-export const getPublicBookInfo = createServerFn({ method: "GET" }).handler(async () => {
-  const sql = await getSql();
-  await ensureDemoSeed(sql);
-  const master = await resolveMaster(sql);
-  if (!master) throw new Error("This book is not accepting requests yet.");
-  return {
-    businessName: master.business_name || master.full_name,
-    cleanerName: master.full_name,
-  };
-});
+export const getPublicBookInfo = createServerFn({ method: "GET" })
+  .validator((input: { slug?: string }) => ({ slug: normalizeSlug(input?.slug) }))
+  .handler(async ({ data }) => {
+    const sql = await getSql();
+    await ensureDemoSeed(sql);
+    if (!data.slug) throw new Error("This booking link needs a business name in the URL.");
+    const master = await resolveMasterBySlug(sql, data.slug);
+    return {
+      slug: master.booking_slug || data.slug,
+      businessName: master.business_name || master.full_name,
+      cleanerName: master.full_name,
+    };
+  });
+
+export const getBookingLink = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    await ensureDemoSeed(sql);
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const slug = await ensureBookingSlug(sql, ownerId);
+    return { slug, path: `/request/${slug}` };
+  });
 
 export type SubmitCleanRequestInput = {
-  name: string;
+  slug: string;
+  firstName: string;
+  lastName: string;
   phone: string;
   email: string;
-  address: string;
+  address_line1: string;
+  address_line2?: string;
+  city: string;
+  state: string;
+  zip: string;
+  bedrooms?: string | number | null;
+  bathrooms?: string | number | null;
+  squareFootage?: string | number | null;
   serviceType: CleanServiceType;
   preferredDate: string;
   preferredTime?: string;
   notes?: string;
 };
 
-function parseSubmit(input: SubmitCleanRequestInput): SubmitCleanRequestInput {
-  const name = input.name?.trim() || "";
-  const phone = input.phone?.trim() || "";
-  const email = input.email?.trim() || "";
-  const address = input.address?.trim() || "";
-  if (!name) throw new Error("Please enter your name.");
+function parseSubmit(input: SubmitCleanRequestInput) {
+  const slug = normalizeSlug(input.slug);
+  if (!slug) throw new Error("This booking link needs a business name in the URL.");
+  const names = namesFrom(input.firstName, input.lastName);
+  if (!names.first_name || !names.last_name) throw new Error("Please enter your first and last name.");
+  const phone = storePhone(input.phone);
   if (!phone) throw new Error("Please enter a phone number.");
+  const email = input.email?.trim() || "";
   if (!email || !email.includes("@")) throw new Error("Please enter an email.");
-  if (!address) throw new Error("Please enter the address to clean.");
+  const parts: AddressParts = {
+    address_line1: input.address_line1?.trim() || "",
+    address_line2: input.address_line2?.trim() || "",
+    city: input.city?.trim() || "",
+    state: (input.state?.trim() || "").toUpperCase(),
+    zip: input.zip?.trim() || "",
+  };
+  if (!parts.address_line1 || !parts.city || !parts.state || !parts.zip) {
+    throw new Error("Please enter the address to clean.");
+  }
   if (!SERVICE_TYPES.includes(input.serviceType)) throw new Error("Choose a service type.");
   if (!input.preferredDate || !/^\d{4}-\d{2}-\d{2}$/.test(input.preferredDate)) {
     throw new Error("Choose a preferred date.");
   }
   return {
-    name,
+    slug,
+    ...names,
     phone,
     email,
-    address,
+    ...parts,
+    address: formatAddress(parts),
+    bedrooms: intOrNull(input.bedrooms),
+    bathrooms: numberOrNull(input.bathrooms),
+    square_footage: intOrNull(input.squareFootage),
     serviceType: input.serviceType,
     preferredDate: input.preferredDate,
     preferredTime: input.preferredTime?.trim() || "",
@@ -133,15 +194,18 @@ export const submitCleanRequest = createServerFn({ method: "POST" })
   .handler(async ({ data }) => {
     const sql = await getSql();
     await ensureDemoSeed(sql);
-    const master = await resolveMaster(sql);
-    if (!master) throw new Error("This book is not accepting requests yet.");
+    const master = await resolveMasterBySlug(sql, data.slug);
     const id = nid("req");
     await sql`
       insert into clean_requests (
-        id, cleaner_user_id, name, phone, email, address, service_type,
-        preferred_date, preferred_time, notes, status
+        id, cleaner_user_id, name, first_name, last_name, phone, email, address,
+        address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
+        service_type, preferred_date, preferred_time, notes, status
       ) values (
-        ${id}, ${master.user_id}, ${data.name}, ${data.phone}, ${data.email}, ${data.address},
+        ${id}, ${master.user_id}, ${data.name}, ${data.first_name}, ${data.last_name},
+        ${data.phone}, ${data.email}, ${data.address},
+        ${data.address_line1}, ${data.address_line2 || null}, ${data.city}, ${data.state}, ${data.zip},
+        ${data.bedrooms}, ${data.bathrooms}, ${data.square_footage},
         ${data.serviceType}, ${data.preferredDate}, ${data.preferredTime || null},
         ${data.notes || null}, ${"pending"}
       )
@@ -149,7 +213,7 @@ export const submitCleanRequest = createServerFn({ method: "POST" })
     await insertNotification(sql, {
       userId: master.user_id,
       kind: "clean_request",
-      title: `New clean request from ${data.name}`,
+      title: `New booking request from ${data.name}`,
       body: `${serviceTypeLabel(data.serviceType)} · ${data.preferredDate}${data.preferredTime ? ` ${data.preferredTime}` : ""}`,
       requestId: id,
       clientName: data.name,
@@ -165,14 +229,10 @@ export const listCleanRequests = createServerFn({ method: "GET" })
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     const ownerId = masterUserId(actor);
-    return sql<CleanRequest>`
-      select id, cleaner_user_id, name, phone, email, address, service_type,
-             preferred_date, preferred_time, notes, status, decline_note, job_id, client_id,
-             created_at::text as created_at, handled_at::text as handled_at
-      from clean_requests
-      where cleaner_user_id = ${ownerId}
-      order by created_at desc
-    `;
+    return sql.query<CleanRequest>(
+      `select ${REQUEST_SELECT} from clean_requests where cleaner_user_id = $1 order by created_at desc`,
+      [ownerId],
+    );
   });
 
 export type CleanRequestDetail = {
@@ -199,7 +259,7 @@ export const getCleanRequest = createServerFn({ method: "GET" })
     const request = await loadRequest(sql, id, ownerId);
     if (!request) throw new Error("Request not found.");
     const master = await sql<MasterRow>`
-      select user_id, full_name, business_name, default_duration_min, default_rate_cents
+      select user_id, full_name, business_name, booking_slug, default_duration_min, default_rate_cents
       from profiles where user_id = ${ownerId} limit 1
     `;
     const email = request.email?.trim().toLowerCase();
@@ -270,6 +330,9 @@ export const acceptCleanRequest = createServerFn({ method: "POST" })
     if (!request) throw new Error("Request not found.");
     if (request.status !== "pending") throw new Error("This request was already handled.");
 
+    const names = namesFrom(request.first_name, request.last_name, request.name);
+    const parts = addressPartsFrom(request);
+    const address = formatAddress(parts, request.address || "");
     const email = request.email?.trim().toLowerCase() || "";
     const existing = email
       ? await sql<{ id: string; address: string | null; notes: string | null; name: string }>`
@@ -279,34 +342,43 @@ export const acceptCleanRequest = createServerFn({ method: "POST" })
         `
       : [];
     let clientId = existing[0]?.id;
-    let clientName = existing[0]?.name || request.name;
+    let clientName = existing[0]?.name || names.name;
     if (!clientId) {
       clientId = nid("client");
       const start = fromDatetimeLocalValue(data.startLocal);
       await sql`
         insert into clients (
-          id, cleaner_user_id, name, phone, email, address, notes,
-          default_price_cents, default_duration_min, usual_day, usual_time, frequency
+          id, cleaner_user_id, name, first_name, last_name, phone, email, address,
+          address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
+          notes, default_price_cents, default_duration_min, usual_day, usual_time, frequency
         ) values (
-          ${clientId}, ${ownerId}, ${request.name}, ${request.phone}, ${request.email},
-          ${request.address}, ${request.notes}, ${data.priceCents}, ${data.durationMin},
+          ${clientId}, ${ownerId}, ${names.name}, ${names.first_name || null}, ${names.last_name || null},
+          ${storePhone(request.phone)}, ${request.email}, ${address || null},
+          ${parts.address_line1 || null}, ${parts.address_line2 || null}, ${parts.city || null},
+          ${parts.state || null}, ${parts.zip || null},
+          ${request.bedrooms}, ${request.bathrooms}, ${request.square_footage},
+          ${request.notes}, ${data.priceCents}, ${data.durationMin},
           ${weekdayNameInChicago(start)}, ${normalizeTime(request.preferred_time)},
           ${frequencyFromService(request.service_type)}
         )
       `;
-      clientName = request.name;
+      clientName = names.name;
     }
 
     const start = fromDatetimeLocalValue(data.startLocal);
     const jobId = nid("job");
     const assigneeIds = data.assignedToUserIds ?? [];
+    const jobAddress = address || existing[0]?.address || null;
     await sql`
       insert into jobs (
-        id, cleaner_user_id, client_id, service, address, start_at, duration_min,
-        price_cents, notes, status, recurrence, series_id, assigned_to_user_id
+        id, cleaner_user_id, client_id, service, address,
+        address_line1, address_line2, city, state, zip,
+        start_at, duration_min, price_cents, notes, status, recurrence, series_id, assigned_to_user_id
       ) values (
         ${jobId}, ${ownerId}, ${clientId}, ${data.service || "House cleaning"},
-        ${request.address || existing[0]?.address || null}, ${start.toISOString()}, ${data.durationMin},
+        ${jobAddress}, ${parts.address_line1 || null}, ${parts.address_line2 || null},
+        ${parts.city || null}, ${parts.state || null}, ${parts.zip || null},
+        ${start.toISOString()}, ${data.durationMin},
         ${data.priceCents}, ${data.notes || request.notes || null}, ${"scheduled"}, ${"none"}, ${null},
         ${assigneeIds[0] ?? null}
       )
