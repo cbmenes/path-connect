@@ -91,7 +91,7 @@ function CalendarPage() {
   const days = useMemo(() => calendarDays(mode, anchor, range.from), [anchor, mode, range.from]);
   const offByDay = useMemo(() => {
     const map = new Map<string, DayOffMark[]>();
-    const rows = (timeOff.data ?? []).filter((r) => r.status === "approved" || r.status === "pending");
+    const rows = (timeOff.data ?? []).filter((r) => r.status === "approved");
     for (const day of days) {
       const key = isoDay(day);
       const marks: DayOffMark[] = [];
