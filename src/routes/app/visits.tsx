@@ -18,6 +18,7 @@ import {
   type CalView,
 } from "@/components/app/calendar-board";
 import { TilePayBadge, VisitStatusBadge } from "@/components/app/status-badge";
+import { ClientJobStatus } from "@/components/app/job-progress";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -120,6 +121,7 @@ function VisitsPage() {
                         {formatHours(j.duration_min)} · {money(j.price_cents)}
                       </p>
                       <p className="text-xs text-muted">{j.address}</p>
+                      <ClientJobStatus job={j} />
                     </div>
                     <VisitStatusBadge job={j} />
                   </div>
@@ -157,8 +159,9 @@ function VisitsPage() {
           <DialogContent title={selected.service}>
             <p className="text-sm text-muted">{formatDateTime(selected.start_at)}</p>
             <p className="text-sm text-muted">{selected.address}</p>
-            <div className="mt-2">
+            <div className="mt-2 grid gap-2">
               <TilePayBadge job={selected} />
+              <ClientJobStatus job={selected} />
             </div>
             {selected.status === "scheduled" && hoursUntil(selected.start_at) > 0 ? (
               <div className="mt-4">

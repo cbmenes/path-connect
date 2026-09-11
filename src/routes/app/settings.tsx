@@ -83,12 +83,18 @@ function SettingsPage() {
           <>
             <MasterProfileSection />
             <BookingFormLink />
+            <ChecklistsLink />
             <MasterReminderSettings />
           </>
         ) : kind === "admin" || kind === "team" ? (
           <>
             <TeamProfileSection />
-            {kind === "admin" ? <BookingFormLink /> : null}
+            {kind === "admin" ? (
+              <>
+                <BookingFormLink />
+                <ChecklistsLink />
+              </>
+            ) : null}
           </>
         ) : (
           <>
@@ -104,6 +110,20 @@ function SettingsPage() {
         <BillingSection />
       )}
     </div>
+  );
+}
+
+function ChecklistsLink() {
+  return (
+    <Card className="grid gap-2">
+      <h2 className="font-display text-lg text-navy">Job checklists</h2>
+      <p className="text-sm text-muted">
+        Standard, Deep, Move-out, or your own lists. Checking items on a visit does not change the template.
+      </p>
+      <Button variant="outline" asChild>
+        <Link to="/app/checklists">Open checklists</Link>
+      </Button>
+    </Card>
   );
 }
 

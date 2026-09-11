@@ -12,6 +12,8 @@ export type Frequency = "none" | "weekly" | "biweekly" | "monthly" | "one-off";
 
 export type JobStatus = "scheduled" | "completed" | "cancelled" | "reschedule_requested";
 
+export type ProgressStatus = "on_the_way" | "in_progress" | "finished";
+
 export type Recurrence = "none" | "weekly" | "biweekly" | "monthly";
 
 export type RecurringPlan = {
@@ -143,6 +145,7 @@ export type ClientRow = {
   usual_time: string | null;
   frequency: string | null;
   notes: string | null;
+  checklist_template_id: string | null;
   created_at: string;
   assigned_user_ids?: string[];
   assignees?: AssigneeRef[];
@@ -172,6 +175,11 @@ export type JobRow = {
   assigned_to_user_id: string | null;
   tip_cents: number;
   tip_requested: boolean;
+  checklist_template_id: string | null;
+  progress_status: ProgressStatus | null;
+  on_the_way_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
   created_at: string;
 };
 

@@ -25,6 +25,7 @@ import { Route as ApiRemindersRouteImport } from './routes/api/reminders'
 import { Route as AppIndexRouteImport } from './routes/app/index'
 import { Route as AppCalendarRouteImport } from './routes/app/calendar'
 import { Route as AppCardRouteImport } from './routes/app/card'
+import { Route as AppChecklistsRouteImport } from './routes/app/checklists'
 import { Route as AppClientsRouteImport } from './routes/app/clients'
 import { Route as AppDataRouteImport } from './routes/app/data'
 import { Route as AppMessagesRouteImport } from './routes/app/messages'
@@ -136,6 +137,11 @@ const AppCalendarRoute = AppCalendarRouteImport.update({
 const AppCardRoute = AppCardRouteImport.update({
   id: '/card',
   path: '/card',
+  getParentRoute: () => AppRoute,
+} as any)
+const AppChecklistsRoute = AppChecklistsRouteImport.update({
+  id: '/checklists',
+  path: '/checklists',
   getParentRoute: () => AppRoute,
 } as any)
 const AppClientsRoute = AppClientsRouteImport.update({
@@ -315,6 +321,7 @@ export interface FileRoutesByFullPath {
   '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
+  '/app/checklists': typeof AppChecklistsRoute
   '/app/clients': typeof AppClientsRouteWithChildren
   '/app/data': typeof AppDataRoute
   '/app/messages': typeof AppMessagesRouteWithChildren
@@ -362,6 +369,7 @@ export interface FileRoutesByTo {
   '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
+  '/app/checklists': typeof AppChecklistsRoute
   '/app/data': typeof AppDataRoute
   '/app/notifications': typeof AppNotificationsRoute
   '/app/payments': typeof AppPaymentsRoute
@@ -409,6 +417,7 @@ export interface FileRoutesById {
   '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
   '/app/card': typeof AppCardRoute
+  '/app/checklists': typeof AppChecklistsRoute
   '/app/clients': typeof AppClientsRouteWithChildren
   '/app/data': typeof AppDataRoute
   '/app/messages': typeof AppMessagesRouteWithChildren
@@ -461,6 +470,7 @@ export interface FileRouteTypes {
     | '/api/reminders'
     | '/app/calendar'
     | '/app/card'
+    | '/app/checklists'
     | '/app/clients'
     | '/app/data'
     | '/app/messages'
@@ -508,6 +518,7 @@ export interface FileRouteTypes {
     | '/api/reminders'
     | '/app/calendar'
     | '/app/card'
+    | '/app/checklists'
     | '/app/data'
     | '/app/notifications'
     | '/app/payments'
@@ -554,6 +565,7 @@ export interface FileRouteTypes {
     | '/api/reminders'
     | '/app/calendar'
     | '/app/card'
+    | '/app/checklists'
     | '/app/clients'
     | '/app/data'
     | '/app/messages'
@@ -720,6 +732,13 @@ declare module '@tanstack/react-router' {
       path: '/card'
       fullPath: '/app/card'
       preLoaderRoute: typeof AppCardRouteImport
+      parentRoute: typeof AppRoute
+    }
+    '/app/checklists': {
+      id: '/app/checklists'
+      path: '/checklists'
+      fullPath: '/app/checklists'
+      preLoaderRoute: typeof AppChecklistsRouteImport
       parentRoute: typeof AppRoute
     }
     '/app/clients': {
@@ -1011,6 +1030,7 @@ const AppTeamRouteWithChildren =
 interface AppRouteChildren {
   AppCalendarRoute: typeof AppCalendarRoute
   AppCardRoute: typeof AppCardRoute
+  AppChecklistsRoute: typeof AppChecklistsRoute
   AppClientsRoute: typeof AppClientsRouteWithChildren
   AppDataRoute: typeof AppDataRoute
   AppMessagesRoute: typeof AppMessagesRouteWithChildren
@@ -1032,6 +1052,7 @@ interface AppRouteChildren {
 const AppRouteChildren: AppRouteChildren = {
   AppCalendarRoute: AppCalendarRoute,
   AppCardRoute: AppCardRoute,
+  AppChecklistsRoute: AppChecklistsRoute,
   AppClientsRoute: AppClientsRouteWithChildren,
   AppDataRoute: AppDataRoute,
   AppMessagesRoute: AppMessagesRouteWithChildren,

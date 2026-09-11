@@ -24,16 +24,16 @@ import {
 import { addressPartsFrom, ensureBookingSlug, namesFrom, storePhone } from "./people";
 import { addDaysChicago, chicagoDate, chicagoDateInputValue, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed14__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed15__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed14__) {
-    g.__sweepbookSeed14__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed14__ = undefined;
+  if (!g.__sweepbookSeed15__) {
+    g.__sweepbookSeed15__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed15__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed14__;
+  await g.__sweepbookSeed15__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -53,6 +53,7 @@ async function seedIfNeeded(sql: Sql) {
   await seedV8(sql);
   await seedV9(sql);
   await seedV10(sql);
+  await seedV11(sql);
 }
 
 /** Create or repair the three public demo logins (email + password). */
@@ -1222,6 +1223,11 @@ async function seedV10(sql: Sql) {
       `;
     }
   }
+}
+
+async function seedV11(sql: Sql) {
+  const { backfillOwnerChecklists } = await import("./checklists");
+  await backfillOwnerChecklists(sql, DEMO_CLEANER_ID);
 }
 
 

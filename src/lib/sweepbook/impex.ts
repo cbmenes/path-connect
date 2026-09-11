@@ -3,6 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertCleaner, getActor } from "./access";
 import { replaceClientAssignees, replaceJobAssignees } from "./assignees";
+import { inheritChecklistForNewJob } from "./checklists";
 import {
   centsToPrice,
   frequencyToCsv,
@@ -636,6 +637,7 @@ async function importScheduleRows(
           ${jobStatus}, ${"none"}, ${assignees[0] ?? null}
         )
       `;
+      await inheritChecklistForNewJob(sql, ownerId, client.id, jobId);
     }
     await replaceJobAssignees(sql, jobId, assignees);
     if (status === "paid" || status === "unpaid") {

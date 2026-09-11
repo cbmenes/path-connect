@@ -17,6 +17,7 @@ import type { JobWithClient } from "@/lib/sweepbook/types";
 import { assigneeLabel } from "@/components/app/assignee-picker";
 import { TileOverlapBadge, jobOverlapTitle } from "@/components/app/overlap-mark";
 import { TilePayBadge } from "@/components/app/status-badge";
+import { TileProgressBadge } from "@/components/app/job-progress";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { indexOverlaps, type OverlapNote } from "@/lib/sweepbook/overlaps";
@@ -244,6 +245,7 @@ export function WeekGrid({
                         : ""}
                   </p>
                   <span className="mt-0.5 flex flex-wrap items-center gap-1">
+                    <TileProgressBadge job={j} invert />
                     {showPay ? <TilePayBadge job={j} invert /> : cancelled ? <TilePayBadge job={j} invert /> : null}
                   </span>
                 </button>
@@ -360,6 +362,7 @@ export function MonthGrid({
                       {notes.length ? <TileOverlapBadge compact invert /> : null}
                     </span>
                     {showPay || j.status === "cancelled" ? <TilePayBadge job={j} invert /> : null}
+                    <TileProgressBadge job={j} invert />
                   </span>
                   );
                 })}
@@ -447,6 +450,7 @@ export function Agenda({
                     </div>
                     <span className="flex shrink-0 flex-col items-end gap-1">
                       {notes.length ? <TileOverlapBadge /> : null}
+                      <TileProgressBadge job={j} />
                       {showPay || j.status === "cancelled" ? <TilePayBadge job={j} /> : null}
                     </span>
                   </button>

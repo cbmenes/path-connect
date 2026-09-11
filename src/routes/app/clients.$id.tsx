@@ -4,6 +4,7 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib/sweepbook/clients";
+import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
 import { actorCanCharge } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
 import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
@@ -97,6 +98,7 @@ function ClientProfile() {
             <Row k="Usual" v={`${client.usual_day || "—"} ${client.usual_time || ""}`.trim()} />
             <Row k="Price" v={client.default_price_cents ? money(client.default_price_cents) : "—"} />
             <Row k="Duration" v={client.default_duration_min ? formatHours(client.default_duration_min) : "—"} />
+            <DefaultChecklistRow templateId={client.checklist_template_id} />
             <div>
               <dt className="text-xs uppercase tracking-[0.12em] text-muted">
                 Notes <span className="font-normal normal-case tracking-normal">(Visible to assigned cleaner(s))</span>
@@ -257,6 +259,7 @@ function ClientProfile() {
             usual_time: client.usual_time ?? undefined,
             frequency: client.frequency ?? undefined,
             notes: client.notes ?? undefined,
+            checklist_template_id: client.checklist_template_id ?? undefined,
           }}
           submitLabel="Save profile"
           onSubmit={async (input) => {
@@ -330,6 +333,12 @@ function Row({ k, v }: { k: string; v?: string | null }) {
       <dd>{v || "—"}</dd>
     </div>
   );
+}
+
+function DefaultChecklistRow({ templateId }: { templateId?: string | null }) {
+  const q = useQuery({ queryKey: ["checklists"], queryFn: () => listChecklistTemplates() });
+  const name = q.data?.find((t) => t.id === templateId)?.name || (templateId ? "Custom" : "Standard");
+  return <Row k="Checklist" v={name} />;
 }
 
 function ChargeForm({

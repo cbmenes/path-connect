@@ -1,5 +1,6 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { ClientInput } from "@/lib/sweepbook/clients";
+import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
 import { hoursToMinutes, minutesToHours } from "@/lib/sweepbook/time";
 import { AddressFields } from "@/components/app/address-fields";
@@ -43,6 +44,20 @@ export function ClientFields({
   const [time, setTime] = useState(initial?.usual_time ?? "");
   const [frequency, setFrequency] = useState(initial?.frequency ?? "weekly");
   const [notes, setNotes] = useState(initial?.notes ?? "");
+  const [checklistId, setChecklistId] = useState(initial?.checklist_template_id ?? "");
+  const [templates, setTemplates] = useState<{ id: string; name: string }[]>([]);
+
+  useEffect(() => {
+    void listChecklistTemplates()
+      .then((rows) => {
+        setTemplates(rows.map((t) => ({ id: t.id, name: t.name })));
+        if (!initial?.checklist_template_id) {
+          const standard = rows.find((t) => t.name === "Standard") ?? rows[0];
+          if (standard) setChecklistId((prev) => prev || standard.id);
+        }
+      })
+      .catch(() => setTemplates([]));
+  }, [initial?.checklist_template_id]);
 
   return (
     <form
@@ -67,6 +82,7 @@ export function ClientFields({
           usual_time: time,
           frequency,
           notes,
+          checklist_template_id: checklistId || null,
         });
       }}
     >
@@ -142,6 +158,17 @@ export function ClientFields({
       <Field label="Notes (Visible to assigned cleaner(s))">
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
+      {templates.length ? (
+        <Field label="Default job checklist" hint="New visits copy this list. Checking a visit does not change the template.">
+          <NativeSelect value={checklistId} onChange={(e) => setChecklistId(e.target.value)}>
+            {templates.map((t) => (
+              <option key={t.id} value={t.id}>
+                {t.name}
+              </option>
+            ))}
+          </NativeSelect>
+        </Field>
+      ) : null}
       <Button type="submit" disabled={submitting}>
         {submitting ? "Saving…" : submitLabel}
       </Button>

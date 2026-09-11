@@ -19,6 +19,7 @@ import {
 import { isOfficeActor } from "@/lib/sweepbook/types";
 import type { JobWithClient } from "@/lib/sweepbook/types";
 import { TilePayBadge, jobTilePayLabel } from "@/components/app/status-badge";
+import { TileProgressBadge } from "@/components/app/job-progress";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input, NativeSelect } from "@/components/ui/input";
@@ -248,6 +249,9 @@ function SheetRow({
           <p className="text-sm text-muted">{job.address || "No address"}</p>
           {job.client_notes ? <p className="text-sm text-muted">{job.client_notes}</p> : null}
           <p className="text-xs text-muted">{cleaners}</p>
+          <div className="mt-1">
+            <TileProgressBadge job={job} />
+          </div>
         </div>
         {showPay ? <TilePayBadge job={job} /> : null}
       </div>

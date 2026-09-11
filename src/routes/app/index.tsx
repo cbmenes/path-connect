@@ -7,6 +7,7 @@ import { payInvoiceAsClient, tipJob } from "@/lib/sweepbook/payments";
 import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
 import { PageHeader } from "@/components/app/empty-state";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
+import { ClientJobStatus, TileProgressBadge } from "@/components/app/job-progress";
 import { CardSelect } from "@/components/app/card-manager";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -113,6 +114,9 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
                     {j.assignees?.length ? (
                       <p className="text-xs text-muted">{j.assignees.map((a) => a.full_name).join(", ")}</p>
                     ) : null}
+                    <div className="mt-1">
+                      <TileProgressBadge job={j} />
+                    </div>
                   </div>
                   <p className="tabular text-navy">{money(j.price_cents)}</p>
                 </Card>
@@ -212,6 +216,9 @@ function TeamHome({ data }: { data: TeamDashboard }) {
                       {formatDateTime(j.start_at)} · {formatHours(j.duration_min)}
                     </p>
                     <p className="text-xs text-muted">{j.address}</p>
+                    <div className="mt-1">
+                      <TileProgressBadge job={j} />
+                    </div>
                   </div>
                   <VisitStatusBadge job={j} hideMoney />
                 </Card>
@@ -304,6 +311,9 @@ function ClientHome({ data }: { data: ClientDashboard }) {
               {money(next.price_cents)} · {actor.cleanerName}
             </p>
             <p className="mt-2 text-sm text-paper/70">{next.address}</p>
+            <div className="mt-3">
+              <ClientJobStatus job={next} className="text-sage" />
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="accent" asChild>
                 <Link to="/app/visits">Manage visits</Link>

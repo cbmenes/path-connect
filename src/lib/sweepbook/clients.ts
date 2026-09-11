@@ -11,6 +11,7 @@ import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
 import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
 import { nid } from "./time";
+import { standardTemplateId } from "./checklists";
 import type { AssigneeRef, CardRow, ClientRow, InvoiceRow, JobRow, MessageRow } from "./types";
 
 export type CsvRow = {
@@ -29,7 +30,8 @@ const CLIENT_SELECT = `
   id, cleaner_user_id, linked_user_id, name, first_name, last_name, phone, email, address,
   address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
   access_notes, pets, supplies, default_price_cents, default_duration_min,
-  usual_day, usual_time, frequency, notes, created_at::text as created_at,
+  usual_day, usual_time, frequency, notes, checklist_template_id,
+  created_at::text as created_at,
   (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)
      from client_assignees ca join profiles p on p.user_id = ca.user_id
      where ca.client_id = clients.id) as assignees_json
@@ -153,6 +155,7 @@ export type ClientInput = {
   usual_time?: string;
   frequency?: string;
   notes?: string;
+  checklist_template_id?: string | null;
 };
 
 function cleanClient(input: ClientInput) {
@@ -191,6 +194,7 @@ function cleanClient(input: ClientInput) {
     usual_time: input.usual_time?.trim() || null,
     frequency: input.frequency?.trim() || null,
     notes: input.notes?.trim() || null,
+    checklist_template_id: input.checklist_template_id?.trim() || null,
   };
 }
 
@@ -203,19 +207,21 @@ export const createClient = createServerFn({ method: "POST" })
     assertOffice(actor);
     const ownerId = masterUserId(actor);
     const id = nid("client");
+    const templateId = data.checklist_template_id || (await standardTemplateId(sql, ownerId));
     await sql`
       insert into clients (
         id, cleaner_user_id, name, first_name, last_name, phone, email, address,
         address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
         access_notes, pets, supplies,
-        default_price_cents, default_duration_min, usual_day, usual_time, frequency, notes
+        default_price_cents, default_duration_min, usual_day, usual_time, frequency, notes,
+        checklist_template_id
       ) values (
         ${id}, ${ownerId}, ${data.name}, ${data.first_name}, ${data.last_name}, ${data.phone}, ${data.email}, ${data.address},
         ${data.address_line1}, ${data.address_line2}, ${data.city}, ${data.state}, ${data.zip},
         ${data.bedrooms}, ${data.bathrooms}, ${data.square_footage},
         ${data.access_notes}, ${data.pets}, ${data.supplies}, ${data.default_price_cents},
         ${data.default_duration_min}, ${data.usual_day}, ${data.usual_time}, ${data.frequency},
-        ${data.notes}
+        ${data.notes}, ${templateId}
       )
     `;
     return { id };
@@ -253,7 +259,8 @@ export const updateClient = createServerFn({ method: "POST" })
         usual_day = ${data.usual_day},
         usual_time = ${data.usual_time},
         frequency = ${data.frequency},
-        notes = ${data.notes}
+        notes = ${data.notes},
+        checklist_template_id = ${data.checklist_template_id || (await standardTemplateId(sql, ownerId))}
       where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
     return { ok: true };

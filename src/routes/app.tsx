@@ -34,7 +34,8 @@ function AppLayout() {
         pathname.startsWith("/app/team-pay") ||
         pathname.startsWith("/app/data") ||
         pathname.startsWith("/app/jobs/new") ||
-        pathname.startsWith("/app/requests")
+        pathname.startsWith("/app/requests") ||
+        pathname.startsWith("/app/checklists")
       ) {
         void navigate({ to: "/app" });
       }
@@ -54,7 +55,8 @@ function AppLayout() {
       if (
         pathname.startsWith("/app/sheet") ||
         pathname.startsWith("/app/requests") ||
-        pathname.startsWith("/app/time-off")
+        pathname.startsWith("/app/time-off") ||
+        pathname.startsWith("/app/checklists")
       ) {
         void navigate({ to: "/app/visits" });
       }

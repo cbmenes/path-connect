@@ -3,6 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, getActor, masterUserId } from "./access";
 import { replaceJobAssignees } from "./assignees";
+import { inheritChecklistForNewJob } from "./checklists";
 import { insertNotification } from "./notifications";
 import {
   addressPartsFrom,
@@ -384,6 +385,7 @@ export const acceptCleanRequest = createServerFn({ method: "POST" })
       )
     `;
     await replaceJobAssignees(sql, jobId, assigneeIds);
+    await inheritChecklistForNewJob(sql, ownerId, clientId, jobId);
     if (assigneeIds.length) {
       for (const userId of assigneeIds) {
         await insertNotification(sql, {

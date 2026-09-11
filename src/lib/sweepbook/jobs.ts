@@ -14,6 +14,7 @@ import {
 import { insertNotification } from "./notifications";
 import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
+import { inheritChecklistForNewJob } from "./checklists";
 import { findTimeOffHits, type TimeOffHit } from "./time-off";
 import {
   addDaysChicago,
@@ -209,6 +210,7 @@ export type JobInput = {
   recurrence: Recurrence;
   assignedToUserId?: string | null;
   assignedToUserIds?: string[];
+  checklistTemplateId?: string | null;
 };
 
 function parseJobInput(input: JobInput): JobInput {
@@ -241,6 +243,7 @@ function parseJobInput(input: JobInput): JobInput {
     notes: input.notes?.trim() || undefined,
     recurrence,
     assignedToUserIds,
+    checklistTemplateId: input.checklistTemplateId || undefined,
   };
 }
 
@@ -396,6 +399,7 @@ async function deleteJobsCascade(
     await sql`delete from invoices where job_id = ${id} and status <> 'paid'`;
     await sql`delete from notifications where job_id = ${id}`;
     await sql`delete from reminder_sends where job_id = ${id}`;
+    await sql`delete from job_checklist_items where job_id = ${id}`;
     await sql`delete from jobs where id = ${id} and cleaner_user_id = ${ownerId}`;
   }
 }
@@ -584,6 +588,7 @@ export const createJob = createServerFn({ method: "POST" })
         )
       `;
       await replaceJobAssignees(sql, id, assigneeIds);
+      await inheritChecklistForNewJob(sql, ownerId, data.clientId, id, data.checklistTemplateId);
       created.push({ id, start: start.toISOString() });
     }
     if (assigneeIds.length) {
@@ -827,8 +832,14 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
     const clock = parseClock(data.time);
     const assigneeIds = [...new Set((data.assignedToUserIds ?? []).filter(Boolean))];
 
-    const clients = await sql<{ id: string; name: string; address: string | null; notes: string | null }>`
-      select id, name, address, notes from clients
+    const clients = await sql<{
+      id: string;
+      name: string;
+      address: string | null;
+      notes: string | null;
+      checklist_template_id: string | null;
+    }>`
+      select id, name, address, notes, checklist_template_id from clients
       where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
     `;
     const client = clients[0];
@@ -841,8 +852,9 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
       service: string;
       address: string | null;
       notes: string | null;
+      checklist_template_id: string | null;
     }>`
-      select id, start_at::text as start_at, status, service, address, notes
+      select id, start_at::text as start_at, status, service, address, notes, checklist_template_id
       from jobs
       where series_id = ${data.seriesId} and cleaner_user_id = ${ownerId} and client_id = ${data.clientId}
       order by start_at asc
@@ -886,6 +898,13 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
         )
       `;
       await replaceJobAssignees(sql, id, assigneeIds);
+      await inheritChecklistForNewJob(
+        sql,
+        ownerId,
+        data.clientId,
+        id,
+        template.checklist_template_id ?? client.checklist_template_id,
+      );
       created += 1;
     }
 

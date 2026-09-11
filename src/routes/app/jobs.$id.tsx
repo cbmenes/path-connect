@@ -14,6 +14,8 @@ import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
+import { JobChecklist } from "@/components/app/job-checklist";
+import { ClientJobStatus, JobProgress } from "@/components/app/job-progress";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
@@ -63,6 +65,7 @@ function JobDetail() {
         <h1 className="font-display text-3xl text-navy">{job.client_name}</h1>
         <p className="mt-1 text-muted">{formatDateTime(job.start_at)} · {formatHours(job.duration_min)}</p>
         <div className="mt-2"><VisitStatusBadge job={job} hideMoney={isTeam} /></div>
+        {actor.data?.kind === "client" ? <div className="mt-2"><ClientJobStatus job={job} /></div> : null}
       </div>
       <OverlapDetails notes={jobQ.data.overlaps ?? []} />
       <Card className="grid gap-2">
@@ -76,6 +79,30 @@ function JobDetail() {
           <p className="text-xs text-muted">Assigned to {job.assignee_name}</p>
         ) : null}
       </Card>
+      {isOffice || isTeam ? (
+        <JobProgress
+          job={job}
+          isOffice={Boolean(isOffice)}
+          isAssignedTeam={
+            Boolean(isTeam) &&
+            Boolean(actor.data?.userId) &&
+            (job.assignees ?? []).some((a) => a.user_id === actor.data?.userId)
+          }
+          onChanged={async () => {
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
+            await qc.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      ) : null}
+      {isOffice || isTeam ? (
+        <JobChecklist
+          jobId={job.id}
+          onChanged={async () => {
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+          }}
+        />
+      ) : null}
       {isOffice ? (
         <Card className="grid gap-3">
           <h2 className="font-display text-lg text-navy">Assigned cleaners</h2>

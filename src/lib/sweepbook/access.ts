@@ -18,6 +18,9 @@ export const JOB_SELECT = `
   j.recurrence, j.series_id, j.cancel_reason, j.reschedule_note,
   j.reschedule_requested_at::text as reschedule_requested_at,
   j.assigned_to_user_id, j.tip_cents, j.tip_requested, j.created_at::text as created_at,
+  j.checklist_template_id, j.progress_status,
+  j.on_the_way_at::text as on_the_way_at, j.started_at::text as started_at,
+  j.finished_at::text as finished_at,
   c.name as client_name, c.phone as client_phone, c.notes as client_notes,
   assignee.full_name as assignee_name,
   (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)

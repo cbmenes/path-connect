@@ -8,6 +8,8 @@ import { chargeCard, listCardsForClient, markAsPaid } from "@/lib/sweepbook/paym
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { formatDate, formatHours, formatTime, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { JobForm } from "@/components/app/job-form";
+import { JobChecklist } from "@/components/app/job-checklist";
+import { JobProgress } from "@/components/app/job-progress";
 import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
@@ -102,6 +104,33 @@ export function JobPanel({
           <p className="text-xs text-muted">Assigned to {job.assignees.map((a) => a.full_name).join(", ")}</p>
         ) : job.assignee_name ? (
           <p className="text-xs text-muted">Assigned to {job.assignee_name}</p>
+        ) : null}
+
+        {(canEdit || isTeam) && job.status !== "cancelled" ? (
+          <JobProgress
+            job={job}
+            isOffice={canEdit}
+            isAssignedTeam={
+              isTeam &&
+              Boolean(
+                actorUserId &&
+                  (job.assignees ?? []).some((a) => a.user_id === actorUserId),
+              )
+            }
+            onChanged={async () => {
+              await q.refetch();
+              await onChanged();
+            }}
+          />
+        ) : null}
+        {(canEdit || isTeam) && job.status !== "cancelled" ? (
+          <JobChecklist
+            jobId={job.id}
+            onChanged={async () => {
+              await q.refetch();
+              await onChanged();
+            }}
+          />
         ) : null}
 
         {canEdit ? (
