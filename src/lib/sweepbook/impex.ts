@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertCleaner, getActor } from "./access";
 import { replaceClientAssignees, replaceJobAssignees } from "./assignees";
-import { inheritChecklistForNewJob } from "./checklists";
+import { inheritChecklistForNewJob } from "./checklist-store";
 import {
   centsToPrice,
   frequencyToCsv,

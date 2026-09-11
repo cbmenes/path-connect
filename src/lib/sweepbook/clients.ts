@@ -11,7 +11,7 @@ import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
 import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
 import { nid } from "./time";
-import { standardTemplateId } from "./checklists";
+import { standardTemplateId } from "./checklist-store";
 import type { AssigneeRef, CardRow, ClientRow, InvoiceRow, JobRow, MessageRow } from "./types";
 
 export type CsvRow = {

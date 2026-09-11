@@ -1226,7 +1226,7 @@ async function seedV10(sql: Sql) {
 }
 
 async function seedV11(sql: Sql) {
-  const { backfillOwnerChecklists } = await import("./checklists");
+  const { backfillOwnerChecklists } = await import("./checklist-store");
   await backfillOwnerChecklists(sql, DEMO_CLEANER_ID);
 
   const okonkwoJobs = await sql<{ id: string }>`

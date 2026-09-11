@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, getActor, masterUserId } from "./access";
 import { replaceJobAssignees } from "./assignees";
-import { inheritChecklistForNewJob } from "./checklists";
+import { inheritChecklistForNewJob } from "./checklist-store";
 import { insertNotification } from "./notifications";
 import {
   addressPartsFrom,

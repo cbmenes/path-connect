@@ -14,7 +14,7 @@ import {
 import { insertNotification } from "./notifications";
 import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
-import { inheritChecklistForNewJob } from "./checklists";
+import { inheritChecklistForNewJob } from "./checklist-store";
 import { findTimeOffHits, type TimeOffHit } from "./time-off";
 import {
   addDaysChicago,
