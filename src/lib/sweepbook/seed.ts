@@ -1228,6 +1228,24 @@ async function seedV10(sql: Sql) {
 async function seedV11(sql: Sql) {
   const { backfillOwnerChecklists } = await import("./checklists");
   await backfillOwnerChecklists(sql, DEMO_CLEANER_ID);
+
+  const okonkwoJobs = await sql<{ id: string }>`
+    select id from jobs
+    where cleaner_user_id = ${DEMO_CLEANER_ID}
+      and client_id = ${"client-okonkwos"}
+      and status <> 'cancelled'
+  `;
+  for (const job of okonkwoJobs) {
+    await sql`
+      insert into job_assignees (job_id, user_id)
+      values (${job.id}, ${DEMO_TEAM_ID})
+      on conflict do nothing
+    `;
+    await sql`
+      update jobs set assigned_to_user_id = coalesce(assigned_to_user_id, ${DEMO_TEAM_ID})
+      where id = ${job.id}
+    `;
+  }
 }
 
 
