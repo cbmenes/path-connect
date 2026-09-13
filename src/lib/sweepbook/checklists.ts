@@ -1,10 +1,11 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertOffice, getActor, isOffice, masterUserId } from "./access";
+import { assertOffice, getActor, isOffice, masterUserId, teamCanSeeChecklists } from "./access";
 import { teamCanAccessJob } from "./assignees";
 import { nid } from "./time";
 import {
+  applyClientDefaultToFutureJobs,
   copyTemplateToJob,
   ensureDefaultTemplates,
   inheritChecklistForNewJob,
@@ -16,6 +17,12 @@ import {
 } from "./checklist-store";
 
 export type { ChecklistTemplate, ChecklistTemplateItem, JobChecklistItem } from "./checklist-store";
+
+function asBool(v: unknown, fallback = true) {
+  if (v === true || v === "t" || v === "true") return true;
+  if (v === false || v === "f" || v === "false") return false;
+  return fallback;
+}
 
 export const listChecklistTemplates = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
@@ -83,14 +90,17 @@ export const deleteChecklistTemplate = createServerFn({ method: "POST" })
     if (all.length <= 1) throw new Error("Keep at least one checklist.");
     const fallback = await standardTemplateId(sql, ownerId);
     const nextId = fallback === id ? (all.find((t) => t.id !== id)?.id ?? fallback) : fallback;
+    const affected = await sql<{ id: string }>`
+      select id from clients
+      where cleaner_user_id = ${ownerId} and checklist_template_id = ${id}
+    `;
     await sql`
       update clients set checklist_template_id = ${nextId}
       where cleaner_user_id = ${ownerId} and checklist_template_id = ${id}
     `;
-    await sql`
-      update jobs set checklist_template_id = ${nextId}
-      where cleaner_user_id = ${ownerId} and checklist_template_id = ${id}
-    `;
+    for (const client of affected) {
+      await applyClientDefaultToFutureJobs(sql, ownerId, client.id, nextId);
+    }
     await sql`delete from checklist_templates where id = ${id} and cleaner_user_id = ${ownerId}`;
     return { ok: true };
   });
@@ -193,9 +203,19 @@ export const getJobChecklist = createServerFn({ method: "GET" })
       if (actor.disabled) throw new Error("Visit not found.");
       const allowed = await teamCanAccessJob(sql, context.userId, job.id);
       if (!allowed) throw new Error("Visit not found.");
+      if (!teamCanSeeChecklists(actor)) {
+        return {
+          visible: false as const,
+          items: [] as JobChecklistItem[],
+          templateId: null as string | null,
+          templates: [] as ChecklistTemplate[],
+          canEdit: false,
+          canApplyTemplate: false,
+        };
+      }
     }
     let items = await loadJobChecklistItems(sql, job.id);
-    if (!items.length) {
+    if (!items.length && job.checklist_template_id) {
       await inheritChecklistForNewJob(sql, ownerId, job.client_id, job.id, job.checklist_template_id);
       items = await loadJobChecklistItems(sql, job.id);
     }
@@ -242,6 +262,7 @@ export const toggleJobChecklistItem = createServerFn({ method: "POST" })
     if (row.cleaner_user_id !== ownerId) throw new Error("Checklist item not found.");
     if (actor.kind === "team") {
       if (actor.disabled) throw new Error("Not allowed.");
+      if (!teamCanSeeChecklists(actor)) throw new Error("Not allowed.");
       const allowed = await teamCanAccessJob(sql, context.userId, row.job_id);
       if (!allowed) throw new Error("Not allowed.");
     } else if (!isOffice(actor)) {
@@ -260,7 +281,10 @@ export const toggleJobChecklistItem = createServerFn({ method: "POST" })
 
 export const applyChecklistTemplateToJob = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { jobId: string; templateId: string }) => input)
+  .validator((input: { jobId: string; templateId: string }) => ({
+    jobId: input.jobId,
+    templateId: String(input.templateId || "").trim(),
+  }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
@@ -270,6 +294,151 @@ export const applyChecklistTemplateToJob = createServerFn({ method: "POST" })
       select id from jobs where id = ${data.jobId} and cleaner_user_id = ${ownerId} limit 1
     `;
     if (!jobs[0]) throw new Error("Visit not found.");
-    await copyTemplateToJob(sql, ownerId, data.jobId, data.templateId);
+    await copyTemplateToJob(sql, ownerId, data.jobId, data.templateId || null);
     return { ok: true };
+  });
+
+export const getChecklistOffice = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const master = await sql<{
+      team_checklists_enabled: boolean;
+      team_clock_in_enabled: boolean;
+    }>`
+      select team_checklists_enabled, team_clock_in_enabled
+      from profiles where user_id = ${ownerId} limit 1
+    `;
+    const cleaners = await sql<{
+      user_id: string;
+      full_name: string;
+      can_see_checklists: boolean;
+      can_clock_in: boolean;
+    }>`
+      select user_id, full_name,
+             coalesce(can_see_checklists, true) as can_see_checklists,
+             coalesce(can_clock_in, true) as can_clock_in
+      from profiles
+      where master_user_id = ${ownerId}
+        and role = ${"cleaner"}
+        and coalesce(cleaner_kind, ${"team"}) = ${"team"}
+        and coalesce(team_status, ${"active"}) <> ${"disabled"}
+      order by full_name
+    `;
+    const clients = await sql<{ id: string; name: string; checklist_template_id: string | null }>`
+      select id, name, checklist_template_id from clients
+      where cleaner_user_id = ${ownerId}
+      order by name
+    `;
+    return {
+      teamChecklistsEnabled: asBool(master[0]?.team_checklists_enabled, true),
+      teamClockInEnabled: asBool(master[0]?.team_clock_in_enabled, true),
+      cleaners: cleaners.map((c) => ({
+        ...c,
+        can_see_checklists: asBool(c.can_see_checklists, true),
+        can_clock_in: asBool(c.can_clock_in, true),
+      })),
+      clients,
+      templates: await listTemplatesForOwner(sql, ownerId),
+    };
+  });
+
+export const setTeamChecklists = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((enabled: boolean) => Boolean(enabled))
+  .handler(async ({ context, data: enabled }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    await sql`update profiles set team_checklists_enabled = ${enabled} where user_id = ${ownerId}`;
+    return { ok: true };
+  });
+
+export const setTeamMemberChecklistAccess = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { userId: string; enabled: boolean }) => ({
+    userId: input.userId,
+    enabled: Boolean(input.enabled),
+  }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const member = await sql<{ user_id: string }>`
+      select user_id from profiles
+      where user_id = ${data.userId}
+        and master_user_id = ${ownerId}
+        and coalesce(cleaner_kind, ${"team"}) = ${"team"}
+      limit 1
+    `;
+    if (!member[0]) throw new Error("Team cleaner not found.");
+    await sql`update profiles set can_see_checklists = ${data.enabled} where user_id = ${data.userId}`;
+    return { ok: true };
+  });
+
+export const setClientChecklistTemplate = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { clientId: string; templateId: string | null }) => ({
+    clientId: input.clientId,
+    templateId: input.templateId?.trim() || null,
+  }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    if (data.templateId) {
+      const owned = await sql<{ id: string }>`
+        select id from checklist_templates
+        where id = ${data.templateId} and cleaner_user_id = ${ownerId} limit 1
+      `;
+      if (!owned[0]) throw new Error("Checklist not found.");
+    }
+    const client = await sql<{ id: string }>`
+      select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
+    `;
+    if (!client[0]) throw new Error("Client not found.");
+    await sql`
+      update clients set checklist_template_id = ${data.templateId}
+      where id = ${data.clientId} and cleaner_user_id = ${ownerId}
+    `;
+    await applyClientDefaultToFutureJobs(sql, ownerId, data.clientId, data.templateId);
+    return { ok: true };
+  });
+
+export const setClientChecklistTemplatesBulk = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { clientIds: string[]; templateId: string | null }) => ({
+    clientIds: [...new Set(input.clientIds.filter(Boolean))],
+    templateId: input.templateId?.trim() || null,
+  }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    if (data.templateId) {
+      const owned = await sql<{ id: string }>`
+        select id from checklist_templates
+        where id = ${data.templateId} and cleaner_user_id = ${ownerId} limit 1
+      `;
+      if (!owned[0]) throw new Error("Checklist not found.");
+    }
+    for (const clientId of data.clientIds) {
+      const client = await sql<{ id: string }>`
+        select id from clients where id = ${clientId} and cleaner_user_id = ${ownerId} limit 1
+      `;
+      if (!client[0]) continue;
+      await sql`
+        update clients set checklist_template_id = ${data.templateId}
+        where id = ${clientId} and cleaner_user_id = ${ownerId}
+      `;
+      await applyClientDefaultToFutureJobs(sql, ownerId, clientId, data.templateId);
+    }
+    return { ok: true, count: data.clientIds.length };
   });

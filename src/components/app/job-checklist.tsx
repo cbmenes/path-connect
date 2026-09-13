@@ -53,7 +53,7 @@ export function JobChecklist({
             disabled={applying}
             onChange={async (e) => {
               const next = e.target.value;
-              if (!next || next === templateId) return;
+              if (next === (templateId ?? "")) return;
               setApplying(true);
               try {
                 await applyChecklistTemplateToJob({ data: { jobId, templateId: next } });
@@ -66,6 +66,7 @@ export function JobChecklist({
               }
             }}
           >
+            <option value="">None</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}

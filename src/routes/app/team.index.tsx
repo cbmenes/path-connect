@@ -9,6 +9,8 @@ import {
   listTeam,
   resendTeamInvite,
   saveTeamMember,
+  setTeamClockIn,
+  setTeamMemberClockIn,
   setTeamMessaging,
   updateTeamMember,
 } from "@/lib/sweepbook/team";
@@ -107,6 +109,28 @@ function TeamPage() {
         ) : (
           <p className="text-sm text-muted">{q.data?.teamMessagingEnabled ? "On" : "Off"}</p>
         )}
+      </Card>
+      <Card className="flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <p className="font-medium">Team clock in/out</p>
+          <p className="text-sm text-muted">
+            {q.data?.teamClockInEnabled
+              ? "Assigned cleaners can tap On my way, Start, and Finish. You can turn off individual cleaners below."
+              : "Team cleaners cannot change On my way, Start, or Finish. The office still can."}
+          </p>
+        </div>
+        <Button
+          variant={q.data?.teamClockInEnabled ? "primary" : "outline"}
+          onClick={async () => {
+            await setTeamClockIn({ data: !q.data?.teamClockInEnabled });
+            toast.message(q.data?.teamClockInEnabled ? "Clock in/out off." : "Clock in/out on.");
+            await qc.invalidateQueries({ queryKey: ["team"] });
+            await qc.invalidateQueries({ queryKey: ["actor"] });
+            await qc.invalidateQueries({ queryKey: ["checklist-office"] });
+          }}
+        >
+          {q.data?.teamClockInEnabled ? "On" : "Off"}
+        </Button>
       </Card>
 
       <Card>
@@ -283,6 +307,22 @@ function TeamPage() {
                       >
                         Messaging: {m.can_message ? "On" : "Off"}
                       </Button>
+                      {m.office_role !== "admin" ? (
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={async () => {
+                            await setTeamMemberClockIn({
+                              data: { userId: m.user_id, enabled: !m.can_clock_in },
+                            });
+                            toast.message(m.can_clock_in ? "Clock in/out off." : "Clock in/out on.");
+                            await qc.invalidateQueries({ queryKey: ["team"] });
+                            await qc.invalidateQueries({ queryKey: ["actor"] });
+                          }}
+                        >
+                          Clock in/out: {m.can_clock_in ? "On" : "Off"}
+                        </Button>
+                      ) : null}
                       <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
                         Edit
                       </Button>

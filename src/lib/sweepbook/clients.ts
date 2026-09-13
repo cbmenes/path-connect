@@ -11,7 +11,7 @@ import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
 import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
 import { nid } from "./time";
-import { standardTemplateId } from "./checklist-store";
+import { applyClientDefaultToFutureJobs } from "./checklist-store";
 import type { AssigneeRef, CardRow, ClientRow, InvoiceRow, JobRow, MessageRow } from "./types";
 
 export type CsvRow = {
@@ -207,7 +207,7 @@ export const createClient = createServerFn({ method: "POST" })
     assertOffice(actor);
     const ownerId = masterUserId(actor);
     const id = nid("client");
-    const templateId = data.checklist_template_id || (await standardTemplateId(sql, ownerId));
+    const templateId = data.checklist_template_id;
     await sql`
       insert into clients (
         id, cleaner_user_id, name, first_name, last_name, phone, email, address,
@@ -235,6 +235,11 @@ export const updateClient = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     const ownerId = masterUserId(actor);
+    const prev = await sql<{ checklist_template_id: string | null }>`
+      select checklist_template_id from clients
+      where id = ${data.id} and cleaner_user_id = ${ownerId} limit 1
+    `;
+    if (!prev[0]) throw new Error("Client not found.");
     await sql`
       update clients set
         name = ${data.name},
@@ -260,9 +265,12 @@ export const updateClient = createServerFn({ method: "POST" })
         usual_time = ${data.usual_time},
         frequency = ${data.frequency},
         notes = ${data.notes},
-        checklist_template_id = ${data.checklist_template_id || (await standardTemplateId(sql, ownerId))}
+        checklist_template_id = ${data.checklist_template_id}
       where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
+    if ((prev[0].checklist_template_id ?? null) !== (data.checklist_template_id ?? null)) {
+      await applyClientDefaultToFutureJobs(sql, ownerId, data.id, data.checklist_template_id);
+    }
     return { ok: true };
   });
 

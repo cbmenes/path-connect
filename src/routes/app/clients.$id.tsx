@@ -337,7 +337,7 @@ function Row({ k, v }: { k: string; v?: string | null }) {
 
 function DefaultChecklistRow({ templateId }: { templateId?: string | null }) {
   const q = useQuery({ queryKey: ["checklists"], queryFn: () => listChecklistTemplates() });
-  const name = q.data?.find((t) => t.id === templateId)?.name || (templateId ? "Custom" : "Standard");
+  const name = q.data?.find((t) => t.id === templateId)?.name || (templateId ? "Custom" : "None");
   return <Row k="Checklist" v={name} />;
 }
 

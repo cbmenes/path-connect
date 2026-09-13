@@ -46,18 +46,19 @@ export function ClientFields({
   const [notes, setNotes] = useState(initial?.notes ?? "");
   const [checklistId, setChecklistId] = useState(initial?.checklist_template_id ?? "");
   const [templates, setTemplates] = useState<{ id: string; name: string }[]>([]);
+  const defaultToStandard = !initial;
 
   useEffect(() => {
     void listChecklistTemplates()
       .then((rows) => {
         setTemplates(rows.map((t) => ({ id: t.id, name: t.name })));
-        if (!initial?.checklist_template_id) {
+        if (defaultToStandard) {
           const standard = rows.find((t) => t.name === "Standard") ?? rows[0];
           if (standard) setChecklistId((prev) => prev || standard.id);
         }
       })
       .catch(() => setTemplates([]));
-  }, [initial?.checklist_template_id]);
+  }, [defaultToStandard]);
 
   return (
     <form
@@ -161,6 +162,7 @@ export function ClientFields({
       {templates.length ? (
         <Field label="Default job checklist" hint="New visits copy this list. Checking a visit does not change the template.">
           <NativeSelect value={checklistId} onChange={(e) => setChecklistId(e.target.value)}>
+            <option value="">None</option>
             {templates.map((t) => (
               <option key={t.id} value={t.id}>
                 {t.name}

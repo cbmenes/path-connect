@@ -5,7 +5,10 @@ export const PROFILE_COLUMNS = `
   user_id, role, full_name, first_name, last_name, business_name, phone, email, address,
   address_line1, address_line2, city, state, zip, booking_slug, cancellation_policy,
   default_duration_min, default_rate_cents, cleaner_kind, master_user_id, can_message,
-  team_status, team_messaging_enabled, email_reminders, reminder_email_team,
+  team_status, team_messaging_enabled, team_checklists_enabled, team_clock_in_enabled,
+  coalesce(can_see_checklists, true) as can_see_checklists,
+  coalesce(can_clock_in, true) as can_clock_in,
+  email_reminders, reminder_email_team,
   coalesce(can_charge, false) as can_charge,
   plan_status, plan_price_cents,
   created_at::text as created_at
@@ -49,6 +52,10 @@ function normalizeProfile(row: Profile): Profile {
     ...row,
     can_message: asBool(row.can_message, true),
     team_messaging_enabled: asBool(row.team_messaging_enabled, true),
+    team_checklists_enabled: asBool(row.team_checklists_enabled, true),
+    team_clock_in_enabled: asBool(row.team_clock_in_enabled, true),
+    can_see_checklists: asBool(row.can_see_checklists, true),
+    can_clock_in: asBool(row.can_clock_in, true),
     email_reminders: asBool(row.email_reminders, true),
     reminder_email_team: asBool(row.reminder_email_team, false),
     can_charge: asBool(row.can_charge, false),
@@ -82,17 +89,26 @@ export async function getActor(sql: Sql, userId: string): Promise<Actor> {
     }
     if (profile.cleaner_kind === "team" || profile.master_user_id) {
       const masterId = profile.master_user_id || userId;
-      const masterRows = await sql.query<{ team_messaging_enabled: boolean }>(
-        `select team_messaging_enabled from profiles where user_id = $1 limit 1`,
+      const masterRows = await sql.query<{
+        team_messaging_enabled: boolean;
+        team_checklists_enabled: boolean;
+        team_clock_in_enabled: boolean;
+      }>(
+        `select team_messaging_enabled, team_checklists_enabled, team_clock_in_enabled
+         from profiles where user_id = $1 limit 1`,
         [masterId],
       );
       const accountMsg = asBool(masterRows[0]?.team_messaging_enabled, true);
+      const accountChecklists = asBool(masterRows[0]?.team_checklists_enabled, true);
+      const accountClockIn = asBool(masterRows[0]?.team_clock_in_enabled, true);
       return {
         kind: "team",
         userId,
         profile,
         masterUserId: masterId,
         canMessage: asBool(profile.can_message, true) && accountMsg,
+        canSeeChecklists: asBool(profile.can_see_checklists, true) && accountChecklists,
+        canClockIn: asBool(profile.can_clock_in, true) && accountClockIn,
         disabled: profile.team_status === "disabled",
       };
     }
@@ -179,4 +195,12 @@ export function canMessageClients(actor: Actor) {
   if (actor.kind === "cleaner" || actor.kind === "admin") return true;
   if (actor.kind === "team") return actor.canMessage && !actor.disabled;
   return actor.kind === "client";
+}
+
+export function teamCanSeeChecklists(actor: Actor) {
+  return actor.kind === "team" && !actor.disabled && actor.canSeeChecklists;
+}
+
+export function teamCanClockIn(actor: Actor) {
+  return actor.kind === "team" && !actor.disabled && actor.canClockIn;
 }

@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db";
-import { nid } from "./time";
+import { chicagoDayKey, nid } from "./time";
 
 export type ChecklistTemplateItem = {
   id: string;
@@ -117,23 +117,33 @@ export async function standardTemplateId(sql: Sql, ownerId: string) {
   return ensureDefaultTemplates(sql, ownerId);
 }
 
+export async function clearJobChecklist(sql: Sql, ownerId: string, jobId: string) {
+  await sql`delete from job_checklist_items where job_id = ${jobId}`;
+  await sql`
+    update jobs set checklist_template_id = null where id = ${jobId} and cleaner_user_id = ${ownerId}
+  `;
+}
+
 export async function copyTemplateToJob(
   sql: Sql,
   ownerId: string,
   jobId: string,
   templateId: string | null | undefined,
 ) {
+  if (!templateId) {
+    await clearJobChecklist(sql, ownerId, jobId);
+    return;
+  }
   await ensureDefaultTemplates(sql, ownerId);
-  const tid = templateId || (await standardTemplateId(sql, ownerId));
   const owned = await sql<{ id: string }>`
     select id from checklist_templates
-    where id = ${tid} and cleaner_user_id = ${ownerId}
+    where id = ${templateId} and cleaner_user_id = ${ownerId}
     limit 1
   `;
   if (!owned[0]) throw new Error("Checklist template not found.");
   const items = await sql<{ label: string; sort_order: number }>`
     select label, sort_order from checklist_template_items
-    where template_id = ${tid}
+    where template_id = ${templateId}
     order by sort_order, label
   `;
   await sql`delete from job_checklist_items where job_id = ${jobId}`;
@@ -144,11 +154,11 @@ export async function copyTemplateToJob(
     `;
   }
   await sql`
-    update jobs set checklist_template_id = ${tid} where id = ${jobId} and cleaner_user_id = ${ownerId}
+    update jobs set checklist_template_id = ${templateId} where id = ${jobId} and cleaner_user_id = ${ownerId}
   `;
 }
 
-/** New jobs inherit the client's default template, else Standard. */
+/** New jobs inherit the client's default template. Null / None copies nothing. */
 export async function inheritChecklistForNewJob(
   sql: Sql,
   ownerId: string,
@@ -157,8 +167,8 @@ export async function inheritChecklistForNewJob(
   templateId?: string | null,
 ) {
   await ensureDefaultTemplates(sql, ownerId);
-  let tid = templateId || null;
-  if (!tid) {
+  let tid = templateId ?? null;
+  if (tid === null) {
     const rows = await sql<{ checklist_template_id: string | null }>`
       select checklist_template_id from clients
       where id = ${clientId} and cleaner_user_id = ${ownerId}
@@ -166,8 +176,35 @@ export async function inheritChecklistForNewJob(
     `;
     tid = rows[0]?.checklist_template_id ?? null;
   }
-  if (!tid) tid = await standardTemplateId(sql, ownerId);
+  if (!tid) {
+    await clearJobChecklist(sql, ownerId, jobId);
+    return;
+  }
   await copyTemplateToJob(sql, ownerId, jobId, tid);
+}
+
+/** Apply a client's default to today/future jobs that have no saved checks. */
+export async function applyClientDefaultToFutureJobs(
+  sql: Sql,
+  ownerId: string,
+  clientId: string,
+  templateId: string | null,
+) {
+  const today = chicagoDayKey(new Date());
+  const jobs = await sql<{ id: string; start_at: string }>`
+    select id, start_at::text as start_at from jobs
+    where client_id = ${clientId} and cleaner_user_id = ${ownerId}
+      and status <> ${"cancelled"}
+  `;
+  for (const job of jobs) {
+    if (chicagoDayKey(job.start_at) < today) continue;
+    const checked = await sql<{ n: number }>`
+      select count(*)::int as n from job_checklist_items
+      where job_id = ${job.id} and checked = ${1}
+    `;
+    if (Number(checked[0]?.n || 0) > 0) continue;
+    await copyTemplateToJob(sql, ownerId, job.id, templateId);
+  }
 }
 
 export async function backfillOwnerChecklists(sql: Sql, ownerId: string) {

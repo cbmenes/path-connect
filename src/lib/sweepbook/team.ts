@@ -44,6 +44,8 @@ function mapMember(
     office_role: officeRole,
     can_charge: asBool(rest.can_charge, false),
     can_message: asBool(rest.can_message, true),
+    can_see_checklists: asBool(rest.can_see_checklists, true),
+    can_clock_in: asBool(rest.can_clock_in, true),
     invite_sent: asBool(rest.invite_sent, false),
     pay_type: includePay && officeRole === "team" ? parsePayType(rest.pay_type) : undefined,
     pay_amount: includePay && officeRole === "team" ? Number(rest.pay_amount || 0) : undefined,
@@ -62,7 +64,10 @@ export const listTeam = createServerFn({ method: "GET" })
     const ownerId = masterUserId(actor);
     const includePay = actor.kind === "cleaner";
     const members = await sql.query<TeamMember & { assigned_json?: unknown }>(
-      `select user_id, full_name, first_name, last_name, phone, email, can_message, coalesce(team_status, 'active') as team_status,
+      `select user_id, full_name, first_name, last_name, phone, email, can_message,
+              coalesce(can_see_checklists, true) as can_see_checklists,
+              coalesce(can_clock_in, true) as can_clock_in,
+              coalesce(team_status, 'active') as team_status,
               false as pending,
               coalesce(cleaner_kind, 'team') as office_role,
               coalesce(can_charge, false) as can_charge,
@@ -117,6 +122,16 @@ export const listTeam = createServerFn({ method: "GET" })
             )[0]?.team_messaging_enabled,
             true,
           ),
+      teamClockInEnabled: asBool(
+        actor.kind === "cleaner"
+          ? actor.profile.team_clock_in_enabled
+          : (
+              await sql<{ team_clock_in_enabled: boolean }>`
+                select team_clock_in_enabled from profiles where user_id = ${ownerId} limit 1
+              `
+            )[0]?.team_clock_in_enabled,
+        true,
+      ),
       canManageAdmins: actor.kind === "cleaner",
       canEditPay: includePay,
       canToggleAccountMessaging: actor.kind === "cleaner",
@@ -540,5 +555,40 @@ export const setTeamMessaging = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     assertCleaner(actor);
     await sql`update profiles set team_messaging_enabled = ${enabled} where user_id = ${context.userId}`;
+    return { ok: true };
+  });
+
+export const setTeamClockIn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((enabled: boolean) => Boolean(enabled))
+  .handler(async ({ context, data: enabled }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    await sql`update profiles set team_clock_in_enabled = ${enabled} where user_id = ${ownerId}`;
+    return { ok: true };
+  });
+
+export const setTeamMemberClockIn = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { userId: string; enabled: boolean }) => ({
+    userId: input.userId,
+    enabled: Boolean(input.enabled),
+  }))
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const member = await sql<{ user_id: string }>`
+      select user_id from profiles
+      where user_id = ${data.userId}
+        and master_user_id = ${ownerId}
+        and coalesce(cleaner_kind, ${"team"}) = ${"team"}
+      limit 1
+    `;
+    if (!member[0]) throw new Error("Team cleaner not found.");
+    await sql`update profiles set can_clock_in = ${data.enabled} where user_id = ${data.userId}`;
     return { ok: true };
   });

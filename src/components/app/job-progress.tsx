@@ -1,5 +1,7 @@
+import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { setJobProgress } from "@/lib/sweepbook/job-progress";
 import {
   canSetProgress,
@@ -77,11 +79,18 @@ export function JobProgress({
   isAssignedTeam: boolean;
   onChanged: () => Promise<void>;
 }) {
+  const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
+  const clockInAllowed =
+    isOffice ||
+    (isAssignedTeam && actor.data?.kind === "team" && actor.data.canClockIn && !actor.data.disabled);
   const [busy, setBusy] = useState<ProgressStatus | null>(null);
   const [finishOpen, setFinishOpen] = useState(false);
   const current = effectiveProgressStatus(job);
   const canAct =
-    (isOffice || (isAssignedTeam && (isJobNearTerm(job.start_at) || Boolean(job.progress_status)))) &&
+    (isOffice ||
+      (isAssignedTeam &&
+        clockInAllowed &&
+        (isJobNearTerm(job.start_at) || Boolean(job.progress_status)))) &&
     job.status !== "cancelled" &&
     current !== "finished" &&
     job.status !== "completed";
@@ -107,6 +116,7 @@ export function JobProgress({
     }
   }
 
+  if (!isOffice && !clockInAllowed && !label) return null;
   if (!isOffice && !isAssignedTeam && !label) return null;
 
   return (

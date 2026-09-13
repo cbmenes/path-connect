@@ -105,6 +105,10 @@ export type Profile = {
   can_message: boolean;
   team_status: TeamStatus | null;
   team_messaging_enabled: boolean;
+  team_checklists_enabled: boolean;
+  team_clock_in_enabled: boolean;
+  can_see_checklists: boolean;
+  can_clock_in: boolean;
   email_reminders: boolean;
   reminder_email_team: boolean;
   can_charge: boolean;
@@ -290,6 +294,8 @@ export type TeamMember = {
   phone: string | null;
   email: string | null;
   can_message: boolean;
+  can_see_checklists?: boolean;
+  can_clock_in?: boolean;
   team_status: TeamStatus;
   pending: boolean;
   invite_sent?: boolean;
@@ -341,6 +347,8 @@ export type Actor =
       profile: Profile;
       masterUserId: string;
       canMessage: boolean;
+      canSeeChecklists: boolean;
+      canClockIn: boolean;
       disabled: boolean;
     }
   | { kind: "client"; userId: string; profile: Profile; client: ClientRow; cleanerName: string }

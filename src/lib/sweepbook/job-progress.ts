@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { getActor, isOffice, masterUserId } from "./access";
+import { getActor, isOffice, masterUserId, teamCanClockIn } from "./access";
 import { teamCanAccessJob } from "./assignees";
 import {
   canSetProgress,
@@ -44,6 +44,7 @@ export const setJobProgress = createServerFn({ method: "POST" })
     const office = isOffice(actor);
     if (actor.kind === "team") {
       if (actor.disabled) throw new Error("Not allowed.");
+      if (!teamCanClockIn(actor)) throw new Error("Clock in/out is off for this login.");
       const assigned = await teamCanAccessJob(sql, context.userId, job.id);
       if (!assigned) throw new Error("Only assigned cleaners can update this visit.");
       if (!isJobNearTerm(job.start_at) && !job.progress_status) {
