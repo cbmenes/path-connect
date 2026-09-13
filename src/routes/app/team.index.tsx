@@ -89,8 +89,8 @@ function TeamPage() {
           <p className="font-medium">Team messaging</p>
           <p className="text-sm text-muted">
             {q.data?.teamMessagingEnabled
-              ? "Team members can message. You can turn off individual cleaners below."
-              : "Messaging for all team members is off."}
+              ? "Team members can message. Turning the account off turns every cleaner off."
+              : "Messaging is off for every team cleaner."}
           </p>
         </div>
         {canToggleAccountMessaging ? (
@@ -115,8 +115,8 @@ function TeamPage() {
           <p className="font-medium">Team clock in/out</p>
           <p className="text-sm text-muted">
             {q.data?.teamClockInEnabled
-              ? "Assigned cleaners can tap On my way, Start, and Finish. You can turn off individual cleaners below."
-              : "Team cleaners cannot change On my way, Start, or Finish. The office still can."}
+              ? "Assigned cleaners can tap On my way, Start, and Finish. Turning the account off turns every cleaner off."
+              : "Clock in/out is off for every team cleaner. The office can still set status."}
           </p>
         </div>
         <Button

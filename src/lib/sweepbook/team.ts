@@ -1,7 +1,8 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { PROFILE_COLUMNS, assertCleaner, assertOffice, getActor, masterUserId } from "./access";
+import { PROFILE_COLUMNS, assertOffice, getActor, masterUserId } from "./access";
+import { enableTeamAccount, setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
 import { addMemberToClient, removeMemberFromClient } from "./assignees";
 import { ensureDemoSeed } from "./seed";
 import { namesFrom, storePhone } from "./people";
@@ -134,7 +135,7 @@ export const listTeam = createServerFn({ method: "GET" })
       ),
       canManageAdmins: actor.kind === "cleaner",
       canEditPay: includePay,
-      canToggleAccountMessaging: actor.kind === "cleaner",
+      canToggleAccountMessaging: true,
     };
   });
 
@@ -252,6 +253,9 @@ export const createTeamInvite = createServerFn({ method: "POST" })
     }
     const saved = await upsertSavedInvite(sql, masterUserId(actor), data);
     await sql`update team_invites set invited_at = now() where token = ${saved.token}`;
+    if (data.inviteKind === "team" && data.canMessage) {
+      await enableTeamAccount(sql, masterUserId(actor), "team_messaging_enabled");
+    }
     return { token: saved.token, path: `/team-invite/${saved.token}`, name: data.name, email: data.email };
   });
 
@@ -401,7 +405,14 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       await sql`update profiles set email = ${email} where user_id = ${data.userId}`;
     }
     if (data.canMessage != null && member.cleaner_kind !== "admin") {
-      await sql`update profiles set can_message = ${data.canMessage} where user_id = ${data.userId}`;
+      await setTeamPersonToggle(
+        sql,
+        ownerId,
+        "team_messaging_enabled",
+        "can_message",
+        data.userId,
+        data.canMessage,
+      );
     }
     if (data.status) {
       await sql`update profiles set team_status = ${data.status} where user_id = ${data.userId}`;
@@ -549,12 +560,18 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
 
 export const setTeamMessaging = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((enabled: boolean) => enabled)
+  .validator((enabled: boolean) => Boolean(enabled))
   .handler(async ({ context, data: enabled }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
-    await sql`update profiles set team_messaging_enabled = ${enabled} where user_id = ${context.userId}`;
+    assertOffice(actor);
+    await setTeamAccountToggle(
+      sql,
+      masterUserId(actor),
+      "team_messaging_enabled",
+      "can_message",
+      enabled,
+    );
     return { ok: true };
   });
 
@@ -565,8 +582,13 @@ export const setTeamClockIn = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    const ownerId = masterUserId(actor);
-    await sql`update profiles set team_clock_in_enabled = ${enabled} where user_id = ${ownerId}`;
+    await setTeamAccountToggle(
+      sql,
+      masterUserId(actor),
+      "team_clock_in_enabled",
+      "can_clock_in",
+      enabled,
+    );
     return { ok: true };
   });
 
@@ -589,6 +611,13 @@ export const setTeamMemberClockIn = createServerFn({ method: "POST" })
       limit 1
     `;
     if (!member[0]) throw new Error("Team cleaner not found.");
-    await sql`update profiles set can_clock_in = ${data.enabled} where user_id = ${data.userId}`;
+    await setTeamPersonToggle(
+      sql,
+      ownerId,
+      "team_clock_in_enabled",
+      "can_clock_in",
+      data.userId,
+      data.enabled,
+    );
     return { ok: true };
   });

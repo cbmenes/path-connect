@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, getActor, isOffice, masterUserId, teamCanSeeChecklists } from "./access";
+import { setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
 import { teamCanAccessJob } from "./assignees";
 import { nid } from "./time";
 import {
@@ -354,7 +355,7 @@ export const setTeamChecklists = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     const ownerId = masterUserId(actor);
-    await sql`update profiles set team_checklists_enabled = ${enabled} where user_id = ${ownerId}`;
+    await setTeamAccountToggle(sql, ownerId, "team_checklists_enabled", "can_see_checklists", enabled);
     return { ok: true };
   });
 
@@ -377,7 +378,14 @@ export const setTeamMemberChecklistAccess = createServerFn({ method: "POST" })
       limit 1
     `;
     if (!member[0]) throw new Error("Team cleaner not found.");
-    await sql`update profiles set can_see_checklists = ${data.enabled} where user_id = ${data.userId}`;
+    await setTeamPersonToggle(
+      sql,
+      ownerId,
+      "team_checklists_enabled",
+      "can_see_checklists",
+      data.userId,
+      data.enabled,
+    );
     return { ok: true };
   });
 

@@ -93,8 +93,8 @@ function ChecklistsPage() {
           <p className="font-medium">Team checklists</p>
           <p className="text-sm text-muted">
             {officeQ.data?.teamChecklistsEnabled
-              ? "Team can see checklists. You can turn off individual cleaners below."
-              : "Team cleaners cannot see checklists."}
+              ? "Team can see checklists. Turning the account off turns every cleaner off."
+              : "Checklists are off for every team cleaner."}
           </p>
         </div>
         <Button
@@ -114,7 +114,7 @@ function ChecklistsPage() {
         <div>
           <h2 className="font-display text-lg text-navy">Team cleaner access</h2>
           <p className="text-sm text-muted">
-            A cleaner sees a job checklist only when Team checklists is On and their row is On.
+            Turning the account off turns every cleaner off. Turning one cleaner on turns the account on.
           </p>
         </div>
         {(officeQ.data?.cleaners ?? []).length ? (
