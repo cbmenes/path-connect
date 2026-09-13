@@ -123,7 +123,6 @@ async function insertUser(
   password: string,
 ) {
   const now = new Date().toISOString();
-  const hash = await hashPassword(password);
   const byEmail = await sql<{ id: string }>`
     select id from "user" where email = ${email} limit 1
   `;
@@ -146,20 +145,23 @@ async function insertUser(
     limit 1
   `;
   if (acc[0]) {
+    // Keep the existing hash so a password reset survives later seed passes.
+    // Fresh databases still get the demo password on first insert below.
     await sql`
       update "account"
-      set password = ${hash}, "accountId" = ${userId}, "updatedAt" = ${now}
+      set "accountId" = ${userId}, "updatedAt" = ${now}
       where id = ${acc[0].id}
     `;
-  } else {
-    await sql`
-      insert into "account" (
-        id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt"
-      ) values (
-        ${nid("acc")}, ${userId}, ${"credential"}, ${userId}, ${hash}, ${now}, ${now}
-      )
-    `;
+    return;
   }
+  const hash = await hashPassword(password);
+  await sql`
+    insert into "account" (
+      id, "accountId", "providerId", "userId", password, "createdAt", "updatedAt"
+    ) values (
+      ${nid("acc")}, ${userId}, ${"credential"}, ${userId}, ${hash}, ${now}, ${now}
+    )
+  `;
 }
 
 type SeedClient = {

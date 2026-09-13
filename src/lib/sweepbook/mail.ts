@@ -31,10 +31,10 @@ function parseFrom(from: string): { email: string; name?: string } {
   return { email: from };
 }
 
-export async function sendMail(input: { to: string; subject: string; text: string; html?: string }) {
+export async function sendMail(input: { to: string; subject: string; text: string; html?: string; from?: string }) {
   const to = input.to.trim();
   if (!to || !to.includes("@")) throw new Error("Recipient email is missing or invalid.");
-  const from = fromAddress();
+  const from = input.from?.trim() || fromAddress();
   const resendKey = process.env.RESEND_API_KEY?.trim() || process.env.EMAIL_API_KEY?.trim();
   if (resendKey) {
     const res = await fetch("https://api.resend.com/emails", {

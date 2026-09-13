@@ -126,6 +126,11 @@ function Login() {
               autoComplete="current-password"
             />
           </Field>
+          <p className="text-right text-sm">
+            <Link to="/forgot-password" className="text-navy underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <Button type="submit" disabled={busy}>
             {busy ? "Signing in…" : "Log in"}
