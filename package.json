@@ -1,5 +1,6 @@
 {
-  "name": "app-builder-workspace",
+  "name": "crewweek",
+  "description": "Calendar, clients, payments, and messages for cleaning business owners — without the chaos.",
   "private": true,
   "sideEffects": false,
   "type": "module",

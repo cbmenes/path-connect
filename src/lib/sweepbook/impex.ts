@@ -166,7 +166,7 @@ export const exportCsv = createServerFn({ method: "GET" })
           };
         }),
       );
-      return { filename: "sweepbook-clients.csv", csv };
+      return { filename: "crewweek-clients.csv", csv };
     }
 
     if (kind === "team") {
@@ -235,7 +235,7 @@ export const exportCsv = createServerFn({ method: "GET" })
           }),
         ],
       );
-      return { filename: "sweepbook-team.csv", csv };
+      return { filename: "crewweek-team.csv", csv };
     }
 
     const jobs = await sql<{
@@ -282,7 +282,7 @@ export const exportCsv = createServerFn({ method: "GET" })
         };
       }),
     );
-    return { filename: "sweepbook-schedule.csv", csv };
+    return { filename: "crewweek-schedule.csv", csv };
   });
 
 async function importClientRows(

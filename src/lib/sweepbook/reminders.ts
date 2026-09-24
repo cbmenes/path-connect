@@ -3,6 +3,7 @@ import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, getActor, masterUserId } from "./access";
 import { MAIL_NOT_CONFIGURED, fromAddress, isMailConfigured, publicAppUrl, sendMail } from "./mail";
+import { APP_NAME } from "@/lib/brand";
 import { formatDate, formatHours, formatTime, nid } from "./time";
 
 export const REMINDER_HOST_NOTE =
@@ -62,9 +63,9 @@ function normalizeEmail(value: string | null | undefined) {
 function openSweepbookNote() {
   const base = publicAppUrl();
   if (base) {
-    return `Open SweepBook to view this visit:\n${base}/app`;
+    return `Open ${APP_NAME} to view this visit:\n${base}/app`;
   }
-  return "Open SweepBook and sign in to view this visit on your calendar.";
+  return `Open ${APP_NAME} and sign in to view this visit on your calendar.`;
 }
 
 export function reminderEmailCopy(input: {
@@ -117,7 +118,7 @@ function visitCopy(visit: VisitForMail, role: "client" | "team", recipientName: 
     date: formatDate(visit.start_at, { weekday: "long", month: "long", day: "numeric" }),
     time: formatTime(visit.start_at),
     duration: formatHours(visit.duration_min),
-    address: visit.address?.trim() || "Address on file in SweepBook",
+    address: visit.address?.trim() || `Address on file in ${APP_NAME}`,
   });
 }
 
@@ -126,7 +127,7 @@ function sampleVisit(businessName: string): VisitForMail {
   return {
     id: "_sample",
     service: "House clean",
-    address: "Address on file in SweepBook",
+    address: `Address on file in ${APP_NAME}`,
     start_at: start.toISOString(),
     duration_min: 120,
     status: "scheduled",
@@ -623,7 +624,7 @@ export const sendTestReminder = createServerFn({ method: "POST" })
         ? actor.profile.business_name?.trim() || actor.profile.full_name
         : actor.kind === "client"
           ? actor.cleanerName
-          : "SweepBook";
+          : APP_NAME;
     const used = visit ?? sampleVisit(business);
     return deliver(sql, {
       visit: used,

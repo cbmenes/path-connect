@@ -66,7 +66,7 @@ function TeamPayPage() {
       tips: (uniqueTips / 100).toFixed(2),
       note: "",
     });
-    downloadCsv(`sweepbook-team-pay-${from}-to-${to}.csv`, toCsv(headers, rows));
+    downloadCsv(`crewweek-team-pay-${from}-to-${to}.csv`, toCsv(headers, rows));
   }
 
   return (

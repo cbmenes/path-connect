@@ -13,6 +13,7 @@ import {
   type CsvKind,
   type ImportMode,
 } from "@/lib/sweepbook/csv";
+import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { NativeSelect } from "@/components/ui/input";
@@ -35,7 +36,7 @@ function previewErrors(kind: CsvKind, rows: Record<string, string>[]) {
 }
 
 export function downloadBlankTemplate(kind: CsvKind) {
-  downloadCsv(`sweepbook-${kind}-template.csv`, blankTemplate(kind));
+  downloadCsv(`crewweek-${kind}-template.csv`, blankTemplate(kind));
 }
 
 export async function downloadExport(kind: CsvKind) {
@@ -108,7 +109,7 @@ export function CsvImportPanel({ initialKind = "clients" }: { initialKind?: CsvK
   return (
     <div className="grid gap-5">
       <p className="text-sm text-muted">
-        Use the SweepBook template for the cleanest import. Other apps can work if you map columns.
+        Use the {APP_NAME} template for the cleanest import. Other apps can work if you map columns.
       </p>
 
       <div className="flex flex-wrap gap-2">
@@ -187,7 +188,7 @@ export function CsvImportPanel({ initialKind = "clients" }: { initialKind?: CsvK
           {needsMap ? (
             <Card className="grid gap-3">
               <h2 className="font-display text-xl text-navy">Map columns</h2>
-              <p className="text-sm text-muted">Headers did not match the SweepBook template. Match each field to a column from your file.</p>
+              <p className="text-sm text-muted">Headers did not match the {APP_NAME} template. Match each field to a column from your file.</p>
               <div className="grid gap-2">
                 {fields.map((field) => (
                   <label key={field} className="grid gap-1 sm:grid-cols-[14rem_1fr] sm:items-center">

@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteChrome } from "@/components/marketing/site-chrome";
+import { APP_NAME, SUPPORT_EMAIL } from "@/lib/brand";
 
 export const Route = createFileRoute("/privacy")({ component: Privacy });
 
@@ -10,7 +11,7 @@ function Privacy() {
         <h1 className="font-display text-4xl text-navy">Privacy</h1>
         <div className="mt-6 grid gap-4 text-muted">
           <p>
-            SweepBook stores the information you and your clients enter: names, addresses, access notes, visit times,
+            {APP_NAME} stores the information you and your clients enter: names, addresses, access notes, visit times,
             messages, and payment records.
           </p>
           <p>
@@ -21,7 +22,7 @@ function Privacy() {
             Client records belong to the cleaner who created them. Clients see only their own visits, messages, and
             receipts. We do not sell data, and we do not list cleaners in a public directory.
           </p>
-          <p>Questions: use the contact page and we will get back to you.</p>
+          <p>Questions: {SUPPORT_EMAIL}, or use the contact page.</p>
         </div>
       </article>
     </SiteChrome>

@@ -2,6 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { Wordmark } from "@/components/brand/logo";
+import { APP_HOST, APP_NAME, HELLO_EMAIL, PUBLIC_SITE, SUPPORT_EMAIL } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { InstallHint } from "@/components/app/install-hint";
 
@@ -72,7 +73,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
           <div>
             <Wordmark light />
             <p className="mt-3 max-w-sm text-sm text-paper/70">
-              Scheduling, records, messaging, and payments for independent house cleaners. Your clients. Not a marketplace.
+              Calendar, clients, payments, and messages for cleaning business owners. Your houses and your crew.
             </p>
           </div>
           <div className="grid gap-2 text-sm">
@@ -101,10 +102,23 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             <Link to="/contact" className="text-paper/70 hover:text-paper">
               Contact
             </Link>
+            <a href={`mailto:${HELLO_EMAIL}`} className="text-paper/70 hover:text-paper">
+              {HELLO_EMAIL}
+            </a>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-paper/70 hover:text-paper">
+              {SUPPORT_EMAIL}
+            </a>
           </div>
         </div>
         <p className="border-t border-paper/10 px-4 py-4 text-center text-xs text-paper/50">
-          © {new Date().getFullYear()} SweepBook. Built for independent cleaners.
+          © {new Date().getFullYear()} {APP_NAME}.{" "}
+          <a href={PUBLIC_SITE} className="hover:text-paper">
+            getcrewweek.com
+          </a>
+          {" · "}
+          <a href={APP_HOST} className="hover:text-paper">
+            crewweek.app
+          </a>
         </p>
       </footer>
       <InstallHint />

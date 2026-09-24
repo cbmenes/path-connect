@@ -1,3 +1,4 @@
+import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
 export function Wordmark({
@@ -25,7 +26,7 @@ export function Wordmark({
         </svg>
       </span>
       <span className={cn("font-display text-lg tracking-tight", light ? "text-paper" : "text-navy")}>
-        SweepBook
+        {APP_NAME}
       </span>
     </a>
   );

@@ -4,6 +4,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { authClient } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
+import { APP_NAME } from "@/lib/brand";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { updateSettings } from "@/lib/sweepbook/dashboard";
 import { getReminderStatus, updateReminderSettings } from "@/lib/sweepbook/reminders";
@@ -232,7 +233,7 @@ function MasterReminderSettings() {
       <div>
         <h2 className="font-display text-lg text-navy">Email reminders</h2>
         <p className="mt-1 text-sm text-muted">
-          When on, SweepBook emails the client 24 hours before a scheduled visit. Cancelled visits are never emailed.
+          When on, {APP_NAME} emails the client 24 hours before a scheduled visit. Cancelled visits are never emailed.
         </p>
       </div>
       <label className="flex items-start gap-2 text-sm">
@@ -576,11 +577,11 @@ function BillingSection() {
   return (
     <div className="grid gap-4">
       <Card>
-        <p className="text-xs uppercase tracking-[0.14em] text-sage">SweepBook plan</p>
+        <p className="text-xs uppercase tracking-[0.14em] text-sage">{APP_NAME} plan</p>
         <p className="mt-1 font-display text-2xl text-navy">{money(price)} / month</p>
         <p className="text-sm capitalize text-muted">{status === "past_due" ? "Past due" : status}</p>
         <p className="mt-2 text-xs text-muted">
-          This is how the owner pays SweepBook — separate from cards used to charge clients.
+          This is how the owner pays {APP_NAME} — separate from cards used to charge clients.
         </p>
       </Card>
       <div className="grid gap-2">
@@ -590,7 +591,7 @@ function BillingSection() {
               <p className="font-medium">
                 {m.kind === "ach" ? m.bank_name || "Bank" : brandLabel(m.brand || "card")} · {m.last4}
               </p>
-              <p className="text-xs text-muted">{m.is_default ? "Default for SweepBook" : m.kind === "ach" ? "ACH" : "Card"}</p>
+              <p className="text-xs text-muted">{m.is_default ? `Default for ${APP_NAME}` : m.kind === "ach" ? "ACH" : "Card"}</p>
             </div>
             <div className="flex gap-2">
               {!m.is_default ? (
@@ -625,7 +626,7 @@ function BillingSection() {
       {mode === "card" ? (
         <Card>
           <CardForm
-            submitLabel="Save SweepBook card"
+            submitLabel={`Save ${APP_NAME} card`}
             onSubmit={async (payload) => {
               await addBillingCard({
                 data: {

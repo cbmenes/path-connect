@@ -1,3 +1,5 @@
+import { APP_NAME, HELLO_EMAIL } from "@/lib/brand";
+
 /** Server-only email. Uses Resend when RESEND_API_KEY (or EMAIL_API_KEY) is set. */
 
 export const MAIL_NOT_CONFIGURED =
@@ -12,7 +14,7 @@ export function isMailConfigured() {
 }
 
 export function fromAddress() {
-  return process.env.FROM_EMAIL?.trim() || "SweepBook Reminders <reminders@sweepbook.app>";
+  return process.env.FROM_EMAIL?.trim() || `${APP_NAME} <${HELLO_EMAIL}>`;
 }
 
 export function publicAppUrl() {

@@ -1,6 +1,7 @@
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarCheck, CreditCard, MessageCircle, Smartphone } from "lucide-react";
 import { SiteChrome } from "@/components/marketing/site-chrome";
+import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 
 export const Route = createFileRoute("/")({ component: Home });
@@ -10,15 +11,17 @@ function Home() {
     <SiteChrome>
       <section className="mx-auto grid max-w-6xl items-center gap-10 px-4 py-14 md:grid-cols-[1.1fr_0.9fr] md:py-20">
         <div>
-          <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">For independent cleaners</p>
+          <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">For cleaning business owners</p>
           <h1 className="mt-3 font-display text-4xl leading-[1.1] tracking-tight text-navy md:text-6xl">
-            Your books, your clients, one calm website.
+            Your crew. Your week. One place.
           </h1>
           <p className="mt-5 max-w-xl text-lg text-muted">
-            SweepBook is not a marketplace. You already have clients. Invite them in, run the calendar, take cards,
-            and stop chasing the day through texts and Venmo.
+            Calendar, clients, payments, and messages for cleaning business owners — without the chaos.
           </p>
           <div className="mt-7 flex flex-wrap gap-3">
+            <Button size="lg" variant="outline" asChild>
+              <Link to="/login">Log in</Link>
+            </Button>
             <Button size="lg" asChild>
               <Link to="/signup">
                 Get started <ArrowRight className="size-4" />
@@ -85,8 +88,8 @@ function Home() {
             <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">Pricing</p>
             <h2 className="mt-2 font-display text-4xl">One plan. Nineteen a month.</h2>
             <p className="mt-3 max-w-lg text-paper/75">
-              SweepBook is for a single independent cleaner. Unlimited clients, visits, messages, and cards. Your
-              clients never pay us.
+              {APP_NAME} is the owner’s book of houses and crew. Unlimited clients, visits, messages, and cards.
+              Your clients never pay us.
             </p>
             <ul className="mt-5 grid gap-2 text-sm text-paper/85">
               <li>Calendar, client records, and messaging</li>

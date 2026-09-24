@@ -151,24 +151,35 @@ export function stripInstallParams(url) {
   return rest ? `${path}?${rest}` : path;
 }
 
+/** Published *.grok.me hosts keep their slug name. Everywhere else, site.json wins. */
+function displayAppName(hostHeader) {
+  const fromHost = appNameFromHost(hostHeader);
+  if (fromHost !== DEFAULT_APP_NAME) return fromHost;
+  const fromSite = String(readOgSite().title ?? "").trim();
+  return fromSite || DEFAULT_APP_NAME;
+}
+
 export function renderInstallPageHtml(template, { host, url } = {}) {
   return String(template)
-    .replaceAll("{{APP_NAME}}", escapeHtml(appNameFromHost(host)))
+    .replaceAll("{{APP_NAME}}", escapeHtml(displayAppName(host)))
     .replaceAll("{{APP_URL}}", escapeHtml(stripInstallParams(url)));
 }
 
 export function renderWebManifest(hostHeader) {
-  const name = appNameFromHost(hostHeader);
+  const site = readOgSite();
+  const name = displayAppName(hostHeader);
+  const description = String(site.description ?? "").trim();
   return JSON.stringify(
     {
       name,
       short_name: name,
+      ...(description ? { description } : {}),
       id: "/",
       start_url: "/",
       scope: "/",
       display: "standalone",
-      background_color: "#000000",
-      theme_color: "#000000",
+      background_color: "#F7F4EE",
+      theme_color: "#1B365D",
       icons: [
         {
           src: "/__grok/icon-180.png",

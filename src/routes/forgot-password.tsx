@@ -4,6 +4,7 @@ import { Wordmark } from "@/components/brand/logo";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
+import { APP_NAME } from "@/lib/brand";
 import { bootstrapDemo } from "@/lib/sweepbook/bootstrap";
 import { requestPasswordReset } from "@/lib/sweepbook/password-reset";
 
@@ -47,7 +48,7 @@ function ForgotPassword() {
         <div className="text-center">
           <Wordmark className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Forgot password?</h1>
-          <p className="mt-1 text-sm text-muted">Enter the email on your SweepBook login. We will send a reset link if it is on file.</p>
+          <p className="mt-1 text-sm text-muted">Enter the email on your {APP_NAME} login. We will send a reset link if it is on file.</p>
         </div>
         {done ? (
           <div className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">

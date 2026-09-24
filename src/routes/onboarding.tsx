@@ -2,6 +2,7 @@ import { createFileRoute, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { APP_NAME } from "@/lib/brand";
 import { completeOnboarding } from "@/lib/sweepbook/bootstrap";
 import { splitDisplayName } from "@/lib/sweepbook/people";
 import { NameFields } from "@/components/app/name-fields";
@@ -42,7 +43,7 @@ function Onboarding() {
   return (
     <SiteChrome>
       <form onSubmit={submit} className="mx-auto grid max-w-md gap-4 px-4 py-12">
-        <h1 className="font-display text-3xl text-navy">How will you use SweepBook?</h1>
+        <h1 className="font-display text-3xl text-navy">How will you use {APP_NAME}?</h1>
         <div className="grid gap-2">
           <button
             type="button"

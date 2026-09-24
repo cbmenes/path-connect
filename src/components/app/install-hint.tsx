@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import { Share, X } from "lucide-react";
+import { APP_NAME } from "@/lib/brand";
 
 export function InstallHint() {
   const [show, setShow] = useState(false);
@@ -17,7 +18,7 @@ export function InstallHint() {
           <Share className="size-4" />
         </div>
         <div className="min-w-0 flex-1 text-sm">
-          <p className="font-medium text-ink">Install SweepBook</p>
+          <p className="font-medium text-ink">Install {APP_NAME}</p>
           <p className="text-muted">
             On iPhone, tap Share, then Add to Home Screen. On Android, use the browser menu and Install app.
           </p>

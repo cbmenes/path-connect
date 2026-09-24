@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteChrome } from "@/components/marketing/site-chrome";
+import { APP_HOST_NAME, APP_NAME, HELLO_EMAIL, PUBLIC_SITE_HOST, SUPPORT_EMAIL } from "@/lib/brand";
 
 export const Route = createFileRoute("/about")({ component: About });
 
@@ -11,17 +12,20 @@ function About() {
         <h1 className="mt-2 font-display text-4xl text-navy">A book for the route you already have.</h1>
         <div className="mt-6 grid gap-4 text-muted">
           <p>
-            SweepBook is software for independent house cleaners. It is a website first — usable on a phone in a
-            driveway and on a laptop at the kitchen table.
+            {APP_NAME} is the owner’s book of houses and crew. It is a website first — usable on a phone in a
+            driveway and on a laptop at the kitchen table. The public site is {PUBLIC_SITE_HOST}. The app lives at{" "}
+            {APP_HOST_NAME}.
           </p>
           <p>
-            We do not match strangers. We do not run a marketplace. A cleaner owns an account, invites the households
-            they already work with, and keeps scheduling, notes, messages, and payments in one place.
+            An owner keeps the households they already clean, invites the crew, and runs the calendar, notes,
+            messages, and payments in one place.
           </p>
           <p>
-            The name is literal. Sweep, then book it. Maya Brooks in Oklahoma City is the kind of cleaner we had in
-            mind: a Tuesday Nichols Hills house, a Wednesday Bricktown loft, a Friday Edmond kitchen, and a Venmo
-            thread that had gone on too long.
+            Maya Brooks in Oklahoma City is the kind of owner we had in mind: a Tuesday Nichols Hills house, a
+            Wednesday Bricktown loft, a Friday Edmond kitchen, and a week that used to live in a group text.
+          </p>
+          <p>
+            Hello at {HELLO_EMAIL}. Support at {SUPPORT_EMAIL}.
           </p>
         </div>
       </article>

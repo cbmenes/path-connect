@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { getDashboard, isCleanerDash, isClientDash, isTeamDash, type CleanerDashboard, type ClientDashboard, type TeamDashboard } from "@/lib/sweepbook/dashboard";
 import { payInvoiceAsClient, tipJob } from "@/lib/sweepbook/payments";
 import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
+import { APP_NAME } from "@/lib/brand";
 import { PageHeader } from "@/components/app/empty-state";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
 import { ClientJobStatus, TileProgressBadge } from "@/components/app/job-progress";
@@ -48,7 +49,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow={actor.profile.business_name || "SweepBook"}
+        eyebrow={actor.profile.business_name || APP_NAME}
         title={`Good day, ${actor.profile.full_name.split(" ")[0]}.`}
         action={
           <div className="flex flex-wrap gap-2">
@@ -92,7 +93,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
       {data.showRevenue ? (
       <section>
         <h2 className="font-display text-xl text-navy">Revenue</h2>
-        <p className="mt-1 text-sm text-muted">Paid visits only — not unpaid invoices or your SweepBook subscription.</p>
+        <p className="mt-1 text-sm text-muted">Paid visits only — not unpaid invoices or your {APP_NAME} subscription.</p>
         <div className="mt-3 grid gap-4 md:grid-cols-2">
           <Stat label="This month" value={money(data.revenue.monthCents)} hint={data.revenue.monthLabel} />
           <Stat label="Year to date" value={money(data.revenue.ytdCents)} hint={`Jan 1 – now, ${data.revenue.year}`} />

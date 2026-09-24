@@ -3,9 +3,8 @@ import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-r
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { APP_DESCRIPTION, APP_NAME } from "@/lib/brand";
 import appCss from "../styles.css?url";
-
-const APP_NAME = "SweepBook";
 const queryClient = new QueryClient({
   defaultOptions: { queries: { staleTime: 8_000, retry: 1 } },
 });
@@ -18,8 +17,7 @@ export const Route = createRootRoute({
       { title: APP_NAME },
       {
         name: "description",
-        content:
-          "SweepBook helps independent house cleaners run scheduling, client records, messaging, and payments. Clients get a simple portal. $19/month.",
+        content: APP_DESCRIPTION,
       },
       { name: "theme-color", content: "#1B365D" },
     ],

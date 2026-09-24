@@ -3,11 +3,12 @@ import { hashPassword } from "better-auth/crypto";
 import { getSql, type Sql } from "@/lib/db";
 import { isMailConfigured, publicAppUrl, sendMail } from "./mail";
 import { ensureDemoSeed } from "./seed";
+import { APP_NAME, HELLO_EMAIL } from "@/lib/brand";
 import { nid } from "./time";
 
 export const RESET_SUCCESS_MESSAGE = "If that email is on file, we sent a reset link.";
 const TOKEN_TTL_MS = 60 * 60 * 1000;
-const RESET_FROM = "SweepBook <noreply@sweepbook.app>";
+const RESET_FROM = `${APP_NAME} <${HELLO_EMAIL}>`;
 
 function normalizeEmail(value: string) {
   return value.trim().toLowerCase();
@@ -62,9 +63,9 @@ async function resetLink(token: string) {
 }
 
 function resetEmailCopy(resetUrl: string) {
-  const subject = "Reset your SweepBook password.";
+  const subject = `Reset your ${APP_NAME} password.`;
   const text = [
-    "We received a request to reset your SweepBook password.",
+    `We received a request to reset your ${APP_NAME} password.`,
     "",
     `Reset your password (expires in 1 hour, one use):`,
     resetUrl,
@@ -73,7 +74,7 @@ function resetEmailCopy(resetUrl: string) {
   ].join("\n");
   const html = `
     <div style="font-family:Georgia,serif;line-height:1.5;color:#1a2332">
-      <p>We received a request to reset your SweepBook password.</p>
+      <p>We received a request to reset your ${APP_NAME} password.</p>
       <p>
         <a href="${resetUrl}"
            style="display:inline-block;background:#1b365d;color:#fffcf7;text-decoration:none;padding:12px 18px;border-radius:8px">
