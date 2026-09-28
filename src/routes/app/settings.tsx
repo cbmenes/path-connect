@@ -20,7 +20,6 @@ import {
 import { listCardsForClient } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
-import { money } from "@/lib/sweepbook/time";
 import { CardForm } from "@/components/app/card-form";
 import { CardManager } from "@/components/app/card-manager";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
@@ -571,17 +570,16 @@ function BillingSection() {
   const [removing, setRemoving] = useState(false);
 
   const status = q.data?.planStatus ?? "trial";
-  const price = q.data?.planPriceCents ?? 1900;
   const removingMethod = (q.data?.methods ?? []).find((m) => m.id === removeId);
 
   return (
     <div className="grid gap-4">
       <Card>
         <p className="text-xs uppercase tracking-[0.14em] text-sage">{APP_NAME} plan</p>
-        <p className="mt-1 font-display text-2xl text-navy">{money(price)} / month</p>
+        <p className="mt-1 font-display text-2xl text-navy">Crew $39/mo · Office $79/mo</p>
         <p className="text-sm capitalize text-muted">{status === "past_due" ? "Past due" : status}</p>
         <p className="mt-2 text-xs text-muted">
-          This is how the owner pays {APP_NAME} — separate from cards used to charge clients.
+          Public price for the software. This screen does not start a subscription. Cards saved here stay separate from cards used to charge clients.
         </p>
       </Card>
       <div className="grid gap-2">

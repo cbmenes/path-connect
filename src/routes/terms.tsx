@@ -15,7 +15,7 @@ function Terms() {
             work you schedule, the prices you charge, and the cancellation policy you publish to clients.
           </p>
           <p>
-            Demo accounts are for evaluation. Paid plans are $19 per month for the owner. Clients do not pay {APP_NAME}.
+            Demo accounts are for evaluation. Crew is $39 per month and Office is $79 per month. Annual billing is two months free: Crew $348 per year, Office $828 per year. Extra office admins are $19 per month on Office. Cleaners and clients are not billed. Clients do not pay {APP_NAME}.
           </p>
           <p>
             Payment features currently run in test mode so you can practice charging, tipping, and recording cash or

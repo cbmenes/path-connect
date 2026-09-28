@@ -1,4 +1,4 @@
-import type { ReactNode } from "react";
+import { useState, type ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
 import { ArrowRight, CalendarCheck, CalendarOff, CreditCard, MessageCircle, Smartphone, Wallet } from "lucide-react";
 import {
@@ -41,7 +41,7 @@ function Home() {
               <a href="/login?demo=cleaner">See demo</a>
             </Button>
           </div>
-          <p className="mt-4 text-sm text-muted">$19/month for the cleaner. Clients are free.</p>
+          <p className="mt-4 text-sm text-muted">Crew $39/mo. Office $79/mo. Unlimited cleaners and client logins.</p>
         </div>
         <HeroPreview />
       </section>
@@ -122,37 +122,96 @@ function Home() {
         preview={<TimeOffPreview />}
       />
 
-      <section id="pricing" className="mx-auto max-w-6xl px-4 py-16">
-        <div className="grid items-center gap-8 rounded-2xl bg-navy px-6 py-10 text-paper md:grid-cols-[1.2fr_0.8fr] md:px-12">
-          <div>
-            <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">Pricing</p>
-            <h2 className="mt-2 font-display text-4xl">One plan. Nineteen a month.</h2>
-            <p className="mt-3 max-w-lg text-paper/75">
-              {APP_NAME} is the owner’s book of houses and crew. Unlimited clients, visits, messages, and cards.
-              Your clients never pay us.
-            </p>
-            <ul className="mt-5 grid gap-2 text-sm text-paper/85">
-              <li>Calendar, client records, and messaging</li>
-              <li>Secure cards, invoices, tips, and receipts</li>
-              <li>CSV import, invites, team pay, and time off</li>
-            </ul>
-          </div>
-          <div className="rounded-xl bg-paper p-6 text-ink">
-            <p className="text-sm text-muted">Cleaner account</p>
-            <p className="mt-1 font-display text-5xl tabular-nums text-navy">
-              $19<span className="text-2xl text-muted">/mo</span>
-            </p>
-            <p className="mt-2 text-sm text-muted">Clients · Free</p>
-            <Button className="mt-6 w-full" asChild>
-              <Link to="/signup">Start with your own clients</Link>
-            </Button>
-            <Button className="mt-2 w-full" variant="outline" asChild>
-              <a href="/login?demo=cleaner">Open the demo</a>
-            </Button>
-          </div>
-        </div>
-      </section>
+      <Pricing />
     </SiteChrome>
+  );
+}
+
+function Pricing() {
+  const [annual, setAnnual] = useState(false);
+  const crewPrice = annual ? "$29" : "$39";
+  const officePrice = annual ? "$69" : "$79";
+  const crewNote = annual ? "billed annually ($348/year)" : "per month";
+  const officeNote = annual ? "billed annually ($828/year)" : "per month";
+  return (
+    <section id="pricing" className="mx-auto max-w-6xl px-4 py-16">
+      <div className="max-w-2xl">
+        <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">Pricing</p>
+        <h2 className="mt-2 font-display text-4xl text-navy">Crew or Office.</h2>
+        <p className="mt-3 text-muted">
+          Two paid tiers. Cleaners and clients are never billed as seats. {APP_NAME} is the owner’s book of houses and crew.
+        </p>
+      </div>
+      <div className="mt-6 inline-flex rounded-md bg-secondary p-0.5 text-sm" role="group" aria-label="Billing period">
+        <button
+          type="button"
+          className={annual ? "min-h-11 rounded px-3 text-muted" : "min-h-11 rounded bg-paper px-3 font-medium text-navy shadow-soft"}
+          onClick={() => setAnnual(false)}
+        >
+          Monthly
+        </button>
+        <button
+          type="button"
+          className={annual ? "min-h-11 rounded bg-paper px-3 font-medium text-navy shadow-soft" : "min-h-11 rounded px-3 text-muted"}
+          onClick={() => setAnnual(true)}
+        >
+          Annual · 2 months free
+        </button>
+      </div>
+      <div className="mt-6 grid gap-4 md:grid-cols-2">
+        <article className="flex h-full flex-col rounded-2xl bg-paper p-6 shadow-card">
+          <p className="text-sm font-medium text-navy">Crew</p>
+          <p className="mt-2 font-display text-5xl tabular text-navy">
+            {crewPrice}
+            <span className="text-2xl text-muted">/mo</span>
+          </p>
+          <p className="mt-1 text-sm text-muted">{crewNote}</p>
+          <ul className="mt-5 grid flex-1 gap-2 text-sm text-ink">
+            <li>1 Master included</li>
+            <li>Unlimited Team (cleaners)</li>
+            <li>Unlimited Client logins</li>
+            <li>Calendar, messages, time off, checklists, on-my-way / start / finish, booking form, CSV import</li>
+            <li>No extra Admin seats on this tier (owner runs the book)</li>
+          </ul>
+        </article>
+        <article className="flex h-full flex-col rounded-2xl bg-navy p-6 text-paper shadow-card">
+          <div className="flex flex-wrap items-center justify-between gap-2">
+            <p className="text-sm font-medium">Office</p>
+            <span className="rounded-full bg-sage-soft px-2 py-0.5 text-xs font-medium text-success">Recommended</span>
+          </div>
+          <p className="mt-2 font-display text-5xl tabular">
+            {officePrice}
+            <span className="text-2xl text-paper/70">/mo</span>
+          </p>
+          <p className="mt-1 text-sm text-paper/75">{officeNote}</p>
+          <p className="mt-2 text-sm text-sage">Most shops with an office person</p>
+          <ul className="mt-5 grid flex-1 gap-2 text-sm text-paper/90">
+            <li>Everything in Crew</li>
+            <li>1 extra Admin included</li>
+            <li>Team pay / tallies (Master)</li>
+            <li>Mark as Paid + notes</li>
+            <li>Additional Admin seats: $19/mo each</li>
+          </ul>
+        </article>
+      </div>
+      <p className="mt-6 text-sm text-muted">
+        Unlimited cleaners. Unlimited client logins. Extra office admins $19/mo on Office.
+      </p>
+      <p className="mt-2 text-sm text-muted">
+        Card payments and texting come after launch on getcrewweek.com. Price is the software subscription.
+      </p>
+      <div className="mt-6 flex flex-wrap gap-3">
+        <Button variant="outline" asChild>
+          <Link to="/login">Log in</Link>
+        </Button>
+        <Button asChild>
+          <Link to="/signup">Get started</Link>
+        </Button>
+        <Button variant="outline" asChild>
+          <a href="/login?demo=cleaner">See demo</a>
+        </Button>
+      </div>
+    </section>
   );
 }
 

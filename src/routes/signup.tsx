@@ -63,7 +63,7 @@ function Signup() {
         <div className="text-center">
           <Wordmark className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Start as a cleaner</h1>
-          <p className="mt-1 text-sm text-muted">$19/month after you settle in. Clients join from your invite.</p>
+          <p className="mt-1 text-sm text-muted">Crew is $39/mo. Office is $79/mo. Cleaners and clients are not billed as seats.</p>
         </div>
         <form onSubmit={onSubmit} className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">
           <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
