@@ -1,5 +1,15 @@
+import type { ReactNode } from "react";
 import { createFileRoute, Link } from "@tanstack/react-router";
-import { ArrowRight, CalendarCheck, CreditCard, MessageCircle, Smartphone } from "lucide-react";
+import { ArrowRight, CalendarCheck, CalendarOff, CreditCard, MessageCircle, Smartphone, Wallet } from "lucide-react";
+import {
+  ImportPreview,
+  MessagingPreview,
+  PaymentsPreview,
+  PortalPreview,
+  SchedulingPreview,
+  TeamPayPreview,
+  TimeOffPreview,
+} from "@/components/marketing/product-previews";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { APP_NAME } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
@@ -57,7 +67,8 @@ function Home() {
         icon={CalendarCheck}
         kicker="Scheduling"
         title="One-off visits and a recurring route."
-        body="Day and week views on a laptop. An agenda on your phone. Weekly, biweekly, and monthly jobs, with a warning if you double-book yourself."
+        body="Day and week views on a laptop. An agenda on your phone. Weekly, biweekly, and monthly jobs, with a warning if you double-book a cleaner."
+        preview={<SchedulingPreview />}
       />
       <Feature
         id="payments"
@@ -65,6 +76,7 @@ function Home() {
         kicker="Payments"
         title="A card on file. A receipt after."
         body="Clients add a card themselves, or you collect one on site through a secure form. Charge it for later visits. Request a tip. Mark a visit as paid when they Venmo, pay cash, or send a check."
+        preview={<PaymentsPreview />}
         flip
       />
       <Feature
@@ -72,7 +84,8 @@ function Home() {
         icon={MessageCircle}
         kicker="Client portal"
         title="A door for the people you already clean for."
-        body="They see the next visit, message you, tip after a completed clean, and cancel or reschedule. Inside 24 hours, your cancellation policy is right there."
+        body="They see the next visit, message if you allow it, tip after a completed clean, and cancel. Inside 24 hours, your cancellation policy is right there."
+        preview={<PortalPreview />}
       />
       <Feature
         id="switch"
@@ -80,6 +93,33 @@ function Home() {
         kicker="Easy switch"
         title="Leave the group text without leaving your clients."
         body="Import a CSV of names, addresses, and usual days. Invite each household with a link. They keep you — they just stop paying through a chat thread."
+        preview={<ImportPreview />}
+        flip
+      />
+      <Feature
+        id="messaging"
+        icon={MessageCircle}
+        kicker="Messaging"
+        title="Threads that stay with the right people."
+        body="The owner and a client have their own conversation. An admin who helps run the week cannot open those Master and client threads. The crew gets job notes and an on-my-way ping for the houses you already clean."
+        preview={<MessagingPreview />}
+      />
+      <Feature
+        id="pay"
+        icon={Wallet}
+        kicker="Team pay"
+        title="Rates the crew never sees."
+        body="You set each cleaner’s pay and see the week’s tally — hours or jobs, and what you owe. Their login shows the work, not the dollars."
+        preview={<TeamPayPreview />}
+        flip
+      />
+      <Feature
+        id="time-off"
+        icon={CalendarOff}
+        kicker="Time off"
+        title="Time off that blocks the calendar."
+        body="A cleaner asks for days away. You approve it or leave it pending. Approved time sits on the calendar so you do not book them into a house they will not be at."
+        preview={<TimeOffPreview />}
       />
 
       <section id="pricing" className="mx-auto max-w-6xl px-4 py-16">
@@ -94,7 +134,7 @@ function Home() {
             <ul className="mt-5 grid gap-2 text-sm text-paper/85">
               <li>Calendar, client records, and messaging</li>
               <li>Secure cards, invoices, tips, and receipts</li>
-              <li>CSV import and invite links</li>
+              <li>CSV import, invites, team pay, and time off</li>
             </ul>
           </div>
           <div className="rounded-xl bg-paper p-6 text-ink">
@@ -122,6 +162,7 @@ function Feature({
   kicker,
   title,
   body,
+  preview,
   flip,
 }: {
   id: string;
@@ -129,35 +170,20 @@ function Feature({
   kicker: string;
   title: string;
   body: string;
+  preview: ReactNode;
   flip?: boolean;
 }) {
   return (
     <section id={id} className="mx-auto grid max-w-6xl gap-8 px-4 py-14 md:grid-cols-2 md:items-center">
       <div className={flip ? "md:order-2" : ""}>
-        <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">{kicker}</p>
-        <h2 className="mt-2 font-display text-3xl text-navy md:text-4xl">{title}</h2>
-        <p className="mt-3 text-muted">{body}</p>
-      </div>
-      <div className={flip ? "md:order-1" : ""}>
-        <div className="rounded-2xl bg-navy p-4 shadow-card">
-          <div className="rounded-xl bg-paper p-4">
-            <div className="mb-3 flex items-center gap-2 text-navy">
-              <Icon className="size-4" />
-              <span className="text-sm font-medium">{kicker}</span>
-            </div>
-            <div className="grid gap-2">
-              <div className="h-2.5 w-2/3 rounded-full bg-secondary" />
-              <div className="h-2.5 w-full rounded-full bg-sage-soft" />
-              <div className="h-2.5 w-5/6 rounded-full bg-secondary" />
-              <div className="mt-2 grid grid-cols-3 gap-2">
-                <div className="h-16 rounded-lg bg-sage-soft" />
-                <div className="h-16 rounded-lg bg-navy/10" />
-                <div className="h-16 rounded-lg bg-secondary" />
-              </div>
-            </div>
-          </div>
+        <div className="flex items-center gap-2 text-sage">
+          <Icon className="size-4" />
+          <p className="text-xs font-medium uppercase tracking-[0.18em]">{kicker}</p>
         </div>
+        <h2 className="mt-2 font-display text-3xl text-navy md:text-4xl">{title}</h2>
+        <p className="mt-3 max-w-xl text-muted">{body}</p>
       </div>
+      <div className={flip ? "md:order-1" : ""}>{preview}</div>
     </section>
   );
 }
