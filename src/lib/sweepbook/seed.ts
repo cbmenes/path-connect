@@ -24,16 +24,16 @@ import {
 import { addressPartsFrom, ensureBookingSlug, namesFrom, storePhone } from "./people";
 import { addDaysChicago, chicagoDate, chicagoDateInputValue, nid, nextWeekdayOnOrAfter, partsInChicago, startOfChicagoDay } from "./time";
 
-const g = globalThis as typeof globalThis & { __sweepbookSeed15__?: Promise<void> };
+const g = globalThis as typeof globalThis & { __sweepbookSeed17__?: Promise<void> };
 
 export async function ensureDemoSeed(sql: Sql) {
-  if (!g.__sweepbookSeed15__) {
-    g.__sweepbookSeed15__ = seedIfNeeded(sql).catch((err) => {
-      g.__sweepbookSeed15__ = undefined;
+  if (!g.__sweepbookSeed17__) {
+    g.__sweepbookSeed17__ = seedIfNeeded(sql).catch((err) => {
+      g.__sweepbookSeed17__ = undefined;
       throw err;
     });
   }
-  await g.__sweepbookSeed15__;
+  await g.__sweepbookSeed17__;
 }
 
 async function seedIfNeeded(sql: Sql) {
@@ -71,9 +71,14 @@ async function ensureDemoAccounts(sql: Sql) {
       ${DEMO_CLEANER_ID}, ${"cleaner"}, ${"Maya Brooks"}, ${"Brooks Clean Co."},
       ${"(405) 555-0148"},
       ${"Cancellations made less than 24 hours before a visit may be charged half the scheduled rate. Weather delays are never charged."},
-      ${120}, ${15000}, ${"master"}, ${DEMO_CLEANER_EMAIL}, ${"active"}, ${1900}
+      ${120}, ${15000}, ${"master"}, ${DEMO_CLEANER_EMAIL}, ${"active"}, ${7900}
     )
     on conflict (user_id) do nothing
+  `;
+  await sql`
+    update profiles
+    set plan_status = ${"active"}, plan_price_cents = ${7900}
+    where user_id = ${DEMO_CLEANER_ID} and plan_price_cents = ${1900}
   `;
   await sql`
     insert into profiles (user_id, role, full_name, phone)
@@ -196,7 +201,7 @@ async function seedAll(sql: Sql) {
     ) values (
       ${DEMO_CLEANER_ID}, ${"cleaner"}, ${"Maya Brooks"}, ${"Brooks Clean Co."},
       ${"(405) 555-0148"}, ${policy}, ${120}, ${15000}, ${"master"},
-      ${DEMO_CLEANER_EMAIL}, ${"active"}, ${1900}
+      ${DEMO_CLEANER_EMAIL}, ${"active"}, ${7900}
     )
     on conflict (user_id) do nothing
   `;
@@ -409,8 +414,6 @@ async function seedV2(sql: Sql) {
     update profiles set
       cleaner_kind = coalesce(cleaner_kind, 'master'),
       email = coalesce(email, ${DEMO_CLEANER_EMAIL}),
-      plan_status = 'active',
-      plan_price_cents = 1900,
       team_messaging_enabled = true
     where user_id = ${DEMO_CLEANER_ID}
   `;

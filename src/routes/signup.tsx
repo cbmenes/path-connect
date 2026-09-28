@@ -49,7 +49,7 @@ function Signup() {
         storeBearer(signed.data?.token);
       }
       await completeOnboarding({ data: { role: "cleaner", firstName, lastName, businessName: business } });
-      await navigate({ to: "/app" });
+      await navigate({ to: "/choose-plan" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the account.");
     } finally {

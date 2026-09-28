@@ -17,6 +17,7 @@ import {
   setDefaultBillingMethod,
   updateAccount,
 } from "@/lib/sweepbook/billing";
+import { cancelSaasPlan, changeSaasPlan, getSaasPlan, planCodeFromCents, resumeSaasPlan } from "@/lib/sweepbook/plan";
 import { listCardsForClient } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
@@ -32,11 +33,11 @@ import { Card } from "@/components/ui/card";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
-type Tab = "profile" | "account" | "billing";
+type Tab = "profile" | "account" | "billing" | "plan";
 
 export const Route = createFileRoute("/app/settings")({
   validateSearch: (s: Record<string, unknown>): { tab?: Tab } => ({
-    tab: s.tab === "account" || s.tab === "billing" || s.tab === "profile" ? s.tab : undefined,
+    tab: s.tab === "account" || s.tab === "billing" || s.tab === "plan" || s.tab === "profile" ? s.tab : undefined,
   }),
   component: SettingsPage,
 });
@@ -46,12 +47,17 @@ function SettingsPage() {
   const q = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const kind = q.data?.kind;
   const tabs: Tab[] =
-    kind === "cleaner" || kind === "client" ? ["profile", "account", "billing"] : ["profile", "account"];
+    kind === "cleaner" || kind === "admin"
+      ? ["profile", "account", "plan"]
+      : kind === "client"
+        ? ["profile", "account", "billing"]
+        : ["profile", "account"];
   const active: Tab = tabs.includes(tab) ? tab : "profile";
 
   function tabLabel(t: Tab) {
     if (t === "profile") return kind === "cleaner" ? "Profile" : "Contact";
     if (t === "account") return kind === "cleaner" ? "Account" : "Login";
+    if (t === "plan") return "Billing";
     return "Billing";
   }
 
@@ -104,11 +110,11 @@ function SettingsPage() {
         )
       ) : active === "account" ? (
         <AccountSection />
+      ) : active === "plan" ? (
+        kind === "admin" ? <AdminPlanNote /> : <PlanSection />
       ) : kind === "client" ? (
         <ClientBillingSection />
-      ) : (
-        <BillingSection />
-      )}
+      ) : null}
     </div>
   );
 }
@@ -554,6 +560,139 @@ function ClientBillingSection() {
           }}
         />
       ) : null}
+    </div>
+  );
+}
+
+function renewalLabel() {
+  const day = new Date();
+  day.setDate(day.getDate() + 30);
+  return day.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+}
+
+function AdminPlanNote() {
+  return (
+    <Card>
+      <h2 className="font-display text-lg text-navy">Plan</h2>
+      <p className="mt-2 text-sm text-muted">Billing is Master-only.</p>
+    </Card>
+  );
+}
+
+function PlanSection() {
+  const q = useQuery({ queryKey: ["saas-plan"], queryFn: () => getSaasPlan() });
+  const qc = useQueryClient();
+  const [changeOpen, setChangeOpen] = useState(false);
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const plan = q.data?.access === "master" ? q.data : null;
+  const code = plan ? planCodeFromCents(plan.priceCents) : "crew";
+  const name = code === "office" ? "Office" : "Crew";
+  const price = code === "office" ? "$79/mo" : "$39/mo";
+  const nextCode = code === "office" ? "crew" : "office";
+  const nextName = nextCode === "office" ? "Office" : "Crew";
+  const nextPrice = nextCode === "office" ? "$79/mo" : "$39/mo";
+  const statusLabel = plan?.status === "canceled" ? "Canceled" : plan?.status === "active" ? "Active (demo)" : "Not started";
+
+  async function refresh() {
+    await qc.invalidateQueries({ queryKey: ["saas-plan"] });
+    await qc.invalidateQueries({ queryKey: ["actor"] });
+  }
+
+  if (q.isPending) return <div className="h-32 animate-pulse rounded-xl bg-secondary" />;
+  if (q.data?.access === "locked") return <AdminPlanNote />;
+  if (!plan) return <p className="text-sm text-muted">Billing is Master-only.</p>;
+
+  return (
+    <div className="grid gap-4">
+      <Card>
+        <p className="text-xs uppercase tracking-[0.14em] text-sage">Current plan</p>
+        <p className="mt-1 font-display text-2xl text-navy">
+          {name} · {price}
+        </p>
+        <p className="text-sm text-muted">{statusLabel}</p>
+        {plan.status === "active" ? <p className="mt-2 text-sm text-ink">Next renewal {renewalLabel()}</p> : null}
+        {code === "office" ? (
+          <p className="mt-2 text-sm text-muted">Extra Admin — $19/mo. Line item only. Not a seat you can buy here.</p>
+        ) : (
+          <p className="mt-2 text-sm text-muted">No extra Admin seats on Crew.</p>
+        )}
+        <p className="mt-3 text-xs text-muted">Card billing will be enabled on getcrewweek.com. This is a dry run.</p>
+        <p className="mt-1 text-xs text-muted">Annual is 2 months free later. This demo stays monthly.</p>
+      </Card>
+      {plan.status === "canceled" ? (
+        <Button
+          disabled={busy}
+          onClick={async () => {
+            setBusy(true);
+            try {
+              await resumeSaasPlan({ data: {} });
+              await refresh();
+              toast.success(`${name} plan resumed`);
+            } catch (err) {
+              toast.error(err instanceof Error ? err.message : "Could not resume the plan.");
+            } finally {
+              setBusy(false);
+            }
+          }}
+        >
+          Resume plan
+        </Button>
+      ) : (
+        <div className="flex flex-wrap gap-2">
+          <Button variant="outline" onClick={() => setChangeOpen(true)} disabled={plan.status !== "active"}>
+            Change to {nextName}
+          </Button>
+          <Button variant="danger" onClick={() => setCancelOpen(true)} disabled={plan.status !== "active"}>
+            Cancel plan
+          </Button>
+        </div>
+      )}
+      <ConfirmDialog
+        open={changeOpen}
+        onOpenChange={setChangeOpen}
+        title={`Change to ${nextName}?`}
+        body={`Switch to ${nextName} at ${nextPrice}. Demo only. Nothing will be charged.`}
+        confirmLabel={`Change to ${nextName}`}
+        confirmVariant="primary"
+        busy={busy}
+        busyLabel="Changing…"
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await changeSaasPlan({ data: { code: nextCode } });
+            setChangeOpen(false);
+            await refresh();
+            toast.success(`Switched to ${nextName}`);
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not change the plan.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel plan?"
+        body="Demo only. Nothing will be charged."
+        confirmLabel="Cancel plan"
+        busy={busy}
+        busyLabel="Canceling…"
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await cancelSaasPlan({ data: {} });
+            setCancelOpen(false);
+            await refresh();
+            toast.success("Plan canceled");
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not cancel the plan.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
     </div>
   );
 }

@@ -13,6 +13,7 @@ import { Route as IndexRouteImport } from './routes/index'
 import { Route as AboutRouteImport } from './routes/about'
 import { Route as AppRouteImport } from './routes/app'
 import { Route as BookRouteImport } from './routes/book'
+import { Route as ChoosePlanRouteImport } from './routes/choose-plan'
 import { Route as ContactRouteImport } from './routes/contact'
 import { Route as ForgotPasswordRouteImport } from './routes/forgot-password'
 import { Route as LoginRouteImport } from './routes/login'
@@ -79,6 +80,11 @@ const AppRoute = AppRouteImport.update({
 const BookRoute = BookRouteImport.update({
   id: '/book',
   path: '/book',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const ChoosePlanRoute = ChoosePlanRouteImport.update({
+  id: '/choose-plan',
+  path: '/choose-plan',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ContactRoute = ContactRouteImport.update({
@@ -322,6 +328,7 @@ export interface FileRoutesByFullPath {
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
   '/book': typeof BookRouteWithChildren
+  '/choose-plan': typeof ChoosePlanRoute
   '/contact': typeof ContactRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -373,6 +380,7 @@ export interface FileRoutesByFullPath {
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/about': typeof AboutRoute
+  '/choose-plan': typeof ChoosePlanRoute
   '/contact': typeof ContactRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -422,6 +430,7 @@ export interface FileRoutesById {
   '/about': typeof AboutRoute
   '/app': typeof AppRouteWithChildren
   '/book': typeof BookRouteWithChildren
+  '/choose-plan': typeof ChoosePlanRoute
   '/contact': typeof ContactRoute
   '/forgot-password': typeof ForgotPasswordRoute
   '/login': typeof LoginRoute
@@ -477,6 +486,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/app'
     | '/book'
+    | '/choose-plan'
     | '/contact'
     | '/forgot-password'
     | '/login'
@@ -528,6 +538,7 @@ export interface FileRouteTypes {
   to:
     | '/'
     | '/about'
+    | '/choose-plan'
     | '/contact'
     | '/forgot-password'
     | '/login'
@@ -576,6 +587,7 @@ export interface FileRouteTypes {
     | '/about'
     | '/app'
     | '/book'
+    | '/choose-plan'
     | '/contact'
     | '/forgot-password'
     | '/login'
@@ -630,6 +642,7 @@ export interface RootRouteChildren {
   AboutRoute: typeof AboutRoute
   AppRoute: typeof AppRouteWithChildren
   BookRoute: typeof BookRouteWithChildren
+  ChoosePlanRoute: typeof ChoosePlanRoute
   ContactRoute: typeof ContactRoute
   ForgotPasswordRoute: typeof ForgotPasswordRoute
   LoginRoute: typeof LoginRoute
@@ -674,6 +687,13 @@ declare module '@tanstack/react-router' {
       path: '/book'
       fullPath: '/book'
       preLoaderRoute: typeof BookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/choose-plan': {
+      id: '/choose-plan'
+      path: '/choose-plan'
+      fullPath: '/choose-plan'
+      preLoaderRoute: typeof ChoosePlanRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/contact': {
@@ -1143,6 +1163,7 @@ const rootRouteChildren: RootRouteChildren = {
   AboutRoute: AboutRoute,
   AppRoute: AppRouteWithChildren,
   BookRoute: BookRouteWithChildren,
+  ChoosePlanRoute: ChoosePlanRoute,
   ContactRoute: ContactRoute,
   ForgotPasswordRoute: ForgotPasswordRoute,
   LoginRoute: LoginRoute,

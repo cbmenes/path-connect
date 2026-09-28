@@ -22,8 +22,12 @@ function AppLayout() {
     if (!user || actor.isPending) return;
     if (actor.data?.kind === "none") {
       void navigate({ to: "/onboarding" });
+      return;
     }
-  }, [user, actor.data, actor.isPending, navigate]);
+    if (actor.data?.kind === "cleaner" && actor.data.profile.plan_status === "trial" && pathname.startsWith("/app")) {
+      void navigate({ to: "/choose-plan" });
+    }
+  }, [user, actor.data, actor.isPending, navigate, pathname]);
 
   useEffect(() => {
     if (actor.data?.kind === "team") {

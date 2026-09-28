@@ -34,7 +34,7 @@ export type RecurringPlan = {
 
 export type InvoiceStatus = "unpaid" | "paid" | "failed" | "void";
 
-export type PlanStatus = "trial" | "active" | "past_due";
+export type PlanStatus = "trial" | "active" | "past_due" | "canceled";
 
 export type NotificationKind =
   | "cancel"

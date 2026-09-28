@@ -24,6 +24,7 @@ import { getNavBadges } from "@/lib/sweepbook/messages";
 import type { Actor } from "@/lib/sweepbook/types";
 import { Wordmark } from "@/components/brand/logo";
 import { InstallHint } from "./install-hint";
+import { PlanBanner } from "./plan-banner";
 import { cn } from "@/lib/utils";
 
 type Item = { to: string; label: string; icon: typeof Home; match?: string; badge?: number };
@@ -223,6 +224,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
             </button>
           </div>
         </header>
+        {actor.kind === "cleaner" ? <PlanBanner profile={actor.profile} /> : null}
         <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 print:max-w-none print:px-2 print:py-0">{children}</div>
       </div>
 
