@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useState } from "react";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -54,7 +54,7 @@ function ResetPassword() {
     <SiteChrome>
       <div className="mx-auto grid max-w-md gap-6 px-4 py-12">
         <div className="text-center">
-          <Wordmark className="justify-center" />
+          <CrewWeekLogo className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Choose a new password</h1>
           <p className="mt-1 text-sm text-muted">This does not change your email or role. Then you can log in.</p>
         </div>

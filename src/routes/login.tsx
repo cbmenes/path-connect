@@ -12,7 +12,7 @@ import {
   DEMO_TEAM_EMAIL,
   DEMO_TEAM_PASSWORD,
 } from "@/lib/sweepbook/types";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { SiteChrome } from "@/components/marketing/site-chrome";
@@ -109,7 +109,7 @@ function Login() {
     <SiteChrome>
       <div className="mx-auto grid max-w-md gap-6 px-4 py-12">
         <div className="text-center">
-          <Wordmark className="justify-center" />
+          <CrewWeekLogo className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Welcome back</h1>
           <p className="mt-1 text-sm text-muted">Cleaners and clients use the same website.</p>
         </div>

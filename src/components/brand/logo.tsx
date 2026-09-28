@@ -1,7 +1,23 @@
 import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
-export function Wordmark({
+const TICKS = [3, 6, 9, 12, 15, 18];
+
+/** Navy tile and week strip. No wordmark. */
+export function CrewWeekMark({ className }: { className?: string }) {
+  return (
+    <svg viewBox="0 0 32 32" className={className} aria-hidden>
+      <rect width="32" height="32" rx="7" fill="#1B365D" />
+      {TICKS.map((x) => (
+        <rect key={x} x={x} y="12" width="2" height="8" rx="0.7" fill="#F7F4EE" />
+      ))}
+      <rect x="21" y="12" width="8" height="8" rx="1.8" fill="#7D9A7A" />
+    </svg>
+  );
+}
+
+/** Primary lockup: week-strip tile plus the CrewWeek wordmark. */
+export function CrewWeekLogo({
   to = "/",
   className,
   light = false,
@@ -11,23 +27,20 @@ export function Wordmark({
   light?: boolean;
 }) {
   return (
-    <a href={to} className={cn("flex items-center gap-2", className)}>
+    <a href={to} className={cn("inline-flex items-center gap-2", className)}>
+      <span className={cn("inline-grid size-8 shrink-0", light && "rounded-[22%] ring-1 ring-[#F7F4EE]/50")}>
+        <CrewWeekMark className="size-8" />
+      </span>
       <span
         className={cn(
-          "grid size-8 place-items-center rounded-md",
-          light ? "bg-paper/15 text-paper" : "bg-navy text-paper",
+          "font-sans text-lg font-semibold tracking-tight",
+          light ? "text-[#F7F4EE]" : "text-[#1B365D]",
         )}
-        aria-hidden
       >
-        <svg viewBox="0 0 24 24" className="size-4" fill="none" stroke="currentColor" strokeWidth="1.8">
-          <path d="M5 18c4-1 6-7 14-9" />
-          <path d="M6 8.5h9.5a3 3 0 0 1 0 6H9" />
-          <path d="M9 8.5v6" />
-        </svg>
-      </span>
-      <span className={cn("font-display text-lg tracking-tight", light ? "text-paper" : "text-navy")}>
         {APP_NAME}
       </span>
     </a>
   );
 }
+
+export const Wordmark = CrewWeekLogo;

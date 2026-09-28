@@ -22,7 +22,7 @@ import { signOut } from "@/lib/auth/client";
 import { useCurrentUser } from "@/lib/auth/use-current-user";
 import { getNavBadges } from "@/lib/sweepbook/messages";
 import type { Actor } from "@/lib/sweepbook/types";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
 import { InstallHint } from "./install-hint";
 import { PlanBanner } from "./plan-banner";
 import { cn } from "@/lib/utils";
@@ -52,7 +52,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
     return (
       <div className="grid min-h-dvh place-items-center bg-bg px-4 text-center">
         <div className="max-w-md">
-          <Wordmark to="/" />
+          <CrewWeekLogo to="/" />
           <h1 className="mt-6 font-display text-3xl text-navy">Access disabled</h1>
           <p className="mt-2 text-muted">Ask the account owner to turn this login back on.</p>
           <button type="button" className="mt-6 text-sm text-navy underline" onClick={() => void signOut("/")}>
@@ -105,7 +105,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
     <div className="min-h-dvh bg-bg text-ink md:grid md:grid-cols-[16rem_1fr]">
       <aside className="hidden border-r border-border bg-navy text-paper print:hidden md:flex md:flex-col">
         <div className="px-5 py-5">
-          <Wordmark to="/app" light />
+          <CrewWeekLogo to="/app" light />
           <p className="mt-4 text-xs uppercase tracking-[0.16em] text-paper/50">{roleLabel}</p>
           <p className="mt-1 truncate text-sm text-paper/90">{name}</p>
         </div>
@@ -157,7 +157,7 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
       <div className="flex min-h-dvh flex-col pb-20 md:pb-0">
         <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 print:hidden">
           <div className="md:hidden">
-            <Wordmark to="/app" />
+            <CrewWeekLogo to="/app" />
           </div>
           <p className="hidden truncate text-sm text-muted md:block">{name}</p>
           <div className="ml-auto flex items-center gap-1">

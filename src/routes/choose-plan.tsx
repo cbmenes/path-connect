@@ -2,7 +2,7 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
@@ -55,7 +55,7 @@ function ChoosePlan() {
     <SiteChrome>
       <div className="mx-auto grid max-w-3xl gap-6 px-4 py-12">
         <div>
-          <Wordmark />
+          <CrewWeekLogo />
           <p className="mt-6 text-xs font-medium uppercase tracking-[0.18em] text-sage">
             {step === "choose" ? "Choose plan" : "Review + confirm"}
           </p>

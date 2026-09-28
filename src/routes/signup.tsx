@@ -3,7 +3,7 @@ import { useState } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { completeOnboarding } from "@/lib/sweepbook/bootstrap";
 import { displayName } from "@/lib/sweepbook/people";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
 import { NameFields } from "@/components/app/name-fields";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -61,7 +61,7 @@ function Signup() {
     <SiteChrome>
       <div className="mx-auto grid max-w-md gap-6 px-4 py-12">
         <div className="text-center">
-          <Wordmark className="justify-center" />
+          <CrewWeekLogo className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Start as a cleaner</h1>
           <p className="mt-1 text-sm text-muted">Crew is $39/mo. Office is $79/mo. Cleaners and clients are not billed as seats.</p>
         </div>
