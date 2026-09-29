@@ -1,18 +1,30 @@
 import { APP_NAME } from "@/lib/brand";
 import { cn } from "@/lib/utils";
 
-/** Five ivory bars, then one sage block. Even gaps, centered in the tile. */
-const TICKS = [6.5, 9.9, 13.3, 16.7, 20.1];
+/** Six equal 4×4 rounded squares. Gap is 1 (25% of the unit). Last square is sage. */
+const UNIT = 4;
+const GAP = 1;
+const UNIT_RX = 1;
+const X0 = 5;
+const Y = 18;
+const DAYS = [0, 1, 2, 3, 4, 5].map((i) => X0 + i * (UNIT + GAP));
 
 /** Navy squircle and week strip. No wordmark. */
 export function CrewWeekMark({ className }: { className?: string }) {
   return (
     <svg viewBox="0 0 40 40" className={className} aria-hidden>
       <rect width="40" height="40" rx="12" fill="#1B365D" />
-      {TICKS.map((x) => (
-        <rect key={x} x={x} y="16.5" width="2.2" height="7" rx="1.1" fill="#F7F4EE" />
+      {DAYS.map((x, i) => (
+        <rect
+          key={x}
+          x={x}
+          y={Y}
+          width={UNIT}
+          height={UNIT}
+          rx={UNIT_RX}
+          fill={i === DAYS.length - 1 ? "#7D9A7A" : "#F7F4EE"}
+        />
       ))}
-      <rect x="23.5" y="15" width="10" height="10" rx="2.6" fill="#7D9A7A" />
     </svg>
   );
 }
