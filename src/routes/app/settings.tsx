@@ -210,7 +210,7 @@ function MasterProfileSection() {
         <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
       </Field>
       <AddressFields value={address} onChange={setAddress} />
-      <Field label="Cancellation policy" hint="Shown when a client cancels inside 24 hours.">
+      <Field label="Cancellation policy" hint="Shown when a client attempts to cancel appointment.">
         <Textarea value={policy} onChange={(e) => setPolicy(e.target.value)} rows={4} />
       </Field>
       <Button type="submit" disabled={busy}>
