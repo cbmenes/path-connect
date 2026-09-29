@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { JOB_FROM, JOB_SELECT, canChargeClients, getActor, isOffice, masterUserId } from "./access";
+import { backfillPaidAt } from "./payments";
 import { ensureDemoSeed } from "./seed";
 import { addDaysChicago, startOfChicagoDay, chicagoDate, partsInChicago } from "./time";
 import type { Actor, CardRow, InvoiceWithClient, JobWithClient, ThreadSummary } from "./types";
@@ -87,11 +88,15 @@ export const getDashboard = createServerFn({ method: "GET" })
          order by j.start_at asc`,
         [ownerId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
+      await backfillPaidAt(sql);
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name,
+                j.start_at::text as job_start_at
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.cleaner_user_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,
         [ownerId],
@@ -213,11 +218,15 @@ export const getDashboard = createServerFn({ method: "GET" })
          limit 12`,
         [actor.client.id, start.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
+      await backfillPaidAt(sql);
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name,
+                j.start_at::text as job_start_at
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.client_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,
         [actor.client.id],

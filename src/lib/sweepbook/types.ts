@@ -194,6 +194,9 @@ export type JobWithClient = JobRow & {
   assignee_name: string | null;
   assignees: AssigneeRef[];
   payment_status: InvoiceStatus | null;
+  payment_paid_at?: string | null;
+  payment_method?: string | null;
+  payment_note?: string | null;
 };
 
 export type MessageChannel =

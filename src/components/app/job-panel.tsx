@@ -11,6 +11,7 @@ import { JobForm } from "@/components/app/job-form";
 import { JobChecklist } from "@/components/app/job-checklist";
 import { JobProgress } from "@/components/app/job-progress";
 import { OverlapDetails } from "@/components/app/overlap-mark";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
@@ -93,6 +94,16 @@ export function JobPanel({
           <VisitStatusBadge job={job} hideMoney={isTeam} />
           {isTeam ? null : <p className="tabular text-navy">{money(job.price_cents)}</p>}
         </div>
+        {!isTeam && job.payment_status ? (
+          <VisitChargeLine
+            jobStart={job.start_at}
+            status={job.payment_status}
+            paidAt={job.payment_paid_at}
+            method={job.payment_method}
+            note={job.payment_note}
+            tipCents={job.tip_cents}
+          />
+        ) : null}
         <OverlapDetails notes={q.data.overlaps ?? []} />
         <p className="text-sm">
           {formatDate(job.start_at, { weekday: "long", month: "long", day: "numeric" })} · {formatTime(job.start_at)} ·{" "}

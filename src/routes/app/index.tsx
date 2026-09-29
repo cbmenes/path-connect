@@ -7,6 +7,7 @@ import { payInvoiceAsClient, tipJob } from "@/lib/sweepbook/payments";
 import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
 import { APP_NAME } from "@/lib/brand";
 import { PageHeader } from "@/components/app/empty-state";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
 import { ClientJobStatus, TileProgressBadge } from "@/components/app/job-progress";
 import { CardSelect } from "@/components/app/card-manager";
@@ -152,6 +153,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
                 <div>
                   <p className="font-medium">{i.client_name}</p>
                   <p className="text-xs text-muted">{i.description}</p>
+                  <VisitChargeLine jobStart={i.job_start_at} status={i.status} paidAt={i.paid_at} method={i.method} note={i.paid_note} />
                 </div>
                 <div className="text-right">
                   <p className="tabular">{money(i.amount_cents)}</p>
@@ -338,6 +340,7 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                   <div>
                     <p className="font-medium">{i.description}</p>
                     <p className="tabular text-sm text-muted">{money(i.amount_cents)}</p>
+                    <VisitChargeLine jobStart={i.job_start_at} status={i.status} paidAt={i.paid_at} method={i.method} note={i.paid_note} />
                   </div>
                   <Button
                     disabled={busy}

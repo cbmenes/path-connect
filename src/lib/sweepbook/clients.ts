@@ -12,7 +12,7 @@ import { ensureDemoSeed } from "./seed";
 import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
 import { nid } from "./time";
 import { applyClientDefaultToFutureJobs } from "./checklist-store";
-import type { AssigneeRef, CardRow, ClientRow, InvoiceRow, JobRow, MessageRow } from "./types";
+import type { AssigneeRef, CardRow, ClientRow, InvoiceWithClient, JobRow, MessageRow } from "./types";
 
 export type CsvRow = {
   name: string;
@@ -80,12 +80,14 @@ export const getClient = createServerFn({ method: "GET" })
         from jobs where client_id = ${id} and cleaner_user_id = ${ownerId}
         order by start_at desc limit 40
       `;
-      const invoices = await sql<InvoiceRow>`
-        select id, cleaner_user_id, client_id, job_id, amount_cents, description, status,
-               method, kind, paid_at::text as paid_at, failure_reason, receipt_number,
-               paid_note, created_at::text as created_at
-        from invoices where client_id = ${id} and cleaner_user_id = ${ownerId}
-        order by created_at desc limit 20
+      const invoices = await sql<InvoiceWithClient>`
+        select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description, i.status,
+               i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason, i.receipt_number,
+               i.paid_note, i.created_at::text as created_at, j.start_at::text as job_start_at
+        from invoices i
+        left join jobs j on j.id = i.job_id
+        where i.client_id = ${id} and i.cleaner_user_id = ${ownerId}
+        order by i.created_at desc limit 20
       `;
       const cards = canChargeClients(actor)
         ? await sql<CardRow>`
@@ -124,7 +126,7 @@ export const getClient = createServerFn({ method: "GET" })
       return {
         client: actor.client,
         jobs: [] as JobRow[],
-        invoices: [] as InvoiceRow[],
+        invoices: [] as InvoiceWithClient[],
         cards: [] as CardRow[],
         messages: [] as MessageRow[],
         staff: [] as { user_id: string; full_name: string }[],

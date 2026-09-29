@@ -18,6 +18,7 @@ import { JobChecklist } from "@/components/app/job-checklist";
 import { ClientJobStatus, JobProgress } from "@/components/app/job-progress";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
 import { OverlapDetails } from "@/components/app/overlap-mark";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { VisitStatusBadge } from "@/components/app/status-badge";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { Button } from "@/components/ui/button";
@@ -71,6 +72,16 @@ function JobDetail() {
       <Card className="grid gap-2">
         <p className="text-sm text-muted">{job.address}</p>
         {isTeam ? null : <p className="tabular text-lg text-navy">{money(job.price_cents)}</p>}
+        {!isTeam && job.payment_status ? (
+          <VisitChargeLine
+            jobStart={job.start_at}
+            status={job.payment_status}
+            paidAt={job.payment_paid_at}
+            method={job.payment_method}
+            note={job.payment_note}
+            tipCents={job.tip_cents}
+          />
+        ) : null}
         {job.notes ? <p className="text-sm">{job.notes}</p> : null}
         {job.recurrence !== "none" ? <p className="text-xs text-muted">Repeats {job.recurrence}</p> : null}
         {job.assignees?.length ? (

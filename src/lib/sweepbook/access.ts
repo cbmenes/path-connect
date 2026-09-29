@@ -29,16 +29,23 @@ export const JOB_SELECT = `
   (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)
      from job_assignees ja join profiles p on p.user_id = ja.user_id
      where ja.job_id = j.id) as assignees_json,
-  (select i.status from invoices i
-     where i.job_id = j.id and i.kind = 'visit'
-     order by case when i.status = 'paid' then 0 else 1 end, i.created_at desc
-     limit 1) as payment_status
+  pay.status as payment_status,
+  pay.paid_at::text as payment_paid_at,
+  pay.method as payment_method,
+  pay.paid_note as payment_note
 `;
 
 export const JOB_FROM = `
   jobs j
   join clients c on c.id = j.client_id
   left join profiles assignee on assignee.user_id = j.assigned_to_user_id
+  left join lateral (
+    select i.status, i.paid_at, i.method, i.paid_note
+    from invoices i
+    where i.job_id = j.id and i.kind = 'visit'
+    order by case when i.status = 'paid' then 0 else 1 end, i.created_at desc
+    limit 1
+  ) pay on true
 `;
 
 function asBool(v: unknown, fallback = false) {

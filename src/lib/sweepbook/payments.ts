@@ -38,11 +38,21 @@ function pickChargeCard(cards: CardRow[], cardId?: string): CardRow | undefined 
   return preferred ?? clientDefault ?? backup ?? cards[0];
 }
 
+/** Fill paid_at only when a paid row never recorded one. Does not change existing timestamps. */
+export async function backfillPaidAt(sql: Awaited<ReturnType<typeof getSql>>) {
+  await sql`
+    update invoices
+    set paid_at = created_at
+    where status = 'paid' and paid_at is null
+  `;
+}
+
 export const listInvoices = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
     await ensureDemoSeed(sql);
+    await backfillPaidAt(sql);
     const actor = await getActor(sql, context.userId);
     if (isOffice(actor)) {
       return sql.query<InvoiceWithClient>(

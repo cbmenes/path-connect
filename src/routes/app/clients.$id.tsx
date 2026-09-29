@@ -17,6 +17,7 @@ import { CardManager, CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { InvoiceStatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -287,6 +288,13 @@ function ClientProfile() {
               <div>
                 <p className="text-sm">{i.description}</p>
                 <p className="tabular text-xs text-muted">{money(i.amount_cents)}</p>
+                <VisitChargeLine
+                  jobStart={i.job_start_at}
+                  status={i.status}
+                  paidAt={i.paid_at}
+                  method={i.method}
+                  note={i.paid_note}
+                />
               </div>
               <InvoiceStatusBadge status={i.status} />
             </div>

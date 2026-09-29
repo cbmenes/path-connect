@@ -41,6 +41,9 @@ export function redactJobMoney(job: JobWithClient): JobWithClient {
     tip_cents: 0,
     tip_requested: false,
     payment_status: null,
+    payment_paid_at: null,
+    payment_method: null,
+    payment_note: null,
   };
 }
 

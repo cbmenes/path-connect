@@ -7,7 +7,6 @@ import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import {
   chicagoDayKey,
   endOfChicagoMonth,
-  formatDate,
   money,
   startOfChicagoMonth,
   startOfChicagoYear,
@@ -15,7 +14,7 @@ import {
 import type { InvoiceWithClient } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { InvoiceStatusBadge } from "@/components/app/status-badge";
-import { paidMethodLabel, ReceiptBody } from "@/components/app/receipt";
+import { ReceiptBody, VisitChargeLine } from "@/components/app/receipt";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -46,6 +45,14 @@ function filterDate(row: InvoiceWithClient) {
 
 function cents(n: number | string | null | undefined) {
   return Number(n || 0);
+}
+
+function tipCentsFor(row: InvoiceWithClient, rows: InvoiceWithClient[]) {
+  if (row.kind === "tip") return cents(row.amount_cents);
+  if (!row.job_id) return 0;
+  return rows
+    .filter((r) => r.kind === "tip" && r.job_id === row.job_id && r.status === "paid")
+    .reduce((n, r) => n + cents(r.amount_cents), 0);
 }
 
 function useDateRange() {
@@ -186,6 +193,7 @@ function PaymentsPage() {
         empty="No unpaid invoices in this range."
         rows={unpaid}
         range={unpaidRange}
+        tipFor={(row) => tipCentsFor(row, rows)}
         onReceipt={setReceiptId}
         onMark={
           canCharge
@@ -202,6 +210,7 @@ function PaymentsPage() {
         empty="No paid visits in this range."
         rows={paid}
         range={paidRange}
+        tipFor={(row) => tipCentsFor(row, rows)}
         onReceipt={setReceiptId}
       />
       <section className="grid gap-2">
@@ -217,10 +226,14 @@ function PaymentsPage() {
             <Card key={i.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
               <div>
                 <p className="font-medium">{i.client_name}</p>
-                <p className="text-xs text-muted">
-                  Job {i.job_start_at ? formatDate(i.job_start_at) : "—"} · Paid{" "}
-                  {i.paid_at ? formatDate(i.paid_at) : "—"}
-                </p>
+                <VisitChargeLine
+                  jobStart={i.job_start_at}
+                  status={i.status}
+                  paidAt={i.paid_at}
+                  method={i.method}
+                  note={i.paid_note}
+                  tipCents={cents(i.amount_cents)}
+                />
               </div>
               <div className="flex items-center gap-3">
                 <p className="tabular font-medium">{money(cents(i.amount_cents))}</p>
@@ -296,6 +309,9 @@ function PaymentsPage() {
               paidAt={receipt.paid_at}
               client={receipt.client_name}
               note={receipt.paid_note}
+              jobStart={receipt.job_start_at}
+              status={receipt.status}
+              tipCents={tipCentsFor(receipt, rows)}
             />
           </DialogContent>
         ) : null}
@@ -310,6 +326,7 @@ function PaymentSection({
   empty,
   rows,
   range,
+  tipFor,
   onReceipt,
   onMark,
 }: {
@@ -318,6 +335,7 @@ function PaymentSection({
   empty: string;
   rows: InvoiceWithClient[];
   range: ReturnType<typeof useDateRange>;
+  tipFor: (row: InvoiceWithClient) => number;
   onReceipt: (id: string) => void;
   onMark?: (row: InvoiceWithClient) => void;
 }) {
@@ -335,11 +353,15 @@ function PaymentSection({
           <Card key={i.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <p className="font-medium">{i.client_name}</p>
-              <p className="text-xs text-muted">
-                {i.description} · {formatDate(i.job_start_at || i.created_at)}
-                {i.status === "paid" ? ` · ${paidMethodLabel(i.method)}` : ""}
-                {i.status === "paid" && i.method !== "card" && i.paid_note ? ` · ${i.paid_note}` : ""}
-              </p>
+              <p className="text-xs text-muted">{i.description}</p>
+              <VisitChargeLine
+                jobStart={i.job_start_at}
+                status={i.status}
+                paidAt={i.paid_at}
+                method={i.method}
+                note={i.paid_note}
+                tipCents={i.status === "paid" ? tipFor(i) : 0}
+              />
             </div>
             <div className="flex items-center gap-3">
               <div className="text-right">

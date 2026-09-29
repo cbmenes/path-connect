@@ -17,6 +17,7 @@ import {
   writeCalView,
   type CalView,
 } from "@/components/app/calendar-board";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { TilePayBadge, VisitStatusBadge } from "@/components/app/status-badge";
 import { ClientJobStatus } from "@/components/app/job-progress";
 import { PageHeader } from "@/components/app/empty-state";
@@ -120,6 +121,16 @@ function VisitsPage() {
                       <p className="text-sm text-muted">
                         {formatHours(j.duration_min)} · {money(j.price_cents)}
                       </p>
+                      {j.payment_status ? (
+                        <VisitChargeLine
+                          jobStart={j.start_at}
+                          status={j.payment_status}
+                          paidAt={j.payment_paid_at}
+                          method={j.payment_method}
+                          note={j.payment_note}
+                          tipCents={j.tip_cents}
+                        />
+                      ) : null}
                       <p className="text-xs text-muted">{j.address}</p>
                       <ClientJobStatus job={j} />
                     </div>
@@ -147,6 +158,16 @@ function VisitsPage() {
               <div>
                 <p className="text-sm font-medium">{formatDateTime(j.start_at)}</p>
                 <p className="text-xs text-muted">{money(j.price_cents)}</p>
+                {j.payment_status ? (
+                  <VisitChargeLine
+                    jobStart={j.start_at}
+                    status={j.payment_status}
+                    paidAt={j.payment_paid_at}
+                    method={j.payment_method}
+                    note={j.payment_note}
+                    tipCents={j.tip_cents}
+                  />
+                ) : null}
               </div>
               <VisitStatusBadge job={j} />
             </Card>
@@ -161,6 +182,16 @@ function VisitsPage() {
             <p className="text-sm text-muted">{selected.address}</p>
             <div className="mt-2 grid gap-2">
               <TilePayBadge job={selected} />
+              {selected.payment_status ? (
+                <VisitChargeLine
+                  jobStart={selected.start_at}
+                  status={selected.payment_status}
+                  paidAt={selected.payment_paid_at}
+                  method={selected.payment_method}
+                  note={selected.payment_note}
+                  tipCents={selected.tip_cents}
+                />
+              ) : null}
               <ClientJobStatus job={selected} />
             </div>
             {selected.status === "scheduled" && hoursUntil(selected.start_at) > 0 ? (
@@ -176,8 +207,11 @@ function VisitsPage() {
 
       <Dialog open={Boolean(activeId)} onOpenChange={(o) => !o && setActiveId(null)}>
         <DialogContent title="Are you sure you want to cancel this appointment?">
-          {jobMeta.data?.cancellationPolicy && hoursUntil(jobMeta.data.job.start_at) < 24 ? (
-            <p className="mb-3 rounded-md bg-warn/15 p-3 text-sm text-warn">{jobMeta.data.cancellationPolicy}</p>
+          {jobMeta.data?.cancellationPolicy?.trim() ? (
+            <div className="mb-3">
+              <p className="text-sm font-medium text-ink">Cancellation policy</p>
+              <p className="mt-1 whitespace-pre-wrap text-sm text-ink">{jobMeta.data.cancellationPolicy.trim()}</p>
+            </div>
           ) : null}
           <p className="mb-3 text-sm text-muted">Your cleaner will be notified. You can ask them to book a new time.</p>
           <Field label="Note for your cleaner">
