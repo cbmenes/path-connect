@@ -50,7 +50,7 @@ function Home() {
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-4">
           {[
             { k: "Invite-only", v: "No public cleaner search. You send the link." },
-            { k: "Oklahoma-ready", v: "Built around real weekly routes, not gig matching." },
+            { k: "Owner-ready", v: "Built around real weekly routes, not gig matching." },
             { k: "Cards, not chase", v: "Charge a saved card. Mark Venmo or cash as paid." },
             { k: "Works everywhere", v: "Phone, iPad, laptop — same website, same logins." },
           ].map((item) => (
