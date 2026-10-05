@@ -31,21 +31,22 @@ function MessagesPage() {
       ) : threads.length === 0 ? (
         <EmptyState
           title="No threads yet"
-          body={isClient ? "Send a note to your cleaner." : "Start a conversation from New message."}
+          body={isClient ? "Your cleaner is listed here. Open a name to start a thread." : "Pick someone from New message, or open a name below."}
         />
       ) : (
         <div className="grid gap-2">
           {threads.map((t) => (
             <Link
-              key={t.client_id}
+              key={t.thread_id}
               to="/app/messages/$clientId"
-              params={{ clientId: t.client_id }}
+              params={{ clientId: t.thread_id }}
               className="rounded-xl bg-paper px-4 py-3 shadow-soft"
             >
               <div className="flex items-center justify-between">
-                <p className="font-medium">{t.client_name}</p>
+                <p className="font-medium">{t.title}</p>
                 {t.unread ? <span className="rounded-full bg-navy px-2 text-xs text-paper">{t.unread}</span> : null}
               </div>
+              {t.subtitle ? <p className="text-xs text-muted">{t.subtitle}</p> : null}
               <p className="truncate text-sm text-muted">{t.last_body}</p>
               <p className="text-xs text-muted">{t.last_at ? formatDateTime(t.last_at) : ""}</p>
             </Link>

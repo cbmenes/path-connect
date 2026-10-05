@@ -25,6 +25,11 @@ export function hydrateJob(row: JobWithClient & { assignees_json?: unknown }): J
     assignees,
     assignee_name,
     payment_status: rest.payment_status ?? null,
+    progress_status: rest.progress_status ?? null,
+    on_the_way_at: rest.on_the_way_at ?? null,
+    started_at: rest.started_at ?? null,
+    finished_at: rest.finished_at ?? null,
+    checklist_template_id: rest.checklist_template_id ?? null,
   };
 }
 
@@ -36,6 +41,9 @@ export function redactJobMoney(job: JobWithClient): JobWithClient {
     tip_cents: 0,
     tip_requested: false,
     payment_status: null,
+    payment_paid_at: null,
+    payment_method: null,
+    payment_note: null,
   };
 }
 

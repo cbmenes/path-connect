@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCleaner, getActor } from "./access";
+import { assertOffice, getActor, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { nid } from "./time";
 
@@ -11,16 +11,17 @@ export const createInvite = createServerFn({ method: "POST" })
   .handler(async ({ context, data: clientId }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
     const rows = await sql<{ id: string; email: string | null; name: string }>`
-      select id, email, name from clients where id = ${clientId} and cleaner_user_id = ${context.userId} limit 1
+      select id, email, name from clients where id = ${clientId} and cleaner_user_id = ${ownerId} limit 1
     `;
     const client = rows[0];
     if (!client) throw new Error("Client not found.");
     const token = nid("invite").replace(/-/g, "").slice(0, 22);
     await sql`
       insert into invites (id, token, cleaner_user_id, client_id, email)
-      values (${nid("invt")}, ${token}, ${context.userId}, ${clientId}, ${client.email})
+      values (${nid("invt")}, ${token}, ${ownerId}, ${clientId}, ${client.email})
     `;
     return { token, path: `/invite/${token}`, email: client.email, name: client.name };
   });
@@ -74,8 +75,8 @@ export const acceptInvite = createServerFn({ method: "POST" })
         values (${context.userId}, ${"client"}, ${u?.name || "Client"})
         on conflict (user_id) do nothing
       `;
-    } else if (actor.kind === "cleaner") {
-      throw new Error("You're signed in as a cleaner. Sign out to join as a client.");
+    } else if (actor.kind === "cleaner" || actor.kind === "admin" || actor.kind === "team") {
+      throw new Error("You're signed in as office or team staff. Sign out to join as a client.");
     }
     await sql`
       update clients set linked_user_id = ${context.userId}

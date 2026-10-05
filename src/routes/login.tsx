@@ -3,6 +3,8 @@ import { useEffect, useState } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { bootstrapDemo } from "@/lib/sweepbook/bootstrap";
 import {
+  DEMO_ADMIN_EMAIL,
+  DEMO_ADMIN_PASSWORD,
   DEMO_CLEANER_EMAIL,
   DEMO_CLEANER_PASSWORD,
   DEMO_CLIENT_EMAIL,
@@ -10,16 +12,16 @@ import {
   DEMO_TEAM_EMAIL,
   DEMO_TEAM_PASSWORD,
 } from "@/lib/sweepbook/types";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 
-type Search = { demo?: "cleaner" | "client" | "team" };
+type Search = { demo?: "cleaner" | "client" | "team" | "admin" };
 
 export const Route = createFileRoute("/login")({
   validateSearch: (s: Record<string, unknown>): Search => ({
-    demo: s.demo === "client" || s.demo === "cleaner" || s.demo === "team" ? s.demo : undefined,
+    demo: s.demo === "client" || s.demo === "cleaner" || s.demo === "team" || s.demo === "admin" ? s.demo : undefined,
   }),
   component: Login,
 });
@@ -44,16 +46,26 @@ function Login() {
   const { demo } = Route.useSearch();
   const navigate = useNavigate();
   const [email, setEmail] = useState(
-    demo === "client" ? DEMO_CLIENT_EMAIL : demo === "team" ? DEMO_TEAM_EMAIL : demo === "cleaner" ? DEMO_CLEANER_EMAIL : "",
+    demo === "client"
+      ? DEMO_CLIENT_EMAIL
+      : demo === "team"
+        ? DEMO_TEAM_EMAIL
+        : demo === "admin"
+          ? DEMO_ADMIN_EMAIL
+          : demo === "cleaner"
+            ? DEMO_CLEANER_EMAIL
+            : "",
   );
   const [password, setPassword] = useState(
     demo === "client"
       ? DEMO_CLIENT_PASSWORD
       : demo === "team"
         ? DEMO_TEAM_PASSWORD
-        : demo === "cleaner"
-          ? DEMO_CLEANER_PASSWORD
-          : "",
+        : demo === "admin"
+          ? DEMO_ADMIN_PASSWORD
+          : demo === "cleaner"
+            ? DEMO_CLEANER_PASSWORD
+            : "",
   );
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -76,13 +88,14 @@ function Login() {
     }
   }
 
-  async function useDemo(kind: "cleaner" | "client" | "team") {
+  async function useDemo(kind: "cleaner" | "client" | "team" | "admin") {
     setBusy(true);
     setError(null);
     try {
       await bootstrapDemo();
       if (kind === "cleaner") await emailSignIn(DEMO_CLEANER_EMAIL, DEMO_CLEANER_PASSWORD);
       else if (kind === "team") await emailSignIn(DEMO_TEAM_EMAIL, DEMO_TEAM_PASSWORD);
+      else if (kind === "admin") await emailSignIn(DEMO_ADMIN_EMAIL, DEMO_ADMIN_PASSWORD);
       else await emailSignIn(DEMO_CLIENT_EMAIL, DEMO_CLIENT_PASSWORD);
       await navigate({ to: "/app" });
     } catch (err) {
@@ -96,7 +109,7 @@ function Login() {
     <SiteChrome>
       <div className="mx-auto grid max-w-md gap-6 px-4 py-12">
         <div className="text-center">
-          <Wordmark className="justify-center" />
+          <CrewWeekLogo className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Welcome back</h1>
           <p className="mt-1 text-sm text-muted">Cleaners and clients use the same website.</p>
         </div>
@@ -113,6 +126,11 @@ function Login() {
               autoComplete="current-password"
             />
           </Field>
+          <p className="text-right text-sm">
+            <Link to="/forgot-password" className="text-navy underline-offset-4 hover:underline">
+              Forgot password?
+            </Link>
+          </p>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <Button type="submit" disabled={busy}>
             {busy ? "Signing in…" : "Log in"}
@@ -122,6 +140,9 @@ function Login() {
           <Button variant="outline" disabled={busy} onClick={() => void useDemo("cleaner")}>
             Open cleaner demo
           </Button>
+          <Button variant="outline" disabled={busy} onClick={() => void useDemo("admin")}>
+            Open admin demo
+          </Button>
           <Button variant="outline" disabled={busy} onClick={() => void useDemo("team")}>
             Open team demo
           </Button>
@@ -129,8 +150,8 @@ function Login() {
             Open client demo
           </Button>
           <p className="text-center text-xs text-muted">
-            Owner {DEMO_CLEANER_EMAIL} / {DEMO_CLEANER_PASSWORD} · Team {DEMO_TEAM_EMAIL} / {DEMO_TEAM_PASSWORD} · Client{" "}
-            {DEMO_CLIENT_EMAIL} / {DEMO_CLIENT_PASSWORD}
+            Owner {DEMO_CLEANER_EMAIL} / {DEMO_CLEANER_PASSWORD} · Admin {DEMO_ADMIN_EMAIL} / {DEMO_ADMIN_PASSWORD} · Team{" "}
+            {DEMO_TEAM_EMAIL} / {DEMO_TEAM_PASSWORD} · Client {DEMO_CLIENT_EMAIL} / {DEMO_CLIENT_PASSWORD}
           </p>
         </div>
         {authEnabled ? (

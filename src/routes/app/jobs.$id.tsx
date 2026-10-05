@@ -2,15 +2,25 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { assignJob, getJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
+import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
-import { chargeCard, listCardsForClient, requestTip } from "@/lib/sweepbook/payments";
+import { chargeCard, listCardsForClient, markAsPaid, requestTip } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
+import { useTimeOffHints } from "@/components/app/use-time-off-hints";
+import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
+import { JobChecklist } from "@/components/app/job-checklist";
+import { ClientJobStatus, JobProgress } from "@/components/app/job-progress";
+import { ReminderTestButton } from "@/components/app/reminder-test-button";
+import { OverlapDetails } from "@/components/app/overlap-mark";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { VisitStatusBadge } from "@/components/app/status-badge";
+import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -26,13 +36,23 @@ function JobDetail() {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
+  const [markOpen, setMarkOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [assignScope, setAssignScope] = useState<"visit" | "client_recurring">("visit");
-  const isCleaner = actor.data?.kind === "cleaner";
+  const [cancelOpen, setCancelOpen] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
+  const assignGate = useAssignConflictGate();
+  const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
+  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
   const isTeam = actor.data?.kind === "team";
-  const canMessage = actor.data?.kind === "cleaner" || (actor.data?.kind === "team" && actor.data.canMessage);
-  const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: isCleaner });
+  const canMessage =
+    actor.data?.kind === "cleaner" ||
+    actor.data?.kind === "admin" ||
+    (actor.data?.kind === "team" && actor.data.canMessage);
+  const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: isOffice });
+  const offHints = useTimeOffHints(jobQ.data?.job.start_at, jobQ.data?.job.duration_min);
 
   if (jobQ.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
   if (jobQ.error) return <p className="text-danger">{(jobQ.error as Error).message}</p>;
@@ -46,10 +66,22 @@ function JobDetail() {
         <h1 className="font-display text-3xl text-navy">{job.client_name}</h1>
         <p className="mt-1 text-muted">{formatDateTime(job.start_at)} · {formatHours(job.duration_min)}</p>
         <div className="mt-2"><VisitStatusBadge job={job} hideMoney={isTeam} /></div>
+        {actor.data?.kind === "client" ? <div className="mt-2"><ClientJobStatus job={job} /></div> : null}
       </div>
+      <OverlapDetails notes={jobQ.data.overlaps ?? []} />
       <Card className="grid gap-2">
         <p className="text-sm text-muted">{job.address}</p>
         {isTeam ? null : <p className="tabular text-lg text-navy">{money(job.price_cents)}</p>}
+        {!isTeam && job.payment_status ? (
+          <VisitChargeLine
+            jobStart={job.start_at}
+            status={job.payment_status}
+            paidAt={job.payment_paid_at}
+            method={job.payment_method}
+            note={job.payment_note}
+            tipCents={job.tip_cents}
+          />
+        ) : null}
         {job.notes ? <p className="text-sm">{job.notes}</p> : null}
         {job.recurrence !== "none" ? <p className="text-xs text-muted">Repeats {job.recurrence}</p> : null}
         {job.assignees?.length ? (
@@ -58,13 +90,38 @@ function JobDetail() {
           <p className="text-xs text-muted">Assigned to {job.assignee_name}</p>
         ) : null}
       </Card>
-      {isCleaner ? (
+      {isOffice || isTeam ? (
+        <JobProgress
+          job={job}
+          isOffice={Boolean(isOffice)}
+          isAssignedTeam={
+            Boolean(isTeam) &&
+            Boolean(actor.data?.userId) &&
+            (job.assignees ?? []).some((a) => a.user_id === actor.data?.userId)
+          }
+          onChanged={async () => {
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
+            await qc.invalidateQueries({ queryKey: ["dashboard"] });
+          }}
+        />
+      ) : null}
+      {isOffice || isTeam ? (
+        <JobChecklist
+          jobId={job.id}
+          onChanged={async () => {
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+          }}
+        />
+      ) : null}
+      {isOffice ? (
         <Card className="grid gap-3">
           <h2 className="font-display text-lg text-navy">Assigned cleaners</h2>
           <AssigneePicker
             staff={staff.data ?? []}
             selected={assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id)}
             onChange={setAssigneeIds}
+            hints={offHints}
           />
           <Field label="Apply assignment">
             <NativeSelect
@@ -77,15 +134,21 @@ function JobDetail() {
           </Field>
           <Button
             variant="outline"
-            onClick={async () => {
+            disabled={assignGate.busy}
+            onClick={() => {
               const ids = assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id);
-              await assignJob({ data: { id: job.id, assignedToUserIds: ids, scope: assignScope } });
-              toast.success(assignScope === "visit" ? "This visit updated." : "Recurring jobs updated.");
-              await qc.invalidateQueries({ queryKey: ["job", id] });
-              await qc.invalidateQueries({ queryKey: ["jobs"] });
+              void assignGate.requestAssign({
+                jobId: job.id,
+                assignedToUserIds: ids,
+                scope: assignScope,
+                onSaved: async () => {
+                  await qc.invalidateQueries({ queryKey: ["job", id] });
+                  await qc.invalidateQueries({ queryKey: ["jobs"] });
+                },
+              });
             }}
           >
-            Save assignees
+            {assignGate.busy ? "Checking…" : "Save assignees"}
           </Button>
         </Card>
       ) : null}
@@ -93,37 +156,27 @@ function JobDetail() {
         <p className="rounded-xl bg-warn/15 p-4 text-sm text-warn">{cancellationPolicy}</p>
       ) : null}
 
-      {isCleaner || isTeam ? (
+      {isOffice || isTeam ? (
         <div className="flex flex-wrap gap-2">
-          {isCleaner ? (
+          {isOffice ? (
             <Button variant="outline" onClick={() => setEditing((v) => !v)}>{editing ? "Close editor" : "Edit"}</Button>
           ) : null}
-          {job.status !== "cancelled" && isCleaner ? (
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
-                toast.message("Visit cancelled.");
-                await qc.invalidateQueries({ queryKey: ["job", id] });
-                await qc.invalidateQueries({ queryKey: ["jobs"] });
-              }}
-            >
-              Cancel visit
+          {job.status !== "cancelled" && isOffice ? (
+            <Button variant="ghost" onClick={() => setCancelOpen(true)}>
+              Cancel appointment
             </Button>
           ) : null}
-          {job.series_id && isCleaner ? (
-            <Button
-              variant="ghost"
-              onClick={async () => {
-                await setJobStatus({ data: { id, status: "cancelled", series: true, reason: "Series cancelled" } });
-                toast.message("This and future visits in the series were cancelled.");
-                await navigate({ to: "/app/calendar" });
-              }}
-            >
-              Cancel series
+          {isOffice ? (
+            <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
+              Remove appointment
             </Button>
           ) : null}
-          {isCleaner ? (
+          {job.series_id && isOffice ? (
+            <Button variant="outline" onClick={() => setManageOpen(true)}>
+              Manage recurring
+            </Button>
+          ) : null}
+          {canCharge ? (
           <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
             <DialogTrigger asChild>
               <Button>Charge card</Button>
@@ -155,7 +208,12 @@ function JobDetail() {
             />
           </Dialog>
           ) : null}
-          {isCleaner && (job.payment_status === "paid" || job.status === "completed") ? (
+          {canCharge && job.payment_status !== "paid" && job.status !== "cancelled" ? (
+            <Button variant="outline" onClick={() => setMarkOpen(true)}>
+              Mark as Paid
+            </Button>
+          ) : null}
+          {canCharge && (job.payment_status === "paid" || job.status === "completed") ? (
             <Button
               variant="outline"
               onClick={async () => {
@@ -168,18 +226,31 @@ function JobDetail() {
           ) : null}
           {canMessage ? (
           <Button variant="ghost" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: job.client_id }}>Message client</Link>
+            <Link
+              to="/app/messages/$clientId"
+              params={{
+                clientId: appointmentMessageThread({
+                  role: isTeam ? "team" : actor.data?.kind === "admin" ? "admin" : "cleaner",
+                  teamUserId: actor.data?.userId,
+                  adminUserId: actor.data?.kind === "admin" ? actor.data.userId : undefined,
+                  clientId: job.client_id,
+                }),
+              }}
+            >
+              Message client
+            </Link>
           </Button>
           ) : null}
-          {isCleaner ? (
+          {isOffice ? (
           <Button variant="ghost" asChild>
             <Link to="/app/clients/$id" params={{ id: job.client_id }}>Client profile</Link>
           </Button>
           ) : null}
+          {isOffice ? <ReminderTestButton jobId={job.id} variant="ghost" /> : null}
         </div>
       ) : null}
 
-      {editing && isCleaner ? (
+      {editing && isOffice ? (
         <JobForm
           showAssign
           initial={{
@@ -187,6 +258,11 @@ function JobDetail() {
             clientId: job.client_id,
             service: job.service,
             address: job.address ?? "",
+            address_line1: job.address_line1 ?? undefined,
+            address_line2: job.address_line2 ?? undefined,
+            city: job.city ?? undefined,
+            state: job.state ?? undefined,
+            zip: job.zip ?? undefined,
             startLocal: toDatetimeLocalValue(job.start_at),
             durationMin: job.duration_min,
             priceCents: job.price_cents,
@@ -196,13 +272,81 @@ function JobDetail() {
           }}
           submitLabel="Save visit"
           onSubmit={async (input) => {
-            const res = await updateJob({ data: { ...input, id: job.id } });
-            toast.success(res.conflictCount ? "Saved with an overlap warning." : "Visit updated.");
+            await updateJob({ data: { ...input, id: job.id } });
+            toast.success("Visit updated.");
             setEditing(false);
             await qc.invalidateQueries({ queryKey: ["job", id] });
           }}
         />
       ) : null}
+      <CancelAppointmentDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        busy={busy}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
+            toast.message("Visit cancelled.");
+            setCancelOpen(false);
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      <RemoveAppointmentDialog
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        busy={busy}
+        onConfirm={async () => {
+          setBusy(true);
+          try {
+            await removeJob({ data: { id } });
+            toast.message("Appointment removed.");
+            setRemoveOpen(false);
+            await navigate({ to: "/app/calendar" });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not remove.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      <ManageRecurringDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        clientId={job.client_id}
+        seriesId={job.series_id}
+        onChanged={async () => {
+          await qc.invalidateQueries({ queryKey: ["job", id] });
+          await qc.invalidateQueries({ queryKey: ["jobs"] });
+          await qc.invalidateQueries({ queryKey: ["client", job.client_id] });
+        }}
+      />
+      <MarkPaidDialog
+        open={markOpen}
+        onOpenChange={setMarkOpen}
+        busy={busy}
+        onConfirm={async (note) => {
+          setBusy(true);
+          try {
+            const res = await markAsPaid({ data: { jobId: job.id, note } });
+            toast.success(`Marked as paid. Receipt ${res.receiptNumber}`);
+            setMarkOpen(false);
+            await qc.invalidateQueries({ queryKey: ["invoices"] });
+            await qc.invalidateQueries({ queryKey: ["job", id] });
+            await qc.invalidateQueries({ queryKey: ["jobs"] });
+            await qc.invalidateQueries({ queryKey: ["dashboard"] });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not mark paid.");
+          } finally {
+            setBusy(false);
+          }
+        }}
+      />
+      {assignGate.dialog}
     </div>
   );
 }

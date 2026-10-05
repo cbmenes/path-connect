@@ -1,10 +1,17 @@
 import { useEffect, useState } from "react";
+import { toast } from "sonner";
 import { listClients } from "@/lib/sweepbook/clients";
-import { checkJobConflicts, type JobInput } from "@/lib/sweepbook/jobs";
+import { checkJobConflicts, type ConflictHit, type JobInput } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
-import { hoursToMinutes, minutesToHours, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
+import { listTimeOff } from "@/lib/sweepbook/time-off";
+import type { TimeOffHit } from "@/lib/sweepbook/time-off";
+import { timeOffHintForJob } from "@/lib/sweepbook/time-off-overlap";
+import { addressPartsFrom } from "@/lib/sweepbook/people";
+import { fromDatetimeLocalValue, hoursToMinutes, minutesToHours, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import type { ClientRow, Recurrence } from "@/lib/sweepbook/types";
-import { AssigneePicker } from "./assignee-picker";
+import { AddressFields } from "./address-fields";
+import { AssigneePicker, type AssigneeHint } from "./assignee-picker";
+import { conflictLine, ConflictWarningDialog, timeOffLine } from "./conflict-warning";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
@@ -14,18 +21,20 @@ export function JobForm({
   submitting,
   submitLabel,
   showAssign,
+  lockClient,
 }: {
   initial?: Partial<JobInput> & { id?: string };
   onSubmit: (input: JobInput) => void;
   submitting?: boolean;
   submitLabel: string;
   showAssign?: boolean;
+  lockClient?: boolean;
 }) {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [staff, setStaff] = useState<{ user_id: string; full_name: string }[]>([]);
   const [clientId, setClientId] = useState(initial?.clientId ?? "");
   const [service, setService] = useState(initial?.service ?? "House cleaning");
-  const [address, setAddress] = useState(initial?.address ?? "");
+  const [address, setAddress] = useState(addressPartsFrom(initial));
   const [startLocal, setStartLocal] = useState(initial?.startLocal ?? toDatetimeLocalValue(new Date()));
   const [durationHours, setDurationHours] = useState(
     String(minutesToHours(initial?.durationMin ?? 120) || 2),
@@ -36,7 +45,11 @@ export function JobForm({
   const [assignedToUserIds, setAssignedToUserIds] = useState<string[]>(
     initial?.assignedToUserIds ?? (initial?.assignedToUserId ? [initial.assignedToUserId] : []),
   );
-  const [conflicts, setConflicts] = useState(0);
+  const [conflicts, setConflicts] = useState<ConflictHit[]>([]);
+  const [timeOff, setTimeOff] = useState<TimeOffHit[]>([]);
+  const [offRows, setOffRows] = useState<Awaited<ReturnType<typeof listTimeOff>>>([]);
+  const [pendingInput, setPendingInput] = useState<JobInput | null>(null);
+  const [checking, setChecking] = useState(false);
 
   useEffect(() => {
     void listClients().then(setClients).catch(() => setClients([]));
@@ -44,8 +57,24 @@ export function JobForm({
       void listAssignableStaff()
         .then(setStaff)
         .catch(() => setStaff([]));
+      void listTimeOff({ data: { upcomingOnly: false } })
+        .then(setOffRows)
+        .catch(() => setOffRows([]));
     }
   }, [showAssign]);
+
+  useEffect(() => {
+    if (initial?.id) return;
+    if (!initial?.clientId || !clients.length) return;
+    const c = clients.find((x) => x.id === initial.clientId);
+    if (!c) return;
+    setAddress((prev) => (prev.address_line1 || prev.city ? prev : addressPartsFrom(c)));
+    if (c.default_duration_min) setDurationHours(String(minutesToHours(c.default_duration_min)));
+    if (c.default_price_cents) setPriceCents(c.default_price_cents);
+    if (c.assigned_user_ids?.length) {
+      setAssignedToUserIds((prev) => (prev.length ? prev : c.assigned_user_ids ?? prev));
+    }
+  }, [clients, initial?.clientId, initial?.id]);
 
   useEffect(() => {
     if (!clientId || assignedToUserIds.length) return;
@@ -58,45 +87,97 @@ export function JobForm({
   useEffect(() => {
     const t = setTimeout(() => {
       void checkJobConflicts({
-        data: { startLocal, durationMin, ignoreId: initial?.id, assignedToUserIds },
+        data: {
+          startLocal,
+          durationMin,
+          ignoreId: initial?.id,
+          assignedToUserIds,
+          recurrence,
+        },
       })
-        .then((r) => setConflicts(r.conflicts.length))
-        .catch(() => setConflicts(0));
+        .then((r) => {
+          setConflicts(r.conflicts);
+          setTimeOff(r.timeOff ?? []);
+        })
+        .catch(() => {
+          setConflicts([]);
+          setTimeOff([]);
+        });
     }, 250);
     return () => clearTimeout(t);
-  }, [startLocal, durationMin, initial?.id, assignedToUserIds]);
+  }, [startLocal, durationMin, initial?.id, assignedToUserIds, recurrence]);
 
   function onClient(id: string) {
     setClientId(id);
     const c = clients.find((x) => x.id === id);
     if (c) {
-      if (c.address) setAddress(c.address);
+      setAddress(addressPartsFrom(c));
       if (c.default_duration_min) setDurationHours(String(minutesToHours(c.default_duration_min)));
       if (c.default_price_cents) setPriceCents(c.default_price_cents);
       if (c.assigned_user_ids) setAssignedToUserIds(c.assigned_user_ids);
     }
   }
 
+  function buildInput(): JobInput {
+    return {
+      clientId,
+      service,
+      address: undefined,
+      ...address,
+      startLocal,
+      durationMin,
+      priceCents: Number(priceCents),
+      notes,
+      recurrence,
+      assignedToUserIds,
+    };
+  }
+
+  async function submitNow(input: JobInput) {
+    onSubmit(input);
+    setPendingInput(null);
+  }
+
   return (
+    <>
     <form
       className="grid gap-3"
-      onSubmit={(e) => {
+      onSubmit={async (e) => {
         e.preventDefault();
-        onSubmit({
-          clientId,
-          service,
-          address,
-          startLocal,
-          durationMin,
-          priceCents: Number(priceCents),
-          notes,
-          recurrence,
-          assignedToUserIds,
-        });
+        const input = buildInput();
+        setChecking(true);
+        try {
+          const res = await checkJobConflicts({
+            data: {
+              startLocal: input.startLocal,
+              durationMin: input.durationMin,
+              ignoreId: initial?.id,
+              assignedToUserIds: input.assignedToUserIds,
+              recurrence: input.recurrence,
+            },
+          });
+          const approvedOff = (res.timeOff ?? []).filter((h) => h.status === "approved");
+          if (res.conflicts.length || approvedOff.length) {
+            setConflicts(res.conflicts);
+            setTimeOff(res.timeOff ?? []);
+            setPendingInput(input);
+            return;
+          }
+          await submitNow(input);
+        } catch (err) {
+          toast.error(err instanceof Error ? err.message : "Could not check for overlaps.");
+        } finally {
+          setChecking(false);
+        }
       }}
     >
       <Field label="Client">
-        <NativeSelect value={clientId} onChange={(e) => onClient(e.target.value)} required>
+        <NativeSelect
+          value={clientId}
+          onChange={(e) => onClient(e.target.value)}
+          required
+          disabled={lockClient}
+        >
           <option value="">Select a client</option>
           {clients.map((c) => (
             <option key={c.id} value={c.id}>
@@ -108,9 +189,7 @@ export function JobForm({
       <Field label="Service">
         <Input value={service} onChange={(e) => setService(e.target.value)} />
       </Field>
-      <Field label="Address">
-        <Input value={address} onChange={(e) => setAddress(e.target.value)} />
-      </Field>
+      <AddressFields value={address} onChange={setAddress} />
       <Field label="Date and time">
         <Input type="datetime-local" value={startLocal} onChange={(e) => setStartLocal(e.target.value)} required />
       </Field>
@@ -146,21 +225,59 @@ export function JobForm({
       {showAssign ? (
         <div className="grid gap-1.5">
           <p className="text-sm font-medium text-ink">Assigned cleaners</p>
-          <p className="text-xs text-muted">New recurring visits inherit the client’s team unless you change them here.</p>
-          <AssigneePicker staff={staff} selected={assignedToUserIds} onChange={setAssignedToUserIds} />
+          <p className="text-xs text-muted">If this is a recurring cleaning, the cleaner(s) you choose below will be assigned to future recurring appointments on this schedule.</p>
+          <AssigneePicker
+            staff={staff}
+            selected={assignedToUserIds}
+            onChange={setAssignedToUserIds}
+            hints={assigneeHints(offRows, startLocal, durationMin)}
+          />
         </div>
       ) : null}
       <Field label="Notes">
         <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} />
       </Field>
-      {conflicts > 0 ? (
+      {conflicts.length ? (
         <p className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
-          This overlaps {conflicts} other visit{conflicts === 1 ? "" : "s"} on your book. You can still save it.
+          {conflictLine(conflicts[0])}
+          {conflicts.length > 1
+            ? ` And ${conflicts.length - 1} more overlap${conflicts.length === 2 ? "" : "s"}.`
+            : ""}
         </p>
       ) : null}
-      <Button type="submit" disabled={submitting}>
-        {submitting ? "Saving…" : submitLabel}
+      {timeOff.some((h) => h.status === "pending") && !timeOff.some((h) => h.status === "approved") ? (
+        <p className="text-sm text-muted">{timeOff.filter((h) => h.status === "pending").map(timeOffLine).join(" ")}</p>
+      ) : null}
+      <Button type="submit" disabled={submitting || checking}>
+        {checking ? "Checking…" : submitting ? "Saving…" : submitLabel}
       </Button>
     </form>
+    <ConflictWarningDialog
+      open={Boolean(pendingInput)}
+      conflicts={conflicts}
+      timeOff={timeOff}
+      busy={submitting}
+      onBack={() => setPendingInput(null)}
+      onSaveAnyway={async () => {
+        if (pendingInput) await submitNow(pendingInput);
+      }}
+      saveLabel="Save anyway"
+    />
+    </>
   );
+}
+
+function assigneeHints(
+  rows: Awaited<ReturnType<typeof listTimeOff>>,
+  startLocal: string,
+  durationMin: number,
+): Record<string, AssigneeHint> {
+  const start = fromDatetimeLocalValue(startLocal);
+  const hints: Record<string, AssigneeHint> = {};
+  const ids = new Set(rows.map((r) => r.user_id));
+  for (const id of ids) {
+    const hint = timeOffHintForJob(rows, id, start, durationMin);
+    if (hint) hints[id] = hint;
+  }
+  return hints;
 }

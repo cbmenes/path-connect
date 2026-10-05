@@ -3,9 +3,9 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { listInvoices } from "@/lib/sweepbook/payments";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
-import { formatDate, money } from "@/lib/sweepbook/time";
+import { money } from "@/lib/sweepbook/time";
 import { InvoiceStatusBadge } from "@/components/app/status-badge";
-import { ReceiptBody } from "@/components/app/receipt";
+import { ReceiptBody, VisitChargeLine } from "@/components/app/receipt";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -32,9 +32,21 @@ function ReceiptsPage() {
           <Card key={i.id} className="flex items-center justify-between gap-3">
             <div>
               <p className="font-medium">{i.description}</p>
-              <p className="text-xs text-muted">
-                {formatDate(i.created_at)} · {i.receipt_number || "No receipt yet"}
-              </p>
+              <VisitChargeLine
+                jobStart={i.job_start_at}
+                status={i.status}
+                paidAt={i.paid_at}
+                method={i.method}
+                note={i.paid_note}
+                tipCents={
+                  i.kind === "tip"
+                    ? i.amount_cents
+                    : rows
+                        .filter((r) => r.kind === "tip" && r.job_id && r.job_id === i.job_id && r.status === "paid")
+                        .reduce((n, r) => n + r.amount_cents, 0)
+                }
+              />
+              {i.receipt_number ? <p className="text-xs text-muted">Receipt {i.receipt_number}</p> : null}
             </div>
             <div className="flex items-center gap-2">
               <div className="text-right">
@@ -60,6 +72,16 @@ function ReceiptsPage() {
               method={current.method}
               paidAt={current.paid_at}
               client={current.client_name}
+              note={current.paid_note}
+              jobStart={current.job_start_at}
+              status={current.status}
+              tipCents={
+                current.kind === "tip"
+                  ? current.amount_cents
+                  : rows
+                      .filter((r) => r.kind === "tip" && r.job_id && r.job_id === current.job_id && r.status === "paid")
+                      .reduce((n, r) => n + r.amount_cents, 0)
+              }
             />
           </DialogContent>
         ) : null}

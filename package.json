@@ -1,5 +1,6 @@
 {
-  "name": "app-builder-workspace",
+  "name": "crewweek",
+  "description": "Calendar, clients, payments, and messages for cleaning business owners — without the chaos.",
   "private": true,
   "sideEffects": false,
   "type": "module",
@@ -8,8 +9,9 @@
   },
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
-    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate",
+    "build": "node scripts/with-app-env.mjs vite build && npm run db:migrate && npm run db:seed",
     "db:migrate": "node scripts/migrate.mjs",
+    "db:seed": "node scripts/seed-demo.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
     "preview": "node scripts/with-app-env.mjs vite preview",
     "preview:restart": "node scripts/preview.mjs restart",

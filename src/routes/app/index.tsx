@@ -5,12 +5,16 @@ import { toast } from "sonner";
 import { getDashboard, isCleanerDash, isClientDash, isTeamDash, type CleanerDashboard, type ClientDashboard, type TeamDashboard } from "@/lib/sweepbook/dashboard";
 import { payInvoiceAsClient, tipJob } from "@/lib/sweepbook/payments";
 import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
+import { APP_NAME } from "@/lib/brand";
 import { PageHeader } from "@/components/app/empty-state";
+import { VisitChargeLine } from "@/components/app/receipt";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
+import { ClientJobStatus, TileProgressBadge } from "@/components/app/job-progress";
 import { CardSelect } from "@/components/app/card-manager";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
+import { Field, Input } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/")({ component: AppHome });
 
@@ -46,42 +50,57 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
   return (
     <div className="grid gap-6">
       <PageHeader
-        eyebrow={actor.profile.business_name || "SweepBook"}
+        eyebrow={actor.profile.business_name || APP_NAME}
         title={`Good day, ${actor.profile.full_name.split(" ")[0]}.`}
         action={
-          <Button asChild>
-            <Link to="/app/jobs/new">New visit</Link>
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" asChild>
+              <Link to="/app/sheet">Day sheet</Link>
+            </Button>
+            <Button asChild>
+              <Link to="/app/jobs/new">New visit</Link>
+            </Button>
+          </div>
         }
       />
-      {failed.length ? (
+      {data.canCharge && failed.length ? (
         <div className="rounded-xl border border-danger/30 bg-danger/10 p-4 text-sm text-danger">
           {failed.length} failed payment{failed.length === 1 ? "" : "s"}. Ask the client to update their card.
         </div>
+      ) : null}
+      {data.pendingCleanRequests ? (
+        <Link
+          to="/app/requests"
+          className="rounded-xl border border-sage/40 bg-sage-soft p-4 text-sm text-navy"
+        >
+          {data.pendingCleanRequests} new booking request{data.pendingCleanRequests === 1 ? "" : "s"}. Review and accept or
+          decline.
+        </Link>
       ) : null}
       {data.pendingRequests ? (
         <Link
           to="/app/notifications"
           className="rounded-xl border border-sage/40 bg-sage-soft p-4 text-sm text-navy"
         >
-          {data.pendingRequests} cancel/reschedule request{data.pendingRequests === 1 ? "" : "s"} need a decision.
+          {data.pendingRequests} request{data.pendingRequests === 1 ? "" : "s"} need a decision.
         </Link>
       ) : null}
       <div className="grid gap-4 md:grid-cols-4">
-        <Stat label="Today" value={String(today.length)} hint="visits on the book" />
-        <Stat label="Unpaid" value={money(unpaid.reduce((n, i) => n + i.amount_cents, 0))} hint={`${unpaid.length} invoices`} />
-        <Stat label="Messages" value={String(data.unread ?? 0)} hint="unread" />
-        <Stat label="Requests" value={String(data.pendingRequests ?? 0)} hint="cancel / reschedule" />
+        <StatLink to="/app/calendar" label="Today" value={String(today.length)} hint="visits on the book" />
+        <StatLink to="/app/payments" label="Unpaid" value={money(unpaid.reduce((n, i) => n + i.amount_cents, 0))} hint={`${unpaid.length} invoices`} />
+        <StatLink to="/app/messages" label="Messages" value={String(data.unread ?? 0)} hint="unread" />
+        <StatLink to="/app/notifications" label="Notifications" value={String(data.unreadNotifications ?? 0)} hint="unread" />
       </div>
+      {data.showRevenue ? (
       <section>
         <h2 className="font-display text-xl text-navy">Revenue</h2>
-        <p className="mt-1 text-sm text-muted">Paid visits only — not unpaid invoices or your SweepBook subscription.</p>
-        <div className="mt-3 grid gap-4 md:grid-cols-3">
+        <p className="mt-1 text-sm text-muted">Paid visits only — not unpaid invoices or your {APP_NAME} subscription.</p>
+        <div className="mt-3 grid gap-4 md:grid-cols-2">
           <Stat label="This month" value={money(data.revenue.monthCents)} hint={data.revenue.monthLabel} />
           <Stat label="Year to date" value={money(data.revenue.ytdCents)} hint={`Jan 1 – now, ${data.revenue.year}`} />
-          <Stat label="Annual" value={money(data.revenue.annualCents)} hint={`Full calendar year ${data.revenue.year}`} />
         </div>
       </section>
+      ) : null}
       <section>
         <h2 className="font-display text-xl text-navy">Today</h2>
         <div className="mt-3 grid gap-2">
@@ -97,6 +116,9 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
                     {j.assignees?.length ? (
                       <p className="text-xs text-muted">{j.assignees.map((a) => a.full_name).join(", ")}</p>
                     ) : null}
+                    <div className="mt-1">
+                      <TileProgressBadge job={j} />
+                    </div>
                   </div>
                   <p className="tabular text-navy">{money(j.price_cents)}</p>
                 </Card>
@@ -131,6 +153,7 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
                 <div>
                   <p className="font-medium">{i.client_name}</p>
                   <p className="text-xs text-muted">{i.description}</p>
+                  <VisitChargeLine jobStart={i.job_start_at} status={i.status} paidAt={i.paid_at} method={i.method} note={i.paid_note} />
                 </div>
                 <div className="text-right">
                   <p className="tabular">{money(i.amount_cents)}</p>
@@ -147,11 +170,12 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
           </div>
           <div className="mt-3 grid gap-2">
             {threads.map((t) => (
-              <Link key={t.client_id} to="/app/messages/$clientId" params={{ clientId: t.client_id }} className="rounded-lg bg-paper px-3 py-3 shadow-soft">
+              <Link key={t.thread_id} to="/app/messages/$clientId" params={{ clientId: t.thread_id }} className="rounded-lg bg-paper px-3 py-3 shadow-soft">
                 <div className="flex items-center justify-between">
-                  <p className="text-sm font-medium">{t.client_name}</p>
+                  <p className="text-sm font-medium">{t.title}</p>
                   {t.unread ? <span className="rounded-full bg-navy px-2 text-xs text-paper">{t.unread}</span> : null}
                 </div>
+                {t.subtitle ? <p className="text-xs text-muted">{t.subtitle}</p> : null}
                 <p className="truncate text-xs text-muted">{t.last_body}</p>
               </Link>
             ))}
@@ -169,6 +193,11 @@ function TeamHome({ data }: { data: TeamDashboard }) {
       <PageHeader
         eyebrow="Team cleaner"
         title={`Hi, ${actor.profile.full_name.split(" ")[0]}.`}
+        action={
+          <Button variant="outline" asChild>
+            <Link to="/app/sheet">Day sheet</Link>
+          </Button>
+        }
       />
       <div className="grid gap-4 md:grid-cols-3">
         <Stat label="Today" value={String(data.today.length)} hint="assigned visits" />
@@ -190,6 +219,9 @@ function TeamHome({ data }: { data: TeamDashboard }) {
                       {formatDateTime(j.start_at)} · {formatHours(j.duration_min)}
                     </p>
                     <p className="text-xs text-muted">{j.address}</p>
+                    <div className="mt-1">
+                      <TileProgressBadge job={j} />
+                    </div>
                   </div>
                   <VisitStatusBadge job={j} hideMoney />
                 </Card>
@@ -216,6 +248,28 @@ function TeamHome({ data }: { data: TeamDashboard }) {
   );
 }
 
+function StatLink({
+  to,
+  label,
+  value,
+  hint,
+}: {
+  to: "/app/calendar" | "/app/payments" | "/app/messages" | "/app/notifications";
+  label: string;
+  value: string;
+  hint: string;
+}) {
+  return (
+    <Link to={to} className="block rounded-xl focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sage">
+      <Card className="h-full transition-colors hover:bg-secondary">
+        <p className="text-xs uppercase tracking-[0.14em] text-muted">{label}</p>
+        <p className="mt-1 font-display text-3xl tabular-nums text-navy">{value}</p>
+        <p className="text-xs text-muted">{hint}</p>
+      </Card>
+    </Link>
+  );
+}
+
 function Stat({ label, value, hint }: { label: string; value: string; hint: string }) {
   return (
     <Card>
@@ -236,6 +290,8 @@ function ClientHome({ data }: { data: ClientDashboard }) {
   const [busy, setBusy] = useState(false);
   const [payCardId, setPayCardId] = useState("");
   const [tipCardId, setTipCardId] = useState("");
+  const [tipAmount, setTipAmount] = useState("10.00");
+  const [tipConfirm, setTipConfirm] = useState(false);
 
   return (
     <div className="grid gap-6">
@@ -258,6 +314,9 @@ function ClientHome({ data }: { data: ClientDashboard }) {
               {money(next.price_cents)} · {actor.cleanerName}
             </p>
             <p className="mt-2 text-sm text-paper/70">{next.address}</p>
+            <div className="mt-3">
+              <ClientJobStatus job={next} className="text-sage" />
+            </div>
             <div className="mt-4 flex flex-wrap gap-2">
               <Button variant="accent" asChild>
                 <Link to="/app/visits">Manage visits</Link>
@@ -281,6 +340,7 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                   <div>
                     <p className="font-medium">{i.description}</p>
                     <p className="tabular text-sm text-muted">{money(i.amount_cents)}</p>
+                    <VisitChargeLine jobStart={i.job_start_at} status={i.status} paidAt={i.paid_at} method={i.method} note={i.paid_note} />
                   </div>
                   <Button
                     disabled={busy}
@@ -316,35 +376,94 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                 <p className="font-medium">{formatDateTime(j.start_at)}</p>
                 <p className="text-xs text-muted">{j.tip_cents ? `Tipped ${money(j.tip_cents)}` : "No tip yet"}</p>
               </div>
-              <Dialog open={tipFor === j.id} onOpenChange={(o) => setTipFor(o ? j.id : null)}>
+              <Dialog
+                open={tipFor === j.id}
+                onOpenChange={(o) => {
+                  setTipFor(o ? j.id : null);
+                  setTipConfirm(false);
+                  setTipAmount("10.00");
+                }}
+              >
                 <DialogTrigger asChild>
                   <Button variant="outline">Leave a tip</Button>
                 </DialogTrigger>
-                <DialogContent title="Leave a tip">
+                <DialogContent title={tipConfirm ? "Confirm tip" : "Leave a tip"}>
                   <div className="grid gap-3">
-                    <div className="grid grid-cols-3 gap-2">
-                    {[500, 1000, 2000].map((amt) => (
-                      <Button
-                        key={amt}
-                        variant="outline"
-                        onClick={async () => {
-                          try {
-                            const res = await tipJob({ data: { jobId: j.id, amountCents: amt, cardId: tipCardId || undefined } });
-                            if (res.ok) {
-                              toast.success(`Tip sent. Receipt ${res.receiptNumber}`);
-                              setTipFor(null);
-                              await qc.invalidateQueries({ queryKey: ["dashboard"] });
-                            } else toast.error(res.reason);
-                          } catch (err) {
-                            toast.error(err instanceof Error ? err.message : "Tip failed.");
-                          }
-                        }}
-                      >
-                        {money(amt)}
-                      </Button>
-                    ))}
-                    </div>
-                    <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} />
+                    {tipConfirm ? (
+                      <>
+                        <p className="text-sm text-muted">
+                          Charge {money(Math.round(Number(tipAmount) * 100) || 0)} to your default card?
+                        </p>
+                        <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} />
+                        <div className="flex flex-wrap gap-2">
+                          <Button variant="outline" onClick={() => setTipConfirm(false)}>
+                            Back
+                          </Button>
+                          <Button
+                            onClick={async () => {
+                              const amountCents = Math.round(Number(tipAmount) * 100);
+                              if (!Number.isFinite(amountCents) || amountCents < 100) {
+                                toast.error("Enter at least $1.00.");
+                                return;
+                              }
+                              try {
+                                const res = await tipJob({
+                                  data: { jobId: j.id, amountCents, cardId: tipCardId || undefined },
+                                });
+                                if (res.ok) {
+                                  toast.success(`Tip sent. Receipt ${res.receiptNumber}`);
+                                  setTipFor(null);
+                                  setTipConfirm(false);
+                                  await qc.invalidateQueries({ queryKey: ["dashboard"] });
+                                } else toast.error(res.reason);
+                              } catch (err) {
+                                toast.error(err instanceof Error ? err.message : "Tip failed.");
+                              }
+                            }}
+                          >
+                            Confirm {money(Math.round(Number(tipAmount) * 100) || 0)}
+                          </Button>
+                        </div>
+                      </>
+                    ) : (
+                      <>
+                        <div className="grid grid-cols-3 gap-2">
+                          {[500, 1000, 2000].map((amt) => (
+                            <Button
+                              key={amt}
+                              variant="outline"
+                              type="button"
+                              onClick={() => setTipAmount((amt / 100).toFixed(2))}
+                            >
+                              {money(amt)}
+                            </Button>
+                          ))}
+                        </div>
+                        <Field label="Custom amount">
+                          <Input
+                            type="number"
+                            min="1"
+                            step="0.01"
+                            value={tipAmount}
+                            onChange={(e) => setTipAmount(e.target.value)}
+                            inputMode="decimal"
+                          />
+                        </Field>
+                        <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} />
+                        <Button
+                          onClick={() => {
+                            const amountCents = Math.round(Number(tipAmount) * 100);
+                            if (!Number.isFinite(amountCents) || amountCents < 100) {
+                              toast.error("Enter at least $1.00.");
+                              return;
+                            }
+                            setTipConfirm(true);
+                          }}
+                        >
+                          Continue
+                        </Button>
+                      </>
+                    )}
                   </div>
                 </DialogContent>
               </Dialog>

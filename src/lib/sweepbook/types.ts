@@ -1,18 +1,40 @@
 export type Role = "cleaner" | "client";
 
-export type CleanerKind = "master" | "team";
+export type CleanerKind = "master" | "team" | "admin";
+
+export type OfficeRole = "team" | "admin";
 
 export type TeamStatus = "pending" | "active" | "disabled";
+
+export type PayType = "none" | "hourly" | "per_job" | "percent";
 
 export type Frequency = "none" | "weekly" | "biweekly" | "monthly" | "one-off";
 
 export type JobStatus = "scheduled" | "completed" | "cancelled" | "reschedule_requested";
 
+export type ProgressStatus = "on_the_way" | "in_progress" | "finished";
+
 export type Recurrence = "none" | "weekly" | "biweekly" | "monthly";
+
+export type RecurringPlan = {
+  seriesId: string;
+  clientId: string;
+  clientName: string;
+  recurrence: Recurrence;
+  weekday: string;
+  time: string;
+  durationMin: number;
+  priceCents: number;
+  service: string;
+  assignedToUserIds: string[];
+  assignedNames: string[];
+  nextStartAt: string | null;
+  futureCount: number;
+};
 
 export type InvoiceStatus = "unpaid" | "paid" | "failed" | "void";
 
-export type PlanStatus = "trial" | "active" | "past_due";
+export type PlanStatus = "trial" | "active" | "past_due" | "canceled";
 
 export type NotificationKind =
   | "cancel"
@@ -20,7 +42,42 @@ export type NotificationKind =
   | "request_approved"
   | "request_declined"
   | "job_assigned"
-  | "tip";
+  | "tip"
+  | "clean_request"
+  | "time_off";
+
+export type CleanServiceType = "one-time" | "weekly" | "biweekly" | "monthly";
+
+export type CleanRequestStatus = "pending" | "accepted" | "declined";
+
+export type CleanRequest = {
+  id: string;
+  cleaner_user_id: string;
+  name: string;
+  first_name: string | null;
+  last_name: string | null;
+  phone: string | null;
+  email: string | null;
+  address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  square_footage: number | null;
+  service_type: CleanServiceType;
+  preferred_date: string | null;
+  preferred_time: string | null;
+  notes: string | null;
+  status: CleanRequestStatus;
+  decline_note: string | null;
+  job_id: string | null;
+  client_id: string | null;
+  created_at: string;
+  handled_at: string | null;
+};
 
 export type NotificationStatus = "unread" | "read" | "approved" | "declined";
 
@@ -28,10 +85,18 @@ export type Profile = {
   user_id: string;
   role: Role;
   full_name: string;
+  first_name: string | null;
+  last_name: string | null;
   business_name: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  booking_slug: string | null;
   cancellation_policy: string | null;
   default_duration_min: number;
   default_rate_cents: number;
@@ -40,6 +105,13 @@ export type Profile = {
   can_message: boolean;
   team_status: TeamStatus | null;
   team_messaging_enabled: boolean;
+  team_checklists_enabled: boolean;
+  team_clock_in_enabled: boolean;
+  can_see_checklists: boolean;
+  can_clock_in: boolean;
+  email_reminders: boolean;
+  reminder_email_team: boolean;
+  can_charge: boolean;
   plan_status: PlanStatus;
   plan_price_cents: number;
   created_at: string;
@@ -55,9 +127,19 @@ export type ClientRow = {
   cleaner_user_id: string;
   linked_user_id: string | null;
   name: string;
+  first_name: string | null;
+  last_name: string | null;
   phone: string | null;
   email: string | null;
   address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
+  bedrooms: number | null;
+  bathrooms: number | null;
+  square_footage: number | null;
   access_notes: string | null;
   pets: string | null;
   supplies: string | null;
@@ -67,6 +149,7 @@ export type ClientRow = {
   usual_time: string | null;
   frequency: string | null;
   notes: string | null;
+  checklist_template_id: string | null;
   created_at: string;
   assigned_user_ids?: string[];
   assignees?: AssigneeRef[];
@@ -78,6 +161,11 @@ export type JobRow = {
   client_id: string;
   service: string;
   address: string | null;
+  address_line1: string | null;
+  address_line2: string | null;
+  city: string | null;
+  state: string | null;
+  zip: string | null;
   start_at: string;
   duration_min: number;
   price_cents: number;
@@ -91,18 +179,33 @@ export type JobRow = {
   assigned_to_user_id: string | null;
   tip_cents: number;
   tip_requested: boolean;
+  checklist_template_id: string | null;
+  progress_status: ProgressStatus | null;
+  on_the_way_at: string | null;
+  started_at: string | null;
+  finished_at: string | null;
   created_at: string;
 };
 
 export type JobWithClient = JobRow & {
   client_name: string;
   client_phone: string | null;
+  client_notes: string | null;
   assignee_name: string | null;
   assignees: AssigneeRef[];
   payment_status: InvoiceStatus | null;
+  payment_paid_at?: string | null;
+  payment_method?: string | null;
+  payment_note?: string | null;
 };
 
-export type MessageChannel = "master_client" | "team_client" | "master_team";
+export type MessageChannel =
+  | "master_client"
+  | "team_client"
+  | "master_team"
+  | "admin_client"
+  | "master_admin"
+  | "admin_team";
 
 export type MessageRow = {
   id: string;
@@ -131,11 +234,13 @@ export type InvoiceRow = {
   paid_at: string | null;
   failure_reason: string | null;
   receipt_number: string | null;
+  paid_note: string | null;
   created_at: string;
 };
 
 export type InvoiceWithClient = InvoiceRow & {
   client_name: string;
+  job_start_at?: string | null;
 };
 
 export type CardRow = {
@@ -177,6 +282,7 @@ export type NotificationRow = {
   job_id: string | null;
   client_id: string | null;
   client_name: string | null;
+  request_id: string | null;
   requested_start_at: string | null;
   status: NotificationStatus;
   created_at: string;
@@ -186,14 +292,23 @@ export type NotificationRow = {
 export type TeamMember = {
   user_id: string;
   full_name: string;
+  first_name?: string | null;
+  last_name?: string | null;
   phone: string | null;
   email: string | null;
   can_message: boolean;
+  can_see_checklists?: boolean;
+  can_clock_in?: boolean;
   team_status: TeamStatus;
   pending: boolean;
   invite_sent?: boolean;
   invite_token?: string;
   assigned_clients: { id: string; name: string }[];
+  pay_type?: PayType;
+  pay_amount?: number;
+  pay_note?: string | null;
+  office_role?: OfficeRole;
+  can_charge?: boolean;
 };
 
 export type BillingMethod = {
@@ -221,11 +336,22 @@ export type RevenueSummary = {
 export type Actor =
   | { kind: "cleaner"; userId: string; profile: Profile; masterUserId: string }
   | {
+      kind: "admin";
+      userId: string;
+      profile: Profile;
+      masterUserId: string;
+      canCharge: boolean;
+      canMessage: boolean;
+      disabled: boolean;
+    }
+  | {
       kind: "team";
       userId: string;
       profile: Profile;
       masterUserId: string;
       canMessage: boolean;
+      canSeeChecklists: boolean;
+      canClockIn: boolean;
       disabled: boolean;
     }
   | { kind: "client"; userId: string; profile: Profile; client: ClientRow; cleanerName: string }
@@ -240,8 +366,25 @@ export const DEMO_TEAM_EMAIL = "team@sweepbook.app";
 export const DEMO_TEAM_PASSWORD = "team123";
 export const DEMO_TEAM2_EMAIL = "team2@sweepbook.app";
 export const DEMO_TEAM2_PASSWORD = "team123";
+export const DEMO_ADMIN_EMAIL = "admin@sweepbook.app";
+export const DEMO_ADMIN_PASSWORD = "admin123";
 export const DEMO_CLEANER_ID = "demo-cleaner-maya";
 export const DEMO_CLIENT_USER_ID = "demo-client-cam";
 export const DEMO_TEAM_ID = "demo-team-lena";
 export const DEMO_TEAM2_ID = "demo-team-noah";
+export const DEMO_ADMIN_ID = "demo-admin-renee";
 export const CAM_CLIENT_ID = "client-cam-delgado";
+export const DEMO_REQUEST_ID = "demo-request-riley";
+export const DEMO_TIME_OFF_APPROVED_ID = "toff-lena-approved";
+export const DEMO_TIME_OFF_PENDING_ID = "toff-lena-pending";
+
+export function isOfficeActor(actor?: Actor | null) {
+  return actor?.kind === "cleaner" || actor?.kind === "admin";
+}
+
+export function actorCanCharge(actor?: Actor | null) {
+  if (!actor) return false;
+  if (actor.kind === "cleaner") return true;
+  if (actor.kind === "admin") return actor.canCharge && !actor.disabled;
+  return false;
+}

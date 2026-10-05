@@ -60,6 +60,44 @@ export function chicagoDayKey(date: Date | string) {
   return `${p.year}-${pad(p.month)}-${pad(p.day)}`;
 }
 
+/** YYYY-MM-DD in America/Chicago — for `<input type="date">`. */
+export function chicagoDateInputValue(date: Date | string = new Date()) {
+  return chicagoDayKey(date);
+}
+
+const WEEKDAY_SHORT_TO_NAME: Record<string, string> = {
+  Sun: "sunday",
+  Mon: "monday",
+  Tue: "tuesday",
+  Wed: "wednesday",
+  Thu: "thursday",
+  Fri: "friday",
+  Sat: "saturday",
+};
+
+export function weekdayNameInChicago(date: Date | string) {
+  const short = partsInChicago(date).weekday;
+  return WEEKDAY_SHORT_TO_NAME[short] ?? short.toLowerCase();
+}
+
+/** Viewer's local civil date vs today. Used for payment badges, not Chicago display time. */
+export function isOnOrBeforeLocalToday(date: Date | string) {
+  const d = typeof date === "string" ? new Date(date) : date;
+  if (Number.isNaN(d.getTime())) return true;
+  const now = new Date();
+  const jobDay = new Date(d.getFullYear(), d.getMonth(), d.getDate()).getTime();
+  const today = new Date(now.getFullYear(), now.getMonth(), now.getDate()).getTime();
+  return jobDay <= today;
+}
+
+export function calendarAppointmentSearch(jobId: string, startAt?: string | null) {
+  return {
+    view: "day" as const,
+    date: startAt ? chicagoDayKey(startAt) : undefined,
+    job: jobId,
+  };
+}
+
 export function formatDate(date: Date | string, opts?: Intl.DateTimeFormatOptions) {
   const d = typeof date === "string" ? new Date(date) : date;
   return new Intl.DateTimeFormat("en-US", {
@@ -173,7 +211,34 @@ export function startOfChicagoWeek(d: Date | string) {
   return addDaysChicago(start, -new Date(utc).getUTCDay());
 }
 
+/** Monday of the current Chicago week (Mon–Sun pay period). */
+export function startOfChicagoMonday(d: Date | string) {
+  const start = startOfChicagoDay(d);
+  const p = partsInChicago(start);
+  const dow = new Date(Date.UTC(p.year, p.month - 1, p.day)).getUTCDay();
+  const mondayOffset = dow === 0 ? -6 : 1 - dow;
+  return addDaysChicago(start, mondayOffset);
+}
+
+export function chicagoPayWeek(now = new Date()) {
+  const from = startOfChicagoMonday(now);
+  const to = addDaysChicago(from, 6);
+  return { from: chicagoDayKey(from), to: chicagoDayKey(to) };
+}
+
 export function startOfChicagoMonth(d: Date | string) {
   const p = partsInChicago(d);
   return chicagoDate(p.year, p.month, 1, 0, 0);
+}
+
+export function endOfChicagoMonth(d: Date | string) {
+  const p = partsInChicago(d);
+  const next =
+    p.month === 12 ? chicagoDate(p.year + 1, 1, 1, 0, 0) : chicagoDate(p.year, p.month + 1, 1, 0, 0);
+  return addDaysChicago(next, -1);
+}
+
+export function startOfChicagoYear(d: Date | string) {
+  const p = partsInChicago(d);
+  return chicagoDate(p.year, 1, 1, 0, 0);
 }

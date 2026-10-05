@@ -1,14 +1,19 @@
 import { initials } from "@/lib/utils";
 import type { AssigneeRef } from "@/lib/sweepbook/types";
+import { cn } from "@/lib/utils";
+
+export type AssigneeHint = "off" | "pending";
 
 export function AssigneePicker({
   staff,
   selected,
   onChange,
+  hints,
 }: {
   staff: { user_id: string; full_name: string }[];
   selected: string[];
   onChange: (ids: string[]) => void;
+  hints?: Record<string, AssigneeHint>;
 }) {
   if (!staff.length) {
     return <p className="text-sm text-muted">No team cleaners yet. Invite someone from the Team tab.</p>;
@@ -17,8 +22,15 @@ export function AssigneePicker({
     <div className="grid gap-1.5">
       {staff.map((s) => {
         const on = selected.includes(s.user_id);
+        const hint = hints?.[s.user_id];
         return (
-          <label key={s.user_id} className="flex min-h-11 items-center gap-3 rounded-md px-2 hover:bg-secondary">
+          <label
+            key={s.user_id}
+            className={cn(
+              "flex min-h-11 items-center gap-3 rounded-md px-2 hover:bg-secondary",
+              hint === "off" && "opacity-60",
+            )}
+          >
             <input
               type="checkbox"
               checked={on}
@@ -29,7 +41,13 @@ export function AssigneePicker({
             <span className="grid size-8 place-items-center rounded-full bg-navy text-[11px] font-semibold text-paper">
               {initials(s.full_name)}
             </span>
-            <span className="text-sm">{s.full_name}</span>
+            <span className="flex-1 text-sm">{s.full_name}</span>
+            {hint === "off" ? (
+              <span className="text-xs font-medium uppercase tracking-wide text-warn">Off that day</span>
+            ) : null}
+            {hint === "pending" ? (
+              <span className="text-xs text-muted">pending time off</span>
+            ) : null}
           </label>
         );
       })}

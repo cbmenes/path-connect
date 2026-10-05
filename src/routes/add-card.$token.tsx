@@ -7,6 +7,7 @@ import { addCardByToken } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { CardForm } from "@/components/app/card-form";
 import { SiteChrome } from "@/components/marketing/site-chrome";
+import { APP_NAME } from "@/lib/brand";
 
 export const Route = createFileRoute("/add-card/$token")({ component: AddCardLink });
 
@@ -28,7 +29,7 @@ function AddCardLink() {
               Add a card for {link.data.business_name || link.data.cleaner_name}
             </h1>
             <p className="mt-2 text-sm text-muted">
-              For {link.data.client_name}. SweepBook never keeps the full card number — only the brand and last four.
+              For {link.data.client_name}. {APP_NAME} never keeps the full card number — only the brand and last four.
             </p>
             {done ? (
               <p className="mt-6 rounded-xl bg-sage-soft p-5 text-success">

@@ -1,11 +1,26 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCleaner, assertClient, getActor } from "./access";
+import { assertCanCharge, assertClient, canChargeClients, getActor, isOffice, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
-import { nid } from "./time";
-import type { CardRow, InvoiceWithClient } from "./types";
+import { nid, formatDateTime, money } from "./time";
+import { insertNotification } from "./notifications";
+import type { CardRow, InvoiceWithClient, JobRow } from "./types";
+
+const INVOICE_SELECT = `
+  i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
+  i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
+  i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name,
+  j.start_at::text as job_start_at
+`;
+
+function trimPaidNote(note?: string | null) {
+  const t = (note ?? "").trim();
+  if (!t) return null;
+  if (t.length > 120) throw new Error("Note is too long.");
+  return t;
+}
 
 function receiptNo() {
   return `SB-${Math.floor(100000 + Math.random() * 900000)}`;
@@ -23,33 +38,43 @@ function pickChargeCard(cards: CardRow[], cardId?: string): CardRow | undefined 
   return preferred ?? clientDefault ?? backup ?? cards[0];
 }
 
+/** Fill paid_at only when a paid row never recorded one. Does not change existing timestamps. */
+export async function backfillPaidAt(sql: Awaited<ReturnType<typeof getSql>>) {
+  await sql`
+    update invoices
+    set paid_at = created_at
+    where status = 'paid' and paid_at is null
+  `;
+}
+
 export const listInvoices = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
     const sql = await getSql();
     await ensureDemoSeed(sql);
+    await backfillPaidAt(sql);
     const actor = await getActor(sql, context.userId);
-    if (actor.kind === "cleaner") {
+    if (isOffice(actor)) {
       return sql.query<InvoiceWithClient>(
-        `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
-                i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+        `select ${INVOICE_SELECT}
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.cleaner_user_id = $1
          order by i.created_at desc
-         limit 80`,
-        [context.userId],
+         limit 400`,
+        [masterUserId(actor)],
       );
     }
     if (actor.kind === "client") {
       return sql.query<InvoiceWithClient>(
-        `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
-                i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+        `select ${INVOICE_SELECT}
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.client_id = $1
          order by i.created_at desc
-         limit 80`,
+         limit 400`,
         [actor.client.id],
       );
     }
@@ -62,12 +87,13 @@ export const listCardsForClient = createServerFn({ method: "GET" })
   .handler(async ({ context, data: clientId }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    if (actor.kind === "cleaner") {
+    if (isOffice(actor)) {
+      if (!canChargeClients(actor)) return [] as CardRow[];
       return sql<CardRow>`
         select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
                holder_name, source, is_default, failing, created_at::text as created_at
         from payment_cards
-        where client_id = ${clientId} and cleaner_user_id = ${context.userId}
+        where client_id = ${clientId} and cleaner_user_id = ${masterUserId(actor)}
         order by is_default desc, created_at desc
       `;
     }
@@ -142,12 +168,14 @@ export const addCardAuthenticated = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    if (actor.kind === "cleaner") {
+    if (isOffice(actor)) {
+      assertCanCharge(actor);
       if (!data.clientId) throw new Error("Choose a client.");
-      const owned = await sql`select id from clients where id = ${data.clientId} and cleaner_user_id = ${context.userId} limit 1`;
+      const ownerId = masterUserId(actor);
+      const owned = await sql`select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
       if (!owned[0]) throw new Error("Client not found.");
       return saveCard(sql, {
-        cleanerUserId: context.userId,
+        cleanerUserId: ownerId,
         clientId: data.clientId,
         number: data.number,
         expMonth: data.expMonth,
@@ -201,13 +229,14 @@ export const createCardLink = createServerFn({ method: "POST" })
   .handler(async ({ context, data: clientId }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
-    const owned = await sql`select id, name from clients where id = ${clientId} and cleaner_user_id = ${context.userId} limit 1`;
+    assertCanCharge(actor);
+    const ownerId = masterUserId(actor);
+    const owned = await sql`select id, name from clients where id = ${clientId} and cleaner_user_id = ${ownerId} limit 1`;
     if (!owned[0]) throw new Error("Client not found.");
     const token = nid("cardlink").replace(/-/g, "").slice(0, 22);
     await sql`
       insert into card_links (id, token, cleaner_user_id, client_id)
-      values (${nid("clink")}, ${token}, ${context.userId}, ${clientId})
+      values (${nid("clink")}, ${token}, ${ownerId}, ${clientId})
     `;
     return { token, path: `/add-card/${token}` };
   });
@@ -219,8 +248,8 @@ export const setDefaultCard = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const owner =
-      actor.kind === "cleaner"
-        ? context.userId
+      isOffice(actor)
+        ? (assertCanCharge(actor), masterUserId(actor))
         : actor.kind === "client" && actor.client.id === data.clientId
           ? actor.client.cleaner_user_id
           : null;
@@ -244,8 +273,8 @@ export const removeCard = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const owner =
-      actor.kind === "cleaner"
-        ? context.userId
+      isOffice(actor)
+        ? (assertCanCharge(actor), masterUserId(actor))
         : actor.kind === "client" && actor.client.id === data.clientId
           ? actor.client.cleaner_user_id
           : null;
@@ -283,14 +312,15 @@ export const chargeCard = createServerFn({ method: "POST" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
-    const owned = await sql`select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${context.userId} limit 1`;
+    assertCanCharge(actor);
+    const ownerId = masterUserId(actor);
+    const owned = await sql`select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
     if (!owned[0]) throw new Error("Client not found.");
     const cards = await sql<CardRow>`
       select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
              holder_name, source, is_default, failing, created_at::text as created_at
       from payment_cards
-      where client_id = ${data.clientId} and cleaner_user_id = ${context.userId}
+      where client_id = ${data.clientId} and cleaner_user_id = ${ownerId}
     `;
     const card = pickChargeCard(cards, data.cardId);
     if (!card) throw new Error("No card on file. Send an add-card link or collect one on site.");
@@ -300,7 +330,7 @@ export const chargeCard = createServerFn({ method: "POST" })
     if (data.jobId && data.kind === "visit") {
       const found = await sql<{ id: string; status: string }>`
         select id, status from invoices
-        where job_id = ${data.jobId} and kind = 'visit' and cleaner_user_id = ${context.userId}
+        where job_id = ${data.jobId} and kind = 'visit' and cleaner_user_id = ${ownerId}
         limit 1
       `;
       existing = found[0];
@@ -325,7 +355,7 @@ export const chargeCard = createServerFn({ method: "POST" })
           id, cleaner_user_id, client_id, job_id, amount_cents, description, status,
           method, kind, paid_at, failure_reason, receipt_number
         ) values (
-          ${id}, ${context.userId}, ${data.clientId}, ${data.jobId ?? null}, ${data.amountCents},
+          ${id}, ${ownerId}, ${data.clientId}, ${data.jobId ?? null}, ${data.amountCents},
           ${data.description}, ${failed ? "unpaid" : "paid"}, ${"card"}, ${data.kind},
           ${failed ? null : new Date().toISOString()},
           ${failed ? "Card declined — the issuer did not authorize this charge." : null},
@@ -340,12 +370,12 @@ export const chargeCard = createServerFn({ method: "POST" })
     if (data.kind === "tip" && data.jobId) {
       await sql`
         update jobs set tip_cents = tip_cents + ${data.amountCents}, tip_requested = false
-        where id = ${data.jobId} and cleaner_user_id = ${context.userId}
+        where id = ${data.jobId} and cleaner_user_id = ${ownerId}
       `;
     }
     if (data.kind === "visit" && data.jobId) {
       await sql`
-        update jobs set status = 'completed' where id = ${data.jobId} and cleaner_user_id = ${context.userId}
+        update jobs set status = 'completed' where id = ${data.jobId} and cleaner_user_id = ${ownerId}
       `;
     }
     return {
@@ -359,58 +389,87 @@ export const chargeCard = createServerFn({ method: "POST" })
     };
   });
 
-export const recordOutsidePayment = createServerFn({ method: "POST" })
+export const markAsPaid = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { invoiceId?: string; clientId: string; amountCents: number; description: string; method: "cash" | "venmo" | "outside"; jobId?: string }) => input)
+  .validator((input: { jobId?: string; invoiceId?: string; note?: string | null }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertCanCharge(actor);
+    const ownerId = masterUserId(actor);
+    const note = trimPaidNote(data.note);
+    const now = new Date().toISOString();
     const rec = receiptNo();
+
     if (data.invoiceId) {
-      await sql`
-        update invoices
-        set status = 'paid', method = ${data.method}, paid_at = now(), receipt_number = ${rec}
-        where id = ${data.invoiceId} and cleaner_user_id = ${context.userId}
-      `;
-      const linked = await sql<{ job_id: string | null; kind: string }>`
-        select job_id, kind from invoices where id = ${data.invoiceId} limit 1
-      `;
-      if (linked[0]?.job_id && linked[0].kind === "visit") {
-        await sql`update jobs set status = 'completed' where id = ${linked[0].job_id} and cleaner_user_id = ${context.userId}`;
-      }
-      return { ok: true, receiptNumber: rec, invoiceId: data.invoiceId };
-    }
-    if (data.jobId) {
-      const existing = await sql<{ id: string }>`
-        select id from invoices
-        where job_id = ${data.jobId} and kind = 'visit' and cleaner_user_id = ${context.userId}
+      const existing = await sql<{
+        id: string;
+        status: string;
+        job_id: string | null;
+        kind: string;
+        receipt_number: string | null;
+      }>`
+        select id, status, job_id, kind, receipt_number
+        from invoices
+        where id = ${data.invoiceId} and cleaner_user_id = ${ownerId}
         limit 1
       `;
-      if (existing[0]) {
-        await sql`
-          update invoices
-          set status = 'paid', method = ${data.method}, paid_at = now(), receipt_number = ${rec},
-              amount_cents = ${data.amountCents}, description = ${data.description}, failure_reason = null
-          where id = ${existing[0].id}
-        `;
-        await sql`update jobs set status = 'completed' where id = ${data.jobId} and cleaner_user_id = ${context.userId}`;
-        return { ok: true, receiptNumber: rec, invoiceId: existing[0].id };
-      }
+      const row = existing[0];
+      if (!row) throw new Error("Invoice not found.");
+      if (row.status === "paid") throw new Error("Already paid.");
+      const receipt = row.receipt_number || rec;
+      await sql`
+        update invoices
+        set status = 'paid', method = ${"marked"}, paid_at = ${now}, paid_note = ${note},
+            receipt_number = ${receipt}, failure_reason = null
+        where id = ${row.id} and cleaner_user_id = ${ownerId}
+      `;
+      return { ok: true as const, receiptNumber: receipt, invoiceId: row.id };
     }
+
+    if (!data.jobId) throw new Error("Missing appointment.");
+    const jobs = await sql<Pick<JobRow, "id" | "client_id" | "service" | "price_cents" | "status">>`
+      select id, client_id, service, price_cents, status
+      from jobs
+      where id = ${data.jobId} and cleaner_user_id = ${ownerId}
+      limit 1
+    `;
+    const job = jobs[0];
+    if (!job) throw new Error("Appointment not found.");
+    if (job.status === "cancelled") throw new Error("This visit was cancelled.");
+
+    const found = await sql<{ id: string; status: string; receipt_number: string | null }>`
+      select id, status, receipt_number
+      from invoices
+      where job_id = ${job.id} and kind = 'visit' and cleaner_user_id = ${ownerId}
+      limit 1
+    `;
+    const inv = found[0];
+    if (inv?.status === "paid") throw new Error("Already paid.");
+
+    if (inv) {
+      const receipt = inv.receipt_number || rec;
+      await sql`
+        update invoices
+        set status = 'paid', method = ${"marked"}, paid_at = ${now}, paid_note = ${note},
+            receipt_number = ${receipt}, failure_reason = null
+        where id = ${inv.id}
+      `;
+      return { ok: true as const, receiptNumber: receipt, invoiceId: inv.id };
+    }
+
     const id = nid("inv");
+    const receipt = `SB-${id.slice(-6).toUpperCase()}`;
     await sql`
       insert into invoices (
-        id, cleaner_user_id, client_id, job_id, amount_cents, description, status, method, kind, paid_at, receipt_number
+        id, cleaner_user_id, client_id, job_id, amount_cents, description, status,
+        method, kind, paid_at, paid_note, receipt_number
       ) values (
-        ${id}, ${context.userId}, ${data.clientId}, ${data.jobId ?? null}, ${data.amountCents},
-        ${data.description}, ${"paid"}, ${data.method}, ${"visit"}, ${new Date().toISOString()}, ${rec}
+        ${id}, ${ownerId}, ${job.client_id}, ${job.id}, ${job.price_cents},
+        ${job.service}, ${"paid"}, ${"marked"}, ${"visit"}, ${now}, ${note}, ${receipt}
       )
     `;
-    if (data.jobId) {
-      await sql`update jobs set status = 'completed' where id = ${data.jobId} and cleaner_user_id = ${context.userId}`;
-    }
-    return { ok: true, receiptNumber: rec, invoiceId: id };
+    return { ok: true as const, receiptNumber: receipt, invoiceId: id };
   });
 
 export const payInvoiceAsClient = createServerFn({ method: "POST" })
@@ -467,8 +526,8 @@ export const tipJob = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     assertClient(actor);
     if (data.amountCents < 100) throw new Error("Tips must be at least $1.");
-    const jobs = await sql<{ id: string; service: string; status: string }>`
-      select id, service, status from jobs
+    const jobs = await sql<{ id: string; service: string; status: string; start_at: string }>`
+      select id, service, status, start_at::text as start_at from jobs
       where id = ${data.jobId} and client_id = ${actor.client.id} limit 1
     `;
     const job = jobs[0];
@@ -496,6 +555,16 @@ export const tipJob = createServerFn({ method: "POST" })
       update jobs set tip_cents = tip_cents + ${data.amountCents}, tip_requested = false
       where id = ${job.id}
     `;
+    await insertNotification(sql, {
+      userId: actor.client.cleaner_user_id,
+      kind: "tip",
+      title: `${actor.client.name} left a ${money(data.amountCents)} tip`,
+      body: `${formatDateTime(job.start_at)} · ${job.service}`,
+      jobId: job.id,
+      clientId: actor.client.id,
+      clientName: actor.client.name,
+      requestedStartAt: job.start_at,
+    });
     return { ok: true as const, receiptNumber: rec, amountCents: data.amountCents, brand: card.brand, last4: card.last4 };
   });
 
@@ -505,10 +574,10 @@ export const requestTip = createServerFn({ method: "POST" })
   .handler(async ({ context, data: jobId }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    assertCanCharge(actor);
     await sql`
       update jobs set tip_requested = true
-      where id = ${jobId} and cleaner_user_id = ${context.userId} and status = 'completed'
+      where id = ${jobId} and cleaner_user_id = ${masterUserId(actor)} and status = 'completed'
     `;
     return { ok: true };
   });
@@ -520,16 +589,16 @@ export const getInvoice = createServerFn({ method: "GET" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const rows = await sql.query<InvoiceWithClient>(
-      `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
-              i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-              i.receipt_number, i.created_at::text as created_at, c.name as client_name
-       from invoices i join clients c on c.id = i.client_id
+      `select ${INVOICE_SELECT}
+       from invoices i
+       join clients c on c.id = i.client_id
+       left join jobs j on j.id = i.job_id
        where i.id = $1 limit 1`,
       [id],
     );
     const invoice = rows[0];
     if (!invoice) throw new Error("Receipt not found.");
-    if (actor.kind === "cleaner" && invoice.cleaner_user_id !== context.userId) throw new Error("Receipt not found.");
+    if (isOffice(actor) && invoice.cleaner_user_id !== masterUserId(actor)) throw new Error("Receipt not found.");
     if (actor.kind === "client" && invoice.client_id !== actor.client.id) throw new Error("Receipt not found.");
     return invoice;
   });

@@ -1,14 +1,17 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { JOB_FROM, JOB_SELECT, getActor } from "./access";
+import { JOB_FROM, JOB_SELECT, canChargeClients, getActor, isOffice, masterUserId } from "./access";
+import { backfillPaidAt } from "./payments";
 import { ensureDemoSeed } from "./seed";
 import { addDaysChicago, startOfChicagoDay, chicagoDate, partsInChicago } from "./time";
-import type { Actor, CardRow, InvoiceWithClient, JobWithClient, RevenueSummary, ThreadSummary } from "./types";
+import type { Actor, CardRow, InvoiceWithClient, JobWithClient, ThreadSummary } from "./types";
 import { hydrateJob, redactJobMoney } from "./assignees";
+import { loadThreads, unreadCount } from "./messages";
+import { addressPartsFrom, formatAddress, namesFrom, storePhone } from "./people";
 
 export type CleanerDashboard = {
-  actor: Extract<Actor, { kind: "cleaner" }>;
+  actor: Extract<Actor, { kind: "cleaner" | "admin" }>;
   today: JobWithClient[];
   week: JobWithClient[];
   unpaid: InvoiceWithClient[];
@@ -16,7 +19,11 @@ export type CleanerDashboard = {
   unread: number;
   failed: InvoiceWithClient[];
   pendingRequests: number;
-  revenue: RevenueSummary;
+  pendingCleanRequests: number;
+  unreadNotifications: number;
+  revenue: { monthCents: number; ytdCents: number; monthLabel: string; year: number };
+  showRevenue: boolean;
+  canCharge: boolean;
 };
 
 export type TeamDashboard = {
@@ -44,7 +51,7 @@ export type DashboardData =
   | { actor: Extract<Actor, { kind: "none" | "client_unlinked" }> };
 
 export function isCleanerDash(d: DashboardData): d is CleanerDashboard {
-  return d.actor.kind === "cleaner";
+  return d.actor.kind === "cleaner" || d.actor.kind === "admin";
 }
 
 export function isTeamDash(d: DashboardData): d is TeamDashboard {
@@ -65,55 +72,50 @@ export const getDashboard = createServerFn({ method: "GET" })
     const endToday = addDaysChicago(start, 1);
     const endWeek = addDaysChicago(start, 7);
 
-    if (actor.kind === "cleaner") {
+    if (isOffice(actor)) {
+      const ownerId = masterUserId(actor);
       const today = await sql.query<JobWithClient>(
         `select ${JOB_SELECT} from ${JOB_FROM}
          where j.cleaner_user_id = $1 and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
            and j.status <> 'cancelled'
          order by j.start_at asc`,
-        [context.userId, start.toISOString(), endToday.toISOString()],
+        [ownerId, start.toISOString(), endToday.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
       const week = await sql.query<JobWithClient>(
         `select ${JOB_SELECT} from ${JOB_FROM}
          where j.cleaner_user_id = $1 and j.start_at >= $2::timestamptz and j.start_at < $3::timestamptz
            and j.status <> 'cancelled'
          order by j.start_at asc`,
-        [context.userId, start.toISOString(), endWeek.toISOString()],
+        [ownerId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
+      await backfillPaidAt(sql);
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name,
+                j.start_at::text as job_start_at
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.cleaner_user_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,
-        [context.userId],
+        [ownerId],
       );
-      const threads = await sql.query<ThreadSummary>(
-        `select c.id as client_id, c.name as client_name, last.body as last_body,
-                last.created_at::text as last_at, coalesce(u.unread, 0)::int as unread
-         from clients c
-         join lateral (
-           select body, created_at from messages
-           where client_id = c.id and cleaner_user_id = $1
-           order by created_at desc limit 1
-         ) last on true
-         left join lateral (
-           select count(*) as unread from messages
-           where client_id = c.id and cleaner_user_id = $1
-             and sender_role = 'client' and read_at is null
-         ) u on true
-         where c.cleaner_user_id = $1
-         order by last.created_at desc
-         limit 5`,
-        [context.userId],
-      );
-      const unread = threads.reduce((n, t) => n + Number(t.unread || 0), 0);
+      const threads = (await loadThreads(sql, actor)).slice(0, 5);
+      const unread = await unreadCount(sql, actor);
       const failed = unpaid.filter((i) => i.status === "failed");
       const reqs = await sql<{ n: number }>`
         select count(*)::int as n from notifications
         where user_id = ${context.userId} and status in ('unread', 'read')
           and kind in ('cancel', 'reschedule')
+      `;
+      const cleanReqs = await sql<{ n: number }>`
+        select count(*)::int as n from clean_requests
+        where cleaner_user_id = ${ownerId} and status = 'pending'
+      `;
+      const unreadNotes = await sql<{ n: number }>`
+        select count(*)::int as n from notifications
+        where user_id = ${context.userId} and status = 'unread'
       `;
       const p = partsInChicago(new Date());
       const monthStart = chicagoDate(p.year, p.month, 1, 0, 0);
@@ -121,23 +123,30 @@ export const getDashboard = createServerFn({ method: "GET" })
       const yearStart = chicagoDate(p.year, 1, 1, 0, 0);
       const yearEnd = chicagoDate(p.year + 1, 1, 1, 0, 0);
       const monthRows = await sql<{ n: number }>`
-        select coalesce(sum(i.amount_cents), 0)::int as n
-        from invoices i
-        where i.cleaner_user_id = ${context.userId}
-          and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
-          and i.paid_at >= ${monthStart.toISOString()}::timestamptz
-          and i.paid_at < ${nextMonth.toISOString()}::timestamptz
+        select coalesce(sum(s.amt), 0)::int as n
+        from (
+          select distinct on (i.job_id) i.amount_cents as amt
+          from invoices i
+          where i.cleaner_user_id = ${ownerId}
+            and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
+            and i.paid_at >= ${monthStart.toISOString()}::timestamptz
+            and i.paid_at < ${nextMonth.toISOString()}::timestamptz
+          order by i.job_id, i.paid_at desc
+        ) s
       `;
       const yearRows = await sql<{ n: number }>`
-        select coalesce(sum(i.amount_cents), 0)::int as n
-        from invoices i
-        where i.cleaner_user_id = ${context.userId}
-          and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
-          and i.paid_at >= ${yearStart.toISOString()}::timestamptz
-          and i.paid_at < ${yearEnd.toISOString()}::timestamptz
+        select coalesce(sum(s.amt), 0)::int as n
+        from (
+          select distinct on (i.job_id) i.amount_cents as amt
+          from invoices i
+          where i.cleaner_user_id = ${ownerId}
+            and i.status = 'paid' and i.kind = 'visit' and i.job_id is not null
+            and i.paid_at >= ${yearStart.toISOString()}::timestamptz
+            and i.paid_at < ${yearEnd.toISOString()}::timestamptz
+          order by i.job_id, i.paid_at desc
+        ) s
       `;
       const monthLabel = new Intl.DateTimeFormat("en-US", { month: "long", year: "numeric", timeZone: "America/Chicago" }).format(new Date());
-      const ytd = Number(yearRows[0]?.n || 0);
       return {
         actor,
         today,
@@ -147,13 +156,16 @@ export const getDashboard = createServerFn({ method: "GET" })
         unread,
         failed,
         pendingRequests: Number(reqs[0]?.n || 0),
+        pendingCleanRequests: Number(cleanReqs[0]?.n || 0),
+        unreadNotifications: Number(unreadNotes[0]?.n || 0),
         revenue: {
           monthCents: Number(monthRows[0]?.n || 0),
-          ytdCents: ytd,
-          annualCents: ytd,
+          ytdCents: Number(yearRows[0]?.n || 0),
           monthLabel,
           year: p.year,
         },
+        showRevenue: actor.kind === "cleaner",
+        canCharge: canChargeClients(actor),
       } satisfies CleanerDashboard;
     }
 
@@ -176,19 +188,7 @@ export const getDashboard = createServerFn({ method: "GET" })
          order by j.start_at asc`,
         [actor.masterUserId, context.userId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob).map(redactJobMoney));
-      const unreadRows = await sql.query<{ n: number }>(
-        `select count(*)::int as n from messages m
-         where m.cleaner_user_id = $1 and m.sender_role = 'client' and m.read_at is null
-           and (
-             exists (select 1 from client_assignees ca where ca.client_id = m.client_id and ca.user_id = $2)
-             or exists (
-               select 1 from job_assignees ja
-               join jobs j on j.id = ja.job_id
-               where j.client_id = m.client_id and ja.user_id = $2
-             )
-           )`,
-        [actor.masterUserId, context.userId],
-      );
+      const unreadMessages = await unreadCount(sql, actor);
       const reqs = await sql<{ n: number }>`
         select count(*)::int as n from notifications
         where user_id = ${context.userId} and status in ('unread', 'read')
@@ -198,7 +198,7 @@ export const getDashboard = createServerFn({ method: "GET" })
         actor,
         today,
         week,
-        unread: Number(unreadRows[0]?.n || 0),
+        unread: unreadMessages,
         pendingRequests: Number(reqs[0]?.n || 0),
       } satisfies TeamDashboard;
     }
@@ -218,11 +218,15 @@ export const getDashboard = createServerFn({ method: "GET" })
          limit 12`,
         [actor.client.id, start.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
+      await backfillPaidAt(sql);
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
-                i.receipt_number, i.created_at::text as created_at, c.name as client_name
-         from invoices i join clients c on c.id = i.client_id
+                i.receipt_number, i.paid_note, i.created_at::text as created_at, c.name as client_name,
+                j.start_at::text as job_start_at
+         from invoices i
+         join clients c on c.id = i.client_id
+         left join jobs j on j.id = i.job_id
          where i.client_id = $1 and i.status in ('unpaid', 'failed')
          order by i.created_at desc`,
         [actor.client.id],
@@ -248,59 +252,91 @@ export const getDashboard = createServerFn({ method: "GET" })
 export const updateSettings = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: {
-    fullName: string;
+    firstName: string;
+    lastName: string;
     businessName?: string;
     phone?: string;
     email?: string;
-    address?: string;
+    address_line1?: string;
+    address_line2?: string;
+    city?: string;
+    state?: string;
+    zip?: string;
     cancellationPolicy?: string;
   }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    const fullName = data.fullName.trim();
-    if (!fullName) throw new Error("Name is required.");
+    const names = namesFrom(data.firstName, data.lastName);
+    if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
+    const phone = storePhone(data.phone);
+    const email = data.email?.trim() || null;
+    const parts = addressPartsFrom(data);
+    const address = formatAddress(parts) || null;
     if (actor.kind === "cleaner") {
       await sql`
         update profiles set
-          full_name = ${fullName},
+          full_name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
           business_name = ${data.businessName?.trim() || null},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null},
-          address = ${data.address?.trim() || null},
+          phone = ${phone},
+          email = ${email},
+          address = ${address},
+          address_line1 = ${parts.address_line1 || null},
+          address_line2 = ${parts.address_line2 || null},
+          city = ${parts.city || null},
+          state = ${parts.state || null},
+          zip = ${parts.zip || null},
           cancellation_policy = ${data.cancellationPolicy?.trim() || null}
         where user_id = ${context.userId}
       `;
-      await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
+      await sql`update "user" set name = ${names.name} where id = ${context.userId}`;
       return { ok: true };
     }
-    if (actor.kind === "team") {
+    if (actor.kind === "team" || actor.kind === "admin") {
       await sql`
         update profiles set
-          full_name = ${fullName},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null}
+          full_name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
+          phone = ${phone},
+          email = ${email}
         where user_id = ${context.userId}
       `;
-      await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
+      await sql`update "user" set name = ${names.name} where id = ${context.userId}`;
       return { ok: true };
     }
     if (actor.kind === "client") {
       await sql`
         update profiles set
-          full_name = ${fullName},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null},
-          address = ${data.address?.trim() || null}
+          full_name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
+          phone = ${phone},
+          email = ${email},
+          address = ${address},
+          address_line1 = ${parts.address_line1 || null},
+          address_line2 = ${parts.address_line2 || null},
+          city = ${parts.city || null},
+          state = ${parts.state || null},
+          zip = ${parts.zip || null}
         where user_id = ${context.userId}
       `;
-      await sql`update "user" set name = ${fullName} where id = ${context.userId}`;
+      await sql`update "user" set name = ${names.name} where id = ${context.userId}`;
       await sql`
         update clients set
-          name = ${fullName},
-          phone = ${data.phone?.trim() || null},
-          email = ${data.email?.trim() || null},
-          address = ${data.address?.trim() || null}
+          name = ${names.name},
+          first_name = ${names.first_name},
+          last_name = ${names.last_name},
+          phone = ${phone},
+          email = ${email},
+          address = ${address},
+          address_line1 = ${parts.address_line1 || null},
+          address_line2 = ${parts.address_line2 || null},
+          city = ${parts.city || null},
+          state = ${parts.state || null},
+          zip = ${parts.zip || null}
         where linked_user_id = ${context.userId}
       `;
       return { ok: true };

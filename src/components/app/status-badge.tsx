@@ -1,4 +1,5 @@
 import { Badge } from "@/components/ui/card";
+import { isOnOrBeforeLocalToday } from "@/lib/sweepbook/time";
 import type { InvoiceStatus, JobStatus, JobWithClient } from "@/lib/sweepbook/types";
 
 export function JobStatusBadge({ status }: { status: JobStatus }) {
@@ -23,11 +24,55 @@ export function InvoiceStatusBadge({ status }: { status: InvoiceStatus }) {
   return <Badge tone={m.tone}>{m.label}</Badge>;
 }
 
+export type TilePayLabel = "Paid" | "Unpaid" | "Cancelled";
+
+type PayJob = Pick<JobWithClient, "status"> & {
+  payment_status?: InvoiceStatus | null;
+  start_at?: string;
+};
+
+export function jobTilePayLabel(job: PayJob): TilePayLabel | null {
+  if (job.status === "cancelled") return "Cancelled";
+  if (job.payment_status === "paid") return "Paid";
+  // Unpaid only on the viewer's local today or earlier — never on future dates.
+  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
+  return "Unpaid";
+}
+
+/** Compact Paid / Unpaid / Cancelled chip for calendar tiles. */
+export function TilePayBadge({
+  job,
+  invert,
+}: {
+  job: PayJob;
+  invert?: boolean;
+}) {
+  const label = jobTilePayLabel(job);
+  if (!label) return null;
+  const tone =
+    label === "Paid"
+      ? "bg-sage-soft text-success"
+      : label === "Unpaid"
+        ? invert
+          ? "bg-warn text-ink"
+          : "bg-warn/15 text-warn"
+        : invert
+          ? "bg-paper/20 text-paper"
+          : "bg-secondary text-muted";
+  return (
+    <span
+      className={`inline-flex shrink-0 items-center rounded-sm px-1 py-px text-[10px] font-semibold uppercase tracking-wide ${tone}`}
+    >
+      {label}
+    </span>
+  );
+}
+
 export function VisitStatusBadge({
   job,
   hideMoney,
 }: {
-  job: Pick<JobWithClient, "status" | "payment_status">;
+  job: PayJob;
   hideMoney?: boolean;
 }) {
   if (hideMoney) {
@@ -38,6 +83,7 @@ export function VisitStatusBadge({
     return <JobStatusBadge status={job.status} />;
   }
   if (job.payment_status === "paid") return <InvoiceStatusBadge status="paid" />;
+  if (job.start_at && !isOnOrBeforeLocalToday(job.start_at)) return null;
   if (job.payment_status === "failed") return <InvoiceStatusBadge status="failed" />;
   if (job.payment_status === "unpaid") return <InvoiceStatusBadge status="unpaid" />;
   return <JobStatusBadge status="scheduled" />;

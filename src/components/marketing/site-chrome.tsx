@@ -1,7 +1,8 @@
 import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
-import { Wordmark } from "@/components/brand/logo";
+import { CrewWeekLogo } from "@/components/brand/logo";
+import { APP_HOST, APP_NAME, HELLO_EMAIL, PUBLIC_SITE, SUPPORT_EMAIL } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { InstallHint } from "@/components/app/install-hint";
 
@@ -11,7 +12,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
     <div className="min-h-dvh bg-bg text-ink">
       <header className="sticky top-0 z-30 border-b border-border/80 bg-bg/90 backdrop-blur">
         <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-          <Wordmark />
+          <CrewWeekLogo />
           <nav className="hidden items-center gap-6 text-sm text-muted md:flex">
             <a href="/#scheduling" className="hover:text-ink">
               Scheduling
@@ -70,9 +71,9 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
       <footer className="border-t border-border bg-navy text-paper">
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-[1.4fr_1fr_1fr]">
           <div>
-            <Wordmark light />
+            <CrewWeekLogo light />
             <p className="mt-3 max-w-sm text-sm text-paper/70">
-              Scheduling, records, messaging, and payments for independent house cleaners. Your clients. Not a marketplace.
+              Calendar, clients, payments, and messages for cleaning business owners. Your houses and your crew.
             </p>
           </div>
           <div className="grid gap-2 text-sm">
@@ -101,10 +102,23 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             <Link to="/contact" className="text-paper/70 hover:text-paper">
               Contact
             </Link>
+            <a href={`mailto:${HELLO_EMAIL}`} className="text-paper/70 hover:text-paper">
+              {HELLO_EMAIL}
+            </a>
+            <a href={`mailto:${SUPPORT_EMAIL}`} className="text-paper/70 hover:text-paper">
+              {SUPPORT_EMAIL}
+            </a>
           </div>
         </div>
         <p className="border-t border-paper/10 px-4 py-4 text-center text-xs text-paper/50">
-          © {new Date().getFullYear()} SweepBook. Built for independent cleaners.
+          © {new Date().getFullYear()} {APP_NAME}.{" "}
+          <a href={PUBLIC_SITE} className="hover:text-paper">
+            getcrewweek.com
+          </a>
+          {" · "}
+          <a href={APP_HOST} className="hover:text-paper">
+            crewweek.app
+          </a>
         </p>
       </footer>
       <InstallHint />

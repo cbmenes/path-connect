@@ -34,8 +34,7 @@ function NewJob() {
           setBusy(true);
           try {
             const res = await createJob({ data: input });
-            if (res.conflictCount) toast.message(`Saved with ${res.conflictCount} overlap warning${res.conflictCount === 1 ? "" : "s"}.`);
-            else toast.success(res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.");
+            toast.success(res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.");
             await qc.invalidateQueries({ queryKey: ["jobs"] });
             await qc.invalidateQueries({ queryKey: ["dashboard"] });
             const start = input.startLocal || res.startAt;

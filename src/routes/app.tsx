@@ -22,18 +22,48 @@ function AppLayout() {
     if (!user || actor.isPending) return;
     if (actor.data?.kind === "none") {
       void navigate({ to: "/onboarding" });
+      return;
     }
-  }, [user, actor.data, actor.isPending, navigate]);
+    if (actor.data?.kind === "cleaner" && actor.data.profile.plan_status === "trial" && pathname.startsWith("/app")) {
+      void navigate({ to: "/choose-plan" });
+    }
+  }, [user, actor.data, actor.isPending, navigate, pathname]);
 
   useEffect(() => {
-    if (actor.data?.kind !== "team") return;
-    if (
-      pathname.startsWith("/app/clients") ||
-      pathname.startsWith("/app/payments") ||
-      pathname.startsWith("/app/team") ||
-      pathname.startsWith("/app/jobs/new")
-    ) {
-      void navigate({ to: "/app" });
+    if (actor.data?.kind === "team") {
+      if (
+        pathname.startsWith("/app/clients") ||
+        pathname.startsWith("/app/payments") ||
+        pathname.startsWith("/app/team") ||
+        pathname.startsWith("/app/team-pay") ||
+        pathname.startsWith("/app/data") ||
+        pathname.startsWith("/app/jobs/new") ||
+        pathname.startsWith("/app/requests") ||
+        pathname.startsWith("/app/checklists")
+      ) {
+        void navigate({ to: "/app" });
+      }
+      return;
+    }
+    if (actor.data?.kind === "admin") {
+      if (
+        pathname.startsWith("/app/team-pay") ||
+        pathname.startsWith("/app/data") ||
+        pathname.startsWith("/app/clients/import")
+      ) {
+        void navigate({ to: "/app" });
+      }
+      return;
+    }
+    if (actor.data?.kind === "client" || actor.data?.kind === "client_unlinked") {
+      if (
+        pathname.startsWith("/app/sheet") ||
+        pathname.startsWith("/app/requests") ||
+        pathname.startsWith("/app/time-off") ||
+        pathname.startsWith("/app/checklists")
+      ) {
+        void navigate({ to: "/app/visits" });
+      }
     }
   }, [actor.data?.kind, pathname, navigate]);
 

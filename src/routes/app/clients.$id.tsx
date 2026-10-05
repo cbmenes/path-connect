@@ -2,27 +2,36 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
+import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib/sweepbook/clients";
+import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
+import { actorCanCharge } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
-import { addCardAuthenticated, chargeCard, createCardLink, recordOutsidePayment } from "@/lib/sweepbook/payments";
+import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
+import { addCardAuthenticated, chargeCard, createCardLink } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
-import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
+import { formatHours, money } from "@/lib/sweepbook/time";
 import { ClientFields } from "@/components/app/client-fields";
 import { CardForm } from "@/components/app/card-form";
 import { CardManager, CardSelect } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
-import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
+import { ManageRecurringDialog } from "@/components/app/manage-recurring";
+import { VisitChargeLine } from "@/components/app/receipt";
+import { InvoiceStatusBadge } from "@/components/app/status-badge";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
-import { Field, Input, NativeSelect } from "@/components/ui/input";
+import { Field, Input } from "@/components/ui/input";
+import { OfficeCalendar } from "@/components/app/office-calendar";
 
 export const Route = createFileRoute("/app/clients/$id")({ component: ClientProfile });
 
 function ClientProfile() {
   const { id } = Route.useParams();
+  const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["client", id], queryFn: () => getClient({ data: id }) });
+  const canCharge = actorCanCharge(actor.data);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -30,14 +39,14 @@ function ClientProfile() {
   const [cardLink, setCardLink] = useState<string | null>(null);
   const [collectCard, setCollectCard] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
-  const [outsideOpen, setOutsideOpen] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
   const [removing, setRemoving] = useState(false);
+  const [manageOpen, setManageOpen] = useState(false);
 
   if (q.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
   if (q.error) return <p className="text-danger">{(q.error as Error).message}</p>;
-  const { client, jobs, invoices, cards, staff } = q.data;
+  const { client, invoices, cards, staff } = q.data;
 
   return (
     <div className="grid gap-6">
@@ -52,12 +61,25 @@ function ClientProfile() {
             {editing ? "Close" : "Edit"}
           </Button>
           <Button variant="outline" asChild>
-            <Link to="/app/messages/$clientId" params={{ clientId: client.id }}>
+            <Link
+              to="/app/messages/$clientId"
+              params={{
+                clientId:
+                  actor.data?.kind === "admin"
+                    ? adminClientThread(actor.data.userId, client.id)
+                    : masterClientThread(client.id),
+              }}
+            >
               Message
             </Link>
           </Button>
           <Button asChild>
-            <Link to="/app/jobs/new">Schedule</Link>
+            <Link to="/app/jobs/new" search={{ clientId: client.id }}>
+              Schedule
+            </Link>
+          </Button>
+          <Button variant="outline" onClick={() => setManageOpen(true)}>
+            Manage recurring
           </Button>
           <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
             Remove
@@ -77,9 +99,16 @@ function ClientProfile() {
             <Row k="Usual" v={`${client.usual_day || "—"} ${client.usual_time || ""}`.trim()} />
             <Row k="Price" v={client.default_price_cents ? money(client.default_price_cents) : "—"} />
             <Row k="Duration" v={client.default_duration_min ? formatHours(client.default_duration_min) : "—"} />
-            <Row k="Notes" v={client.notes} />
+            <DefaultChecklistRow templateId={client.checklist_template_id} />
+            <div>
+              <dt className="text-xs uppercase tracking-[0.12em] text-muted">
+                Notes <span className="font-normal normal-case tracking-normal">(Visible to assigned cleaner(s))</span>
+              </dt>
+              <dd>{client.notes || "—"}</dd>
+            </div>
           </dl>
         </Card>
+        {canCharge ? (
         <Card>
           <h2 className="font-display text-lg text-navy">Cards on file</h2>
           <p className="mt-1 text-xs text-muted">Brand and last four only. Default is used for charges and tips.</p>
@@ -143,23 +172,16 @@ function ClientProfile() {
                 />
               </DialogContent>
             </Dialog>
-            <Dialog open={outsideOpen} onOpenChange={setOutsideOpen}>
-              <DialogTrigger asChild>
-                <Button variant="ghost">Record cash or Venmo</Button>
-              </DialogTrigger>
-              <DialogContent title="Paid outside SweepBook">
-                <OutsideForm
-                  clientId={client.id}
-                  amount={client.default_price_cents ?? 15000}
-                  onDone={async () => {
-                    setOutsideOpen(false);
-                    await qc.invalidateQueries({ queryKey: ["client", id] });
-                  }}
-                />
-              </DialogContent>
-            </Dialog>
           </div>
         </Card>
+        ) : (
+          <Card>
+            <h2 className="font-display text-lg text-navy">Payments</h2>
+            <p className="mt-2 text-sm text-muted">
+              Paid and unpaid show on visits. Charging cards is off for this admin login.
+            </p>
+          </Card>
+        )}
       </div>
 
       <Card>
@@ -215,10 +237,20 @@ function ClientProfile() {
       {editing ? (
         <ClientFields
           initial={{
+            first_name: client.first_name ?? undefined,
+            last_name: client.last_name ?? undefined,
             name: client.name,
             phone: client.phone ?? undefined,
             email: client.email ?? undefined,
             address: client.address ?? undefined,
+            address_line1: client.address_line1 ?? undefined,
+            address_line2: client.address_line2 ?? undefined,
+            city: client.city ?? undefined,
+            state: client.state ?? undefined,
+            zip: client.zip ?? undefined,
+            bedrooms: client.bedrooms,
+            bathrooms: client.bathrooms,
+            square_footage: client.square_footage,
             access_notes: client.access_notes ?? undefined,
             pets: client.pets ?? undefined,
             supplies: client.supplies ?? undefined,
@@ -228,6 +260,7 @@ function ClientProfile() {
             usual_time: client.usual_time ?? undefined,
             frequency: client.frequency ?? undefined,
             notes: client.notes ?? undefined,
+            checklist_template_id: client.checklist_template_id ?? undefined,
           }}
           submitLabel="Save profile"
           onSubmit={async (input) => {
@@ -239,20 +272,14 @@ function ClientProfile() {
         />
       ) : null}
 
-      <section>
-        <h2 className="font-display text-xl text-navy">Job history</h2>
-        <div className="mt-3 grid gap-2">
-          {jobs.map((j) => (
-            <Link key={j.id} to="/app/jobs/$id" params={{ id: j.id }} className="flex items-center justify-between rounded-lg bg-paper px-3 py-3 shadow-soft">
-              <div>
-                <p className="text-sm font-medium">{formatDateTime(j.start_at)}</p>
-                <p className="text-xs text-muted">{money(j.price_cents)}</p>
-              </div>
-              <VisitStatusBadge job={{ status: j.status, payment_status: null }} />
-            </Link>
-          ))}
-        </div>
-      </section>
+      <OfficeCalendar
+        clientId={client.id}
+        variant="embed"
+        showTimeOff={false}
+        named="service"
+        showImport={false}
+        viewScope={`client-${client.id}`}
+      />
       <section>
         <h2 className="font-display text-xl text-navy">Invoices</h2>
         <div className="mt-3 grid gap-2">
@@ -261,12 +288,28 @@ function ClientProfile() {
               <div>
                 <p className="text-sm">{i.description}</p>
                 <p className="tabular text-xs text-muted">{money(i.amount_cents)}</p>
+                <VisitChargeLine
+                  jobStart={i.job_start_at}
+                  status={i.status}
+                  paidAt={i.paid_at}
+                  method={i.method}
+                  note={i.paid_note}
+                />
               </div>
               <InvoiceStatusBadge status={i.status} />
             </div>
           ))}
         </div>
       </section>
+      <ManageRecurringDialog
+        open={manageOpen}
+        onOpenChange={setManageOpen}
+        clientId={client.id}
+        onChanged={async () => {
+          await qc.invalidateQueries({ queryKey: ["client", id] });
+          await qc.invalidateQueries({ queryKey: ["jobs"] });
+        }}
+      />
       <ConfirmDialog
         open={removeOpen}
         onOpenChange={setRemoveOpen}
@@ -300,6 +343,12 @@ function Row({ k, v }: { k: string; v?: string | null }) {
   );
 }
 
+function DefaultChecklistRow({ templateId }: { templateId?: string | null }) {
+  const q = useQuery({ queryKey: ["checklists"], queryFn: () => listChecklistTemplates() });
+  const name = q.data?.find((t) => t.id === templateId)?.name || (templateId ? "Custom" : "None");
+  return <Row k="Checklist" v={name} />;
+}
+
 function ChargeForm({
   defaultAmount,
   name,
@@ -327,47 +376,5 @@ function ChargeForm({
         Charge {money(Math.round(Number(amt) * 100))}
       </Button>
     </div>
-  );
-}
-
-function OutsideForm({
-  clientId,
-  amount,
-  onDone,
-}: {
-  clientId: string;
-  amount: number;
-  onDone: () => void;
-}) {
-  const [amt, setAmt] = useState((amount / 100).toFixed(2));
-  const [method, setMethod] = useState<"cash" | "venmo" | "outside">("venmo");
-  const [desc, setDesc] = useState("House cleaning (paid outside SweepBook)");
-  return (
-    <form
-      className="grid gap-3"
-      onSubmit={async (e) => {
-        e.preventDefault();
-        const res = await recordOutsidePayment({
-          data: { clientId, amountCents: Math.round(Number(amt) * 100), description: desc, method },
-        });
-        toast.success(`Recorded. Receipt ${res.receiptNumber}`);
-        onDone();
-      }}
-    >
-      <Field label="Method">
-        <NativeSelect value={method} onChange={(e) => setMethod(e.target.value as typeof method)}>
-          <option value="venmo">Venmo</option>
-          <option value="cash">Cash</option>
-          <option value="outside">Other</option>
-        </NativeSelect>
-      </Field>
-      <Field label="Amount">
-        <Input type="number" step="0.01" value={amt} onChange={(e) => setAmt(e.target.value)} />
-      </Field>
-      <Field label="Description">
-        <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
-      </Field>
-      <Button type="submit">Save as paid</Button>
-    </form>
   );
 }
