@@ -33,7 +33,7 @@ function Home() {
               <Link to="/login">Log in</Link>
             </Button>
             <Button size="lg" asChild>
-              <Link to="/signup">
+              <Link to="/choose-plan">
                 Get started <ArrowRight className="size-4" />
               </Link>
             </Button>
@@ -195,17 +195,17 @@ function Pricing() {
         </article>
       </div>
       <p className="mt-6 text-sm text-muted">
-        Unlimited cleaners. Unlimited client logins. Extra office admins $19/mo on Office.
+        Unlimited cleaners. Unlimited client logins. Extra office admins $19/mo on Office, not in Checkout.
       </p>
       <p className="mt-2 text-sm text-muted">
-        Card payments and texting come after launch on getcrewweek.com. Price is the software subscription.
+        The owner pays the software subscription. Client cards on file are separate.
       </p>
       <div className="mt-6 flex flex-wrap gap-3">
         <Button variant="outline" asChild>
           <Link to="/login">Log in</Link>
         </Button>
         <Button asChild>
-          <Link to="/signup">Get started</Link>
+          <Link to="/choose-plan">Get started</Link>
         </Button>
         <Button variant="outline" asChild>
           <a href="/login?demo=cleaner">See demo</a>

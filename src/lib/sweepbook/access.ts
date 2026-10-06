@@ -10,7 +10,7 @@ export const PROFILE_COLUMNS = `
   coalesce(can_clock_in, true) as can_clock_in,
   email_reminders, reminder_email_team,
   coalesce(can_charge, false) as can_charge,
-  plan_status, plan_price_cents,
+  plan_status, plan_price_cents, plan_code, stripe_customer_id, stripe_subscription_id,
   created_at::text as created_at
 `;
 
@@ -69,6 +69,9 @@ function normalizeProfile(row: Profile): Profile {
     cleaner_kind: row.cleaner_kind || (row.role === "cleaner" ? "master" : null),
     plan_status: row.plan_status || "trial",
     plan_price_cents: Number(row.plan_price_cents || 1900),
+    plan_code: row.plan_code === "crew" || row.plan_code === "office" ? row.plan_code : null,
+    stripe_customer_id: row.stripe_customer_id || null,
+    stripe_subscription_id: row.stripe_subscription_id || null,
   };
 }
 

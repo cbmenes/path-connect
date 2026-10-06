@@ -49,6 +49,7 @@ import { Route as RequestIndexRouteImport } from './routes/request.index'
 import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as AppClientsIndexRouteImport } from './routes/app/clients.index'
 import { Route as AppClientsIdRouteImport } from './routes/app/clients.$id'
 import { Route as AppClientsImportRouteImport } from './routes/app/clients.import'
@@ -262,6 +263,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
+  id: '/api/stripe/webhook',
+  path: '/api/stripe/webhook',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AppClientsIndexRoute = AppClientsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -364,6 +370,7 @@ export interface FileRoutesByFullPath {
   '/book/': typeof BookIndexRoute
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
   '/app/clients/new': typeof AppClientsNewRoute
@@ -411,6 +418,7 @@ export interface FileRoutesByTo {
   '/book': typeof BookIndexRoute
   '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
   '/app/clients/new': typeof AppClientsNewRoute
@@ -466,6 +474,7 @@ export interface FileRoutesById {
   '/book/': typeof BookIndexRoute
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
   '/app/clients/new': typeof AppClientsNewRoute
@@ -522,6 +531,7 @@ export interface FileRouteTypes {
     | '/book/'
     | '/request/'
     | '/api/auth/$'
+    | '/api/stripe/webhook'
     | '/app/clients/$id'
     | '/app/clients/import'
     | '/app/clients/new'
@@ -569,6 +579,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/request'
     | '/api/auth/$'
+    | '/api/stripe/webhook'
     | '/app/clients/$id'
     | '/app/clients/import'
     | '/app/clients/new'
@@ -623,6 +634,7 @@ export interface FileRouteTypes {
     | '/book/'
     | '/request/'
     | '/api/auth/$'
+    | '/api/stripe/webhook'
     | '/app/clients/$id'
     | '/app/clients/import'
     | '/app/clients/new'
@@ -657,6 +669,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -941,6 +954,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/stripe/webhook': {
+      id: '/api/stripe/webhook'
+      path: '/api/stripe/webhook'
+      fullPath: '/api/stripe/webhook'
+      preLoaderRoute: typeof ApiStripeWebhookRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/app/clients/': {
       id: '/app/clients/'
       path: '/'
@@ -1178,6 +1198,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

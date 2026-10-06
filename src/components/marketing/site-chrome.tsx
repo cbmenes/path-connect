@@ -32,7 +32,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
               <Link to="/login">Log in</Link>
             </Button>
             <Button asChild>
-              <Link to="/signup">Get started</Link>
+              <Link to="/choose-plan">Get started</Link>
             </Button>
           </div>
           <button
@@ -62,7 +62,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
               <Link to="/login">Log in</Link>
             </Button>
             <Button asChild>
-              <Link to="/signup">Get started</Link>
+              <Link to="/choose-plan">Get started</Link>
             </Button>
           </div>
         ) : null}
@@ -81,7 +81,7 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             <Link to="/login" className="text-paper/70 hover:text-paper">
               Log in
             </Link>
-            <Link to="/signup" className="text-paper/70 hover:text-paper">
+            <Link to="/choose-plan" className="text-paper/70 hover:text-paper">
               Get started
             </Link>
             <a href="/#pricing" className="text-paper/70 hover:text-paper">

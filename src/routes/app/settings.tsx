@@ -592,7 +592,16 @@ function PlanSection() {
   const nextCode = code === "office" ? "crew" : "office";
   const nextName = nextCode === "office" ? "Office" : "Crew";
   const nextPrice = nextCode === "office" ? "$79/mo" : "$39/mo";
-  const statusLabel = plan?.status === "canceled" ? "Canceled" : plan?.status === "active" ? "Active (demo)" : "Not started";
+  const statusLabel =
+    plan?.status === "canceled"
+      ? "Canceled"
+      : plan?.status === "active"
+        ? "Active"
+        : plan?.status === "pending"
+          ? "Pending"
+          : plan?.status === "past_due"
+            ? "Past due"
+            : "Not started";
 
   async function refresh() {
     await qc.invalidateQueries({ queryKey: ["saas-plan"] });
@@ -617,8 +626,9 @@ function PlanSection() {
         ) : (
           <p className="mt-2 text-sm text-muted">No extra Admin seats on Crew.</p>
         )}
-        <p className="mt-3 text-xs text-muted">Card billing will be enabled on getcrewweek.com. This is a dry run.</p>
-        <p className="mt-1 text-xs text-muted">Annual is 2 months free later. This demo stays monthly.</p>
+        <p className="mt-3 text-xs text-muted">
+          The owner subscription is confirmed by Stripe. Extra Admin ($19/mo) is not a Checkout item. Annual billing is later.
+        </p>
       </Card>
       {plan.status === "canceled" ? (
         <Button
@@ -626,7 +636,11 @@ function PlanSection() {
           onClick={async () => {
             setBusy(true);
             try {
-              await resumeSaasPlan({ data: {} });
+              const resumed = await resumeSaasPlan({ data: {} });
+              if (resumed.url) {
+                window.location.assign(resumed.url);
+                return;
+              }
               await refresh();
               toast.success(`${name} plan resumed`);
             } catch (err) {
@@ -652,7 +666,11 @@ function PlanSection() {
         open={changeOpen}
         onOpenChange={setChangeOpen}
         title={`Change to ${nextName}?`}
-        body={`Switch to ${nextName} at ${nextPrice}. Demo only. Nothing will be charged.`}
+        body={
+          plan.demo
+            ? `Switch to ${nextName} at ${nextPrice}. Demo accounts are not charged.`
+            : `Switch to ${nextName} at ${nextPrice}. Stripe confirms the change.`
+        }
         confirmLabel={`Change to ${nextName}`}
         confirmVariant="primary"
         busy={busy}
@@ -660,10 +678,10 @@ function PlanSection() {
         onConfirm={async () => {
           setBusy(true);
           try {
-            await changeSaasPlan({ data: { code: nextCode } });
+            const changed = await changeSaasPlan({ data: { code: nextCode } });
             setChangeOpen(false);
             await refresh();
-            toast.success(`Switched to ${nextName}`);
+            toast.success(changed.pendingWebhook ? "Stripe is confirming the new plan." : `Switched to ${nextName}`);
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not change the plan.");
           } finally {
@@ -675,17 +693,17 @@ function PlanSection() {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel plan?"
-        body="Demo only. Nothing will be charged."
+        body={plan.demo ? "Demo accounts are not charged." : "Stripe confirms the cancellation."}
         confirmLabel="Cancel plan"
         busy={busy}
         busyLabel="Canceling…"
         onConfirm={async () => {
           setBusy(true);
           try {
-            await cancelSaasPlan({ data: {} });
+            const canceled = await cancelSaasPlan({ data: {} });
             setCancelOpen(false);
             await refresh();
-            toast.success("Plan canceled");
+            toast.success(canceled.pendingWebhook ? "Stripe is confirming the cancellation." : "Plan canceled");
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not cancel the plan.");
           } finally {

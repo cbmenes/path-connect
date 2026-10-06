@@ -24,14 +24,16 @@ export const getMyActor = createServerFn({ method: "GET" })
 
 export const completeOnboarding = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { role: "cleaner" | "client"; firstName: string; lastName: string; businessName?: string }) => {
+  .validator((input: { role: "cleaner" | "client"; firstName: string; lastName: string; businessName?: string; plan?: string }) => {
     const names = namesFrom(input.firstName, input.lastName);
     if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
     if (input.role !== "cleaner" && input.role !== "client") throw new Error("Choose a role.");
+    const plan = input.plan === "office" || input.plan === "crew" ? input.plan : null;
     return {
       role: input.role,
       ...names,
       businessName: input.businessName?.trim() || null,
+      plan,
     };
   })
   .handler(async ({ context, data }) => {
@@ -42,14 +44,17 @@ export const completeOnboarding = createServerFn({ method: "POST" })
       data.role === "cleaner"
         ? "Cancellations made less than 24 hours before a visit may be charged half the scheduled rate."
         : null;
+    const planCode = data.role === "cleaner" ? data.plan : null;
+    const planStatus = data.role === "cleaner" && planCode ? "pending" : "trial";
+    const planCents = planCode === "office" ? 7900 : planCode === "crew" ? 3900 : 3900;
     await sql`
       insert into profiles (
         user_id, role, full_name, first_name, last_name, business_name, cancellation_policy,
-        default_duration_min, default_rate_cents, cleaner_kind, email, plan_status, plan_price_cents
+        default_duration_min, default_rate_cents, cleaner_kind, email, plan_status, plan_price_cents, plan_code
       ) values (
         ${context.userId}, ${data.role}, ${data.name}, ${data.first_name}, ${data.last_name}, ${data.businessName},
         ${policy}, ${120}, ${15000}, ${data.role === "cleaner" ? "master" : null},
-        ${null}, ${data.role === "cleaner" ? "trial" : "trial"}, ${1900}
+        ${null}, ${planStatus}, ${planCents}, ${planCode}
       )
     `;
     if (data.role === "cleaner") {

@@ -34,7 +34,7 @@ export type RecurringPlan = {
 
 export type InvoiceStatus = "unpaid" | "paid" | "failed" | "void";
 
-export type PlanStatus = "trial" | "active" | "past_due" | "canceled";
+export type PlanStatus = "trial" | "pending" | "active" | "past_due" | "canceled";
 
 export type NotificationKind =
   | "cancel"
@@ -114,6 +114,9 @@ export type Profile = {
   can_charge: boolean;
   plan_status: PlanStatus;
   plan_price_cents: number;
+  plan_code: "crew" | "office" | null;
+  stripe_customer_id: string | null;
+  stripe_subscription_id: string | null;
   created_at: string;
 };
 

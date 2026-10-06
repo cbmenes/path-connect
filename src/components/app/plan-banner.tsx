@@ -12,7 +12,7 @@ export function PlanBanner({ profile }: { profile: Profile }) {
   const name = code === "office" ? "Office" : "Crew";
   if (profile.plan_status !== "active" && profile.plan_status !== "canceled") return null;
   const canceled = profile.plan_status === "canceled";
-  const text = canceled ? `${name} plan canceled (demo — no charge)` : `${name} plan (demo — no charge)`;
+  const text = canceled ? `${name} plan canceled` : `${name} plan`;
 
   return (
     <div className="border-b border-border bg-sage-soft px-4 py-3 print:hidden">
@@ -25,7 +25,11 @@ export function PlanBanner({ profile }: { profile: Profile }) {
             onClick={async () => {
               setBusy(true);
               try {
-                await resumeSaasPlan({ data: {} });
+                const resumed = await resumeSaasPlan({ data: {} });
+                if (resumed.url) {
+                  window.location.assign(resumed.url);
+                  return;
+                }
                 await qc.invalidateQueries({ queryKey: ["actor"] });
                 await qc.invalidateQueries({ queryKey: ["saas-plan"] });
                 toast.success(`${name} plan resumed`);
