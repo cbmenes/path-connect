@@ -665,6 +665,11 @@ export const importCsv = createServerFn({ method: "POST" })
     assertCleaner(actor);
     await assertActivePlan(sql, actor);
     if (data.kind === "clients") return importClientRows(sql, context.userId, data.rows, data.mode);
-    if (data.kind === "team") return importTeamRows(sql, context.userId, data.rows, data.mode);
+    if (data.kind === "team") {
+      const result = await importTeamRows(sql, context.userId, data.rows, data.mode);
+      const { syncOwnerExtraAdmins } = await import("./stripe.server");
+      await syncOwnerExtraAdmins(context.userId);
+      return result;
+    }
     return importScheduleRows(sql, context.userId, data.rows, data.mode);
   });

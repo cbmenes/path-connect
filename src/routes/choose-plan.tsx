@@ -23,7 +23,7 @@ const PLANS: { code: SaasPlanCode; name: string; price: string; points: string[]
     code: "crew",
     name: "Crew",
     price: "$39/mo",
-    points: ["1 Master", "Unlimited Team", "Unlimited Clients", "No extra Admin"],
+    points: ["1 Master", "Unlimited Team", "Unlimited Clients", "Admins are $19/mo each"],
   },
   {
     code: "office",
@@ -66,7 +66,7 @@ function ChoosePlan() {
           <p className="mt-6 text-xs font-medium uppercase tracking-[0.18em] text-sage">Choose plan</p>
           <h1 className="mt-2 font-display text-4xl text-navy">Crew or Office</h1>
           <p className="mt-2 text-sm text-muted">
-            The business owner pays monthly. Cleaners and clients are not billed. Extra Admin is $19/mo on Office only, and it is not part of Checkout.
+            The business owner pays monthly. Cleaners and clients are not billed. Extra Admin is $19/mo and is not part of Checkout.
           </p>
         </div>
 

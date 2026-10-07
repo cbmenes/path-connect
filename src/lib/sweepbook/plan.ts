@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getActor } from "./access";
+import { countBillableAdmins, extraAdminQuantity, includedAdminSeats, monthlyTotalCents } from "./extra-admin";
 import {
   planCodeFromCents,
   planPriceCents,
@@ -61,6 +62,8 @@ export const getSaasPlan = createServerFn({ method: "GET" })
     const { isDemoEmail } = await import("./stripe.server");
     const rows = await sql<{ email: string | null }>`select email from "user" where id = ${context.userId} limit 1`;
     const demo = isDemoEmail(rows[0]?.email);
+    const adminCount = await countBillableAdmins(sql, context.userId);
+    const extraAdmins = extraAdminQuantity(adminCount, code);
     return {
       access: "master" as const,
       code,
@@ -69,6 +72,10 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       demo,
       subscribed: Boolean(actor.profile.stripe_subscription_id) && !demo,
       stripeCustomer: Boolean(actor.profile.stripe_customer_id) && !demo,
+      adminCount,
+      includedAdmins: includedAdminSeats(code),
+      extraAdmins,
+      monthlyCents: monthlyTotalCents(code, extraAdmins),
     };
   });
 

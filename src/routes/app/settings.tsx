@@ -17,10 +17,12 @@ import {
   setDefaultBillingMethod,
   updateAccount,
 } from "@/lib/sweepbook/billing";
-import { cancelSaasPlan, changeSaasPlan, getSaasPlan, openBillingPortal, planCodeFromCents, resumeSaasPlan } from "@/lib/sweepbook/plan";
+import { extraAdminQuantity, includedAdminSeats, monthlyTotalCents } from "@/lib/sweepbook/extra-admin";
+import { cancelSaasPlan, changeSaasPlan, getSaasPlan, openBillingPortal, resumeSaasPlan } from "@/lib/sweepbook/plan";
 import { listCardsForClient } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
+import { money } from "@/lib/sweepbook/time";
 import { CardForm } from "@/components/app/card-form";
 import { CardManager } from "@/components/app/card-manager";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
@@ -564,6 +566,11 @@ function ClientBillingSection() {
   );
 }
 
+function planDollars(cents: number) {
+  const dollars = (cents || 0) / 100;
+  return Number.isInteger(dollars) ? `$${dollars}` : money(cents);
+}
+
 function renewalLabel() {
   const day = new Date();
   day.setDate(day.getDate() + 30);
@@ -587,12 +594,16 @@ function PlanSection() {
   const [busy, setBusy] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
   const plan = q.data?.access === "master" ? q.data : null;
-  const code = plan ? planCodeFromCents(plan.priceCents) : "crew";
+  const code = plan?.code === "office" ? "office" : "crew";
   const name = code === "office" ? "Office" : "Crew";
   const price = code === "office" ? "$79/mo" : "$39/mo";
   const nextCode = code === "office" ? "crew" : "office";
   const nextName = nextCode === "office" ? "Office" : "Crew";
   const nextPrice = nextCode === "office" ? "$79/mo" : "$39/mo";
+  const adminCount = plan?.adminCount ?? 0;
+  const nextIncluded = includedAdminSeats(nextCode);
+  const nextExtra = extraAdminQuantity(adminCount, nextCode);
+  const nextMonthly = monthlyTotalCents(nextCode, nextExtra);
   const statusLabel =
     plan?.status === "canceled"
       ? "Canceled"
@@ -622,11 +633,20 @@ function PlanSection() {
         </p>
         <p className="text-sm text-muted">{statusLabel}</p>
         {plan.status === "active" ? <p className="mt-2 text-sm text-ink">Next renewal {renewalLabel()}</p> : null}
-        {code === "office" ? (
-          <p className="mt-2 text-sm text-muted">Extra Admin — $19/mo. Line item only. Not a seat you can buy here.</p>
-        ) : (
-          <p className="mt-2 text-sm text-muted">No extra Admin seats on Crew.</p>
-        )}
+        <dl className="mt-3 grid gap-1 text-sm text-ink">
+          <div className="flex justify-between gap-4">
+            <dt>Included Admin</dt>
+            <dd className="tabular">{plan.includedAdmins}</dd>
+          </div>
+          <div className="flex justify-between gap-4">
+            <dt>Paid extra seats</dt>
+            <dd className="tabular">{plan.extraAdmins} × $19/mo</dd>
+          </div>
+          <div className="flex justify-between gap-4 font-medium">
+            <dt>Monthly amount</dt>
+            <dd className="tabular">{planDollars(plan.monthlyCents)}/mo</dd>
+          </div>
+        </dl>
         <p className="mt-3 text-xs text-muted">
           The owner subscription is confirmed by Stripe. Extra Admin ($19/mo) is not a Checkout item. Annual billing is later.
         </p>
@@ -690,8 +710,8 @@ function PlanSection() {
         title={`Change to ${nextName}?`}
         body={
           plan.demo
-            ? `Switch to ${nextName} at ${nextPrice}. Demo accounts are not charged.`
-            : `Switch to ${nextName} at ${nextPrice}. Stripe confirms the change.`
+            ? `Switch to ${nextName} at ${nextPrice}. Included Admin: ${nextIncluded}. Paid extra seats: ${nextExtra}. Monthly amount ${planDollars(nextMonthly)}/mo. Demo accounts are not charged.`
+            : `Switch to ${nextName} at ${nextPrice}. Included Admin: ${nextIncluded}. Paid extra seats: ${nextExtra}. Monthly amount ${planDollars(nextMonthly)}/mo. Stripe confirms the change.`
         }
         confirmLabel={`Change to ${nextName}`}
         confirmVariant="primary"

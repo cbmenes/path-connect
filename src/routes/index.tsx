@@ -171,7 +171,7 @@ function Pricing() {
             <li>Unlimited Team (cleaners)</li>
             <li>Unlimited Client logins</li>
             <li>Calendar, messages, time off, checklists, on-my-way / start / finish, booking form, CSV import</li>
-            <li>No extra Admin seats on this tier (owner runs the book)</li>
+            <li>Admins are $19/mo each. None are included.</li>
           </ul>
         </article>
         <article className="flex h-full flex-col rounded-2xl bg-navy p-6 text-paper shadow-card">
@@ -195,7 +195,7 @@ function Pricing() {
         </article>
       </div>
       <p className="mt-6 text-sm text-muted">
-        Unlimited cleaners. Unlimited client logins. Extra office admins $19/mo on Office, not in Checkout.
+        Unlimited cleaners. Unlimited client logins. Extra Admins are $19/mo each and are not in Checkout.
       </p>
       <p className="mt-2 text-sm text-muted">
         The owner pays the software subscription. Client cards on file are separate.

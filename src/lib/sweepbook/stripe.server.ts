@@ -2,7 +2,8 @@ import Stripe from "stripe";
 import { getRequest } from "@tanstack/react-start/server";
 import { getSql, type Sql } from "../db";
 import { getActor } from "./access";
-import { planPriceCents, type SaasPlanCode } from "./plan-prices";
+import { countBillableAdmins, extraAdminItemChanges, extraAdminQuantity } from "./extra-admin";
+import { planCodeFromCents, planPriceCents, type SaasPlanCode } from "./plan-prices";
 import {
   DEMO_ADMIN_EMAIL,
   DEMO_CLEANER_EMAIL,
@@ -63,6 +64,33 @@ export function planFromPriceId(priceId: string | null | undefined): SaasPlanCod
   return null;
 }
 
+function extraAdminPriceId() {
+  const id = envValue("STRIPE_PRICE_EXTRA_ADMIN");
+  if (!id.startsWith("price_")) throw new Error("Stripe price is not configured.");
+  return id;
+}
+
+function configuredExtraAdminPriceId() {
+  const id = envValue("STRIPE_PRICE_EXTRA_ADMIN");
+  return id.startsWith("price_") ? id : "";
+}
+
+function basePlanItem(subscription: Stripe.Subscription) {
+  for (const item of subscription.items?.data ?? []) {
+    const plan = planFromPriceId(item.price?.id);
+    if (plan) return { item, plan };
+  }
+  return null;
+}
+
+function listedSubscriptionItems(subscription: Stripe.Subscription) {
+  return (subscription.items?.data ?? []).map((item) => ({
+    id: item.id,
+    priceId: item.price?.id || "",
+    quantity: item.quantity ?? 1,
+  }));
+}
+
 function stripeClient() {
   return new Stripe(stripeSecretKey());
 }
@@ -117,9 +145,9 @@ async function findOwnerId(sql: Sql, subscription: Stripe.Subscription, hintedUs
 }
 
 async function applySubscription(subscription: Stripe.Subscription, hintedUserId: string | null, deleted: boolean) {
-  const priceId = subscription.items?.data?.[0]?.price?.id ?? null;
-  const plan = planFromPriceId(priceId);
-  if (!plan) return { ignored: true as const };
+  const base = basePlanItem(subscription);
+  if (!base) return { ignored: true as const };
+  const plan = base.plan;
   const sql = await getSql();
   const userId = await findOwnerId(sql, subscription, hintedUserId || subscription.metadata?.user_id || null);
   if (!userId) return { ignored: true as const };
@@ -208,11 +236,49 @@ export async function updateOwnerSubscription(userId: string, plan: SaasPlanCode
   if (isDemoEmail(email) || !actor.profile.stripe_subscription_id) return { stripe: false as const };
   const stripe = stripeClient();
   const subscription = await stripe.subscriptions.retrieve(actor.profile.stripe_subscription_id);
-  const itemId = subscription.items.data[0]?.id;
-  if (!itemId) throw new Error("Subscription has no price to change.");
+  const base = basePlanItem(subscription);
+  if (!base) throw new Error("Subscription has no price to change.");
+  const quantity = extraAdminQuantity(await countBillableAdmins(sql, userId), plan);
+  const extraPrice = quantity > 0 ? extraAdminPriceId() : configuredExtraAdminPriceId();
+  const items: Stripe.SubscriptionUpdateParams.Item[] = [{ id: base.item.id, price: priceIdForPlan(plan) }];
+  if (extraPrice) {
+    items.push(
+      ...extraAdminItemChanges(listedSubscriptionItems(subscription), extraPrice, quantity),
+    );
+  }
   await stripe.subscriptions.update(subscription.id, {
-    items: [{ id: itemId, price: priceIdForPlan(plan) }],
+    items,
     metadata: { user_id: userId, plan },
+    proration_behavior: "create_prorations",
+  });
+  return { stripe: true as const };
+}
+
+export async function syncOwnerExtraAdmins(ownerId: string) {
+  const sql = await getSql();
+  if (isDemoEmail(await userEmail(sql, ownerId))) return { stripe: false as const };
+  const rows = await sql<{
+    plan_code: string | null;
+    plan_price_cents: number | null;
+    stripe_subscription_id: string | null;
+  }>`
+    select plan_code, plan_price_cents, stripe_subscription_id
+    from profiles where user_id = ${ownerId} limit 1
+  `;
+  const subscriptionId = rows[0]?.stripe_subscription_id;
+  if (!subscriptionId) return { stripe: false as const };
+  const stored = rows[0]?.plan_code;
+  const code: SaasPlanCode =
+    stored === "office" || stored === "crew" ? stored : planCodeFromCents(Number(rows[0]?.plan_price_cents || 0));
+  const quantity = extraAdminQuantity(await countBillableAdmins(sql, ownerId), code);
+  const extraPrice = quantity > 0 ? extraAdminPriceId() : configuredExtraAdminPriceId();
+  if (!extraPrice) return { stripe: false as const };
+  const stripe = stripeClient();
+  const subscription = await stripe.subscriptions.retrieve(subscriptionId);
+  const changes = extraAdminItemChanges(listedSubscriptionItems(subscription), extraPrice, quantity);
+  if (changes.length === 0) return { stripe: false as const };
+  await stripe.subscriptions.update(subscriptionId, {
+    items: changes,
     proration_behavior: "create_prorations",
   });
   return { stripe: true as const };

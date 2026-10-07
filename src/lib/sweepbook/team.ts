@@ -8,7 +8,7 @@ import { ensureDemoSeed } from "./seed";
 import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
 import { parsePayType, type PayType } from "./team-pay";
-import type { OfficeRole, Profile, TeamMember, TeamStatus } from "./types";
+import { isDemoAccountEmail, type OfficeRole, type Profile, type TeamMember, type TeamStatus } from "./types";
 
 function asBool(v: unknown, fallback = false) {
   if (v === true || v === "t" || v === "true") return true;
@@ -32,6 +32,26 @@ function parseClientRefs(raw: unknown): { id: string; name: string }[] {
 
 function parseOfficeRole(raw: unknown): OfficeRole {
   return raw === "admin" ? "admin" : "team";
+}
+
+async function syncExtraAdminSeats(ownerId: string) {
+  const { syncOwnerExtraAdmins } = await import("./stripe.server");
+  await syncOwnerExtraAdmins(ownerId);
+}
+
+async function assertAdminSeatOpen(sql: Awaited<ReturnType<typeof getSql>>, masterId: string) {
+  const rows = await sql<{ plan_status: string | null; email: string | null }>`
+    select p.plan_status, u.email
+    from profiles p
+    join "user" u on u.id = p.user_id
+    where p.user_id = ${masterId}
+    limit 1
+  `;
+  if (isDemoAccountEmail(rows[0]?.email)) return;
+  const status = rows[0]?.plan_status || "trial";
+  if (status === "pending" || status === "canceled") {
+    throw new Error("Your plan is inactive. Resume it in Settings to make changes.");
+  }
 }
 
 function mapMember(
@@ -232,7 +252,9 @@ export const saveTeamMember = createServerFn({ method: "POST" })
     if (data.inviteKind === "admin" && actor.kind !== "cleaner") {
       throw new Error("Only the account owner can add an admin.");
     }
-    const saved = await upsertSavedInvite(sql, masterUserId(actor), data);
+    const ownerId = masterUserId(actor);
+    const saved = await upsertSavedInvite(sql, ownerId, data);
+    if (data.inviteKind === "admin") await syncExtraAdminSeats(ownerId);
     return {
       token: saved.token,
       path: `/team-invite/${saved.token}`,
@@ -253,8 +275,10 @@ export const createTeamInvite = createServerFn({ method: "POST" })
     if (data.inviteKind === "admin" && actor.kind !== "cleaner") {
       throw new Error("Only the account owner can invite an admin.");
     }
-    const saved = await upsertSavedInvite(sql, masterUserId(actor), data);
+    const ownerId = masterUserId(actor);
+    const saved = await upsertSavedInvite(sql, ownerId, data);
     await sql`update team_invites set invited_at = now() where token = ${saved.token}`;
+    if (data.inviteKind === "admin") await syncExtraAdminSeats(ownerId);
     if (data.inviteKind === "team" && data.canMessage) {
       await enableTeamAccount(sql, masterUserId(actor), "team_messaging_enabled");
     }
@@ -328,6 +352,7 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
     `;
     const u = users[0];
     const kind = parseOfficeRole(invite.invite_kind);
+    if (kind === "admin") await assertAdminSeatOpen(sql, invite.master_user_id);
     const canCharge = kind === "admin" ? asBool(invite.can_charge, false) : false;
     const names = namesFrom(undefined, undefined, u?.name || invite.name);
     await sql`
@@ -349,6 +374,7 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
         can_charge = ${canCharge}
     `;
     await sql`update team_invites set accepted_at = now() where token = ${token}`;
+    if (kind === "admin") await syncExtraAdminSeats(invite.master_user_id);
     return { ok: true };
   });
 
@@ -506,6 +532,7 @@ export const resendTeamInvite = createServerFn({ method: "POST" })
       insert into team_invites (id, token, master_user_id, name, phone, email, can_message, invited_at, invite_kind, can_charge)
       values (${nid("tinv")}, ${token}, ${ownerId}, ${member[0].full_name}, ${member[0].phone}, ${member[0].email}, ${member[0].can_message}, now(), ${kind}, ${asBool(member[0].can_charge, false)})
     `;
+    if (kind === "admin") await syncExtraAdminSeats(ownerId);
     return { token, path: `/team-invite/${token}`, name: member[0].full_name, email: member[0].email };
   });
 
@@ -536,16 +563,18 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
           throw new Error("Admins cannot remove an admin invite.");
         }
         await sql`delete from team_invites where token = ${data.userId} and master_user_id = ${ownerId}`;
+        if (byToken[0].invite_kind === "admin") await syncExtraAdminSeats(ownerId);
         return { ok: true, name: byToken[0].name };
       }
       if (invite[0].invite_kind === "admin" && actor.kind !== "cleaner") {
         throw new Error("Admins cannot remove an admin invite.");
       }
       await sql`delete from team_invites where id = ${data.userId} and master_user_id = ${ownerId}`;
+      if (invite[0].invite_kind === "admin") await syncExtraAdminSeats(ownerId);
       return { ok: true, name: invite[0].name };
     }
-    const member = await sql<{ full_name: string; cleaner_kind: string | null }>`
-      select full_name, cleaner_kind from profiles
+    const member = await sql<{ full_name: string; cleaner_kind: string | null; email: string | null }>`
+      select full_name, cleaner_kind, lower(email) as email from profiles
       where user_id = ${data.userId} and master_user_id = ${ownerId} limit 1
     `;
     if (!member[0]) throw new Error("Person not found.");
@@ -560,6 +589,19 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     await sql`update jobs set assigned_to_user_id = null where assigned_to_user_id = ${data.userId}`;
     await sql`delete from notifications where user_id = ${data.userId}`;
     await sql`delete from profiles where user_id = ${data.userId} and master_user_id = ${ownerId}`;
+    if (member[0].cleaner_kind === "admin") {
+      const email = (member[0].email || "").trim();
+      if (email) {
+        await sql`
+          delete from team_invites
+          where master_user_id = ${ownerId}
+            and accepted_at is null
+            and coalesce(invite_kind, 'team') = 'admin'
+            and lower(email) = ${email}
+        `;
+      }
+      await syncExtraAdminSeats(ownerId);
+    }
     return { ok: true, name: member[0].full_name };
   });
 
