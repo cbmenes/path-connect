@@ -3,6 +3,7 @@ import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { listInvoices, markAsPaid } from "@/lib/sweepbook/payments";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import {
   chicagoDayKey,
@@ -162,7 +163,9 @@ function PaymentsPage() {
     return <Navigate to="/app/receipts" />;
   }
   const isMaster = actor.data?.kind === "cleaner";
-  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
+  const canCharge =
+    !actorWritesLocked(actor.data) &&
+    (actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge));
   if (actor.data?.kind === "team") {
     return <p className="text-muted">Payments are only visible to the office.</p>;
   }

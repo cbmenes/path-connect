@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { PROFILE_COLUMNS, assertOffice, getActor, masterUserId } from "./access";
+import { PROFILE_COLUMNS, assertOffice, assertSubscriptionWritable, getActor, masterUserId } from "./access";
 import { enableTeamAccount, setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
 import { addMemberToClient, removeMemberFromClient } from "./assignees";
 import { ensureDemoSeed } from "./seed";
@@ -228,6 +228,7 @@ export const saveTeamMember = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     if (data.inviteKind === "admin" && actor.kind !== "cleaner") {
       throw new Error("Only the account owner can add an admin.");
     }
@@ -248,6 +249,7 @@ export const createTeamInvite = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     if (data.inviteKind === "admin" && actor.kind !== "cleaner") {
       throw new Error("Only the account owner can invite an admin.");
     }
@@ -371,6 +373,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     if (data.userId === ownerId) {
       throw new Error("The account owner cannot be changed from Team.");
@@ -465,6 +468,7 @@ export const resendTeamInvite = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     if (data.inviteToken) {
       const rows = await sql<{ token: string; name: string; email: string | null; invite_kind: string }>`
@@ -512,6 +516,7 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     if (data.userId === ownerId) {
       throw new Error("The account owner cannot be removed.");
@@ -565,6 +570,7 @@ export const setTeamMessaging = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     await setTeamAccountToggle(
       sql,
       masterUserId(actor),
@@ -582,6 +588,7 @@ export const setTeamClockIn = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     await setTeamAccountToggle(
       sql,
       masterUserId(actor),
@@ -602,6 +609,7 @@ export const setTeamMemberClockIn = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const member = await sql<{ user_id: string }>`
       select user_id from profiles

@@ -343,6 +343,7 @@ export type Actor =
       userId: string;
       profile: Profile;
       masterUserId: string;
+      masterPlanStatus: PlanStatus;
       canCharge: boolean;
       canMessage: boolean;
       disabled: boolean;
@@ -380,6 +381,33 @@ export const CAM_CLIENT_ID = "client-cam-delgado";
 export const DEMO_REQUEST_ID = "demo-request-riley";
 export const DEMO_TIME_OFF_APPROVED_ID = "toff-lena-approved";
 export const DEMO_TIME_OFF_PENDING_ID = "toff-lena-pending";
+
+const DEMO_ACCOUNT_EMAILS = new Set(
+  [DEMO_CLEANER_EMAIL, DEMO_CLIENT_EMAIL, DEMO_TEAM_EMAIL, DEMO_TEAM2_EMAIL, DEMO_ADMIN_EMAIL].map((email) =>
+    email.toLowerCase(),
+  ),
+);
+
+export function isDemoAccountEmail(email: string | null | undefined) {
+  return DEMO_ACCOUNT_EMAILS.has((email || "").trim().toLowerCase());
+}
+
+export function subscriptionWritesLocked(status: string | null | undefined) {
+  return status === "pending" || status === "canceled";
+}
+
+export function actorWritesLocked(actor?: Actor | null) {
+  if (!actor) return false;
+  if (actor.kind === "cleaner") {
+    if (isDemoAccountEmail(actor.profile.email)) return false;
+    return subscriptionWritesLocked(actor.profile.plan_status);
+  }
+  if (actor.kind === "admin") {
+    if (isDemoAccountEmail(actor.profile.email)) return false;
+    return subscriptionWritesLocked(actor.masterPlanStatus);
+  }
+  return false;
+}
 
 export function isOfficeActor(actor?: Actor | null) {
   return actor?.kind === "cleaner" || actor?.kind === "admin";

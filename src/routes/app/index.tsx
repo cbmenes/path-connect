@@ -6,6 +6,7 @@ import { getDashboard, isCleanerDash, isClientDash, isTeamDash, type CleanerDash
 import { payInvoiceAsClient, tipJob } from "@/lib/sweepbook/payments";
 import { formatDateTime, formatHours, money } from "@/lib/sweepbook/time";
 import { APP_NAME } from "@/lib/brand";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { PageHeader } from "@/components/app/empty-state";
 import { VisitChargeLine } from "@/components/app/receipt";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
@@ -57,9 +58,11 @@ function CleanerHome({ data }: { data: CleanerDashboard }) {
             <Button variant="outline" asChild>
               <Link to="/app/sheet">Day sheet</Link>
             </Button>
-            <Button asChild>
-              <Link to="/app/jobs/new">New visit</Link>
-            </Button>
+            {actorWritesLocked(actor) ? null : (
+              <Button asChild>
+                <Link to="/app/jobs/new">New visit</Link>
+              </Button>
+            )}
           </div>
         }
       />

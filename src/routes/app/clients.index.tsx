@@ -4,6 +4,7 @@ import { useMemo, useState } from "react";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { listClients } from "@/lib/sweepbook/clients";
 import { money } from "@/lib/sweepbook/time";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -14,6 +15,7 @@ function ClientsPage() {
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["clients"], queryFn: () => listClients() });
   const isMaster = actor.data?.kind === "cleaner";
+  const writesLocked = actorWritesLocked(actor.data);
   const [qtext, setQtext] = useState("");
   const filtered = useMemo(() => {
     const t = qtext.trim().toLowerCase();
@@ -37,9 +39,11 @@ function ClientsPage() {
                 </Link>
               </Button>
             ) : null}
-            <Button asChild>
-              <Link to="/app/clients/new">Add client</Link>
-            </Button>
+            {writesLocked ? null : (
+              <Button asChild>
+                <Link to="/app/clients/new">Add client</Link>
+              </Button>
+            )}
           </div>
         }
       />
@@ -51,9 +55,11 @@ function ClientsPage() {
           title="No clients yet"
           body="Add a household by hand or import a spreadsheet of the people you already clean for."
           action={
-            <Button asChild>
-              <Link to="/app/clients/new">Add client</Link>
-            </Button>
+            writesLocked ? undefined : (
+              <Button asChild>
+                <Link to="/app/clients/new">Add client</Link>
+              </Button>
+            )
           }
         />
       ) : (

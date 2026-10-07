@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib/sweepbook/clients";
 import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
-import { actorCanCharge } from "@/lib/sweepbook/types";
+import { actorCanCharge, actorWritesLocked } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
 import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
 import { addCardAuthenticated, chargeCard, createCardLink } from "@/lib/sweepbook/payments";
@@ -32,6 +32,7 @@ function ClientProfile() {
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["client", id], queryFn: () => getClient({ data: id }) });
   const canCharge = actorCanCharge(actor.data);
+  const writesLocked = actorWritesLocked(actor.data);
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -57,9 +58,11 @@ function ClientProfile() {
           <p className="text-sm text-muted">{client.address}</p>
         </div>
         <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setEditing((v) => !v)}>
-            {editing ? "Close" : "Edit"}
-          </Button>
+          {writesLocked ? null : (
+            <Button variant="outline" onClick={() => setEditing((v) => !v)}>
+              {editing ? "Close" : "Edit"}
+            </Button>
+          )}
           <Button variant="outline" asChild>
             <Link
               to="/app/messages/$clientId"
@@ -73,17 +76,21 @@ function ClientProfile() {
               Message
             </Link>
           </Button>
-          <Button asChild>
-            <Link to="/app/jobs/new" search={{ clientId: client.id }}>
-              Schedule
-            </Link>
-          </Button>
-          <Button variant="outline" onClick={() => setManageOpen(true)}>
-            Manage recurring
-          </Button>
-          <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
-            Remove
-          </Button>
+          {writesLocked ? null : (
+            <>
+              <Button asChild>
+                <Link to="/app/jobs/new" search={{ clientId: client.id }}>
+                  Schedule
+                </Link>
+              </Button>
+              <Button variant="outline" onClick={() => setManageOpen(true)}>
+                Manage recurring
+              </Button>
+              <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
+                Remove
+              </Button>
+            </>
+          )}
         </div>
       </div>
 
@@ -152,6 +159,7 @@ function ClientProfile() {
                 }}
               />
             ) : null}
+            {writesLocked ? null : (
             <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
               <DialogTrigger asChild>
                 <Button>Charge a card</Button>
@@ -172,6 +180,7 @@ function ClientProfile() {
                 />
               </DialogContent>
             </Dialog>
+            )}
           </div>
         </Card>
         ) : (
@@ -196,6 +205,7 @@ function ClientProfile() {
             onChange={setAssigneeIds}
           />
         </div>
+        {writesLocked ? null : (
         <Button
           className="mt-3"
           variant="outline"
@@ -210,11 +220,13 @@ function ClientProfile() {
         >
           Save
         </Button>
+        )}
       </Card>
 
       <Card>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg text-navy">Invite to the portal</h2>
+          {writesLocked ? null : (
           <Button
             variant="outline"
             onClick={async () => {
@@ -227,6 +239,7 @@ function ClientProfile() {
           >
             Copy invite link
           </Button>
+          )}
         </div>
         {inviteUrl ? <p className="mt-2 break-all text-xs text-muted">{inviteUrl}</p> : null}
         <p className="mt-2 text-sm text-muted">

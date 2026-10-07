@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertOffice, getActor, masterUserId } from "./access";
+import { assertOffice, assertSubscriptionWritable, getActor, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { nid } from "./time";
 
@@ -12,6 +12,7 @@ export const createInvite = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const rows = await sql<{ id: string; email: string | null; name: string }>`
       select id, email, name from clients where id = ${clientId} and cleaner_user_id = ${ownerId} limit 1

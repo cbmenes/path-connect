@@ -5,6 +5,7 @@ import { toast } from "sonner";
 import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { chargeCard, listCardsForClient, markAsPaid, requestTip } from "@/lib/sweepbook/payments";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { appointmentMessageThread } from "@/lib/sweepbook/threads";
@@ -45,7 +46,10 @@ function JobDetail() {
   const [manageOpen, setManageOpen] = useState(false);
   const assignGate = useAssignConflictGate();
   const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
-  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
+  const writesLocked = actorWritesLocked(actor.data);
+  const officeWrites = isOffice && !writesLocked;
+  const canCharge =
+    !writesLocked && (actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge));
   const isTeam = actor.data?.kind === "team";
   const canMessage =
     actor.data?.kind === "cleaner" ||
@@ -93,7 +97,7 @@ function JobDetail() {
       {isOffice || isTeam ? (
         <JobProgress
           job={job}
-          isOffice={Boolean(isOffice)}
+          isOffice={officeWrites}
           isAssignedTeam={
             Boolean(isTeam) &&
             Boolean(actor.data?.userId) &&
@@ -114,7 +118,7 @@ function JobDetail() {
           }}
         />
       ) : null}
-      {isOffice ? (
+      {officeWrites ? (
         <Card className="grid gap-3">
           <h2 className="font-display text-lg text-navy">Assigned cleaners</h2>
           <AssigneePicker
@@ -158,20 +162,20 @@ function JobDetail() {
 
       {isOffice || isTeam ? (
         <div className="flex flex-wrap gap-2">
-          {isOffice ? (
+          {officeWrites ? (
             <Button variant="outline" onClick={() => setEditing((v) => !v)}>{editing ? "Close editor" : "Edit"}</Button>
           ) : null}
-          {job.status !== "cancelled" && isOffice ? (
+          {job.status !== "cancelled" && officeWrites ? (
             <Button variant="ghost" onClick={() => setCancelOpen(true)}>
               Cancel appointment
             </Button>
           ) : null}
-          {isOffice ? (
+          {officeWrites ? (
             <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
               Remove appointment
             </Button>
           ) : null}
-          {job.series_id && isOffice ? (
+          {job.series_id && officeWrites ? (
             <Button variant="outline" onClick={() => setManageOpen(true)}>
               Manage recurring
             </Button>
@@ -250,7 +254,7 @@ function JobDetail() {
         </div>
       ) : null}
 
-      {editing && isOffice ? (
+      {editing && officeWrites ? (
         <JobForm
           showAssign
           initial={{

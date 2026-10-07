@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertOffice, getActor, isOffice, masterUserId, teamCanSeeChecklists } from "./access";
+import { assertOffice, assertSubscriptionWritable, getActor, isOffice, masterUserId, teamCanSeeChecklists } from "./access";
 import { setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
 import { teamCanAccessJob } from "./assignees";
 import { nid } from "./time";
@@ -256,6 +256,7 @@ export const toggleJobChecklistItem = createServerFn({ method: "POST" })
     `;
     const row = rows[0];
     if (!row) throw new Error("Checklist item not found.");
+    if (isOffice(actor)) await assertSubscriptionWritable(sql, actor);
     if (actor.kind === "client" || actor.kind === "none" || actor.kind === "client_unlinked") {
       throw new Error("Not allowed.");
     }
@@ -290,6 +291,7 @@ export const applyChecklistTemplateToJob = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const jobs = await sql<{ id: string }>`
       select id from jobs where id = ${data.jobId} and cleaner_user_id = ${ownerId} limit 1
@@ -354,6 +356,7 @@ export const setTeamChecklists = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     await setTeamAccountToggle(sql, ownerId, "team_checklists_enabled", "can_see_checklists", enabled);
     return { ok: true };
@@ -369,6 +372,7 @@ export const setTeamMemberChecklistAccess = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const member = await sql<{ user_id: string }>`
       select user_id from profiles
@@ -399,6 +403,7 @@ export const setClientChecklistTemplate = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     if (data.templateId) {
       const owned = await sql<{ id: string }>`
@@ -429,6 +434,7 @@ export const setClientChecklistTemplatesBulk = createServerFn({ method: "POST" }
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     if (data.templateId) {
       const owned = await sql<{ id: string }>`

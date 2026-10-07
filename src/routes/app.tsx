@@ -35,7 +35,7 @@ function AppLayout() {
       return;
     }
     const status = actor.data?.kind === "cleaner" ? actor.data.profile.plan_status : null;
-    const needsPlan = status === "trial" || status === "pending";
+    const needsPlan = status === "trial";
     if (needsPlan && !checkoutSuccess && pathname.startsWith("/app")) {
       void navigate({ to: "/choose-plan" });
     }

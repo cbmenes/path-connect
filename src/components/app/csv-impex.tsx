@@ -1,6 +1,9 @@
 import { useMemo, useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
+import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { exportCsv, importCsv, type ImportResult } from "@/lib/sweepbook/impex";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import {
   REQUIRED_FIELDS,
   TEMPLATE_FIELDS,
@@ -45,6 +48,8 @@ export async function downloadExport(kind: CsvKind) {
 }
 
 export function CsvImportPanel({ initialKind = "clients" }: { initialKind?: CsvKind }) {
+  const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
+  const writesLocked = actorWritesLocked(actor.data);
   const [kind, setKind] = useState<CsvKind>(initialKind);
   const [headers, setHeaders] = useState<string[]>([]);
   const [rawRows, setRawRows] = useState<string[][]>([]);
@@ -262,8 +267,11 @@ export function CsvImportPanel({ initialKind = "clients" }: { initialKind?: CsvK
                   Replace matching emails or visits — does not delete other records
                 </label>
               </fieldset>
+              {writesLocked ? (
+                <p className="text-sm text-ink">Your plan is inactive. Resume it in Settings to make changes.</p>
+              ) : null}
               <Button
-                disabled={busy || mapped.length === 0}
+                disabled={busy || mapped.length === 0 || writesLocked}
                 onClick={async () => {
                   setBusy(true);
                   try {

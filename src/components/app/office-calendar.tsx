@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { createJob, listJobs } from "@/lib/sweepbook/jobs";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { listTimeOff } from "@/lib/sweepbook/time-off";
 import { firstName, timeOffCoversDay } from "@/lib/sweepbook/time-off-overlap";
 import type { DayOffMark } from "@/components/app/calendar-board";
@@ -57,7 +58,9 @@ export function OfficeCalendar({
   const isOffice = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
   const isMaster = actor.data?.kind === "cleaner";
   const isTeam = actor.data?.kind === "team";
-  const canCharge = actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge);
+  const writesLocked = actorWritesLocked(actor.data);
+  const canCharge =
+    !writesLocked && (actor.data?.kind === "cleaner" || (actor.data?.kind === "admin" && actor.data.canCharge));
   const [mode, setMode] = useState<CalView>(urlSearch?.view ?? "month");
   const [anchor, setAnchor] = useState(() => parseAnchor(urlSearch?.date));
   const [addStart, setAddStart] = useState<string | null>(urlSearch?.start ?? null);
@@ -176,7 +179,7 @@ export function OfficeCalendar({
                     </Link>
                   </Button>
                 ) : null}
-                {newVisit}
+                {writesLocked ? null : newVisit}
               </div>
             ) : null
           }
@@ -187,7 +190,7 @@ export function OfficeCalendar({
             <h2 className="font-display text-xl text-navy">Calendar</h2>
             <p className="mt-1 text-sm text-muted">This household’s visits. Month, week, or day.</p>
           </div>
-          {isOffice ? newVisit : null}
+          {isOffice && !writesLocked ? newVisit : null}
         </div>
       )}
       <CalendarNav
@@ -274,7 +277,7 @@ export function OfficeCalendar({
         {selectedId ? (
           <JobPanel
             id={selectedId}
-            canEdit={Boolean(isOffice)}
+            canEdit={Boolean(isOffice) && !writesLocked}
             canCharge={Boolean(canCharge)}
             isTeam={Boolean(isTeam)}
             canMessage={

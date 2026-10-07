@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertOffice, canChargeClients, getActor, masterUserId } from "./access";
+import { assertOffice, assertSubscriptionWritable, canChargeClients, getActor, masterUserId } from "./access";
 import {
   applyAssigneesToClientRecurring,
   parseAssignees,
@@ -207,6 +207,7 @@ export const createClient = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const id = nid("client");
     const templateId = data.checklist_template_id;
@@ -236,6 +237,7 @@ export const updateClient = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const prev = await sql<{ checklist_template_id: string | null }>`
       select checklist_template_id from clients
@@ -283,6 +285,7 @@ export const setClientAssignees = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const owned = await sql<{ id: string; name: string }>`
       select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
@@ -311,6 +314,7 @@ export const deleteClient = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
     const owned = await sql<{ id: string; name: string }>`
       select id, name from clients where id = ${id} and cleaner_user_id = ${ownerId} limit 1
@@ -354,6 +358,7 @@ export const importClients = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
+    await assertSubscriptionWritable(sql, actor);
     const ownerId = masterUserId(actor);
 
     const imported: { id: string; name: string; missing: string[] }[] = [];

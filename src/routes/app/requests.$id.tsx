@@ -2,7 +2,9 @@ import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useState } from "react";
 import { toast } from "sonner";
+import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { formatPhoneAsTyped } from "@/lib/sweepbook/people";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { acceptCleanRequest, declineCleanRequest, getCleanRequest, serviceTypeLabel } from "@/lib/sweepbook/requests";
 import { checkJobConflicts } from "@/lib/sweepbook/jobs";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
@@ -23,6 +25,8 @@ function RequestDetailPage() {
   const navigate = useNavigate();
   const qc = useQueryClient();
   const q = useQuery({ queryKey: ["clean-request", id], queryFn: () => getCleanRequest({ data: id }) });
+  const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
+  const writesLocked = actorWritesLocked(actor.data);
   const staff = useQuery({ queryKey: ["assignable-staff"], queryFn: () => listAssignableStaff() });
   const [startLocal, setStartLocal] = useState("");
   const [durationHours, setDurationHours] = useState("2");
@@ -191,7 +195,7 @@ function RequestDetailPage() {
               <Textarea value={notes} onChange={(e) => setNotes(e.target.value)} rows={3} />
             </Field>
             <div className="flex flex-wrap gap-2">
-              <Button type="submit" disabled={busy}>
+              <Button type="submit" disabled={busy || writesLocked}>
                 {busy ? "Saving…" : "Accept and schedule"}
               </Button>
               <Button type="button" variant="outline" disabled={busy} onClick={() => setDeclineOpen(true)}>

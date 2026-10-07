@@ -15,7 +15,7 @@ import {
   updateTeamMember,
 } from "@/lib/sweepbook/team";
 import { formatPayRate, type PayType } from "@/lib/sweepbook/team-pay";
-import { isOfficeActor, type OfficeRole, type TeamMember } from "@/lib/sweepbook/types";
+import { actorWritesLocked, isOfficeActor, type OfficeRole, type TeamMember } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
@@ -45,6 +45,7 @@ function TeamPage() {
   const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
   const [removing, setRemoving] = useState(false);
   const isMaster = actor.data?.kind === "cleaner";
+  const writesLocked = actorWritesLocked(actor.data);
   const canManageAdmins = Boolean(q.data?.canManageAdmins);
   const canEditPay = Boolean(q.data?.canEditPay);
   const canToggleAccountMessaging = Boolean(q.data?.canToggleAccountMessaging);
@@ -96,6 +97,7 @@ function TeamPage() {
         {canToggleAccountMessaging ? (
           <Button
             variant={q.data?.teamMessagingEnabled ? "primary" : "outline"}
+            disabled={writesLocked}
             onClick={async () => {
               await setTeamMessaging({ data: !q.data?.teamMessagingEnabled });
               await qc.invalidateQueries({ queryKey: ["team"] });
@@ -121,6 +123,7 @@ function TeamPage() {
         </div>
         <Button
           variant={q.data?.teamClockInEnabled ? "primary" : "outline"}
+          disabled={writesLocked}
           onClick={async () => {
             await setTeamClockIn({ data: !q.data?.teamClockInEnabled });
             toast.message(q.data?.teamClockInEnabled ? "Clock in/out off." : "Clock in/out on.");
@@ -197,7 +200,7 @@ function TeamPage() {
             <Button
               type="button"
               variant="outline"
-              disabled={busy}
+              disabled={busy || writesLocked}
               onClick={async () => {
                 if (!firstName.trim() || !lastName.trim()) {
                   toast.error("First and last name are required.");
@@ -221,7 +224,7 @@ function TeamPage() {
             >
               {busy ? "Saving…" : "Save"}
             </Button>
-            <Button type="submit" disabled={busy}>
+            <Button type="submit" disabled={busy || writesLocked}>
               {busy ? "Sending…" : "Send invite"}
             </Button>
           </div>

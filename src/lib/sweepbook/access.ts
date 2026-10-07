@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db";
-import type { Actor, ClientRow, Profile } from "./types";
+import { isDemoAccountEmail, type Actor, type ClientRow, type Profile, type PlanStatus } from "./types";
 
 export const PROFILE_COLUMNS = `
   user_id, role, full_name, first_name, last_name, business_name, phone, email, address,
@@ -87,11 +87,17 @@ export async function getActor(sql: Sql, userId: string): Promise<Actor> {
   if (profile.role === "cleaner") {
     if (profile.cleaner_kind === "admin") {
       const masterId = profile.master_user_id || userId;
+      const masterPlan = await sql.query<{ plan_status: string | null }>(
+        `select plan_status from profiles where user_id = $1 limit 1`,
+        [masterId],
+      );
+      const masterPlanStatus = (masterPlan[0]?.plan_status || "trial") as PlanStatus;
       return {
         kind: "admin",
         userId,
         profile,
         masterUserId: masterId,
+        masterPlanStatus,
         canCharge: asBool(profile.can_charge, false),
         canMessage: true,
         disabled: profile.team_status === "disabled",
@@ -173,6 +179,22 @@ export function assertCanCharge(actor: Actor) {
   assertOffice(actor);
   if (!canChargeClients(actor)) {
     throw new Error("Charging is off for this admin login.");
+  }
+}
+
+export async function assertSubscriptionWritable(sql: Sql, actor: Actor) {
+  if (actor.kind !== "cleaner" && actor.kind !== "admin") return;
+  const masterId = actor.masterUserId;
+  const emails = await sql<{ email: string | null }>`
+    select email from "user" where id = ${actor.userId} or id = ${masterId}
+  `;
+  if (emails.some((row) => isDemoAccountEmail(row.email))) return;
+  const rows = await sql<{ plan_status: string | null }>`
+    select plan_status from profiles where user_id = ${masterId} limit 1
+  `;
+  const status = rows[0]?.plan_status || "trial";
+  if (status === "pending" || status === "canceled") {
+    throw new Error("Your plan is inactive. Resume it in Settings to make changes.");
   }
 }
 

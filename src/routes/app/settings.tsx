@@ -630,7 +630,7 @@ function PlanSection() {
           The owner subscription is confirmed by Stripe. Extra Admin ($19/mo) is not a Checkout item. Annual billing is later.
         </p>
       </Card>
-      {plan.status === "canceled" ? (
+      {plan.status === "canceled" || plan.status === "pending" ? (
         <Button
           disabled={busy}
           onClick={async () => {

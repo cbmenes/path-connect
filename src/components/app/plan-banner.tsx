@@ -2,7 +2,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { resumeSaasPlan, planCodeFromCents } from "@/lib/sweepbook/plan";
-import type { Profile } from "@/lib/sweepbook/types";
+import { isDemoAccountEmail, type Profile } from "@/lib/sweepbook/types";
 import { Button } from "@/components/ui/button";
 
 export function PlanBanner({ profile }: { profile: Profile }) {
@@ -10,15 +10,18 @@ export function PlanBanner({ profile }: { profile: Profile }) {
   const [busy, setBusy] = useState(false);
   const code = planCodeFromCents(profile.plan_price_cents);
   const name = code === "office" ? "Office" : "Crew";
-  if (profile.plan_status !== "active" && profile.plan_status !== "canceled") return null;
+  const inactive =
+    !isDemoAccountEmail(profile.email) &&
+    (profile.plan_status === "pending" || profile.plan_status === "canceled");
+  if (!inactive && profile.plan_status !== "active" && profile.plan_status !== "canceled") return null;
   const canceled = profile.plan_status === "canceled";
-  const text = canceled ? `${name} plan canceled` : `${name} plan`;
+  const text = inactive ? "Your plan is inactive." : canceled ? `${name} plan canceled` : `${name} plan`;
 
   return (
     <div className="border-b border-border bg-sage-soft px-4 py-3 print:hidden">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink">{text}</p>
-        {canceled ? (
+        {inactive || canceled ? (
           <Button
             size="sm"
             disabled={busy}
