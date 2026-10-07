@@ -182,7 +182,7 @@ export function assertCanCharge(actor: Actor) {
   }
 }
 
-export async function assertSubscriptionWritable(sql: Sql, actor: Actor) {
+export async function assertActivePlan(sql: Sql, actor: Actor) {
   if (actor.kind !== "cleaner" && actor.kind !== "admin") return;
   const masterId = actor.masterUserId;
   const emails = await sql<{ email: string | null }>`

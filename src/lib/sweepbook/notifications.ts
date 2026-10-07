@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import type { Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertSubscriptionWritable, getActor, masterUserId } from "./access";
+import { assertActivePlan, getActor, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { nid } from "./time";
 import type { NotificationKind, NotificationRow } from "./types";
@@ -119,7 +119,7 @@ export const handleNotification = createServerFn({ method: "POST" })
     const n = rows[0];
     if (!n) throw new Error("Request not found.");
     if (n.kind === "cancel" || n.kind === "reschedule") {
-      await assertSubscriptionWritable(sql, actor);
+      await assertActivePlan(sql, actor);
     }
     if (n.kind !== "cancel" && n.kind !== "reschedule") {
       await sql`

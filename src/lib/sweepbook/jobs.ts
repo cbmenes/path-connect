@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { JOB_FROM, JOB_SELECT, assertClient, assertOffice, assertStaff, assertSubscriptionWritable, getActor, isOffice, masterUserId } from "./access";
+import { JOB_FROM, JOB_SELECT, assertClient, assertOffice, assertStaff, assertActivePlan, getActor, isOffice, masterUserId } from "./access";
 import {
   applyAssigneesToClientRecurring,
   getClientAssigneeIds,
@@ -541,7 +541,7 @@ export const createJob = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const clients = await sql<{
       id: string;
@@ -616,7 +616,7 @@ export const updateJob = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const start = fromDatetimeLocalValue(data.startLocal);
     const assigneeIds = data.assignedToUserIds ?? [];
@@ -651,7 +651,7 @@ export const assignJob = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const rows = await sql<{ id: string; client_id: string }>`
       select id, client_id from jobs where id = ${data.id} and cleaner_user_id = ${ownerId} limit 1
@@ -700,7 +700,7 @@ export const setJobStatus = createServerFn({ method: "POST" })
     if (actor.kind === "team") {
       throw new Error("Team cleaners cannot change visit status.");
     }
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     await sql`
       update jobs set status = ${data.status}, cancel_reason = ${data.reason ?? null}
       where id = ${data.id} and cleaner_user_id = ${ownerId}
@@ -826,7 +826,7 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     if (data.frequency === "none") throw new Error("Choose weekly, biweekly, or monthly.");
     const durationMin = Number(data.durationMin);
@@ -934,7 +934,7 @@ export const cancelFutureRecurring = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const effective = parseEffectiveDate(data.effectiveDate);
     const owned = await sql<{ id: string }>`
@@ -960,7 +960,7 @@ export const removeJob = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const rows = await sql<{ id: string }>`
       select id from jobs where id = ${data.id} and cleaner_user_id = ${ownerId} limit 1

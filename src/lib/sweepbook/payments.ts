@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCanCharge, assertClient, assertSubscriptionWritable, canChargeClients, getActor, isOffice, masterUserId } from "./access";
+import { assertCanCharge, assertClient, assertActivePlan, canChargeClients, getActor, isOffice, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
 import { nid, formatDateTime, money } from "./time";
@@ -313,7 +313,7 @@ export const chargeCard = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCanCharge(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const owned = await sql`select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
     if (!owned[0]) throw new Error("Client not found.");
@@ -397,7 +397,7 @@ export const markAsPaid = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCanCharge(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const note = trimPaidNote(data.note);
     const now = new Date().toISOString();
@@ -577,7 +577,7 @@ export const requestTip = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCanCharge(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     await sql`
       update jobs set tip_requested = true
       where id = ${jobId} and cleaner_user_id = ${masterUserId(actor)} and status = 'completed'

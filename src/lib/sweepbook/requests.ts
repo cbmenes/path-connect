@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertOffice, assertSubscriptionWritable, getActor, masterUserId } from "./access";
+import { assertOffice, assertActivePlan, getActor, masterUserId } from "./access";
 import { replaceJobAssignees } from "./assignees";
 import { inheritChecklistForNewJob } from "./checklist-store";
 import { insertNotification } from "./notifications";
@@ -326,7 +326,7 @@ export const acceptCleanRequest = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const request = await loadRequest(sql, data.id, ownerId);
     if (!request) throw new Error("Request not found.");

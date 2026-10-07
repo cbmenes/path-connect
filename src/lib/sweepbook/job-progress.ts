@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertSubscriptionWritable, getActor, isOffice, masterUserId, teamCanClockIn } from "./access";
+import { assertActivePlan, getActor, isOffice, masterUserId, teamCanClockIn } from "./access";
 import { teamCanAccessJob } from "./assignees";
 import {
   canSetProgress,
@@ -53,7 +53,7 @@ export const setJobProgress = createServerFn({ method: "POST" })
     } else if (!office) {
       throw new Error("Not allowed.");
     } else {
-      await assertSubscriptionWritable(sql, actor);
+      await assertActivePlan(sql, actor);
     }
     if (!canSetProgress({
       current: job.progress_status,

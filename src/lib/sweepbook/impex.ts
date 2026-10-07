@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCleaner, assertSubscriptionWritable, getActor } from "./access";
+import { assertCleaner, assertActivePlan, getActor } from "./access";
 import { replaceClientAssignees, replaceJobAssignees } from "./assignees";
 import { inheritChecklistForNewJob } from "./checklist-store";
 import {
@@ -663,7 +663,7 @@ export const importCsv = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertCleaner(actor);
-    await assertSubscriptionWritable(sql, actor);
+    await assertActivePlan(sql, actor);
     if (data.kind === "clients") return importClientRows(sql, context.userId, data.rows, data.mode);
     if (data.kind === "team") return importTeamRows(sql, context.userId, data.rows, data.mode);
     return importScheduleRows(sql, context.userId, data.rows, data.mode);
