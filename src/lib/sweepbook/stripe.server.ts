@@ -218,6 +218,48 @@ export async function updateOwnerSubscription(userId: string, plan: SaasPlanCode
   return { stripe: true as const };
 }
 
+async function paymentMethodPortalConfiguration(stripe: Stripe) {
+  const listed = await stripe.billingPortal.configurations.list({ limit: 100, active: true });
+  const existing = listed.data.find(
+    (item) => item.metadata?.purpose === "crewweek-payment-method" && item.features.payment_method_update.enabled,
+  );
+  if (existing) return existing.id;
+  const created = await stripe.billingPortal.configurations.create({
+    name: "CrewWeek payment method",
+    metadata: { purpose: "crewweek-payment-method" },
+    features: { payment_method_update: { enabled: true } },
+  });
+  return created.id;
+}
+
+export async function createOwnerBillingPortal(userId: string) {
+  const sql = await getSql();
+  const actor = await getActor(sql, userId);
+  if (actor.kind !== "cleaner") throw new Error("Billing is Master-only.");
+  const email = await userEmail(sql, userId);
+  if (isDemoEmail(email)) throw new Error("Demo accounts do not manage a Stripe card.");
+  const customerId = actor.profile.stripe_customer_id;
+  if (!customerId) throw new Error("Stripe does not have a customer for this account yet.");
+  const stripe = stripeClient();
+  const origin = await checkoutOrigin();
+  const returnUrl = `${origin}/app/settings?tab=plan`;
+  const configuration = await paymentMethodPortalConfiguration(stripe);
+  const session = await stripe.billingPortal.sessions.create({
+    customer: customerId,
+    configuration,
+    return_url: returnUrl,
+    flow_data: {
+      type: "payment_method_update",
+      after_completion: {
+        type: "redirect",
+        redirect: { return_url: returnUrl },
+      },
+    },
+  });
+  if (!session.url) throw new Error("Stripe did not return a billing portal link.");
+  return { url: session.url };
+}
+
 export async function cancelOwnerSubscription(userId: string) {
   const sql = await getSql();
   const actor = await getActor(sql, userId);

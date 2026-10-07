@@ -68,7 +68,16 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       priceCents: actor.profile.plan_status === "trial" ? planPriceCents(code) : actor.profile.plan_price_cents,
       demo,
       subscribed: Boolean(actor.profile.stripe_subscription_id) && !demo,
+      stripeCustomer: Boolean(actor.profile.stripe_customer_id) && !demo,
     };
+  });
+
+export const openBillingPortal = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(() => ({}))
+  .handler(async ({ context }) => {
+    const { createOwnerBillingPortal } = await import("./stripe.server");
+    return createOwnerBillingPortal(context.userId);
   });
 
 export const beginStripeCheckout = createServerFn({ method: "POST" })

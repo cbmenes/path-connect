@@ -17,7 +17,7 @@ import {
   setDefaultBillingMethod,
   updateAccount,
 } from "@/lib/sweepbook/billing";
-import { cancelSaasPlan, changeSaasPlan, getSaasPlan, planCodeFromCents, resumeSaasPlan } from "@/lib/sweepbook/plan";
+import { cancelSaasPlan, changeSaasPlan, getSaasPlan, openBillingPortal, planCodeFromCents, resumeSaasPlan } from "@/lib/sweepbook/plan";
 import { listCardsForClient } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
@@ -585,6 +585,7 @@ function PlanSection() {
   const [changeOpen, setChangeOpen] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [portalBusy, setPortalBusy] = useState(false);
   const plan = q.data?.access === "master" ? q.data : null;
   const code = plan ? planCodeFromCents(plan.priceCents) : "crew";
   const name = code === "office" ? "Office" : "Crew";
@@ -629,6 +630,27 @@ function PlanSection() {
         <p className="mt-3 text-xs text-muted">
           The owner subscription is confirmed by Stripe. Extra Admin ($19/mo) is not a Checkout item. Annual billing is later.
         </p>
+        {plan.stripeCustomer ? (
+          <div className="mt-4 grid gap-2">
+            <Button
+              variant="outline"
+              disabled={portalBusy}
+              onClick={async () => {
+                setPortalBusy(true);
+                try {
+                  const portal = await openBillingPortal({ data: {} });
+                  window.location.assign(portal.url);
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
+                  setPortalBusy(false);
+                }
+              }}
+            >
+              {portalBusy ? "Opening Stripe…" : "Manage payment method"}
+            </Button>
+            <p className="text-xs text-muted">Stripe replaces the card for this subscription. CrewWeek does not collect the number.</p>
+          </div>
+        ) : null}
       </Card>
       {plan.status === "canceled" || plan.status === "pending" ? (
         <Button
