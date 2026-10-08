@@ -21,15 +21,15 @@ export const Route = createFileRoute("/choose-plan")({
 const PLANS: { code: SaasPlanCode; name: string; price: string; points: string[] }[] = [
   {
     code: "crew",
-    name: "Crew",
+    name: "Crew Plan",
     price: "$39/mo",
     points: ["Owner account", "Unlimited Team", "Unlimited Clients", "Admins are $19/mo each"],
   },
   {
     code: "office",
-    name: "Office",
+    name: "Office Plan",
     price: "$79/mo",
-    points: ["Everything in Crew", "1 Admin included", "Team pay tracks what you owe cleaners"],
+    points: ["Everything in the Crew Plan", "1 Admin included", "Team pay tracks what you owe cleaners"],
   },
 ];
 
@@ -64,7 +64,7 @@ function ChoosePlan() {
         <div>
           <CrewWeekLogo />
           <p className="mt-6 text-xs font-medium uppercase tracking-[0.18em] text-sage">Choose plan</p>
-          <h1 className="mt-2 font-display text-4xl text-navy">Crew or Office</h1>
+          <h1 className="mt-2 font-display text-4xl text-navy">Crew Plan or Office Plan</h1>
           <p className="mt-2 text-sm text-muted">
             The business owner pays monthly. Cleaners and clients are not billed. Extra Admin is $19/mo and is not part of Checkout.
           </p>
@@ -101,7 +101,7 @@ function ChoosePlan() {
                 </button>
               ))}
             </div>
-            <p className="text-sm text-muted">Annual billing (2 months free) is not part of Checkout yet. Mark as Paid is available on Crew and Office.</p>
+            <p className="text-sm text-muted">Annual billing (2 months free) is not part of Checkout yet. Mark as Paid is available on the Crew Plan and the Office Plan.</p>
             {error ? <p className="text-sm text-danger">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
               {user && current.data?.access === "master" && current.data.demo ? (
@@ -125,14 +125,14 @@ function ChoosePlan() {
             ) : null}
             {current.data?.access === "master" && !current.data.demo && current.data.status === "active" ? (
               <p className="text-sm text-muted">
-                This account is already on {current.data.code === "office" ? "Office" : "Crew"}.{" "}
+                This account is already on the {current.data.code === "office" ? "Office Plan" : "Crew Plan"}.{" "}
                 <Link to="/app" className="text-navy underline-offset-4 hover:underline">
                   Open the app
                 </Link>
               </p>
             ) : null}
             {user && current.data && current.data.access !== "master" ? (
-              <p className="text-sm text-muted">Crew and Office are paid by the business owner.</p>
+              <p className="text-sm text-muted">The Crew Plan and the Office Plan are paid by the business owner.</p>
             ) : null}
           </>
         ) : null}

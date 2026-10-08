@@ -9,13 +9,13 @@ export function PlanBanner({ profile }: { profile: Profile }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
   const code = planCodeFromCents(profile.plan_price_cents);
-  const name = code === "office" ? "Office" : "Crew";
+  const name = code === "office" ? "Office Plan" : "Crew Plan";
   const inactive =
     !isDemoAccountEmail(profile.email) &&
     (profile.plan_status === "pending" || profile.plan_status === "canceled");
   if (!inactive && profile.plan_status !== "active" && profile.plan_status !== "canceled") return null;
   const canceled = profile.plan_status === "canceled";
-  const text = inactive ? "Your plan is inactive." : canceled ? `${name} plan canceled` : `${name} plan`;
+  const text = inactive ? "Your plan is inactive." : canceled ? `${name} canceled` : name;
 
   return (
     <div className="border-b border-border bg-sage-soft px-4 py-3 print:hidden">
@@ -35,7 +35,7 @@ export function PlanBanner({ profile }: { profile: Profile }) {
                 }
                 await qc.invalidateQueries({ queryKey: ["actor"] });
                 await qc.invalidateQueries({ queryKey: ["saas-plan"] });
-                toast.success(`${name} plan resumed`);
+                toast.success(`${name} resumed`);
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Could not resume the plan.");
               } finally {

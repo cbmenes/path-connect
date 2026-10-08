@@ -459,7 +459,7 @@ async function importTeamRows(
         `;
       }
       if (payType && !payAllowed) {
-        warnings.push({ row: n, message: "Pay rate skipped. Team pay is included with Office." });
+        warnings.push({ row: n, message: "Pay rate skipped. Team pay is included in the Office Subscription." });
       }
       imported += 1;
       continue;

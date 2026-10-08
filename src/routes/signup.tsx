@@ -75,7 +75,7 @@ function Signup() {
         <div className="text-center">
           <CrewWeekLogo className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Create your account</h1>
-          <p className="mt-1 text-sm text-muted">Crew is $39/mo. Office is $79/mo. The business owner pays. Cleaners and clients are not billed.</p>
+          <p className="mt-1 text-sm text-muted">The Crew Plan is $39/mo. The Office Plan is $79/mo. The business owner pays. Cleaners and clients are not billed.</p>
         </div>
         <form onSubmit={onSubmit} className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">
           <fieldset className="grid gap-2">
@@ -83,8 +83,8 @@ function Signup() {
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
-                  ["crew", "Crew", "$39/mo"],
-                  ["office", "Office", "$79/mo"],
+                  ["crew", "Crew Plan", "$39/mo"],
+                  ["office", "Office Plan", "$79/mo"],
                 ] as const
               ).map(([code, label, price]) => (
                 <button

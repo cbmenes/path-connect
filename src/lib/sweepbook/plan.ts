@@ -22,7 +22,7 @@ export {
 };
 
 function parseCode(value: string): SaasPlanCode {
-  if (value !== "crew" && value !== "office") throw new Error("Choose Crew or Office.");
+  if (value !== "crew" && value !== "office") throw new Error("Choose the Crew Plan or the Office Plan.");
   return value;
 }
 

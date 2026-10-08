@@ -595,10 +595,10 @@ function PlanSection() {
   const [portalBusy, setPortalBusy] = useState(false);
   const plan = q.data?.access === "master" ? q.data : null;
   const code = plan?.code === "office" ? "office" : "crew";
-  const name = code === "office" ? "Office" : "Crew";
+  const name = code === "office" ? "Office Plan" : "Crew Plan";
   const price = code === "office" ? "$79/mo" : "$39/mo";
   const nextCode = code === "office" ? "crew" : "office";
-  const nextName = nextCode === "office" ? "Office" : "Crew";
+  const nextName = nextCode === "office" ? "Office Plan" : "Crew Plan";
   const nextPrice = nextCode === "office" ? "$79/mo" : "$39/mo";
   const adminCount = plan?.adminCount ?? 0;
   const nextIncluded = includedAdminSeats(nextCode);
@@ -636,7 +636,7 @@ function PlanSection() {
             ? "Includes 1 Admin and Team pay, which tracks what is owed to cleaners."
             : "Owner account with unlimited Team and Clients."}
         </p>
-        <p className="mt-1 text-sm text-muted">Mark as Paid is available on Crew and Office.</p>
+        <p className="mt-1 text-sm text-muted">Mark as Paid is available on the Crew Plan and the Office Plan.</p>
         <p className="text-sm text-muted">{statusLabel}</p>
         {plan.status === "active" ? <p className="mt-2 text-sm text-ink">Next renewal {renewalLabel()}</p> : null}
         <dl className="mt-3 grid gap-1 text-sm text-ink">
@@ -690,7 +690,7 @@ function PlanSection() {
                 return;
               }
               await refresh();
-              toast.success(`${name} plan resumed`);
+              toast.success(`${name} resumed`);
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Could not resume the plan.");
             } finally {
@@ -781,7 +781,7 @@ function BillingSection() {
     <div className="grid gap-4">
       <Card>
         <p className="text-xs uppercase tracking-[0.14em] text-sage">{APP_NAME} plan</p>
-        <p className="mt-1 font-display text-2xl text-navy">Crew $39/mo · Office $79/mo</p>
+        <p className="mt-1 font-display text-2xl text-navy">Crew Plan $39/mo · Office Plan $79/mo</p>
         <p className="text-sm capitalize text-muted">{status === "past_due" ? "Past due" : status}</p>
         <p className="mt-2 text-xs text-muted">
           Public price for the software. This screen does not start a subscription. Cards saved here stay separate from cards used to charge clients.

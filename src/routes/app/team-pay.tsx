@@ -84,13 +84,12 @@ function TeamPayPage() {
         }
       />
       <p className="max-w-xl text-sm text-muted">
-        Team pay tracks what you owe cleaners. It does not send payouts or handle tax. Mark as Paid is separate, and it stays on Crew and Office.
+        Team pay tracks what you owe cleaners. It does not send payouts or handle tax.
       </p>
       {locked ? (
         <Card>
-          <p className="font-medium text-navy">Included with Office</p>
-          <p className="mt-1 text-sm text-muted">
-            You can see Team pay here. Setting a cleaner’s rate, payroll, and marking crew pay paid stay off on Crew.
+          <p className="text-sm text-ink">
+            Included in the Office Subscription. You can see Team pay here. Setting a cleaner&apos;s rate, payroll, and marking Team pay paid are available in the Office Subscription.
           </p>
         </Card>
       ) : null}

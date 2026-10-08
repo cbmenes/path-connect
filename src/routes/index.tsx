@@ -41,7 +41,7 @@ function Home() {
               <a href="/login?demo=cleaner">See demo</a>
             </Button>
           </div>
-          <p className="mt-4 text-sm text-muted">Crew $39/mo. Office $79/mo. Unlimited cleaners and client logins.</p>
+          <p className="mt-4 text-sm text-muted">Crew Plan $39/mo. Office Plan $79/mo. Unlimited cleaners and client logins.</p>
         </div>
         <HeroPreview />
       </section>
@@ -137,7 +137,7 @@ function Pricing() {
     <section id="pricing" className="mx-auto max-w-6xl px-4 py-16">
       <div className="max-w-2xl">
         <p className="text-xs font-medium uppercase tracking-[0.18em] text-sage">Pricing</p>
-        <h2 className="mt-2 font-display text-4xl text-navy">Crew or Office.</h2>
+        <h2 className="mt-2 font-display text-4xl text-navy">Crew Plan or Office Plan.</h2>
         <p className="mt-3 text-muted">
           Two paid tiers. Cleaners and clients are never billed as seats. {APP_NAME} is the owner’s book of houses and crew.
         </p>
@@ -160,7 +160,7 @@ function Pricing() {
       </div>
       <div className="mt-6 grid gap-4 md:grid-cols-2">
         <article className="flex h-full flex-col rounded-2xl bg-paper p-6 shadow-card">
-          <p className="text-sm font-medium text-navy">Crew</p>
+          <p className="text-sm font-medium text-navy">Crew Plan</p>
           <p className="mt-2 font-display text-5xl tabular text-navy">
             {crewPrice}
             <span className="text-2xl text-muted">/mo</span>
@@ -176,7 +176,7 @@ function Pricing() {
         </article>
         <article className="flex h-full flex-col rounded-2xl bg-navy p-6 text-paper shadow-card">
           <div className="flex flex-wrap items-center justify-between gap-2">
-            <p className="text-sm font-medium">Office</p>
+            <p className="text-sm font-medium">Office Plan</p>
             <span className="rounded-full bg-sage-soft px-2 py-0.5 text-xs font-medium text-success">Recommended</span>
           </div>
           <p className="mt-2 font-display text-5xl tabular">
@@ -186,7 +186,7 @@ function Pricing() {
           <p className="mt-1 text-sm text-paper/75">{officeNote}</p>
           <p className="mt-2 text-sm text-sage">Most shops with an office person</p>
           <ul className="mt-5 grid flex-1 gap-2 text-sm text-paper/90">
-            <li>Everything in Crew</li>
+            <li>Everything in the Crew Plan</li>
             <li>1 Admin included</li>
             <li>Team pay tracks what you owe cleaners</li>
             <li>Additional Admins are $19/mo each</li>
@@ -194,7 +194,7 @@ function Pricing() {
         </article>
       </div>
       <p className="mt-6 text-sm text-muted">
-        Unlimited Team and Clients. Extra Admins are $19/mo each and are not in Checkout. Mark as Paid is available on Crew and Office.
+        Unlimited Team and Clients. Extra Admins are $19/mo each and are not in Checkout. Mark as Paid is available on the Crew Plan and the Office Plan.
       </p>
       <p className="mt-2 text-sm text-muted">
         The owner pays the software subscription. Client cards on file are separate.

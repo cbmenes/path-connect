@@ -85,7 +85,7 @@ function TeamPage() {
       </p>
       {q.data && !q.data.teamPayEnabled ? (
         <p className="max-w-xl text-sm text-muted">
-          Team pay tracks what you owe cleaners. It is included with Office.
+          Team pay tracks what you owe cleaners. It is included in the Office Subscription.
         </p>
       ) : null}
       <Card className="flex flex-wrap items-center justify-between gap-3">

@@ -516,7 +516,7 @@ async function updatePendingTeamInvite(
     await sql`update team_invites set can_charge = ${data.canCharge} where id = ${invite.id}`;
   }
   if (data.payType !== undefined) {
-    if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included with Office.");
+    if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included in the Office Subscription.");
     if (kind === "admin") throw new Error("Admins do not have a team pay rate.");
     const payType = parsePayType(data.payType);
     let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));
@@ -622,7 +622,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       await sql`update profiles set can_charge = ${data.canCharge} where user_id = ${data.userId}`;
     }
     if (data.payType !== undefined) {
-      if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included with Office.");
+      if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included in the Office Subscription.");
       if (member.cleaner_kind === "admin") throw new Error("Admins do not have a team pay rate.");
       const payType = parsePayType(data.payType);
       let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));
