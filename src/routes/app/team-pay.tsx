@@ -144,7 +144,7 @@ function TeamPayPage() {
           </p>
         </Card>
       ) : (
-        <div className="overflow-x-auto rounded-xl bg-paper shadow-card">
+        <div className="max-w-full overflow-x-auto rounded-xl bg-paper shadow-card max-md:max-w-[calc(100vw-2rem)]">
           <table className="w-full min-w-[40rem] text-left text-sm">
             <thead>
               <tr className="border-b border-border text-xs uppercase tracking-wide text-muted">
