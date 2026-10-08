@@ -1,8 +1,10 @@
 import { createServerFn } from "@tanstack/react-start";
-import { getSql } from "@/lib/db";
+import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCleaner, getActor } from "./access";
+import { getActor } from "./access";
+import { planCodeFromCents } from "./plan-prices";
 import { addDaysChicago, fromDatetimeLocalValue } from "./time";
+import { isDemoAccountEmail, type Actor } from "./types";
 
 export type PayType = "none" | "hourly" | "per_job" | "percent";
 
@@ -35,6 +37,22 @@ export function payTypeLabel(type: PayType) {
   if (type === "per_job") return "Per job";
   if (type === "percent") return "Percent of job price";
   return "None";
+}
+
+/** Active Office, or any demo login. Crew can see Team pay, but cannot run it. */
+export async function teamPayAllowed(sql: Sql, actor: Actor) {
+  if (actor.kind !== "cleaner" && actor.kind !== "admin") return false;
+  const masterId = actor.masterUserId;
+  const emails = await sql<{ email: string | null }>`
+    select email from "user" where id = ${actor.userId} or id = ${masterId}
+  `;
+  if (emails.some((row) => isDemoAccountEmail(row.email))) return true;
+  const rows = await sql<{ plan_code: string | null; plan_status: string | null; plan_price_cents: number | null }>`
+    select plan_code, plan_status, plan_price_cents from profiles where user_id = ${masterId} limit 1
+  `;
+  const stored = rows[0]?.plan_code;
+  const code = stored === "office" || stored === "crew" ? stored : planCodeFromCents(Number(rows[0]?.plan_price_cents || 0));
+  return code === "office" && rows[0]?.plan_status === "active";
 }
 
 export function formatPayRate(type: PayType, amount: number) {
@@ -70,11 +88,17 @@ export const getTeamPayTally = createServerFn({ method: "GET" })
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCleaner(actor);
+    if (actor.kind !== "cleaner" && actor.kind !== "admin") {
+      throw new Error("Team pay is only visible to the office.");
+    }
     if (!/^\d{4}-\d{2}-\d{2}$/.test(data.from) || !/^\d{4}-\d{2}-\d{2}$/.test(data.to)) {
       throw new Error("Choose a From and To date.");
     }
     if (data.to < data.from) throw new Error("To must be on or after From.");
+    if (!(await teamPayAllowed(sql, actor))) {
+      return { locked: true as const, from: data.from, to: data.to, rows: [] as TeamPayRow[], uniqueTipsCents: 0 };
+    }
+    const ownerId = actor.masterUserId;
     const { start, end } = rangeBounds(data.from, data.to);
 
     const members = await sql.query<{
@@ -89,7 +113,7 @@ export const getTeamPayTally = createServerFn({ method: "GET" })
        from profiles
        where master_user_id = $1 and role = 'cleaner'
        order by full_name`,
-      [context.userId],
+      [ownerId],
     );
 
     const jobs = await sql.query<{
@@ -103,7 +127,7 @@ export const getTeamPayTally = createServerFn({ method: "GET" })
        where cleaner_user_id = $1
          and status <> 'cancelled'
          and start_at >= $2::timestamptz and start_at < $3::timestamptz`,
-      [context.userId, start.toISOString(), end.toISOString()],
+      [ownerId, start.toISOString(), end.toISOString()],
     );
 
     const jobIds = jobs.map((j) => j.id);
@@ -135,7 +159,7 @@ export const getTeamPayTally = createServerFn({ method: "GET" })
            and kind = 'tip'
            and status <> 'void'
            and job_id in (${placeholders})`,
-        [...jobIds, context.userId],
+        [...jobIds, ownerId],
       );
       for (const tip of tips) {
         if (!tip.job_id) continue;
@@ -182,6 +206,7 @@ export const getTeamPayTally = createServerFn({ method: "GET" })
     for (const id of uniqueTipJobIds) uniqueTipsCents += tipByJob.get(id) ?? 0;
 
     return {
+      locked: false as const,
       from: data.from,
       to: data.to,
       rows,

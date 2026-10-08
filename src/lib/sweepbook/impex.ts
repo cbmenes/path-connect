@@ -402,6 +402,7 @@ async function importTeamRows(
   ownerId: string,
   rows: Record<string, string>[],
   mode: ImportMode,
+  payAllowed: boolean,
 ): Promise<ImportResult> {
   const members = await sql<{ user_id: string; email: string }>`
     select user_id, lower(email) as email from profiles
@@ -449,13 +450,16 @@ async function importTeamRows(
             phone = ${phone}, can_message = ${canMessage}
         where user_id = ${userId}
       `;
-      if (payType) {
+      if (payType && payAllowed) {
         await sql`
           update profiles
           set pay_type = ${payType}, pay_amount = ${Number.isFinite(payAmount) ? Math.round(payAmount!) : 0},
               pay_note = ${payNote}
           where user_id = ${userId}
         `;
+      }
+      if (payType && !payAllowed) {
+        warnings.push({ row: n, message: "Pay rate skipped. Team pay is included with Office." });
       }
       imported += 1;
       continue;
@@ -666,7 +670,8 @@ export const importCsv = createServerFn({ method: "POST" })
     await assertActivePlan(sql, actor);
     if (data.kind === "clients") return importClientRows(sql, context.userId, data.rows, data.mode);
     if (data.kind === "team") {
-      const result = await importTeamRows(sql, context.userId, data.rows, data.mode);
+      const { teamPayAllowed } = await import("./team-pay");
+      const result = await importTeamRows(sql, context.userId, data.rows, data.mode, await teamPayAllowed(sql, actor));
       const { syncOwnerExtraAdmins } = await import("./stripe.server");
       await syncOwnerExtraAdmins(context.userId);
       return result;

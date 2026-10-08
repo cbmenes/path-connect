@@ -631,6 +631,12 @@ function PlanSection() {
         <p className="mt-1 font-display text-2xl text-navy">
           {name} · {price}
         </p>
+        <p className="mt-2 text-sm text-ink">
+          {code === "office"
+            ? "Includes 1 Admin and Team pay, which tracks what is owed to cleaners."
+            : "Owner account with unlimited Team and Clients."}
+        </p>
+        <p className="mt-1 text-sm text-muted">Mark as Paid is available on Crew and Office.</p>
         <p className="text-sm text-muted">{statusLabel}</p>
         {plan.status === "active" ? <p className="mt-2 text-sm text-ink">Next renewal {renewalLabel()}</p> : null}
         <dl className="mt-3 grid gap-1 text-sm text-ink">

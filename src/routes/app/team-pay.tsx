@@ -27,16 +27,18 @@ function TeamPayPage() {
   const [from, setFrom] = useState(defaults.from);
   const [to, setTo] = useState(defaults.to);
   const [includeTips, setIncludeTips] = useState(false);
+  const office = actor.data?.kind === "cleaner" || actor.data?.kind === "admin";
   const tally = useQuery({
     queryKey: ["team-pay", from, to],
     queryFn: () => getTeamPayTally({ data: { from, to } }),
-    enabled: Boolean(from && to && actor.data?.kind === "cleaner"),
+    enabled: Boolean(from && to && office),
   });
 
   if (actor.data?.kind === "client") return <Navigate to="/app/visits" />;
   if (actor.data?.kind === "team") {
-    return <p className="text-muted">Team pay is only visible to the account owner.</p>;
+    return <p className="text-muted">Team pay is only visible to the office.</p>;
   }
+  const locked = tally.data?.locked === true;
 
   const all = tally.data?.rows ?? [];
   const rated = all.filter((r) => r.payType !== "none");
@@ -74,15 +76,26 @@ function TeamPayPage() {
       <PageHeader
         title="Team pay"
         action={
-          <Button variant="outline" asChild>
-            <Link to="/app/team">Edit rates</Link>
-          </Button>
+          locked ? null : (
+            <Button variant="outline" asChild>
+              <Link to="/app/team">Edit rates</Link>
+            </Button>
+          )
         }
       />
       <p className="max-w-xl text-sm text-muted">
-        A calculator for what you owe assigned cleaners in this date range. It does not send payouts, handle tax, or mark anyone paid.
+        Team pay tracks what you owe cleaners. It does not send payouts or handle tax. Mark as Paid is separate, and it stays on Crew and Office.
       </p>
+      {locked ? (
+        <Card>
+          <p className="font-medium text-navy">Included with Office</p>
+          <p className="mt-1 text-sm text-muted">
+            You can see Team pay here. Setting a cleaner’s rate, payroll, and marking crew pay paid stay off on Crew.
+          </p>
+        </Card>
+      ) : null}
 
+      {locked ? null : (
       <Card className="grid gap-3">
         <div className="flex flex-wrap items-end gap-3">
           <Field label="From">
@@ -113,8 +126,9 @@ function TeamPayPage() {
           Tips stay listed on their own. They are added to owed only when this box is checked.
         </p>
       </Card>
+      )}
 
-      {tally.isPending ? (
+      {locked ? null : tally.isPending ? (
         <div className="h-40 animate-pulse rounded-xl bg-secondary" />
       ) : tally.error ? (
         <p className="text-danger">{(tally.error as Error).message}</p>
@@ -173,14 +187,14 @@ function TeamPayPage() {
         </div>
       )}
 
-      {unrated.length ? (
+      {!locked && unrated.length ? (
         <p className="text-sm text-muted">
           Not in tally (no rate set): {unrated.map((r) => r.name).join(", ")}.
         </p>
       ) : null}
 
       <div className="flex flex-wrap gap-2">
-        <Button type="button" variant="outline" disabled={!rated.length} onClick={exportCsv}>
+        <Button type="button" variant="outline" disabled={locked || !rated.length} onClick={exportCsv}>
           Export CSV
         </Button>
         <Button variant="ghost" asChild>

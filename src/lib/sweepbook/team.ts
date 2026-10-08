@@ -7,7 +7,7 @@ import { addMemberToClient, removeMemberFromClient, replaceClientAssignmentsForI
 import { ensureDemoSeed } from "./seed";
 import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
-import { parsePayType, type PayType } from "./team-pay";
+import { parsePayType, teamPayAllowed, type PayType } from "./team-pay";
 import { isDemoAccountEmail, type OfficeRole, type Profile, type TeamMember, type TeamStatus } from "./types";
 
 function asBool(v: unknown, fallback = false) {
@@ -83,7 +83,7 @@ export const listTeam = createServerFn({ method: "GET" })
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     const ownerId = masterUserId(actor);
-    const includePay = actor.kind === "cleaner";
+    const includePay = await teamPayAllowed(sql, actor);
     const members = await sql.query<TeamMember & { assigned_json?: unknown }>(
       `select user_id, full_name, first_name, last_name, phone, email, can_message,
               coalesce(can_see_checklists, true) as can_see_checklists,
@@ -159,6 +159,7 @@ export const listTeam = createServerFn({ method: "GET" })
       ),
       canManageAdmins: actor.kind === "cleaner",
       canEditPay: includePay,
+      teamPayEnabled: includePay,
       canToggleAccountMessaging: true,
     };
   });
@@ -515,7 +516,7 @@ async function updatePendingTeamInvite(
     await sql`update team_invites set can_charge = ${data.canCharge} where id = ${invite.id}`;
   }
   if (data.payType !== undefined) {
-    if (actor.kind !== "cleaner") throw new Error("Only the account owner can edit pay rates.");
+    if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included with Office.");
     if (kind === "admin") throw new Error("Admins do not have a team pay rate.");
     const payType = parsePayType(data.payType);
     let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));
@@ -621,7 +622,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       await sql`update profiles set can_charge = ${data.canCharge} where user_id = ${data.userId}`;
     }
     if (data.payType !== undefined) {
-      if (actor.kind !== "cleaner") throw new Error("Only the account owner can edit pay rates.");
+      if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included with Office.");
       if (member.cleaner_kind === "admin") throw new Error("Admins do not have a team pay rate.");
       const payType = parsePayType(data.payType);
       let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));

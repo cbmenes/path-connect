@@ -67,17 +67,15 @@ function TeamPage() {
             <Button variant="outline" asChild>
               <Link to="/app/time-off">Time off</Link>
             </Button>
+            <Button variant="outline" asChild>
+              <Link to="/app/team-pay">Team pay</Link>
+            </Button>
             {isMaster ? (
-              <>
-                <Button variant="outline" asChild>
-                  <Link to="/app/team-pay">Team pay</Link>
-                </Button>
-                <Button variant="outline" asChild>
-                  <Link to="/app/data" search={{ kind: "team" }}>
-                    Download / Import
-                  </Link>
-                </Button>
-              </>
+              <Button variant="outline" asChild>
+                <Link to="/app/data" search={{ kind: "team" }}>
+                  Download / Import
+                </Link>
+              </Button>
             ) : null}
           </div>
         }
@@ -85,6 +83,11 @@ function TeamPage() {
       <p className="max-w-xl text-sm text-muted">
         Invite cleaners who already work with you. They see only the jobs you assign — never cards, charges, or billing.
       </p>
+      {q.data && !q.data.teamPayEnabled ? (
+        <p className="max-w-xl text-sm text-muted">
+          Team pay tracks what you owe cleaners. It is included with Office.
+        </p>
+      ) : null}
       <Card className="flex flex-wrap items-center justify-between gap-3">
         <div>
           <p className="font-medium">Team messaging</p>
@@ -345,7 +348,7 @@ function TeamPage() {
         <section>
           <h2 className="font-display text-xl text-navy">Admins</h2>
           <p className="mt-1 text-sm text-muted">
-            Office helpers can book clients and the calendar. Charge permission is off unless you turn it on.
+            Admins can add, change, and remove clients and cleaners, and they can manage the schedule and assignments. Charge permission stays off unless you turn it on.
           </p>
           <div className="mt-3 grid gap-2">
             {admins.length === 0 ? (

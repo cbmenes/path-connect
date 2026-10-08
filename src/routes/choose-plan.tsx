@@ -23,13 +23,13 @@ const PLANS: { code: SaasPlanCode; name: string; price: string; points: string[]
     code: "crew",
     name: "Crew",
     price: "$39/mo",
-    points: ["1 Master", "Unlimited Team", "Unlimited Clients", "Admins are $19/mo each"],
+    points: ["Owner account", "Unlimited Team", "Unlimited Clients", "Admins are $19/mo each"],
   },
   {
     code: "office",
     name: "Office",
     price: "$79/mo",
-    points: ["Everything in Crew", "1 extra Admin included", "Team pay / Mark as Paid"],
+    points: ["Everything in Crew", "1 Admin included", "Team pay tracks what you owe cleaners"],
   },
 ];
 
@@ -101,7 +101,7 @@ function ChoosePlan() {
                 </button>
               ))}
             </div>
-            <p className="text-sm text-muted">Annual billing (2 months free) is not part of Checkout yet.</p>
+            <p className="text-sm text-muted">Annual billing (2 months free) is not part of Checkout yet. Mark as Paid is available on Crew and Office.</p>
             {error ? <p className="text-sm text-danger">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
               {user && current.data?.access === "master" && current.data.demo ? (

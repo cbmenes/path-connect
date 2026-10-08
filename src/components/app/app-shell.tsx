@@ -132,11 +132,9 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
                 dark
               />
               <NavLink item={{ to: "/app/checklists", label: "Checklists", icon: ClipboardCheck }} pathname={pathname} dark />
+              <NavLink item={{ to: "/app/team-pay", label: "Team pay", icon: Wallet }} pathname={pathname} dark />
               {isMaster ? (
-                <>
-                  <NavLink item={{ to: "/app/team-pay", label: "Team pay", icon: Wallet }} pathname={pathname} dark />
-                  <NavLink item={{ to: "/app/data", label: "Data", icon: FileSpreadsheet }} pathname={pathname} dark />
-                </>
+                <NavLink item={{ to: "/app/data", label: "Data", icon: FileSpreadsheet }} pathname={pathname} dark />
               ) : null}
               <NavLink item={{ to: "/app/settings", label: "Settings", icon: Settings }} pathname={pathname} dark />
             </>

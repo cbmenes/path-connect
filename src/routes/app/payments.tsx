@@ -175,7 +175,7 @@ function PaymentsPage() {
       <PageHeader
         title="Payments"
         action={
-          isMaster ? (
+          isMaster || actor.data?.kind === "admin" ? (
             <Button variant="outline" asChild>
               <Link to="/app/team-pay">Team pay</Link>
             </Button>

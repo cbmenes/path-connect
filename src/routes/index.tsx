@@ -167,9 +167,9 @@ function Pricing() {
           </p>
           <p className="mt-1 text-sm text-muted">{crewNote}</p>
           <ul className="mt-5 grid flex-1 gap-2 text-sm text-ink">
-            <li>1 Master included</li>
-            <li>Unlimited Team (cleaners)</li>
-            <li>Unlimited Client logins</li>
+            <li>Owner account</li>
+            <li>Unlimited Team</li>
+            <li>Unlimited Clients</li>
             <li>Calendar, messages, time off, checklists, on-my-way / start / finish, booking form, CSV import</li>
             <li>Admins are $19/mo each. None are included.</li>
           </ul>
@@ -187,15 +187,14 @@ function Pricing() {
           <p className="mt-2 text-sm text-sage">Most shops with an office person</p>
           <ul className="mt-5 grid flex-1 gap-2 text-sm text-paper/90">
             <li>Everything in Crew</li>
-            <li>1 extra Admin included</li>
-            <li>Team pay / tallies (Master)</li>
-            <li>Mark as Paid + notes</li>
-            <li>Additional Admin seats: $19/mo each</li>
+            <li>1 Admin included</li>
+            <li>Team pay tracks what you owe cleaners</li>
+            <li>Additional Admins are $19/mo each</li>
           </ul>
         </article>
       </div>
       <p className="mt-6 text-sm text-muted">
-        Unlimited cleaners. Unlimited client logins. Extra Admins are $19/mo each and are not in Checkout.
+        Unlimited Team and Clients. Extra Admins are $19/mo each and are not in Checkout. Mark as Paid is available on Crew and Office.
       </p>
       <p className="mt-2 text-sm text-muted">
         The owner pays the software subscription. Client cards on file are separate.

@@ -58,11 +58,7 @@ function AppLayout() {
       return;
     }
     if (actor.data?.kind === "admin") {
-      if (
-        pathname.startsWith("/app/team-pay") ||
-        pathname.startsWith("/app/data") ||
-        pathname.startsWith("/app/clients/import")
-      ) {
+      if (pathname.startsWith("/app/data") || pathname.startsWith("/app/clients/import")) {
         void navigate({ to: "/app" });
       }
       return;
