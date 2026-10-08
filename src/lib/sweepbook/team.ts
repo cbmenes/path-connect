@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { PROFILE_COLUMNS, assertOffice, assertActivePlan, getActor, masterUserId } from "./access";
 import { enableTeamAccount, setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
-import { addMemberToClient, removeMemberFromClient } from "./assignees";
+import { addMemberToClient, removeMemberFromClient, replaceClientAssignmentsForInvite } from "./assignees";
 import { ensureDemoSeed } from "./seed";
 import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
@@ -104,12 +104,21 @@ export const listTeam = createServerFn({ method: "GET" })
        order by full_name`,
       [ownerId],
     );
-    const pending = await sql.query<TeamMember>(
-      `select id as user_id, name as full_name, phone, email, can_message, 'pending' as team_status,
+    const pending = await sql.query<TeamMember & { assigned_json?: unknown }>(
+      `select id as user_id, name as full_name, phone, email, can_message,
+              coalesce(can_clock_in, true) as can_clock_in,
+              'pending' as team_status,
               true as pending, token as invite_token,
               (invited_at is not null) as invite_sent,
               coalesce(invite_kind, 'team') as office_role,
-              coalesce(can_charge, false) as can_charge
+              coalesce(can_charge, false) as can_charge,
+              coalesce(pay_type, 'none') as pay_type,
+              coalesce(pay_amount, 0)::int as pay_amount,
+              pay_note,
+              (select coalesce(json_agg(json_build_object('id', c.id, 'name', c.name) order by c.name), '[]'::json)
+                 from invite_client_assignees ica
+                 join clients c on c.id = ica.client_id
+                 where ica.invite_id = team_invites.id) as assigned_json
        from team_invites
        where master_user_id = $1 and accepted_at is null
        order by created_at desc`,
@@ -119,12 +128,7 @@ export const listTeam = createServerFn({ method: "GET" })
       select id, name from clients where cleaner_user_id = ${ownerId} order by name
     `;
     const all = [
-      ...pending.map((m) =>
-        mapMember(
-          { ...m, assigned_json: [] },
-          includePay,
-        ),
-      ),
+      ...pending.map((m) => mapMember(m, includePay)),
       ...members.map((m) => mapMember(m, includePay)),
     ];
     const teamMembers = all.filter((m) => m.office_role !== "admin");
@@ -318,6 +322,7 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
   .handler(async ({ context, data: token }) => {
     const sql = await getSql();
     const rows = await sql<{
+      id: string;
       master_user_id: string;
       name: string;
       email: string | null;
@@ -326,9 +331,14 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
       accepted_at: string | null;
       invite_kind: string;
       can_charge: boolean;
+      pay_type: string | null;
+      pay_amount: number | null;
+      pay_note: string | null;
+      can_clock_in: boolean | null;
     }>`
-      select master_user_id, name, email, phone, can_message, accepted_at::text as accepted_at,
-             coalesce(invite_kind, 'team') as invite_kind, coalesce(can_charge, false) as can_charge
+      select id, master_user_id, name, email, phone, can_message, accepted_at::text as accepted_at,
+             coalesce(invite_kind, 'team') as invite_kind, coalesce(can_charge, false) as can_charge,
+             pay_type, pay_amount, pay_note, can_clock_in
       from team_invites where token = ${token} limit 1
     `;
     const invite = rows[0];
@@ -354,16 +364,22 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
     const kind = parseOfficeRole(invite.invite_kind);
     if (kind === "admin") await assertAdminSeatOpen(sql, invite.master_user_id);
     const canCharge = kind === "admin" ? asBool(invite.can_charge, false) : false;
+    const payType = kind === "team" ? parsePayType(invite.pay_type) : "none";
+    let payAmount = kind === "team" ? Math.max(0, Math.round(Number(invite.pay_amount || 0))) : 0;
+    if (payType === "none") payAmount = 0;
+    if (payType === "percent") payAmount = Math.min(100, payAmount);
+    const payNote = kind === "team" ? invite.pay_note : null;
+    const canClockIn = kind === "team" ? invite.can_clock_in !== false : true;
     const names = namesFrom(undefined, undefined, u?.name || invite.name);
     await sql`
       insert into profiles (
         user_id, role, full_name, first_name, last_name, phone, email, cleaner_kind, master_user_id,
-        can_message, team_status, can_charge
+        can_message, team_status, can_charge, pay_type, pay_amount, pay_note, can_clock_in
       ) values (
         ${context.userId}, ${"cleaner"}, ${names.name}, ${names.first_name || null}, ${names.last_name || null},
         ${storePhone(invite.phone)},
         ${u?.email || invite.email}, ${kind}, ${invite.master_user_id},
-        ${invite.can_message}, ${"active"}, ${canCharge}
+        ${invite.can_message}, ${"active"}, ${canCharge}, ${payType}, ${payAmount}, ${payNote}, ${canClockIn}
       )
       on conflict (user_id) do update set
         cleaner_kind = ${kind},
@@ -371,12 +387,151 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
         can_message = ${invite.can_message},
         team_status = 'active',
         role = 'cleaner',
-        can_charge = ${canCharge}
+        can_charge = ${canCharge},
+        pay_type = ${payType},
+        pay_amount = ${payAmount},
+        pay_note = ${payNote},
+        can_clock_in = ${canClockIn}
     `;
+    const assigned = await sql<{ client_id: string }>`
+      select client_id from invite_client_assignees where invite_id = ${invite.id}
+    `;
+    for (const row of assigned) {
+      await addMemberToClient(sql, row.client_id, context.userId);
+    }
+    await sql`delete from invite_client_assignees where invite_id = ${invite.id}`;
     await sql`update team_invites set accepted_at = now() where token = ${token}`;
     if (kind === "admin") await syncExtraAdminSeats(invite.master_user_id);
     return { ok: true };
   });
+
+async function syncInviteFlag(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  ownerId: string,
+  inviteId: string,
+  flag: "can_message" | "can_clock_in",
+  enabled: boolean,
+) {
+  if (flag === "can_message") {
+    await sql`update team_invites set can_message = ${enabled} where id = ${inviteId} and master_user_id = ${ownerId}`;
+    if (enabled) {
+      await enableTeamAccount(sql, ownerId, "team_messaging_enabled");
+      return;
+    }
+    const still = await sql<{ n: number }>`
+      select (
+        (select count(*)::int from profiles
+          where master_user_id = ${ownerId}
+            and coalesce(cleaner_kind, 'team') = 'team'
+            and coalesce(can_message, true) = true)
+        +
+        (select count(*)::int from team_invites
+          where master_user_id = ${ownerId} and accepted_at is null
+            and coalesce(invite_kind, 'team') = 'team'
+            and coalesce(can_message, true) = true)
+      ) as n
+    `;
+    if (Number(still[0]?.n || 0) === 0) {
+      await sql`update profiles set team_messaging_enabled = ${false} where user_id = ${ownerId}`;
+    }
+    return;
+  }
+  await sql`update team_invites set can_clock_in = ${enabled} where id = ${inviteId} and master_user_id = ${ownerId}`;
+  if (enabled) {
+    await enableTeamAccount(sql, ownerId, "team_clock_in_enabled");
+    return;
+  }
+  const still = await sql<{ n: number }>`
+    select (
+      (select count(*)::int from profiles
+        where master_user_id = ${ownerId}
+          and coalesce(cleaner_kind, 'team') = 'team'
+          and coalesce(can_clock_in, true) = true)
+      +
+      (select count(*)::int from team_invites
+        where master_user_id = ${ownerId} and accepted_at is null
+          and coalesce(invite_kind, 'team') = 'team'
+          and coalesce(can_clock_in, true) = true)
+    ) as n
+  `;
+  if (Number(still[0]?.n || 0) === 0) {
+    await sql`update profiles set team_clock_in_enabled = ${false} where user_id = ${ownerId}`;
+  }
+}
+
+async function updatePendingTeamInvite(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  actor: Awaited<ReturnType<typeof getActor>>,
+  ownerId: string,
+  data: {
+    userId: string;
+    firstName?: string;
+    lastName?: string;
+    fullName?: string;
+    phone?: string;
+    email?: string;
+    canMessage?: boolean;
+    assignedClientIds?: string[];
+    payType?: PayType;
+    payAmount?: number;
+    payNote?: string;
+    canCharge?: boolean;
+    canClockIn?: boolean;
+  },
+) {
+  const invites = await sql<{ id: string; invite_kind: string }>`
+    select id, coalesce(invite_kind, 'team') as invite_kind
+    from team_invites
+    where id = ${data.userId} and master_user_id = ${ownerId} and accepted_at is null
+    limit 1
+  `;
+  const invite = invites[0];
+  if (!invite) throw new Error("Person not found.");
+  const kind = parseOfficeRole(invite.invite_kind);
+  if (actor.kind === "admin" && kind === "admin") {
+    throw new Error("Admins cannot edit other office admins.");
+  }
+  if (data.firstName != null || data.lastName != null || data.fullName != null) {
+    const names = namesFrom(data.firstName, data.lastName, data.fullName);
+    if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
+    await sql`update team_invites set name = ${names.name} where id = ${invite.id}`;
+  }
+  if (data.phone !== undefined) {
+    await sql`update team_invites set phone = ${storePhone(data.phone)} where id = ${invite.id}`;
+  }
+  if (data.email !== undefined) {
+    const email = data.email.trim() || null;
+    await sql`update team_invites set email = ${email} where id = ${invite.id}`;
+  }
+  if (data.canMessage != null && kind !== "admin") {
+    await syncInviteFlag(sql, ownerId, invite.id, "can_message", data.canMessage);
+  }
+  if (data.canClockIn != null && kind !== "admin") {
+    await syncInviteFlag(sql, ownerId, invite.id, "can_clock_in", data.canClockIn);
+  }
+  if (data.canCharge != null) {
+    if (actor.kind !== "cleaner") throw new Error("Only the account owner can change charge permission.");
+    if (kind !== "admin") throw new Error("Charge permission is for admins.");
+    await sql`update team_invites set can_charge = ${data.canCharge} where id = ${invite.id}`;
+  }
+  if (data.payType !== undefined) {
+    if (actor.kind !== "cleaner") throw new Error("Only the account owner can edit pay rates.");
+    if (kind === "admin") throw new Error("Admins do not have a team pay rate.");
+    const payType = parsePayType(data.payType);
+    let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));
+    if (payType === "none") payAmount = 0;
+    if (payType === "percent") payAmount = Math.min(100, payAmount);
+    const payNote = data.payNote?.trim() || null;
+    await sql`
+      update team_invites
+      set pay_type = ${payType}, pay_amount = ${payAmount}, pay_note = ${payNote}
+      where id = ${invite.id} and master_user_id = ${ownerId}
+    `;
+  }
+  if (data.assignedClientIds && kind !== "admin") {
+    await replaceClientAssignmentsForInvite(sql, ownerId, invite.id, data.assignedClientIds);
+  }
+}
 
 export const updateTeamMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
@@ -394,6 +549,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     payAmount?: number;
     payNote?: string;
     canCharge?: boolean;
+    canClockIn?: boolean;
   }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -409,7 +565,10 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       [data.userId, ownerId],
     );
     const member = members[0];
-    if (!member) throw new Error("Person not found.");
+    if (!member) {
+      await updatePendingTeamInvite(sql, actor, ownerId, data);
+      return { ok: true };
+    }
     if (member.cleaner_kind === "master") {
       throw new Error("The account owner cannot be changed from Team.");
     }
@@ -441,6 +600,16 @@ export const updateTeamMember = createServerFn({ method: "POST" })
         "can_message",
         data.userId,
         data.canMessage,
+      );
+    }
+    if (data.canClockIn != null && member.cleaner_kind !== "admin") {
+      await setTeamPersonToggle(
+        sql,
+        ownerId,
+        "team_clock_in_enabled",
+        "can_clock_in",
+        data.userId,
+        data.canClockIn,
       );
     }
     if (data.status) {
@@ -562,6 +731,12 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
         if (byToken[0].invite_kind === "admin" && actor.kind !== "cleaner") {
           throw new Error("Admins cannot remove an admin invite.");
         }
+        await sql`
+          delete from invite_client_assignees
+          where invite_id in (
+            select id from team_invites where token = ${data.userId} and master_user_id = ${ownerId}
+          )
+        `;
         await sql`delete from team_invites where token = ${data.userId} and master_user_id = ${ownerId}`;
         if (byToken[0].invite_kind === "admin") await syncExtraAdminSeats(ownerId);
         return { ok: true, name: byToken[0].name };
@@ -569,6 +744,7 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
       if (invite[0].invite_kind === "admin" && actor.kind !== "cleaner") {
         throw new Error("Admins cannot remove an admin invite.");
       }
+      await sql`delete from invite_client_assignees where invite_id = ${data.userId}`;
       await sql`delete from team_invites where id = ${data.userId} and master_user_id = ${ownerId}`;
       if (invite[0].invite_kind === "admin") await syncExtraAdminSeats(ownerId);
       return { ok: true, name: invite[0].name };

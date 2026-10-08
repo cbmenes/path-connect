@@ -264,7 +264,7 @@ function TeamPage() {
                       ? `Clients: ${m.assigned_clients.map((c) => c.name).join(", ")}`
                       : "No clients assigned"}
                   </p>
-                  {m.pending || !canEditPay ? null : (
+                  {!canEditPay ? null : (
                     <p className="mt-1 text-xs text-muted">
                       Pay: {formatPayRate(m.pay_type ?? "none", m.pay_amount ?? 0)}
                     </p>
@@ -326,11 +326,11 @@ function TeamPage() {
                           Clock in/out: {m.can_clock_in ? "On" : "Off"}
                         </Button>
                       ) : null}
-                      <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
-                        Edit
-                      </Button>
                     </>
                   )}
+                  <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
+                    Edit
+                  </Button>
                   <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(m)}>
                     Remove
                   </Button>
@@ -386,11 +386,10 @@ function TeamPage() {
                       >
                         {m.invite_sent ? "Resend invite" : "Send invite"}
                       </Button>
-                    ) : (
-                      <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
-                        Edit
-                      </Button>
-                    )}
+                    ) : null}
+                    <Button variant="outline" size="sm" onClick={() => setEditing(m)}>
+                      Edit
+                    </Button>
                     <Button variant="ghost" size="sm" onClick={() => setRemoveTarget(m)}>
                       Remove
                     </Button>
@@ -415,6 +414,8 @@ function TeamPage() {
               await qc.invalidateQueries({ queryKey: ["team"] });
               await qc.invalidateQueries({ queryKey: ["jobs"] });
               await qc.invalidateQueries({ queryKey: ["actor"] });
+              await qc.invalidateQueries({ queryKey: ["client"] });
+              await qc.invalidateQueries({ queryKey: ["clients"] });
             }}
           />
         ) : null}
@@ -470,6 +471,7 @@ function EditMember({
   const [active, setActive] = useState(member.team_status !== "disabled");
   const [messaging, setMessaging] = useState(member.can_message);
   const [charge, setCharge] = useState(Boolean(member.can_charge));
+  const [clock, setClock] = useState(member.can_clock_in !== false);
   const [assigned, setAssigned] = useState(member.assigned_clients.map((c) => c.id));
   const [payType, setPayType] = useState<PayType>(member.pay_type ?? "none");
   const [payDollars, setPayDollars] = useState(((member.pay_amount ?? 0) / 100).toFixed(2));
@@ -493,7 +495,8 @@ function EditMember({
                 phone,
                 email,
                 canMessage: isAdminMember ? undefined : messaging,
-                status: active ? "active" : "disabled",
+                canClockIn: isAdminMember ? undefined : clock,
+                status: member.pending ? undefined : active ? "active" : "disabled",
                 assignedClientIds: isAdminMember ? undefined : assigned,
                 canCharge: canEditCharge ? charge : undefined,
                 ...(canEditPay && !isAdminMember
@@ -526,10 +529,12 @@ function EditMember({
         <Field label="Email">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
-        <label className="flex min-h-11 items-center gap-2 text-sm">
-          <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-          Active
-        </label>
+        {member.pending ? null : (
+          <label className="flex min-h-11 items-center gap-2 text-sm">
+            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
+            Active
+          </label>
+        )}
         {canEditCharge ? (
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" checked={charge} onChange={(e) => setCharge(e.target.checked)} />
@@ -537,15 +542,16 @@ function EditMember({
           </label>
         ) : null}
         {isAdminMember ? null : (
-          <Button
-            type="button"
-            variant="outline"
-            onClick={() => setMessaging((v) => !v)}
-          >
-            Messaging: {messaging ? "On" : "Off"}
-          </Button>
+          <div className="flex flex-wrap gap-2">
+            <Button type="button" variant="outline" onClick={() => setMessaging((v) => !v)}>
+              Messaging: {messaging ? "On" : "Off"}
+            </Button>
+            <Button type="button" variant="outline" onClick={() => setClock((v) => !v)}>
+              Clock in/out: {clock ? "On" : "Off"}
+            </Button>
+          </div>
         )}
-        {member.pending || !canEditPay || isAdminMember ? null : (
+        {!canEditPay || isAdminMember ? null : (
           <div className="grid gap-3 rounded-xl bg-secondary p-3">
             <p className="text-sm font-medium">Pay rate</p>
             <p className="text-xs text-muted">Used on Team pay. This cleaner never sees the rate.</p>

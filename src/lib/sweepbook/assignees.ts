@@ -121,6 +121,50 @@ export async function teamCanAccessJob(sql: Sql, teamUserId: string, jobId: stri
   return Boolean(rows[0]);
 }
 
+export async function replaceInviteAssigneesForClient(
+  sql: Sql,
+  ownerId: string,
+  clientId: string,
+  inviteIds: string[],
+) {
+  const owned = await sql<{ id: string }>`
+    select id from team_invites
+    where master_user_id = ${ownerId}
+      and accepted_at is null
+      and coalesce(invite_kind, 'team') = 'team'
+  `;
+  const allowed = new Set(owned.map((row) => row.id));
+  const next = [...new Set(inviteIds.filter((id) => allowed.has(id)))];
+  await sql`
+    delete from invite_client_assignees
+    where client_id = ${clientId}
+      and invite_id in (select id from team_invites where master_user_id = ${ownerId})
+  `;
+  for (const inviteId of next) {
+    await sql`
+      insert into invite_client_assignees (invite_id, client_id)
+      values (${inviteId}, ${clientId})
+      on conflict do nothing
+    `;
+  }
+}
+
+export async function replaceClientAssignmentsForInvite(sql: Sql, ownerId: string, inviteId: string, clientIds: string[]) {
+  const owned = await sql<{ id: string }>`
+    select id from clients where cleaner_user_id = ${ownerId}
+  `;
+  const allowed = new Set(owned.map((row) => row.id));
+  const next = [...new Set(clientIds.filter((id) => allowed.has(id)))];
+  await sql`delete from invite_client_assignees where invite_id = ${inviteId}`;
+  for (const clientId of next) {
+    await sql`
+      insert into invite_client_assignees (invite_id, client_id)
+      values (${inviteId}, ${clientId})
+      on conflict do nothing
+    `;
+  }
+}
+
 export async function addMemberToClient(sql: Sql, clientId: string, userId: string) {
   await sql`
     insert into client_assignees (client_id, user_id) values (${clientId}, ${userId})

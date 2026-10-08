@@ -37,6 +37,11 @@ async function setAllTeamPeople(sql: Sql, ownerId: string, flag: PersonFlag, ena
     update profiles set can_clock_in = ${enabled}
     where master_user_id = ${ownerId} and coalesce(cleaner_kind, ${"team"}) = ${"team"}
   `;
+  await sql`
+    update team_invites set can_clock_in = ${enabled}
+    where master_user_id = ${ownerId} and accepted_at is null
+      and coalesce(invite_kind, ${"team"}) = ${"team"}
+  `;
 }
 
 async function anyTeamPersonOn(sql: Sql, ownerId: string, flag: PersonFlag) {
@@ -66,10 +71,17 @@ async function anyTeamPersonOn(sql: Sql, ownerId: string, flag: PersonFlag) {
     return Number(rows[0]?.n || 0) > 0;
   }
   const rows = await sql<{ n: number }>`
-    select count(*)::int as n from profiles
-    where master_user_id = ${ownerId}
-      and coalesce(cleaner_kind, ${"team"}) = ${"team"}
-      and coalesce(can_clock_in, true) = true
+    select (
+      (select count(*)::int from profiles
+        where master_user_id = ${ownerId}
+          and coalesce(cleaner_kind, ${"team"}) = ${"team"}
+          and coalesce(can_clock_in, true) = true)
+      +
+      (select count(*)::int from team_invites
+        where master_user_id = ${ownerId} and accepted_at is null
+          and coalesce(invite_kind, ${"team"}) = ${"team"}
+          and coalesce(can_clock_in, true) = true)
+    ) as n
   `;
   return Number(rows[0]?.n || 0) > 0;
 }

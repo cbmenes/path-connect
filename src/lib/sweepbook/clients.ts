@@ -6,6 +6,7 @@ import {
   applyAssigneesToClientRecurring,
   parseAssignees,
   replaceClientAssignees,
+  replaceInviteAssigneesForClient,
 } from "./assignees";
 import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
@@ -32,9 +33,19 @@ const CLIENT_SELECT = `
   access_notes, pets, supplies, default_price_cents, default_duration_min,
   usual_day, usual_time, frequency, notes, checklist_template_id,
   created_at::text as created_at,
-  (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)
-     from client_assignees ca join profiles p on p.user_id = ca.user_id
-     where ca.client_id = clients.id) as assignees_json
+  (select coalesce(json_agg(json_build_object('user_id', user_id, 'full_name', full_name) order by full_name), '[]'::json)
+     from (
+       select p.user_id, p.full_name
+       from client_assignees ca
+       join profiles p on p.user_id = ca.user_id
+       where ca.client_id = clients.id
+       union all
+       select i.id as user_id,
+              case when i.invited_at is null then i.name || ' · Saved' else i.name || ' · Invite pending' end as full_name
+       from invite_client_assignees ica
+       join team_invites i on i.id = ica.invite_id
+       where ica.client_id = clients.id and i.accepted_at is null
+     ) assigned) as assignees_json
 `;
 
 function withAssignees(row: ClientRow & { assignees_json?: unknown }): ClientRow {
@@ -115,10 +126,20 @@ export const getClient = createServerFn({ method: "GET" })
               order by created_at desc limit 8
             `;
       const staff = await sql<{ user_id: string; full_name: string }>`
-        select user_id, full_name from profiles
-        where master_user_id = ${ownerId} and coalesce(team_status, 'active') = 'active'
-          and coalesce(cleaner_kind, 'team') = 'team'
-        order by full_name
+        select user_id, full_name from (
+          select user_id, full_name, 0 as sort_pending
+          from profiles
+          where master_user_id = ${ownerId} and coalesce(team_status, 'active') = 'active'
+            and coalesce(cleaner_kind, 'team') = 'team'
+          union all
+          select id as user_id,
+                 case when invited_at is null then name || ' · Saved' else name || ' · Invite pending' end as full_name,
+                 1 as sort_pending
+          from team_invites
+          where master_user_id = ${ownerId} and accepted_at is null
+            and coalesce(invite_kind, 'team') = 'team'
+        ) people
+        order by sort_pending, full_name
       `;
       return { client, jobs, invoices, cards, messages, staff };
     }
@@ -292,9 +313,19 @@ export const setClientAssignees = createServerFn({ method: "POST" })
     `;
     if (!owned[0]) throw new Error("Client not found.");
     const unique = [...new Set((data.userIds ?? []).filter(Boolean))];
-    await replaceClientAssignees(sql, data.clientId, unique);
-    await applyAssigneesToClientRecurring(sql, data.clientId, unique);
-    for (const userId of unique) {
+    const pending = await sql<{ id: string }>`
+      select id from team_invites
+      where master_user_id = ${ownerId}
+        and accepted_at is null
+        and coalesce(invite_kind, 'team') = 'team'
+    `;
+    const pendingIds = new Set(pending.map((row) => row.id));
+    const profileIds = unique.filter((id) => !pendingIds.has(id));
+    const inviteIds = unique.filter((id) => pendingIds.has(id));
+    await replaceClientAssignees(sql, data.clientId, profileIds);
+    await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, inviteIds);
+    await applyAssigneesToClientRecurring(sql, data.clientId, profileIds);
+    for (const userId of profileIds) {
       await insertNotification(sql, {
         userId,
         kind: "job_assigned",
