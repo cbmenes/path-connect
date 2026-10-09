@@ -1,3 +1,5 @@
+import { paidPeriodEnded } from "./plan-prices";
+
 export type Role = "cleaner" | "client";
 
 export type CleanerKind = "master" | "team" | "admin";
@@ -115,6 +117,9 @@ export type Profile = {
   plan_status: PlanStatus;
   plan_price_cents: number;
   plan_code: "crew" | "office" | null;
+  billing_interval: "month" | "year" | null;
+  current_period_end: string | null;
+  cancel_at_period_end: boolean;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
   created_at: string;
@@ -344,6 +349,8 @@ export type Actor =
       profile: Profile;
       masterUserId: string;
       masterPlanStatus: PlanStatus;
+      masterCancelAtPeriodEnd: boolean;
+      masterPeriodEnd: string | null;
       canCharge: boolean;
       canMessage: boolean;
       disabled: boolean;
@@ -400,11 +407,23 @@ export function actorWritesLocked(actor?: Actor | null) {
   if (!actor) return false;
   if (actor.kind === "cleaner") {
     if (isDemoAccountEmail(actor.profile.email)) return false;
-    return subscriptionWritesLocked(actor.profile.plan_status);
+    return (
+      subscriptionWritesLocked(actor.profile.plan_status) ||
+      paidPeriodEnded({
+        cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+        periodEnd: actor.profile.current_period_end,
+      })
+    );
   }
   if (actor.kind === "admin") {
     if (isDemoAccountEmail(actor.profile.email)) return false;
-    return subscriptionWritesLocked(actor.masterPlanStatus);
+    return (
+      subscriptionWritesLocked(actor.masterPlanStatus) ||
+      paidPeriodEnded({
+        cancelAtPeriodEnd: actor.masterCancelAtPeriodEnd,
+        periodEnd: actor.masterPeriodEnd,
+      })
+    );
   }
   return false;
 }

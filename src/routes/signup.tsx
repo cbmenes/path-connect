@@ -2,7 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { completeOnboarding } from "@/lib/sweepbook/bootstrap";
-import { beginStripeCheckout, type SaasPlanCode } from "@/lib/sweepbook/plan";
+import { beginStripeCheckout, type BillingInterval, type SaasPlanCode } from "@/lib/sweepbook/plan";
 import { displayName } from "@/lib/sweepbook/people";
 import { CrewWeekLogo } from "@/components/brand/logo";
 import { NameFields } from "@/components/app/name-fields";
@@ -11,11 +11,12 @@ import { Field, Input } from "@/components/ui/input";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { cn } from "@/lib/utils";
 
-type Search = { plan?: SaasPlanCode };
+type Search = { plan?: SaasPlanCode; interval?: BillingInterval };
 
 export const Route = createFileRoute("/signup")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     plan: s.plan === "office" || s.plan === "crew" ? s.plan : undefined,
+    interval: s.interval === "year" ? "year" : s.interval === "month" ? "month" : undefined,
   }),
   component: Signup,
 });
@@ -37,6 +38,7 @@ function Signup() {
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [plan, setPlan] = useState<SaasPlanCode>(search.plan ?? "crew");
+  const [interval, setInterval] = useState<BillingInterval>(search.interval ?? "month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -59,7 +61,7 @@ function Signup() {
       }
       storeBearer(token);
       await completeOnboarding({ data: { role: "cleaner", firstName, lastName, businessName: business, plan } });
-      const session = await beginStripeCheckout({ data: { code: plan } });
+      const session = await beginStripeCheckout({ data: { code: plan, interval } });
       window.location.assign(session.url);
       return;
     } catch (err) {
@@ -75,16 +77,34 @@ function Signup() {
         <div className="text-center">
           <CrewWeekLogo className="justify-center" />
           <h1 className="mt-6 font-display text-3xl text-navy">Create your account</h1>
-          <p className="mt-1 text-sm text-muted">The Crew Plan is $39/mo. The Office Plan is $79/mo. The business owner pays. Cleaners and clients are not billed.</p>
+          <p className="mt-1 text-sm text-muted">Monthly is $39 or $79. Annual is $390 or $790, two months free. The business owner pays. Cleaners and clients are not billed.</p>
         </div>
         <form onSubmit={onSubmit} className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">
+          <fieldset className="grid gap-2">
+            <legend className="text-sm font-medium text-ink">Billing</legend>
+            <div className="grid grid-cols-2 gap-2">
+              {(["month", "year"] as const).map((choice) => (
+                <button
+                  key={choice}
+                  type="button"
+                  onClick={() => setInterval(choice)}
+                  className={cn(
+                    "min-h-11 rounded-xl px-3 text-sm",
+                    interval === choice ? "bg-navy text-paper" : "bg-secondary text-ink",
+                  )}
+                >
+                  {choice === "year" ? "Annual" : "Monthly"}
+                </button>
+              ))}
+            </div>
+          </fieldset>
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium text-ink">Plan</legend>
             <div className="grid grid-cols-2 gap-2">
               {(
                 [
-                  ["crew", "Crew Plan", "$39/mo"],
-                  ["office", "Office Plan", "$79/mo"],
+                  ["crew", "Crew Plan", interval === "year" ? "$390/year" : "$39/mo"],
+                  ["office", "Office Plan", interval === "year" ? "$790/year" : "$79/mo"],
                 ] as const
               ).map(([code, label, price]) => (
                 <button

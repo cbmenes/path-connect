@@ -2,8 +2,14 @@ import Stripe from "stripe";
 import { getRequest } from "@tanstack/react-start/server";
 import { getSql, type Sql } from "../db";
 import { getActor } from "./access";
-import { countBillableAdmins, extraAdminItemChanges, extraAdminQuantity } from "./extra-admin";
-import { planCodeFromCents, planPriceCents, type SaasPlanCode } from "./plan-prices";
+import { alignExtraAdminItems, countBillableAdmins, extraAdminQuantity } from "./extra-admin";
+import {
+  paidPeriodEnded,
+  planCodeFromCents,
+  planPriceCents,
+  type BillingInterval,
+  type SaasPlanCode,
+} from "./plan-prices";
 import {
   DEMO_ADMIN_EMAIL,
   DEMO_CLEANER_EMAIL,
@@ -51,36 +57,55 @@ function webhookSecret() {
   return secret;
 }
 
-export function priceIdForPlan(plan: SaasPlanCode) {
-  const id = plan === "office" ? envValue("STRIPE_PRICE_OFFICE") : envValue("STRIPE_PRICE_CREW");
-  if (!id.startsWith("price_")) throw new Error("Stripe price is not configured.");
+function configuredPrice(name: string) {
+  const id = envValue(name);
+  return id.startsWith("price_") ? id : "";
+}
+
+function requiredPrice(name: string) {
+  const id = configuredPrice(name);
+  if (!id) throw new Error("Stripe price is not configured.");
   return id;
 }
 
-export function planFromPriceId(priceId: string | null | undefined): SaasPlanCode | null {
+export function priceIdForPlan(plan: SaasPlanCode, interval: BillingInterval = "month") {
+  if (interval === "year") {
+    return requiredPrice(plan === "office" ? "STRIPE_PRICE_OFFICE_ANNUAL" : "STRIPE_PRICE_CREW_ANNUAL");
+  }
+  return requiredPrice(plan === "office" ? "STRIPE_PRICE_OFFICE" : "STRIPE_PRICE_CREW");
+}
+
+export function planFromPriceId(priceId: string | null | undefined): { plan: SaasPlanCode; interval: BillingInterval } | null {
   if (!priceId) return null;
-  if (priceId === envValue("STRIPE_PRICE_CREW")) return "crew";
-  if (priceId === envValue("STRIPE_PRICE_OFFICE")) return "office";
+  if (priceId === configuredPrice("STRIPE_PRICE_CREW")) return { plan: "crew", interval: "month" };
+  if (priceId === configuredPrice("STRIPE_PRICE_OFFICE")) return { plan: "office", interval: "month" };
+  if (priceId === configuredPrice("STRIPE_PRICE_CREW_ANNUAL")) return { plan: "crew", interval: "year" };
+  if (priceId === configuredPrice("STRIPE_PRICE_OFFICE_ANNUAL")) return { plan: "office", interval: "year" };
   return null;
 }
 
-function extraAdminPriceId() {
-  const id = envValue("STRIPE_PRICE_EXTRA_ADMIN");
-  if (!id.startsWith("price_")) throw new Error("Stripe price is not configured.");
-  return id;
+function extraAdminPriceId(interval: BillingInterval) {
+  return requiredPrice(interval === "year" ? "STRIPE_PRICE_EXTRA_ADMIN_ANNUAL" : "STRIPE_PRICE_EXTRA_ADMIN");
 }
 
-function configuredExtraAdminPriceId() {
-  const id = envValue("STRIPE_PRICE_EXTRA_ADMIN");
-  return id.startsWith("price_") ? id : "";
+function knownExtraAdminPriceIds() {
+  return [configuredPrice("STRIPE_PRICE_EXTRA_ADMIN"), configuredPrice("STRIPE_PRICE_EXTRA_ADMIN_ANNUAL")].filter(
+    (id) => id.length > 0,
+  );
 }
 
 function basePlanItem(subscription: Stripe.Subscription) {
   for (const item of subscription.items?.data ?? []) {
-    const plan = planFromPriceId(item.price?.id);
-    if (plan) return { item, plan };
+    const match = planFromPriceId(item.price?.id);
+    if (match) return { item, ...match };
   }
   return null;
+}
+
+function periodEndIso(item: Stripe.SubscriptionItem) {
+  const end = item.current_period_end;
+  if (!end) return null;
+  return new Date(end * 1000).toISOString();
 }
 
 function listedSubscriptionItems(subscription: Stripe.Subscription) {
@@ -161,9 +186,11 @@ async function applySubscription(subscription: Stripe.Subscription, hintedUserId
   }
   const customerId = idOf(subscription.customer);
   if (deleted) {
+    if (currentId && currentId !== subscription.id) return { ignored: true as const };
     await sql`
       update profiles
       set plan_status = ${"canceled"},
+          cancel_at_period_end = ${false},
           stripe_customer_id = coalesce(${customerId}, stripe_customer_id),
           stripe_subscription_id = ${subscription.id}
       where user_id = ${userId}
@@ -171,11 +198,16 @@ async function applySubscription(subscription: Stripe.Subscription, hintedUserId
     return { ok: true as const };
   }
   const status = mapStripeStatus(subscription.status);
+  const periodEnd = periodEndIso(base.item);
+  const cancelAtEnd = Boolean(subscription.cancel_at_period_end) && status === "active";
   await sql`
     update profiles
     set plan_code = ${plan},
         plan_status = ${status},
-        plan_price_cents = ${planPriceCents(plan)},
+        plan_price_cents = ${planPriceCents(plan, base.interval)},
+        billing_interval = ${base.interval},
+        current_period_end = ${periodEnd},
+        cancel_at_period_end = ${cancelAtEnd},
         stripe_customer_id = coalesce(${customerId}, stripe_customer_id),
         stripe_subscription_id = ${subscription.id}
     where user_id = ${userId}
@@ -183,18 +215,22 @@ async function applySubscription(subscription: Stripe.Subscription, hintedUserId
   return { ok: true as const };
 }
 
-export async function createOwnerCheckout(userId: string, plan: SaasPlanCode) {
+export async function createOwnerCheckout(userId: string, plan: SaasPlanCode, interval: BillingInterval = "month") {
   const sql = await getSql();
   const actor = await getActor(sql, userId);
   if (actor.kind !== "cleaner") throw new Error("Billing is Master-only.");
   const email = await userEmail(sql, userId);
   if (!email) throw new Error("This account has no email.");
   if (isDemoEmail(email)) throw new Error("Demo accounts do not need a subscription.");
-  if (actor.profile.plan_status === "active" && actor.profile.stripe_subscription_id) {
+  const periodEnded = paidPeriodEnded({
+    cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+    periodEnd: actor.profile.current_period_end,
+  });
+  if (actor.profile.plan_status === "active" && actor.profile.stripe_subscription_id && !periodEnded) {
     throw new Error("This account already has an active subscription. Change it in Settings.");
   }
   const stripe = stripeClient();
-  const price = priceIdForPlan(plan);
+  const price = priceIdForPlan(plan, interval);
   let customerId = actor.profile.stripe_customer_id;
   if (!customerId) {
     const customer = await stripe.customers.create({
@@ -208,7 +244,8 @@ export async function createOwnerCheckout(userId: string, plan: SaasPlanCode) {
   await sql`
     update profiles
     set plan_code = ${plan},
-        plan_price_cents = ${planPriceCents(plan)},
+        plan_price_cents = ${planPriceCents(plan, interval)},
+        billing_interval = ${interval},
         plan_status = ${keepActive ? "active" : "pending"},
         stripe_customer_id = ${customerId}
     where user_id = ${userId}
@@ -221,14 +258,14 @@ export async function createOwnerCheckout(userId: string, plan: SaasPlanCode) {
     line_items: [{ price, quantity: 1 }],
     success_url: `${origin}/app?checkout=success`,
     cancel_url: `${origin}/choose-plan?checkout=canceled`,
-    metadata: { user_id: userId, plan },
-    subscription_data: { metadata: { user_id: userId, plan } },
+    metadata: { user_id: userId, plan, interval },
+    subscription_data: { metadata: { user_id: userId, plan, interval } },
   });
   if (!session.url) throw new Error("Stripe did not return a Checkout link.");
   return { url: session.url };
 }
 
-export async function updateOwnerSubscription(userId: string, plan: SaasPlanCode) {
+export async function updateOwnerSubscription(userId: string, plan: SaasPlanCode, interval: BillingInterval = "month") {
   const sql = await getSql();
   const actor = await getActor(sql, userId);
   if (actor.kind !== "cleaner") throw new Error("Billing is Master-only.");
@@ -239,18 +276,18 @@ export async function updateOwnerSubscription(userId: string, plan: SaasPlanCode
   const base = basePlanItem(subscription);
   if (!base) throw new Error("Subscription has no price to change.");
   const quantity = extraAdminQuantity(await countBillableAdmins(sql, userId), plan);
-  const extraPrice = quantity > 0 ? extraAdminPriceId() : configuredExtraAdminPriceId();
-  const items: Stripe.SubscriptionUpdateParams.Item[] = [{ id: base.item.id, price: priceIdForPlan(plan) }];
-  if (extraPrice) {
-    items.push(
-      ...extraAdminItemChanges(listedSubscriptionItems(subscription), extraPrice, quantity),
-    );
+  const extraPrice = quantity > 0 ? extraAdminPriceId(interval) : knownExtraAdminPriceIds()[0] || "";
+  const items: Stripe.SubscriptionUpdateParams.Item[] = [{ id: base.item.id, price: priceIdForPlan(plan, interval) }];
+  if (extraPrice || quantity > 0) {
+    items.push(...alignExtraAdminItems(listedSubscriptionItems(subscription), knownExtraAdminPriceIds(), extraPrice, quantity));
   }
-  await stripe.subscriptions.update(subscription.id, {
+  const updated = await stripe.subscriptions.update(subscription.id, {
     items,
-    metadata: { user_id: userId, plan },
+    metadata: { user_id: userId, plan, interval },
+    cancel_at_period_end: false,
     proration_behavior: "create_prorations",
   });
+  await applySubscription(updated, userId, false);
   return { stripe: true as const };
 }
 
@@ -271,11 +308,14 @@ export async function syncOwnerExtraAdmins(ownerId: string) {
   const code: SaasPlanCode =
     stored === "office" || stored === "crew" ? stored : planCodeFromCents(Number(rows[0]?.plan_price_cents || 0));
   const quantity = extraAdminQuantity(await countBillableAdmins(sql, ownerId), code);
-  const extraPrice = quantity > 0 ? extraAdminPriceId() : configuredExtraAdminPriceId();
-  if (!extraPrice) return { stripe: false as const };
   const stripe = stripeClient();
   const subscription = await stripe.subscriptions.retrieve(subscriptionId);
-  const changes = extraAdminItemChanges(listedSubscriptionItems(subscription), extraPrice, quantity);
+  const base = basePlanItem(subscription);
+  if (!base) return { stripe: false as const };
+  const interval = base.interval;
+  const extraPrice = quantity > 0 ? extraAdminPriceId(interval) : knownExtraAdminPriceIds()[0] || "";
+  if (!extraPrice && quantity <= 0) return { stripe: false as const };
+  const changes = alignExtraAdminItems(listedSubscriptionItems(subscription), knownExtraAdminPriceIds(), extraPrice, quantity);
   if (changes.length === 0) return { stripe: false as const };
   await stripe.subscriptions.update(subscriptionId, {
     items: changes,
@@ -333,7 +373,24 @@ export async function cancelOwnerSubscription(userId: string) {
   const email = await userEmail(sql, userId);
   if (isDemoEmail(email) || !actor.profile.stripe_subscription_id) return { stripe: false as const };
   const stripe = stripeClient();
-  await stripe.subscriptions.cancel(actor.profile.stripe_subscription_id);
+  const updated = await stripe.subscriptions.update(actor.profile.stripe_subscription_id, {
+    cancel_at_period_end: true,
+  });
+  await applySubscription(updated, userId, false);
+  return { stripe: true as const };
+}
+
+export async function resumeOwnerRenewal(userId: string) {
+  const sql = await getSql();
+  const actor = await getActor(sql, userId);
+  if (actor.kind !== "cleaner") throw new Error("Billing is Master-only.");
+  const email = await userEmail(sql, userId);
+  if (isDemoEmail(email) || !actor.profile.stripe_subscription_id) return { stripe: false as const };
+  const stripe = stripeClient();
+  const updated = await stripe.subscriptions.update(actor.profile.stripe_subscription_id, {
+    cancel_at_period_end: false,
+  });
+  await applySubscription(updated, userId, false);
   return { stripe: true as const };
 }
 

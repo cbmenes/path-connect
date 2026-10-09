@@ -129,10 +129,11 @@ function Home() {
 
 function Pricing() {
   const [annual, setAnnual] = useState(false);
-  const crewPrice = annual ? "$29" : "$39";
-  const officePrice = annual ? "$69" : "$79";
-  const crewNote = annual ? "billed annually ($348/year)" : "per month";
-  const officeNote = annual ? "billed annually ($828/year)" : "per month";
+  const crewPrice = annual ? "$390" : "$39";
+  const officePrice = annual ? "$790" : "$79";
+  const unit = annual ? "/year" : "/mo";
+  const crewNote = annual ? "2 months free" : "per month";
+  const officeNote = annual ? "2 months free" : "per month";
   return (
     <section id="pricing" className="mx-auto max-w-6xl px-4 py-16">
       <div className="max-w-2xl">
@@ -163,7 +164,7 @@ function Pricing() {
           <p className="text-sm font-medium text-navy">Crew Plan</p>
           <p className="mt-2 font-display text-5xl tabular text-navy">
             {crewPrice}
-            <span className="text-2xl text-muted">/mo</span>
+            <span className="text-2xl text-muted">{unit}</span>
           </p>
           <p className="mt-1 text-sm text-muted">{crewNote}</p>
           <ul className="mt-5 grid flex-1 gap-2 text-sm text-ink">
@@ -171,7 +172,7 @@ function Pricing() {
             <li>Unlimited Team</li>
             <li>Unlimited Clients</li>
             <li>Calendar, messages, time off, checklists, on-my-way / start / finish, booking form, CSV import</li>
-            <li>Admins are $19/mo each. None are included.</li>
+            <li>{annual ? "Admins are $190/year each. None are included." : "Admins are $19/mo each. None are included."}</li>
           </ul>
         </article>
         <article className="flex h-full flex-col rounded-2xl bg-navy p-6 text-paper shadow-card">
@@ -181,7 +182,7 @@ function Pricing() {
           </div>
           <p className="mt-2 font-display text-5xl tabular">
             {officePrice}
-            <span className="text-2xl text-paper/70">/mo</span>
+            <span className="text-2xl text-paper/70">{unit}</span>
           </p>
           <p className="mt-1 text-sm text-paper/75">{officeNote}</p>
           <p className="mt-2 text-sm text-sage">Most shops with an office person</p>
@@ -189,12 +190,12 @@ function Pricing() {
             <li>Everything in the Crew Plan</li>
             <li>1 Admin included</li>
             <li>Team pay tracks what you owe cleaners</li>
-            <li>Additional Admins are $19/mo each</li>
+            <li>{annual ? "Additional Admins are $190/year each" : "Additional Admins are $19/mo each"}</li>
           </ul>
         </article>
       </div>
       <p className="mt-6 text-sm text-muted">
-        Unlimited Team and Clients. Extra Admins are $19/mo each and are not in Checkout. Mark as Paid is available on the Crew Plan and the Office Plan.
+        Unlimited Team and Clients. Extra Admins are $19/mo or $190/year and are not in Checkout. Annual billing is two months free. Mark as Paid is available on the Crew Plan and the Office Plan.
       </p>
       <p className="mt-2 text-sm text-muted">
         The owner pays the software subscription. Client cards on file are separate.

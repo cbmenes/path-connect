@@ -17,12 +17,20 @@ import {
   setDefaultBillingMethod,
   updateAccount,
 } from "@/lib/sweepbook/billing";
-import { extraAdminQuantity, includedAdminSeats, monthlyTotalCents } from "@/lib/sweepbook/extra-admin";
-import { cancelSaasPlan, changeSaasPlan, getSaasPlan, openBillingPortal, resumeSaasPlan } from "@/lib/sweepbook/plan";
+import { extraAdminQuantity, includedAdminSeats, intervalTotalCents } from "@/lib/sweepbook/extra-admin";
+import {
+  cancelSaasPlan,
+  changeSaasPlan,
+  getSaasPlan,
+  openBillingPortal,
+  resumeSaasPlan,
+  type BillingInterval,
+  type SaasPlanCode,
+} from "@/lib/sweepbook/plan";
 import { listCardsForClient } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
-import { money } from "@/lib/sweepbook/time";
+import { formatDate, money } from "@/lib/sweepbook/time";
 import { CardForm } from "@/components/app/card-form";
 import { CardManager } from "@/components/app/card-manager";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
@@ -571,10 +579,8 @@ function planDollars(cents: number) {
   return Number.isInteger(dollars) ? `$${dollars}` : money(cents);
 }
 
-function renewalLabel() {
-  const day = new Date();
-  day.setDate(day.getDate() + 30);
-  return day.toLocaleDateString("en-US", { month: "long", day: "numeric", year: "numeric" });
+function paidThroughLabel(iso: string) {
+  return formatDate(iso, { month: "long", day: "numeric", year: "numeric" });
 }
 
 function AdminPlanNote() {
@@ -590,20 +596,22 @@ function PlanSection() {
   const q = useQuery({ queryKey: ["saas-plan"], queryFn: () => getSaasPlan() });
   const qc = useQueryClient();
   const [changeOpen, setChangeOpen] = useState(false);
+  const [draftCode, setDraftCode] = useState<SaasPlanCode>("crew");
+  const [draftInterval, setDraftInterval] = useState<BillingInterval>("month");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
   const plan = q.data?.access === "master" ? q.data : null;
   const code = plan?.code === "office" ? "office" : "crew";
+  const interval: BillingInterval = plan?.interval === "year" ? "year" : "month";
   const name = code === "office" ? "Office Plan" : "Crew Plan";
-  const price = code === "office" ? "$79/mo" : "$39/mo";
-  const nextCode = code === "office" ? "crew" : "office";
-  const nextName = nextCode === "office" ? "Office Plan" : "Crew Plan";
-  const nextPrice = nextCode === "office" ? "$79/mo" : "$39/mo";
+  const price = interval === "year" ? (code === "office" ? "$790/year" : "$390/year") : code === "office" ? "$79/mo" : "$39/mo";
+  const renewalStops = Boolean(plan?.cancelAtPeriodEnd && plan.periodEnd);
   const adminCount = plan?.adminCount ?? 0;
-  const nextIncluded = includedAdminSeats(nextCode);
-  const nextExtra = extraAdminQuantity(adminCount, nextCode);
-  const nextMonthly = monthlyTotalCents(nextCode, nextExtra);
+  const draftIncluded = includedAdminSeats(draftCode);
+  const draftExtra = extraAdminQuantity(adminCount, draftCode);
+  const draftCents = intervalTotalCents(draftCode, draftExtra, draftInterval);
+  const draftName = draftCode === "office" ? "Office Plan" : "Crew Plan";
   const statusLabel =
     plan?.status === "canceled"
       ? "Canceled"
@@ -638,7 +646,6 @@ function PlanSection() {
         </p>
         <p className="mt-1 text-sm text-muted">Mark as Paid is available on the Crew Plan and the Office Plan.</p>
         <p className="text-sm text-muted">{statusLabel}</p>
-        {plan.status === "active" ? <p className="mt-2 text-sm text-ink">Next renewal {renewalLabel()}</p> : null}
         <dl className="mt-3 grid gap-1 text-sm text-ink">
           <div className="flex justify-between gap-4">
             <dt>Included Admin</dt>
@@ -646,15 +653,39 @@ function PlanSection() {
           </div>
           <div className="flex justify-between gap-4">
             <dt>Paid extra seats</dt>
-            <dd className="tabular">{plan.extraAdmins} × $19/mo</dd>
+            <dd className="tabular">
+              {plan.extraAdmins} × {interval === "year" ? "$190/year" : "$19/mo"}
+            </dd>
           </div>
+          {interval === "month" ? (
+            <div className="flex justify-between gap-4 font-medium">
+              <dt>Monthly amount</dt>
+              <dd className="tabular">{planDollars(plan.monthlyCents)}/mo</dd>
+            </div>
+          ) : null}
           <div className="flex justify-between gap-4 font-medium">
-            <dt>Monthly amount</dt>
-            <dd className="tabular">{planDollars(plan.monthlyCents)}/mo</dd>
+            <dt>Annual amount</dt>
+            <dd className="tabular">{planDollars(plan.annualCents)}/year</dd>
           </div>
         </dl>
+        <p className="mt-3 text-sm text-ink">Annual billing is two months free.</p>
+        {plan.demo ? (
+          <>
+            <p className="mt-1 text-sm text-muted">Demo accounts are not charged.</p>
+            <p className="mt-1 text-sm text-muted">Paid through: not billed.</p>
+          </>
+        ) : plan.periodEnd ? (
+          <p className="mt-1 text-sm text-ink">Paid through {paidThroughLabel(plan.periodEnd)}.</p>
+        ) : (
+          <p className="mt-1 text-sm text-muted">Paid through date appears after Stripe confirms the subscription.</p>
+        )}
+        {renewalStops && plan.periodEnd ? (
+          <p className="mt-1 text-sm text-ink">
+            Renewal stops on {paidThroughLabel(plan.periodEnd)}. Unused months are not refunded.
+          </p>
+        ) : null}
         <p className="mt-3 text-xs text-muted">
-          The owner subscription is confirmed by Stripe. Extra Admin ($19/mo) is not a Checkout item. Annual billing is later.
+          The owner subscription is confirmed by Stripe. Extra Admin stays a quantity on the same interval and is not a Checkout item.
         </p>
         {plan.stripeCustomer ? (
           <div className="mt-4 grid gap-2">
@@ -678,80 +709,130 @@ function PlanSection() {
           </div>
         ) : null}
       </Card>
-      {plan.status === "canceled" || plan.status === "pending" ? (
-        <Button
-          disabled={busy}
-          onClick={async () => {
-            setBusy(true);
-            try {
-              const resumed = await resumeSaasPlan({ data: {} });
-              if (resumed.url) {
-                window.location.assign(resumed.url);
-                return;
+      <div className="flex flex-wrap gap-2">
+        {plan.status === "canceled" || plan.status === "pending" || renewalStops || plan.periodEnded ? (
+          <Button
+            disabled={busy}
+            onClick={async () => {
+              setBusy(true);
+              try {
+                const resumed = await resumeSaasPlan({ data: {} });
+                if (resumed.url) {
+                  window.location.assign(resumed.url);
+                  return;
+                }
+                await refresh();
+                toast.success(renewalStops ? "Renewal is back on" : `${name} resumed`);
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Could not resume the plan.");
+              } finally {
+                setBusy(false);
               }
-              await refresh();
-              toast.success(`${name} resumed`);
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Could not resume the plan.");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          Resume plan
-        </Button>
-      ) : (
-        <div className="flex flex-wrap gap-2">
-          <Button variant="outline" onClick={() => setChangeOpen(true)} disabled={plan.status !== "active"}>
-            Change to {nextName}
+            }}
+          >
+            {renewalStops ? "Resume renewal" : "Resume plan"}
           </Button>
-          <Button variant="danger" onClick={() => setCancelOpen(true)} disabled={plan.status !== "active"}>
+        ) : null}
+        {plan.status === "active" && !plan.periodEnded ? (
+          <Button
+            variant="outline"
+            onClick={() => {
+              setDraftCode(code);
+              setDraftInterval(interval);
+              setChangeOpen(true);
+            }}
+            disabled={busy}
+          >
+            Change plan
+          </Button>
+        ) : null}
+        {plan.status === "active" && !renewalStops && !plan.periodEnded ? (
+          <Button variant="danger" onClick={() => setCancelOpen(true)} disabled={busy}>
             Cancel plan
           </Button>
-        </div>
-      )}
+        ) : null}
+      </div>
       <ConfirmDialog
         open={changeOpen}
         onOpenChange={setChangeOpen}
-        title={`Change to ${nextName}?`}
+        title="Change plan?"
         body={
           plan.demo
-            ? `Switch to ${nextName} at ${nextPrice}. Included Admin: ${nextIncluded}. Paid extra seats: ${nextExtra}. Monthly amount ${planDollars(nextMonthly)}/mo. Demo accounts are not charged.`
-            : `Switch to ${nextName} at ${nextPrice}. Included Admin: ${nextIncluded}. Paid extra seats: ${nextExtra}. Monthly amount ${planDollars(nextMonthly)}/mo. Stripe confirms the change.`
+            ? `${draftName}, ${draftInterval === "year" ? "annual" : "monthly"}. Included Admin: ${draftIncluded}. Paid extra seats: ${draftExtra}. Amount ${planDollars(draftCents)}${draftInterval === "year" ? "/year" : "/mo"}. Demo accounts are not charged.`
+            : `${draftName}, ${draftInterval === "year" ? "annual" : "monthly"}. Included Admin: ${draftIncluded}. Paid extra seats: ${draftExtra}. Amount ${planDollars(draftCents)}${draftInterval === "year" ? "/year" : "/mo"}. Switching interval moves the plan price and the Extra Admin price together.`
         }
-        confirmLabel={`Change to ${nextName}`}
+        confirmLabel="Save plan"
         confirmVariant="primary"
         busy={busy}
-        busyLabel="Changing…"
+        busyLabel="Saving…"
         onConfirm={async () => {
           setBusy(true);
           try {
-            const changed = await changeSaasPlan({ data: { code: nextCode } });
+            await changeSaasPlan({ data: { code: draftCode, interval: draftInterval } });
             setChangeOpen(false);
             await refresh();
-            toast.success(changed.pendingWebhook ? "Stripe is confirming the new plan." : `Switched to ${nextName}`);
+            toast.success(`Switched to ${draftName}`);
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not change the plan.");
           } finally {
             setBusy(false);
           }
         }}
-      />
+      >
+        <div className="mt-4 grid gap-3">
+          <div className="grid grid-cols-2 gap-2">
+            {(["crew", "office"] as const).map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                className={
+                  draftCode === choice
+                    ? "min-h-11 rounded-xl bg-navy px-3 text-sm text-paper"
+                    : "min-h-11 rounded-xl bg-secondary px-3 text-sm text-ink"
+                }
+                onClick={() => setDraftCode(choice)}
+              >
+                {choice === "office" ? "Office Plan" : "Crew Plan"}
+              </button>
+            ))}
+          </div>
+          <div className="grid grid-cols-2 gap-2">
+            {(["month", "year"] as const).map((choice) => (
+              <button
+                key={choice}
+                type="button"
+                className={
+                  draftInterval === choice
+                    ? "min-h-11 rounded-xl bg-navy px-3 text-sm text-paper"
+                    : "min-h-11 rounded-xl bg-secondary px-3 text-sm text-ink"
+                }
+                onClick={() => setDraftInterval(choice)}
+              >
+                {choice === "year" ? "Annual" : "Monthly"}
+              </button>
+            ))}
+          </div>
+        </div>
+      </ConfirmDialog>
       <ConfirmDialog
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         title="Cancel plan?"
-        body={plan.demo ? "Demo accounts are not charged." : "Stripe confirms the cancellation."}
-        confirmLabel="Cancel plan"
+        body={
+          plan.demo
+            ? "Demo accounts are not charged."
+            : "Renewal stops at the end of the paid period. Unused months are not refunded. The plan stays available until that date."
+        }
+        confirmLabel="Stop renewal"
         busy={busy}
-        busyLabel="Canceling…"
+        busyLabel="Saving…"
         onConfirm={async () => {
           setBusy(true);
           try {
-            const canceled = await cancelSaasPlan({ data: {} });
+            await cancelSaasPlan({ data: {} });
             setCancelOpen(false);
             await refresh();
-            toast.success(canceled.pendingWebhook ? "Stripe is confirming the cancellation." : "Plan canceled");
+            toast.success(plan.demo ? "Plan canceled" : "Renewal stops at the end of the paid period");
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not cancel the plan.");
           } finally {
@@ -781,7 +862,7 @@ function BillingSection() {
     <div className="grid gap-4">
       <Card>
         <p className="text-xs uppercase tracking-[0.14em] text-sage">{APP_NAME} plan</p>
-        <p className="mt-1 font-display text-2xl text-navy">Crew Plan $39/mo · Office Plan $79/mo</p>
+        <p className="mt-1 font-display text-2xl text-navy">Crew Plan $39/mo or $390/year · Office Plan $79/mo or $790/year</p>
         <p className="text-sm capitalize text-muted">{status === "past_due" ? "Past due" : status}</p>
         <p className="mt-2 text-xs text-muted">
           Public price for the software. This screen does not start a subscription. Cards saved here stay separate from cards used to charge clients.

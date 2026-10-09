@@ -5,7 +5,7 @@ import { CrewWeekLogo } from "@/components/brand/logo";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
-import { beginStripeCheckout, getSaasPlan, type SaasPlanCode } from "@/lib/sweepbook/plan";
+import { beginStripeCheckout, getSaasPlan, type BillingInterval, type SaasPlanCode } from "@/lib/sweepbook/plan";
 import { cn } from "@/lib/utils";
 
 type Search = { plan?: SaasPlanCode; checkout?: "canceled" };
@@ -18,17 +18,19 @@ export const Route = createFileRoute("/choose-plan")({
   component: ChoosePlan,
 });
 
-const PLANS: { code: SaasPlanCode; name: string; price: string; points: string[] }[] = [
+const PLANS: { code: SaasPlanCode; name: string; month: string; year: string; points: string[] }[] = [
   {
     code: "crew",
     name: "Crew Plan",
-    price: "$39/mo",
-    points: ["Owner account", "Unlimited Team", "Unlimited Clients", "Admins are $19/mo each"],
+    month: "$39/mo",
+    year: "$390/year",
+    points: ["Owner account", "Unlimited Team", "Unlimited Clients", "Admins are $19/mo or $190/year"],
   },
   {
     code: "office",
     name: "Office Plan",
-    price: "$79/mo",
+    month: "$79/mo",
+    year: "$790/year",
     points: ["Everything in the Crew Plan", "1 Admin included", "Team pay tracks what you owe cleaners"],
   },
 ];
@@ -37,6 +39,7 @@ function ChoosePlan() {
   const search = Route.useSearch();
   const { user, isPending } = useCurrentUserState();
   const [code, setCode] = useState<SaasPlanCode>(search.plan ?? "crew");
+  const [interval, setInterval] = useState<BillingInterval>("month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const selected = PLANS.find((plan) => plan.code === code) ?? PLANS[0];
@@ -50,7 +53,7 @@ function ChoosePlan() {
     setBusy(true);
     setError(null);
     try {
-      const session = await beginStripeCheckout({ data: { code } });
+      const session = await beginStripeCheckout({ data: { code, interval } });
       window.location.assign(session.url);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start checkout.");
@@ -80,6 +83,22 @@ function ChoosePlan() {
 
         {!isPending ? (
           <>
+            <div className="inline-flex rounded-md bg-secondary p-0.5 text-sm" role="group" aria-label="Billing interval">
+              <button
+                type="button"
+                className={interval === "month" ? "min-h-11 rounded bg-paper px-3 font-medium text-navy shadow-soft" : "min-h-11 rounded px-3 text-muted"}
+                onClick={() => setInterval("month")}
+              >
+                Monthly
+              </button>
+              <button
+                type="button"
+                className={interval === "year" ? "min-h-11 rounded bg-paper px-3 font-medium text-navy shadow-soft" : "min-h-11 rounded px-3 text-muted"}
+                onClick={() => setInterval("year")}
+              >
+                Annual · 2 months free
+              </button>
+            </div>
             <div className="grid gap-3 md:grid-cols-2">
               {PLANS.map((plan) => (
                 <button
@@ -92,7 +111,7 @@ function ChoosePlan() {
                   )}
                 >
                   <p className="text-sm font-medium">{plan.name}</p>
-                  <p className="mt-1 font-display text-4xl tabular">{plan.price}</p>
+                  <p className="mt-1 font-display text-4xl tabular">{interval === "year" ? plan.year : plan.month}</p>
                   <ul className="mt-4 grid gap-1 text-sm">
                     {plan.points.map((point) => (
                       <li key={point}>{point}</li>
@@ -101,7 +120,9 @@ function ChoosePlan() {
                 </button>
               ))}
             </div>
-            <p className="text-sm text-muted">Annual billing (2 months free) is not part of Checkout yet. Mark as Paid is available on the Crew Plan and the Office Plan.</p>
+            <p className="text-sm text-muted">
+              Annual billing is two months free: Crew Plan $390/year, Office Plan $790/year. Mark as Paid is available on the Crew Plan and the Office Plan.
+            </p>
             {error ? <p className="text-sm text-danger">{error}</p> : null}
             <div className="flex flex-wrap gap-2">
               {user && current.data?.access === "master" && current.data.demo ? (
@@ -114,7 +135,7 @@ function ChoosePlan() {
                 </Button>
               ) : (
                 <Button asChild>
-                  <Link to="/signup" search={{ plan: code }}>
+                  <Link to="/signup" search={{ plan: code, interval }}>
                     Continue with {selected.name}
                   </Link>
                 </Button>

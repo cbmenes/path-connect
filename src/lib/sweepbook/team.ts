@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { PROFILE_COLUMNS, assertOffice, assertActivePlan, getActor, masterUserId } from "./access";
+import { PROFILE_COLUMNS, assertOffice, assertActivePlan, getActor, masterUserId, subscriptionInactive } from "./access";
 import { enableTeamAccount, setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
 import { addMemberToClient, removeMemberFromClient, replaceClientAssignmentsForInvite } from "./assignees";
 import { ensureDemoSeed } from "./seed";
@@ -40,16 +40,27 @@ async function syncExtraAdminSeats(ownerId: string) {
 }
 
 async function assertAdminSeatOpen(sql: Awaited<ReturnType<typeof getSql>>, masterId: string) {
-  const rows = await sql<{ plan_status: string | null; email: string | null }>`
-    select p.plan_status, u.email
+  const rows = await sql<{
+    plan_status: string | null;
+    email: string | null;
+    cancel_at_period_end: boolean | null;
+    current_period_end: string | null;
+  }>`
+    select p.plan_status, u.email, coalesce(p.cancel_at_period_end, false) as cancel_at_period_end,
+           p.current_period_end::text as current_period_end
     from profiles p
     join "user" u on u.id = p.user_id
     where p.user_id = ${masterId}
     limit 1
   `;
   if (isDemoAccountEmail(rows[0]?.email)) return;
-  const status = rows[0]?.plan_status || "trial";
-  if (status === "pending" || status === "canceled") {
+  if (
+    subscriptionInactive({
+      status: rows[0]?.plan_status || "trial",
+      cancelAtPeriodEnd: rows[0]?.cancel_at_period_end,
+      periodEnd: rows[0]?.current_period_end,
+    })
+  ) {
     throw new Error("Your plan is inactive. Resume it in Settings to make changes.");
   }
 }

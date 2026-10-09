@@ -2,22 +2,34 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { getActor } from "./access";
-import { countBillableAdmins, extraAdminQuantity, includedAdminSeats, monthlyTotalCents } from "./extra-admin";
+import { countBillableAdmins, extraAdminQuantity, includedAdminSeats, intervalTotalCents, monthlyTotalCents } from "./extra-admin";
 import {
+  paidPeriodEnded,
+  parseBillingInterval,
   planCodeFromCents,
   planPriceCents,
+  type BillingInterval,
   type SaasPlanCode,
+  CREW_ANNUAL_PRICE_CENTS,
   CREW_PRICE_CENTS,
+  EXTRA_ADMIN_ANNUAL_PRICE_CENTS,
   EXTRA_ADMIN_PRICE_CENTS,
+  OFFICE_ANNUAL_PRICE_CENTS,
   OFFICE_PRICE_CENTS,
 } from "./plan-prices";
 
 export {
+  CREW_ANNUAL_PRICE_CENTS,
   CREW_PRICE_CENTS,
+  EXTRA_ADMIN_ANNUAL_PRICE_CENTS,
   EXTRA_ADMIN_PRICE_CENTS,
+  OFFICE_ANNUAL_PRICE_CENTS,
   OFFICE_PRICE_CENTS,
+  paidPeriodEnded,
+  parseBillingInterval,
   planCodeFromCents,
   planPriceCents,
+  type BillingInterval,
   type SaasPlanCode,
 };
 
@@ -64,11 +76,17 @@ export const getSaasPlan = createServerFn({ method: "GET" })
     const demo = isDemoEmail(rows[0]?.email);
     const adminCount = await countBillableAdmins(sql, context.userId);
     const extraAdmins = extraAdminQuantity(adminCount, code);
+    const interval: BillingInterval = actor.profile.billing_interval === "year" ? "year" : "month";
+    const periodEnded = paidPeriodEnded({
+      cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+      periodEnd: actor.profile.current_period_end,
+    });
     return {
       access: "master" as const,
       code,
       status: actor.profile.plan_status,
-      priceCents: actor.profile.plan_status === "trial" ? planPriceCents(code) : actor.profile.plan_price_cents,
+      interval,
+      priceCents: planPriceCents(code, interval),
       demo,
       subscribed: Boolean(actor.profile.stripe_subscription_id) && !demo,
       stripeCustomer: Boolean(actor.profile.stripe_customer_id) && !demo,
@@ -76,6 +94,10 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       includedAdmins: includedAdminSeats(code),
       extraAdmins,
       monthlyCents: monthlyTotalCents(code, extraAdmins),
+      annualCents: intervalTotalCents(code, extraAdmins, "year"),
+      periodEnd: actor.profile.current_period_end,
+      cancelAtPeriodEnd: actor.profile.cancel_at_period_end && !periodEnded,
+      periodEnded,
     };
   });
 
@@ -89,31 +111,46 @@ export const openBillingPortal = createServerFn({ method: "POST" })
 
 export const beginStripeCheckout = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { code: string }) => ({ code: parseCode(input.code) }))
+  .validator((input: { code: string; interval?: string }) => ({
+    code: parseCode(input.code),
+    interval: parseBillingInterval(input.interval),
+  }))
   .handler(async ({ context, data }) => {
     const { createOwnerCheckout } = await import("./stripe.server");
-    return createOwnerCheckout(context.userId, data.code);
+    return createOwnerCheckout(context.userId, data.code, data.interval);
   });
 
 export const changeSaasPlan = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { code: string }) => ({ code: parseCode(input.code) }))
+  .validator((input: { code: string; interval?: string }) => ({
+    code: parseCode(input.code),
+    interval: parseBillingInterval(input.interval),
+  }))
   .handler(async ({ context, data }) => {
     const { sql, actor } = await requireMaster(context.userId);
     if (actor.profile.plan_status === "canceled") throw new Error("Resume the plan before changing it.");
+    if (
+      paidPeriodEnded({
+        cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+        periodEnd: actor.profile.current_period_end,
+      })
+    ) {
+      throw new Error("Resume the plan before changing it.");
+    }
     const billing = await ownerUsesStripe(context.userId);
     if (billing.subscribed) {
       const { updateOwnerSubscription } = await import("./stripe.server");
-      await updateOwnerSubscription(context.userId, data.code);
-      return { ok: true as const, code: data.code, pendingWebhook: true as const };
+      await updateOwnerSubscription(context.userId, data.code, data.interval);
+      return { ok: true as const, code: data.code, interval: data.interval, pendingWebhook: false as const };
     }
-    const cents = planPriceCents(data.code);
+    const cents = planPriceCents(data.code, data.interval);
     await sql`
       update profiles
-      set plan_status = ${"active"}, plan_price_cents = ${cents}, plan_code = ${data.code}
+      set plan_status = ${"active"}, plan_price_cents = ${cents}, plan_code = ${data.code},
+          billing_interval = ${data.interval}
       where user_id = ${context.userId}
     `;
-    return { ok: true as const, code: data.code, pendingWebhook: false as const };
+    return { ok: true as const, code: data.code, interval: data.interval, pendingWebhook: false as const };
   });
 
 export const cancelSaasPlan = createServerFn({ method: "POST" })
@@ -140,16 +177,30 @@ export const resumeSaasPlan = createServerFn({ method: "POST" })
   .handler(async ({ context }) => {
     const { sql, actor } = await requireMaster(context.userId);
     const code = storedPlanCode(actor.profile);
+    const interval: BillingInterval = actor.profile.billing_interval === "year" ? "year" : "month";
     const billing = await ownerUsesStripe(context.userId);
+    const stillInPeriod =
+      actor.profile.plan_status === "active" &&
+      actor.profile.cancel_at_period_end &&
+      !paidPeriodEnded({
+        cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+        periodEnd: actor.profile.current_period_end,
+      });
+    if (!billing.demo && stillInPeriod && actor.profile.stripe_subscription_id) {
+      const { resumeOwnerRenewal } = await import("./stripe.server");
+      await resumeOwnerRenewal(context.userId);
+      return { ok: true as const, code, url: null as string | null };
+    }
     if (!billing.demo && actor.profile.stripe_customer_id) {
       const { createOwnerCheckout } = await import("./stripe.server");
-      const checkout = await createOwnerCheckout(context.userId, code);
+      const checkout = await createOwnerCheckout(context.userId, code, interval);
       return { ok: true as const, code, url: checkout.url };
     }
-    const cents = planPriceCents(code);
+    const cents = planPriceCents(code, interval);
     await sql`
       update profiles
-      set plan_status = ${"active"}, plan_price_cents = ${cents}, plan_code = ${code}
+      set plan_status = ${"active"}, plan_price_cents = ${cents}, plan_code = ${code},
+          billing_interval = ${interval}, cancel_at_period_end = ${false}
       where user_id = ${context.userId}
     `;
     return { ok: true as const, code, url: null as string | null };

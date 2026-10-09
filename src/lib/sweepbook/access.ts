@@ -1,4 +1,5 @@
 import type { Sql } from "@/lib/db";
+import { paidPeriodEnded } from "./plan-prices";
 import { isDemoAccountEmail, type Actor, type ClientRow, type Profile, type PlanStatus } from "./types";
 
 export const PROFILE_COLUMNS = `
@@ -10,7 +11,10 @@ export const PROFILE_COLUMNS = `
   coalesce(can_clock_in, true) as can_clock_in,
   email_reminders, reminder_email_team,
   coalesce(can_charge, false) as can_charge,
-  plan_status, plan_price_cents, plan_code, stripe_customer_id, stripe_subscription_id,
+  plan_status, plan_price_cents, plan_code, billing_interval,
+  current_period_end::text as current_period_end,
+  coalesce(cancel_at_period_end, false) as cancel_at_period_end,
+  stripe_customer_id, stripe_subscription_id,
   created_at::text as created_at
 `;
 
@@ -70,6 +74,9 @@ function normalizeProfile(row: Profile): Profile {
     plan_status: row.plan_status || "trial",
     plan_price_cents: Number(row.plan_price_cents || 1900),
     plan_code: row.plan_code === "crew" || row.plan_code === "office" ? row.plan_code : null,
+    billing_interval: row.billing_interval === "year" ? "year" : row.billing_interval === "month" ? "month" : null,
+    current_period_end: row.current_period_end || null,
+    cancel_at_period_end: asBool(row.cancel_at_period_end, false),
     stripe_customer_id: row.stripe_customer_id || null,
     stripe_subscription_id: row.stripe_subscription_id || null,
   };
@@ -87,8 +94,14 @@ export async function getActor(sql: Sql, userId: string): Promise<Actor> {
   if (profile.role === "cleaner") {
     if (profile.cleaner_kind === "admin") {
       const masterId = profile.master_user_id || userId;
-      const masterPlan = await sql.query<{ plan_status: string | null }>(
-        `select plan_status from profiles where user_id = $1 limit 1`,
+      const masterPlan = await sql.query<{
+        plan_status: string | null;
+        cancel_at_period_end: boolean | null;
+        current_period_end: string | null;
+      }>(
+        `select plan_status, coalesce(cancel_at_period_end, false) as cancel_at_period_end,
+                current_period_end::text as current_period_end
+         from profiles where user_id = $1 limit 1`,
         [masterId],
       );
       const masterPlanStatus = (masterPlan[0]?.plan_status || "trial") as PlanStatus;
@@ -98,6 +111,8 @@ export async function getActor(sql: Sql, userId: string): Promise<Actor> {
         profile,
         masterUserId: masterId,
         masterPlanStatus,
+        masterCancelAtPeriodEnd: asBool(masterPlan[0]?.cancel_at_period_end, false),
+        masterPeriodEnd: masterPlan[0]?.current_period_end || null,
         canCharge: asBool(profile.can_charge, false),
         canMessage: true,
         disabled: profile.team_status === "disabled",
@@ -182,6 +197,20 @@ export function assertCanCharge(actor: Actor) {
   }
 }
 
+export function subscriptionInactive(input: {
+  status: string | null | undefined;
+  cancelAtPeriodEnd?: boolean | null;
+  periodEnd?: string | null;
+  now?: number;
+}) {
+  if (input.status === "pending" || input.status === "canceled") return true;
+  return paidPeriodEnded({
+    cancelAtPeriodEnd: Boolean(input.cancelAtPeriodEnd),
+    periodEnd: input.periodEnd,
+    now: input.now,
+  });
+}
+
 export async function assertActivePlan(sql: Sql, actor: Actor) {
   if (actor.kind !== "cleaner" && actor.kind !== "admin") return;
   const masterId = actor.masterUserId;
@@ -189,11 +218,22 @@ export async function assertActivePlan(sql: Sql, actor: Actor) {
     select email from "user" where id = ${actor.userId} or id = ${masterId}
   `;
   if (emails.some((row) => isDemoAccountEmail(row.email))) return;
-  const rows = await sql<{ plan_status: string | null }>`
-    select plan_status from profiles where user_id = ${masterId} limit 1
+  const rows = await sql<{
+    plan_status: string | null;
+    cancel_at_period_end: boolean | null;
+    current_period_end: string | null;
+  }>`
+    select plan_status, coalesce(cancel_at_period_end, false) as cancel_at_period_end,
+           current_period_end::text as current_period_end
+    from profiles where user_id = ${masterId} limit 1
   `;
-  const status = rows[0]?.plan_status || "trial";
-  if (status === "pending" || status === "canceled") {
+  if (
+    subscriptionInactive({
+      status: rows[0]?.plan_status || "trial",
+      cancelAtPeriodEnd: rows[0]?.cancel_at_period_end,
+      periodEnd: rows[0]?.current_period_end,
+    })
+  ) {
     throw new Error("Your plan is inactive. Resume it in Settings to make changes.");
   }
 }
