@@ -1,5 +1,5 @@
 import type { Sql } from "@/lib/db";
-import { paidPeriodEnded } from "./plan-prices";
+import { subscriptionAccessLocked } from "./plan-prices";
 import { isDemoAccountEmail, type Actor, type ClientRow, type Profile, type PlanStatus } from "./types";
 
 export const PROFILE_COLUMNS = `
@@ -203,12 +203,7 @@ export function subscriptionInactive(input: {
   periodEnd?: string | null;
   now?: number;
 }) {
-  if (input.status === "pending" || input.status === "canceled") return true;
-  return paidPeriodEnded({
-    cancelAtPeriodEnd: Boolean(input.cancelAtPeriodEnd),
-    periodEnd: input.periodEnd,
-    now: input.now,
-  });
+  return subscriptionAccessLocked(input);
 }
 
 export async function assertActivePlan(sql: Sql, actor: Actor) {

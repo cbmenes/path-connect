@@ -5,6 +5,7 @@ import { getActor } from "./access";
 import { alignExtraAdminItems, countBillableAdmins, extraAdminQuantity } from "./extra-admin";
 import {
   paidPeriodEnded,
+  periodStillOpen,
   planCodeFromCents,
   planPriceCents,
   type BillingInterval,
@@ -102,10 +103,22 @@ function basePlanItem(subscription: Stripe.Subscription) {
   return null;
 }
 
+function unixToIso(seconds: number | null | undefined) {
+  if (!seconds) return null;
+  return new Date(seconds * 1000).toISOString();
+}
+
 function periodEndIso(item: Stripe.SubscriptionItem) {
-  const end = item.current_period_end;
-  if (!end) return null;
-  return new Date(end * 1000).toISOString();
+  return unixToIso(item.current_period_end);
+}
+
+function subscriptionPeriodEndIso(subscription: Stripe.Subscription) {
+  let latest = 0;
+  for (const item of subscription.items?.data ?? []) {
+    if (item.current_period_end > latest) latest = item.current_period_end;
+  }
+  if (latest) return unixToIso(latest);
+  return unixToIso(subscription.cancel_at);
 }
 
 function listedSubscriptionItems(subscription: Stripe.Subscription) {
@@ -171,35 +184,45 @@ async function findOwnerId(sql: Sql, subscription: Stripe.Subscription, hintedUs
 
 async function applySubscription(subscription: Stripe.Subscription, hintedUserId: string | null, deleted: boolean) {
   const base = basePlanItem(subscription);
-  if (!base) return { ignored: true as const };
-  const plan = base.plan;
+  if (!base && !deleted) return { ignored: true as const };
   const sql = await getSql();
   const userId = await findOwnerId(sql, subscription, hintedUserId || subscription.metadata?.user_id || null);
   if (!userId) return { ignored: true as const };
   if (isDemoEmail(await userEmail(sql, userId))) return { ignored: true as const };
-  const current = await sql<{ stripe_subscription_id: string | null; plan_status: string }>`
-    select stripe_subscription_id, plan_status from profiles where user_id = ${userId} limit 1
+  const current = await sql<{
+    stripe_subscription_id: string | null;
+    plan_status: string;
+    current_period_end: string | null;
+  }>`
+    select stripe_subscription_id, plan_status, current_period_end::text as current_period_end
+    from profiles where user_id = ${userId} limit 1
   `;
   const currentId = current[0]?.stripe_subscription_id;
-  if (currentId && currentId !== subscription.id && current[0]?.plan_status === "active") {
+  if (currentId && currentId !== subscription.id && (current[0]?.plan_status === "active" || deleted)) {
     return { ignored: true as const };
   }
   const customerId = idOf(subscription.customer);
-  if (deleted) {
-    if (currentId && currentId !== subscription.id) return { ignored: true as const };
+  const incomingEnd = (base ? periodEndIso(base.item) : null) || subscriptionPeriodEndIso(subscription);
+  const periodEnd = incomingEnd || current[0]?.current_period_end || null;
+  const stripeStatus = mapStripeStatus(subscription.status);
+  const endedNow = deleted || stripeStatus === "canceled";
+  const stillPaid = periodStillOpen(periodEnd);
+  if (endedNow && !stillPaid) {
     await sql`
       update profiles
       set plan_status = ${"canceled"},
           cancel_at_period_end = ${false},
+          current_period_end = coalesce(${periodEnd}, current_period_end),
           stripe_customer_id = coalesce(${customerId}, stripe_customer_id),
           stripe_subscription_id = ${subscription.id}
       where user_id = ${userId}
     `;
     return { ok: true as const };
   }
-  const status = mapStripeStatus(subscription.status);
-  const periodEnd = periodEndIso(base.item);
-  const cancelAtEnd = Boolean(subscription.cancel_at_period_end) && status === "active";
+  if (!base) return { ignored: true as const };
+  const plan = base.plan;
+  const status = endedNow ? "active" : stripeStatus;
+  const cancelAtEnd = status === "active" && (Boolean(subscription.cancel_at_period_end) || endedNow);
   await sql`
     update profiles
     set plan_code = ${plan},
@@ -373,7 +396,23 @@ export async function cancelOwnerSubscription(userId: string) {
   const email = await userEmail(sql, userId);
   if (isDemoEmail(email) || !actor.profile.stripe_subscription_id) return { stripe: false as const };
   const stripe = stripeClient();
-  const updated = await stripe.subscriptions.update(actor.profile.stripe_subscription_id, {
+  const subscriptionId = actor.profile.stripe_subscription_id;
+  const existing = await stripe.subscriptions.retrieve(subscriptionId);
+  const periodEnd = subscriptionPeriodEndIso(existing) || actor.profile.current_period_end;
+  if (periodEnd && !periodStillOpen(periodEnd)) {
+    try {
+      const canceled = await stripe.subscriptions.cancel(subscriptionId, { prorate: false, invoice_now: false });
+      await applySubscription(canceled, userId, true);
+    } catch {
+      await sql`
+        update profiles
+        set plan_status = ${"canceled"}, cancel_at_period_end = ${false}
+        where user_id = ${userId}
+      `;
+    }
+    return { stripe: true as const };
+  }
+  const updated = await stripe.subscriptions.update(subscriptionId, {
     cancel_at_period_end: true,
   });
   await applySubscription(updated, userId, false);

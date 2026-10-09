@@ -23,6 +23,7 @@ import {
   changeSaasPlan,
   getSaasPlan,
   openBillingPortal,
+  periodStillOpen,
   resumeSaasPlan,
   type BillingInterval,
   type SaasPlanCode,
@@ -606,14 +607,19 @@ function PlanSection() {
   const interval: BillingInterval = plan?.interval === "year" ? "year" : "month";
   const name = code === "office" ? "Office Plan" : "Crew Plan";
   const price = interval === "year" ? (code === "office" ? "$790/year" : "$390/year") : code === "office" ? "$79/mo" : "$39/mo";
-  const renewalStops = Boolean(plan?.cancelAtPeriodEnd && plan.periodEnd);
+  const renewalStops = Boolean(
+    plan?.periodEnd &&
+      periodStillOpen(plan.periodEnd) &&
+      (plan.cancelAtPeriodEnd || plan.status === "canceled"),
+  );
   const adminCount = plan?.adminCount ?? 0;
   const draftIncluded = includedAdminSeats(draftCode);
   const draftExtra = extraAdminQuantity(adminCount, draftCode);
   const draftCents = intervalTotalCents(draftCode, draftExtra, draftInterval);
   const draftName = draftCode === "office" ? "Office Plan" : "Crew Plan";
-  const statusLabel =
-    plan?.status === "canceled"
+  const statusLabel = renewalStops
+    ? "Active"
+    : plan?.status === "canceled"
       ? "Canceled"
       : plan?.status === "active"
         ? "Active"
@@ -669,7 +675,7 @@ function PlanSection() {
           </div>
         </dl>
         <p className="mt-3 text-sm text-ink">Annual billing is two months free.</p>
-        {plan.demo ? (
+        {plan.demo && !renewalStops ? (
           <>
             <p className="mt-1 text-sm text-muted">Demo accounts are not charged.</p>
             <p className="mt-1 text-sm text-muted">Paid through: not billed.</p>
@@ -679,10 +685,11 @@ function PlanSection() {
         ) : (
           <p className="mt-1 text-sm text-muted">Paid through date appears after Stripe confirms the subscription.</p>
         )}
-        {renewalStops && plan.periodEnd ? (
-          <p className="mt-1 text-sm text-ink">
-            Renewal stops on {paidThroughLabel(plan.periodEnd)}. Unused months are not refunded.
-          </p>
+        {renewalStops ? (
+          <p className="mt-1 text-sm text-ink">Renewal is off. The current month or year is not refunded.</p>
+        ) : null}
+        {plan.demo && renewalStops ? (
+          <p className="mt-1 text-sm text-muted">Demo accounts are not charged.</p>
         ) : null}
         <p className="mt-3 text-xs text-muted">
           The owner subscription is confirmed by Stripe. Extra Admin stays a quantity on the same interval and is not a Checkout item.
@@ -820,8 +827,8 @@ function PlanSection() {
         title="Cancel plan?"
         body={
           plan.demo
-            ? "Demo accounts are not charged."
-            : "Renewal stops at the end of the paid period. Unused months are not refunded. The plan stays available until that date."
+            ? "Demo accounts are not charged. Renewal stops at the end of the paid period. The plan stays available until that date."
+            : "Renewal stops at the end of the paid period. The current month or year is not refunded. The plan stays available until that date."
         }
         confirmLabel="Stop renewal"
         busy={busy}
@@ -832,7 +839,7 @@ function PlanSection() {
             await cancelSaasPlan({ data: {} });
             setCancelOpen(false);
             await refresh();
-            toast.success(plan.demo ? "Plan canceled" : "Renewal stops at the end of the paid period");
+            toast.success("Renewal is off");
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not cancel the plan.");
           } finally {

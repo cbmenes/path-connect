@@ -4,8 +4,10 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { getActor } from "./access";
 import { countBillableAdmins, extraAdminQuantity, includedAdminSeats, intervalTotalCents, monthlyTotalCents } from "./extra-admin";
 import {
+  fallbackPeriodEnd,
   paidPeriodEnded,
   parseBillingInterval,
+  periodStillOpen,
   planCodeFromCents,
   planPriceCents,
   type BillingInterval,
@@ -27,6 +29,7 @@ export {
   OFFICE_PRICE_CENTS,
   paidPeriodEnded,
   parseBillingInterval,
+  periodStillOpen,
   planCodeFromCents,
   planPriceCents,
   type BillingInterval,
@@ -147,7 +150,7 @@ export const changeSaasPlan = createServerFn({ method: "POST" })
     await sql`
       update profiles
       set plan_status = ${"active"}, plan_price_cents = ${cents}, plan_code = ${data.code},
-          billing_interval = ${data.interval}
+          billing_interval = ${data.interval}, cancel_at_period_end = ${false}
       where user_id = ${context.userId}
     `;
     return { ok: true as const, code: data.code, interval: data.interval, pendingWebhook: false as const };
@@ -165,8 +168,24 @@ export const cancelSaasPlan = createServerFn({ method: "POST" })
       await cancelOwnerSubscription(context.userId);
       return { ok: true as const, pendingWebhook: true as const };
     }
+    const interval: BillingInterval = actor.profile.billing_interval === "year" ? "year" : "month";
+    const existingEnd = actor.profile.current_period_end;
+    if (existingEnd && !periodStillOpen(existingEnd)) {
+      await sql`
+        update profiles
+        set plan_status = ${"canceled"}, cancel_at_period_end = ${false}
+        where user_id = ${context.userId}
+      `;
+      return { ok: true as const, pendingWebhook: false as const };
+    }
+    const periodEnd = periodStillOpen(existingEnd) ? existingEnd : fallbackPeriodEnd(interval);
     await sql`
-      update profiles set plan_status = ${"canceled"} where user_id = ${context.userId}
+      update profiles
+      set plan_status = ${"active"},
+          billing_interval = ${interval},
+          cancel_at_period_end = ${true},
+          current_period_end = ${periodEnd}
+      where user_id = ${context.userId}
     `;
     return { ok: true as const, pendingWebhook: false as const };
   });
@@ -179,17 +198,17 @@ export const resumeSaasPlan = createServerFn({ method: "POST" })
     const code = storedPlanCode(actor.profile);
     const interval: BillingInterval = actor.profile.billing_interval === "year" ? "year" : "month";
     const billing = await ownerUsesStripe(context.userId);
-    const stillInPeriod =
-      actor.profile.plan_status === "active" &&
-      actor.profile.cancel_at_period_end &&
-      !paidPeriodEnded({
-        cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
-        periodEnd: actor.profile.current_period_end,
-      });
-    if (!billing.demo && stillInPeriod && actor.profile.stripe_subscription_id) {
-      const { resumeOwnerRenewal } = await import("./stripe.server");
-      await resumeOwnerRenewal(context.userId);
-      return { ok: true as const, code, url: null as string | null };
+    const periodOpen = periodStillOpen(actor.profile.current_period_end);
+    const renewalOff =
+      actor.profile.cancel_at_period_end || actor.profile.plan_status === "canceled";
+    if (!billing.demo && periodOpen && renewalOff && actor.profile.stripe_subscription_id) {
+      try {
+        const { resumeOwnerRenewal } = await import("./stripe.server");
+        await resumeOwnerRenewal(context.userId);
+        return { ok: true as const, code, url: null as string | null };
+      } catch {
+        /* The Stripe subscription is already gone. Checkout can start a new one. */
+      }
     }
     if (!billing.demo && actor.profile.stripe_customer_id) {
       const { createOwnerCheckout } = await import("./stripe.server");
@@ -197,10 +216,12 @@ export const resumeSaasPlan = createServerFn({ method: "POST" })
       return { ok: true as const, code, url: checkout.url };
     }
     const cents = planPriceCents(code, interval);
+    const keptPeriodEnd = billing.demo ? null : actor.profile.current_period_end;
     await sql`
       update profiles
       set plan_status = ${"active"}, plan_price_cents = ${cents}, plan_code = ${code},
-          billing_interval = ${interval}, cancel_at_period_end = ${false}
+          billing_interval = ${interval}, cancel_at_period_end = ${false},
+          current_period_end = ${keptPeriodEnd}
       where user_id = ${context.userId}
     `;
     return { ok: true as const, code, url: null as string | null };

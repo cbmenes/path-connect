@@ -1,7 +1,7 @@
 import { useQueryClient } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
-import { resumeSaasPlan, paidPeriodEnded, planCodeFromCents } from "@/lib/sweepbook/plan";
+import { resumeSaasPlan, periodStillOpen, planCodeFromCents, paidPeriodEnded } from "@/lib/sweepbook/plan";
 import { formatDate } from "@/lib/sweepbook/time";
 import { isDemoAccountEmail, type Profile } from "@/lib/sweepbook/types";
 import { Button } from "@/components/ui/button";
@@ -18,19 +18,24 @@ export function PlanBanner({ profile }: { profile: Profile }) {
     cancelAtPeriodEnd: profile.cancel_at_period_end,
     periodEnd: profile.current_period_end,
   });
+  const paidThroughDate = periodStillOpen(profile.current_period_end) ? profile.current_period_end : null;
+  const renewalOff = Boolean(
+    paidThroughDate && (profile.cancel_at_period_end || profile.plan_status === "canceled"),
+  );
   const inactive =
     !isDemoAccountEmail(profile.email) &&
-    (profile.plan_status === "pending" || profile.plan_status === "canceled" || ended);
-  if (!inactive && profile.plan_status !== "active" && profile.plan_status !== "canceled") return null;
-  const canceled = profile.plan_status === "canceled";
-  const paidThrough =
-    profile.cancel_at_period_end && profile.current_period_end
-      ? formatDate(profile.current_period_end, { month: "long", day: "numeric", year: "numeric" })
-      : null;
+    (profile.plan_status === "pending" ||
+      (profile.plan_status === "canceled" && !paidThroughDate) ||
+      ended);
+  if (!inactive && !renewalOff && profile.plan_status !== "active" && profile.plan_status !== "canceled") return null;
+  const canceled = profile.plan_status === "canceled" && !renewalOff;
+  const paidThrough = paidThroughDate
+    ? formatDate(paidThroughDate, { month: "long", day: "numeric", year: "numeric" })
+    : null;
   const text = inactive
     ? "Your plan is inactive."
-    : paidThrough
-      ? `${name} paid through ${paidThrough}`
+    : renewalOff && paidThrough
+      ? `${name} paid through ${paidThrough}. Renewal is off.`
       : canceled
         ? `${name} canceled`
         : name;
@@ -39,7 +44,7 @@ export function PlanBanner({ profile }: { profile: Profile }) {
     <div className="border-b border-border bg-sage-soft px-4 py-3 print:hidden">
       <div className="mx-auto flex max-w-5xl flex-wrap items-center justify-between gap-3">
         <p className="text-sm text-ink">{text}</p>
-        {inactive || canceled ? (
+        {inactive || canceled || renewalOff ? (
           <Button
             size="sm"
             disabled={busy}
@@ -53,7 +58,7 @@ export function PlanBanner({ profile }: { profile: Profile }) {
                 }
                 await qc.invalidateQueries({ queryKey: ["actor"] });
                 await qc.invalidateQueries({ queryKey: ["saas-plan"] });
-                toast.success(`${name} resumed`);
+                toast.success(renewalOff ? "Renewal is back on" : `${name} resumed`);
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Could not resume the plan.");
               } finally {
@@ -61,7 +66,7 @@ export function PlanBanner({ profile }: { profile: Profile }) {
               }
             }}
           >
-            {busy ? "Resuming…" : "Resume plan"}
+            {busy ? "Resuming…" : renewalOff && !inactive ? "Resume renewal" : "Resume plan"}
           </Button>
         ) : null}
       </div>

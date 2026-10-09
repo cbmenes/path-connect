@@ -1,4 +1,4 @@
-import { paidPeriodEnded } from "./plan-prices";
+import { subscriptionAccessLocked } from "./plan-prices";
 
 export type Role = "cleaner" | "client";
 
@@ -399,31 +399,23 @@ export function isDemoAccountEmail(email: string | null | undefined) {
   return DEMO_ACCOUNT_EMAILS.has((email || "").trim().toLowerCase());
 }
 
-export function subscriptionWritesLocked(status: string | null | undefined) {
-  return status === "pending" || status === "canceled";
-}
-
 export function actorWritesLocked(actor?: Actor | null) {
   if (!actor) return false;
   if (actor.kind === "cleaner") {
     if (isDemoAccountEmail(actor.profile.email)) return false;
-    return (
-      subscriptionWritesLocked(actor.profile.plan_status) ||
-      paidPeriodEnded({
-        cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
-        periodEnd: actor.profile.current_period_end,
-      })
-    );
+    return subscriptionAccessLocked({
+      status: actor.profile.plan_status,
+      cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+      periodEnd: actor.profile.current_period_end,
+    });
   }
   if (actor.kind === "admin") {
     if (isDemoAccountEmail(actor.profile.email)) return false;
-    return (
-      subscriptionWritesLocked(actor.masterPlanStatus) ||
-      paidPeriodEnded({
-        cancelAtPeriodEnd: actor.masterCancelAtPeriodEnd,
-        periodEnd: actor.masterPeriodEnd,
-      })
-    );
+    return subscriptionAccessLocked({
+      status: actor.masterPlanStatus,
+      cancelAtPeriodEnd: actor.masterCancelAtPeriodEnd,
+      periodEnd: actor.masterPeriodEnd,
+    });
   }
   return false;
 }
