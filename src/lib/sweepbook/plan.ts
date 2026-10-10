@@ -122,6 +122,14 @@ export const openStripeAccount = createServerFn({ method: "POST" })
     return openOwnerStripeAccount(context.userId);
   });
 
+export const disconnectStripeAccount = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(() => ({}))
+  .handler(async ({ context }) => {
+    const { disconnectOwnerStripeAccount } = await import("./stripe.server");
+    return disconnectOwnerStripeAccount(context.userId);
+  });
+
 export const openBillingPortal = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator(() => ({}))

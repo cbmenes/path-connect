@@ -22,6 +22,7 @@ import {
   beginStripeConnect,
   cancelSaasPlan,
   changeSaasPlan,
+  disconnectStripeAccount,
   getSaasPlan,
   openBillingPortal,
   openStripeAccount,
@@ -607,6 +608,8 @@ function PlanSection() {
   const [busy, setBusy] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
+  const [disconnectBusy, setDisconnectBusy] = useState(false);
+  const [disconnectOpen, setDisconnectOpen] = useState(false);
   const plan = q.data?.access === "master" ? q.data : null;
   const code = plan?.code === "office" ? "office" : "crew";
   const interval: BillingInterval = plan?.interval === "year" ? "year" : "month";
@@ -746,23 +749,49 @@ function PlanSection() {
             <>
               <p className="mt-1 font-display text-2xl text-navy">Connected</p>
               <p className="mt-2 text-sm text-muted">Client card charges are not sent to Stripe yet.</p>
-              <Button
-                className="mt-4"
-                variant="outline"
-                disabled={connectBusy}
-                onClick={async () => {
-                  setConnectBusy(true);
+              <div className="mt-4 flex flex-wrap gap-2">
+                <Button
+                  variant="outline"
+                  disabled={connectBusy || disconnectBusy}
+                  onClick={async () => {
+                    setConnectBusy(true);
+                    try {
+                      const opened = await openStripeAccount({ data: {} });
+                      window.location.assign(opened.url);
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
+                      setConnectBusy(false);
+                    }
+                  }}
+                >
+                  {connectBusy ? "Opening Stripe…" : "Open Stripe account"}
+                </Button>
+                <Button variant="danger" disabled={connectBusy || disconnectBusy} onClick={() => setDisconnectOpen(true)}>
+                  Disconnect Stripe
+                </Button>
+              </div>
+              <ConfirmDialog
+                open={disconnectOpen}
+                onOpenChange={setDisconnectOpen}
+                title="Disconnect Stripe?"
+                body="CrewWeek forgets this connected account. Connect Stripe starts a new one. Client card charges are not sent to Stripe yet."
+                confirmLabel="Disconnect Stripe"
+                busy={disconnectBusy}
+                busyLabel="Disconnecting…"
+                onConfirm={async () => {
+                  setDisconnectBusy(true);
                   try {
-                    const opened = await openStripeAccount({ data: {} });
-                    window.location.assign(opened.url);
+                    await disconnectStripeAccount({ data: {} });
+                    setDisconnectOpen(false);
+                    await refresh();
+                    toast.success("Stripe disconnected");
                   } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
-                    setConnectBusy(false);
+                    toast.error(err instanceof Error ? err.message : "Could not disconnect Stripe.");
+                  } finally {
+                    setDisconnectBusy(false);
                   }
                 }}
-              >
-                {connectBusy ? "Opening Stripe…" : "Open Stripe account"}
-              </Button>
+              />
             </>
           ) : (
             <>

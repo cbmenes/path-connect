@@ -439,6 +439,13 @@ export async function openOwnerStripeAccount(userId: string) {
   return { url: "https://dashboard.stripe.com" };
 }
 
+export async function disconnectOwnerStripeAccount(userId: string) {
+  const sql = await getSql();
+  await assertActiveConnectMaster(sql, userId);
+  await sql`update profiles set stripe_account_id = ${null} where user_id = ${userId}`;
+  return { ok: true as const };
+}
+
 export async function createOwnerBillingPortal(userId: string) {
   const sql = await getSql();
   const actor = await getActor(sql, userId);
