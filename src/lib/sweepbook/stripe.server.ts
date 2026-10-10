@@ -52,6 +52,12 @@ export function stripeSecretKey() {
   return key;
 }
 
+function safeStripeMessage(err: unknown, fallback: string) {
+  const raw = err instanceof Error ? err.message : "";
+  if (!raw || /sk_(live|test)_|rk_(live|test)_|whsec_/i.test(raw)) return fallback;
+  return raw;
+}
+
 function webhookSecret() {
   const secret = envValue("STRIPE_WEBHOOK_SECRET");
   if (!secret) throw new Error("Stripe webhook secret is not configured.");
@@ -382,23 +388,46 @@ export async function createOwnerConnectLink(userId: string) {
   const stripe = stripeClient();
   let accountId = actor.profile.stripe_account_id;
   if (!accountId) {
-    const account = await stripe.accounts.create({
-      type: "standard",
-      country: "US",
-      email,
-      business_profile: actor.profile.business_name ? { name: actor.profile.business_name } : undefined,
-      metadata: { user_id: userId },
-    });
+    const displayName = actor.profile.business_name?.trim() || actor.profile.full_name.trim();
+    let account: Awaited<ReturnType<typeof stripe.v2.core.accounts.create>>;
+    try {
+      account = await stripe.v2.core.accounts.create({
+        display_name: displayName,
+        contact_email: email,
+        dashboard: "full",
+        identity: { country: "US" },
+        defaults: {
+          responsibilities: {
+            fees_collector: "stripe",
+            losses_collector: "stripe",
+          },
+        },
+        configuration: { merchant: {} },
+        metadata: { user_id: userId },
+      });
+    } catch (err) {
+      throw new Error(safeStripeMessage(err, "Stripe could not create the connected account."));
+    }
     accountId = account.id;
+    if (!accountId) throw new Error("Stripe did not return a connected account.");
     await sql`update profiles set stripe_account_id = ${accountId} where user_id = ${userId}`;
   }
   const origin = await checkoutOrigin();
-  const link = await stripe.accountLinks.create({
-    account: accountId,
-    type: "account_onboarding",
-    return_url: `${origin}/app/settings?tab=plan`,
-    refresh_url: `${origin}/app/settings?tab=plan&connect=refresh`,
-  });
+  let link: Awaited<ReturnType<typeof stripe.v2.core.accountLinks.create>>;
+  try {
+    link = await stripe.v2.core.accountLinks.create({
+      account: accountId,
+      use_case: {
+        type: "account_onboarding",
+        account_onboarding: {
+          return_url: `${origin}/app/settings?tab=plan`,
+          refresh_url: `${origin}/app/settings?tab=plan&connect=refresh`,
+        },
+      },
+    });
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Stripe did not return a Connect link."));
+  }
   if (!link.url) throw new Error("Stripe did not return a Connect link.");
   return { url: link.url };
 }
