@@ -6,7 +6,7 @@ import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
 import { nid, formatDateTime, money } from "./time";
 import { insertNotification } from "./notifications";
-import type { CardRow, InvoiceWithClient, JobRow } from "./types";
+import { isDemoAccountEmail, type CardRow, type InvoiceWithClient, type JobRow } from "./types";
 
 const INVOICE_SELECT = `
   i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
@@ -24,6 +24,21 @@ function trimPaidNote(note?: string | null) {
 
 function receiptNo() {
   return `SB-${Math.floor(100000 + Math.random() * 900000)}`;
+}
+
+const CONNECT_REQUIRED = "Connect Stripe in Settings before charging a card.";
+
+/** Demo stays a dry run. A real company must have a Connect account before a card charge. */
+async function assertCardChargeAccount(sql: Awaited<ReturnType<typeof getSql>>, ownerId: string) {
+  const rows = await sql<{ email: string | null; stripe_account_id: string | null }>`
+    select u.email, p.stripe_account_id
+    from profiles p
+    join "user" u on u.id = p.user_id
+    where p.user_id = ${ownerId}
+    limit 1
+  `;
+  if (isDemoAccountEmail(rows[0]?.email)) return;
+  if (!rows[0]?.stripe_account_id) throw new Error(CONNECT_REQUIRED);
 }
 
 function pickChargeCard(cards: CardRow[], cardId?: string): CardRow | undefined {
@@ -315,6 +330,7 @@ export const chargeCard = createServerFn({ method: "POST" })
     assertCanCharge(actor);
     await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
+    await assertCardChargeAccount(sql, ownerId);
     const owned = await sql`select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
     if (!owned[0]) throw new Error("Client not found.");
     const cards = await sql<CardRow>`
@@ -487,6 +503,7 @@ export const payInvoiceAsClient = createServerFn({ method: "POST" })
     `;
     const invoice = inv[0];
     if (!invoice) throw new Error("Invoice not found.");
+    await assertCardChargeAccount(sql, actor.client.cleaner_user_id);
     const cards = await sql<CardRow>`
       select id, brand, last4, source, is_default, failing from payment_cards
       where client_id = ${actor.client.id}
@@ -534,6 +551,7 @@ export const tipJob = createServerFn({ method: "POST" })
     `;
     const job = jobs[0];
     if (!job || job.status !== "completed") throw new Error("Tips are available after a completed visit.");
+    await assertCardChargeAccount(sql, actor.client.cleaner_user_id);
     const cards = await sql<CardRow>`
       select id, brand, last4, source, is_default, failing from payment_cards
       where client_id = ${actor.client.id}

@@ -361,6 +361,55 @@ async function paymentMethodPortalConfiguration(stripe: Stripe) {
   return created.id;
 }
 
+async function assertActiveConnectMaster(sql: Sql, userId: string) {
+  const actor = await getActor(sql, userId);
+  if (actor.kind !== "cleaner") throw new Error("Billing is Master-only.");
+  const email = await userEmail(sql, userId);
+  if (isDemoEmail(email)) throw new Error("Demo accounts do not connect Stripe.");
+  const periodEnded = paidPeriodEnded({
+    cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
+    periodEnd: actor.profile.current_period_end,
+  });
+  if (actor.profile.plan_status !== "active" || periodEnded) {
+    throw new Error("An active plan is required to connect Stripe.");
+  }
+  return { actor, email };
+}
+
+export async function createOwnerConnectLink(userId: string) {
+  const sql = await getSql();
+  const { actor, email } = await assertActiveConnectMaster(sql, userId);
+  const stripe = stripeClient();
+  let accountId = actor.profile.stripe_account_id;
+  if (!accountId) {
+    const account = await stripe.accounts.create({
+      type: "standard",
+      country: "US",
+      email,
+      business_profile: actor.profile.business_name ? { name: actor.profile.business_name } : undefined,
+      metadata: { user_id: userId },
+    });
+    accountId = account.id;
+    await sql`update profiles set stripe_account_id = ${accountId} where user_id = ${userId}`;
+  }
+  const origin = await checkoutOrigin();
+  const link = await stripe.accountLinks.create({
+    account: accountId,
+    type: "account_onboarding",
+    return_url: `${origin}/app/settings?tab=plan`,
+    refresh_url: `${origin}/app/settings?tab=plan&connect=refresh`,
+  });
+  if (!link.url) throw new Error("Stripe did not return a Connect link.");
+  return { url: link.url };
+}
+
+export async function openOwnerStripeAccount(userId: string) {
+  const sql = await getSql();
+  const { actor } = await assertActiveConnectMaster(sql, userId);
+  if (!actor.profile.stripe_account_id) throw new Error("Connect Stripe before opening the account.");
+  return { url: "https://dashboard.stripe.com" };
+}
+
 export async function createOwnerBillingPortal(userId: string) {
   const sql = await getSql();
   const actor = await getActor(sql, userId);

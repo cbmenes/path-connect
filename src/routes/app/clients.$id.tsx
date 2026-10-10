@@ -170,12 +170,16 @@ function ClientProfile() {
                   name={client.name}
                   cards={cards}
                   onConfirm={async (amountCents, description, cardId) => {
-                    const res = await chargeCard({ data: { clientId: client.id, amountCents, description, cardId } });
-                    if (res.ok) {
-                      toast.success(`Paid. Receipt ${res.receiptNumber}`);
-                      setChargeOpen(false);
-                      await qc.invalidateQueries({ queryKey: ["client", id] });
-                    } else toast.error(res.reason);
+                    try {
+                      const res = await chargeCard({ data: { clientId: client.id, amountCents, description, cardId } });
+                      if (res.ok) {
+                        toast.success(`Paid. Receipt ${res.receiptNumber}`);
+                        setChargeOpen(false);
+                        await qc.invalidateQueries({ queryKey: ["client", id] });
+                      } else toast.error(res.reason);
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Charge failed.");
+                    }
                   }}
                 />
               </DialogContent>

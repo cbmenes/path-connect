@@ -93,6 +93,8 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       demo,
       subscribed: Boolean(actor.profile.stripe_subscription_id) && !demo,
       stripeCustomer: Boolean(actor.profile.stripe_customer_id) && !demo,
+      showConnect: !demo && actor.profile.plan_status === "active" && !periodEnded,
+      connected: Boolean(actor.profile.stripe_account_id) && !demo,
       adminCount,
       includedAdmins: includedAdminSeats(code),
       extraAdmins,
@@ -102,6 +104,22 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       cancelAtPeriodEnd: actor.profile.cancel_at_period_end && !periodEnded,
       periodEnded,
     };
+  });
+
+export const beginStripeConnect = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(() => ({}))
+  .handler(async ({ context }) => {
+    const { createOwnerConnectLink } = await import("./stripe.server");
+    return createOwnerConnectLink(context.userId);
+  });
+
+export const openStripeAccount = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator(() => ({}))
+  .handler(async ({ context }) => {
+    const { openOwnerStripeAccount } = await import("./stripe.server");
+    return openOwnerStripeAccount(context.userId);
   });
 
 export const openBillingPortal = createServerFn({ method: "POST" })

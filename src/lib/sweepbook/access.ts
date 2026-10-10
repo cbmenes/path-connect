@@ -14,7 +14,7 @@ export const PROFILE_COLUMNS = `
   plan_status, plan_price_cents, plan_code, billing_interval,
   current_period_end::text as current_period_end,
   coalesce(cancel_at_period_end, false) as cancel_at_period_end,
-  stripe_customer_id, stripe_subscription_id,
+  stripe_customer_id, stripe_subscription_id, stripe_account_id,
   created_at::text as created_at
 `;
 
@@ -79,6 +79,7 @@ function normalizeProfile(row: Profile): Profile {
     cancel_at_period_end: asBool(row.cancel_at_period_end, false),
     stripe_customer_id: row.stripe_customer_id || null,
     stripe_subscription_id: row.stripe_subscription_id || null,
+    stripe_account_id: row.stripe_account_id || null,
   };
 }
 

@@ -122,6 +122,7 @@ export type Profile = {
   cancel_at_period_end: boolean;
   stripe_customer_id: string | null;
   stripe_subscription_id: string | null;
+  stripe_account_id: string | null;
   created_at: string;
 };
 

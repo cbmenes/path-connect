@@ -19,10 +19,12 @@ import {
 } from "@/lib/sweepbook/billing";
 import { extraAdminQuantity, includedAdminSeats, intervalTotalCents } from "@/lib/sweepbook/extra-admin";
 import {
+  beginStripeConnect,
   cancelSaasPlan,
   changeSaasPlan,
   getSaasPlan,
   openBillingPortal,
+  openStripeAccount,
   periodStillOpen,
   resumeSaasPlan,
   type BillingInterval,
@@ -47,8 +49,9 @@ import { cn } from "@/lib/utils";
 type Tab = "profile" | "account" | "billing" | "plan";
 
 export const Route = createFileRoute("/app/settings")({
-  validateSearch: (s: Record<string, unknown>): { tab?: Tab } => ({
+  validateSearch: (s: Record<string, unknown>): { tab?: Tab; connect?: "refresh" } => ({
     tab: s.tab === "account" || s.tab === "billing" || s.tab === "plan" || s.tab === "profile" ? s.tab : undefined,
+    connect: s.connect === "refresh" ? "refresh" : undefined,
   }),
   component: SettingsPage,
 });
@@ -594,6 +597,7 @@ function AdminPlanNote() {
 }
 
 function PlanSection() {
+  const { connect } = Route.useSearch();
   const q = useQuery({ queryKey: ["saas-plan"], queryFn: () => getSaasPlan() });
   const qc = useQueryClient();
   const [changeOpen, setChangeOpen] = useState(false);
@@ -602,6 +606,7 @@ function PlanSection() {
   const [cancelOpen, setCancelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [portalBusy, setPortalBusy] = useState(false);
+  const [connectBusy, setConnectBusy] = useState(false);
   const plan = q.data?.access === "master" ? q.data : null;
   const code = plan?.code === "office" ? "office" : "crew";
   const interval: BillingInterval = plan?.interval === "year" ? "year" : "month";
@@ -633,6 +638,24 @@ function PlanSection() {
     await qc.invalidateQueries({ queryKey: ["saas-plan"] });
     await qc.invalidateQueries({ queryKey: ["actor"] });
   }
+
+  useEffect(() => {
+    if (connect !== "refresh" || !plan?.showConnect) return;
+    let stop = false;
+    setConnectBusy(true);
+    beginStripeConnect({ data: {} })
+      .then((res) => {
+        if (!stop) window.location.assign(res.url);
+      })
+      .catch((err) => {
+        if (stop) return;
+        toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
+        setConnectBusy(false);
+      });
+    return () => {
+      stop = true;
+    };
+  }, [connect, plan?.showConnect]);
 
   if (q.isPending) return <div className="h-32 animate-pulse rounded-xl bg-secondary" />;
   if (q.data?.access === "locked") return <AdminPlanNote />;
@@ -716,6 +739,56 @@ function PlanSection() {
           </div>
         ) : null}
       </Card>
+      {plan.showConnect ? (
+        <Card>
+          <p className="text-xs uppercase tracking-[0.14em] text-sage">Client cards</p>
+          {plan.connected ? (
+            <>
+              <p className="mt-1 font-display text-2xl text-navy">Connected</p>
+              <p className="mt-2 text-sm text-muted">Client card charges are not sent to Stripe yet.</p>
+              <Button
+                className="mt-4"
+                variant="outline"
+                disabled={connectBusy}
+                onClick={async () => {
+                  setConnectBusy(true);
+                  try {
+                    const opened = await openStripeAccount({ data: {} });
+                    window.location.assign(opened.url);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
+                    setConnectBusy(false);
+                  }
+                }}
+              >
+                {connectBusy ? "Opening Stripe…" : "Open Stripe account"}
+              </Button>
+            </>
+          ) : (
+            <>
+              <p className="mt-2 text-sm text-ink">
+                Connect a Stripe account for this cleaning company. Client card charges are not sent to Stripe yet.
+              </p>
+              <Button
+                className="mt-4"
+                disabled={connectBusy}
+                onClick={async () => {
+                  setConnectBusy(true);
+                  try {
+                    const link = await beginStripeConnect({ data: {} });
+                    window.location.assign(link.url);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Could not connect Stripe.");
+                    setConnectBusy(false);
+                  }
+                }}
+              >
+                {connectBusy ? "Opening Stripe…" : "Connect Stripe"}
+              </Button>
+            </>
+          )}
+        </Card>
+      ) : null}
       <div className="flex flex-wrap gap-2">
         {plan.status === "canceled" || plan.status === "pending" || renewalStops || plan.periodEnded ? (
           <Button
