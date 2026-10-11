@@ -27,15 +27,16 @@ function receiptNo() {
 }
 
 const CONNECT_REQUIRED = "Connect Stripe in Settings before charging a card.";
-
 const SETUP_REQUIRED = "Finish Stripe setup in Settings before charging a card.";
+
+type ChargeLane = { lane: "demo" } | { lane: "stripe"; accountId: string };
 
 /**
  * Demo stays a dry run and never calls Stripe.
- * A real company is not ready until Stripe enables card payments.
- * The charge itself is still not sent to Stripe.
+ * A restricted or unfinished connected account cannot charge.
+ * An enabled account charges on that connected account, not the CrewWeek platform account.
  */
-async function assertCardChargeAccount(sql: Awaited<ReturnType<typeof getSql>>, ownerId: string) {
+async function cardChargeLane(sql: Awaited<ReturnType<typeof getSql>>, ownerId: string): Promise<ChargeLane> {
   const rows = await sql<{ email: string | null; stripe_account_id: string | null }>`
     select u.email, p.stripe_account_id
     from profiles p
@@ -43,11 +44,81 @@ async function assertCardChargeAccount(sql: Awaited<ReturnType<typeof getSql>>, 
     where p.user_id = ${ownerId}
     limit 1
   `;
-  if (isDemoAccountEmail(rows[0]?.email)) return;
+  if (isDemoAccountEmail(rows[0]?.email)) return { lane: "demo" };
   const accountId = rows[0]?.stripe_account_id;
   if (!accountId) throw new Error(CONNECT_REQUIRED);
   const { stripeCardPaymentsEnabled } = await import("./stripe.server");
   if (!(await stripeCardPaymentsEnabled(accountId))) throw new Error(SETUP_REQUIRED);
+  return { lane: "stripe", accountId };
+}
+
+async function openStripeCharge(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  args: {
+    ownerId: string;
+    accountId: string;
+    clientId: string;
+    jobId?: string | null;
+    kind: "visit" | "tip" | "other";
+    amountCents: number;
+    description: string;
+    invoiceId?: string;
+  },
+) {
+  let invoiceId = args.invoiceId;
+  if (!invoiceId && args.jobId && args.kind === "visit") {
+    const found = await sql<{ id: string; status: string }>`
+      select id, status from invoices
+      where job_id = ${args.jobId} and kind = 'visit' and cleaner_user_id = ${args.ownerId}
+      limit 1
+    `;
+    if (found[0]?.status === "paid") throw new Error("Already paid.");
+    invoiceId = found[0]?.id;
+  }
+  if (invoiceId) {
+    const updated = await sql<{ id: string }>`
+      update invoices set
+        amount_cents = ${args.amountCents},
+        description = ${args.description},
+        status = 'unpaid',
+        method = ${null},
+        paid_at = ${null},
+        failure_reason = ${null},
+        receipt_number = ${null},
+        stripe_payment_intent_id = ${null}
+      where id = ${invoiceId} and cleaner_user_id = ${args.ownerId} and status <> 'paid'
+      returning id
+    `;
+    if (!updated[0]) throw new Error("Already paid.");
+  } else {
+    invoiceId = nid("inv");
+    await sql`
+      insert into invoices (
+        id, cleaner_user_id, client_id, job_id, amount_cents, description, status, kind
+      ) values (
+        ${invoiceId}, ${args.ownerId}, ${args.clientId}, ${args.jobId ?? null},
+        ${args.amountCents}, ${args.description}, ${"unpaid"}, ${args.kind}
+      )
+    `;
+  }
+  const clients = await sql<{ email: string | null }>`
+    select email from clients where id = ${args.clientId} and cleaner_user_id = ${args.ownerId} limit 1
+  `;
+  const { createConnectedChargeCheckout } = await import("./stripe.server");
+  const session = await createConnectedChargeCheckout({
+    accountId: args.accountId,
+    amountCents: args.amountCents,
+    description: args.description,
+    invoiceId,
+    customerEmail: clients[0]?.email,
+  });
+  await sql`
+    update invoices
+    set stripe_checkout_session_id = ${session.sessionId},
+        stripe_account_id = ${args.accountId}
+    where id = ${invoiceId}
+  `;
+  return { ok: false as const, pending: true as const, checkoutUrl: session.url };
 }
 
 function pickChargeCard(cards: CardRow[], cardId?: string): CardRow | undefined {
@@ -198,6 +269,8 @@ export const addCardAuthenticated = createServerFn({ method: "POST" })
       const ownerId = masterUserId(actor);
       const owned = await sql`select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
       if (!owned[0]) throw new Error("Client not found.");
+      const lane = await cardChargeLane(sql, ownerId);
+      if (lane.lane !== "demo") throw new Error("Stripe collects the card. CrewWeek does not store the card number.");
       return saveCard(sql, {
         cleanerUserId: ownerId,
         clientId: data.clientId,
@@ -209,6 +282,8 @@ export const addCardAuthenticated = createServerFn({ method: "POST" })
       });
     }
     if (actor.kind === "client") {
+      const lane = await cardChargeLane(sql, actor.client.cleaner_user_id);
+      if (lane.lane !== "demo") throw new Error("Stripe collects the card. CrewWeek does not store the card number.");
       return saveCard(sql, {
         cleanerUserId: actor.client.cleaner_user_id,
         clientId: actor.client.id,
@@ -234,6 +309,8 @@ export const addCardByToken = createServerFn({ method: "POST" })
     `;
     const link = links[0];
     if (!link) throw new Error("This add-card link is invalid.");
+    const lane = await cardChargeLane(sql, link.cleaner_user_id);
+    if (lane.lane !== "demo") throw new Error("Stripe collects the card. CrewWeek does not store the card number.");
     const saved = await saveCard(sql, {
       cleanerUserId: link.cleaner_user_id,
       clientId: link.client_id,
@@ -339,7 +416,20 @@ export const chargeCard = createServerFn({ method: "POST" })
     assertCanCharge(actor);
     await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
-    await assertCardChargeAccount(sql, ownerId);
+    const lane = await cardChargeLane(sql, ownerId);
+    if (lane.lane === "stripe") {
+      const owned = await sql`select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
+      if (!owned[0]) throw new Error("Client not found.");
+      return openStripeCharge(sql, {
+        ownerId,
+        accountId: lane.accountId,
+        clientId: data.clientId,
+        jobId: data.jobId,
+        kind: data.kind,
+        amountCents: data.amountCents,
+        description: data.description,
+      });
+    }
     const owned = await sql`select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
     if (!owned[0]) throw new Error("Client not found.");
     const cards = await sql<CardRow>`
@@ -512,7 +602,20 @@ export const payInvoiceAsClient = createServerFn({ method: "POST" })
     `;
     const invoice = inv[0];
     if (!invoice) throw new Error("Invoice not found.");
-    await assertCardChargeAccount(sql, actor.client.cleaner_user_id);
+    if (invoice.status === "paid") throw new Error("Already paid.");
+    const lane = await cardChargeLane(sql, actor.client.cleaner_user_id);
+    if (lane.lane === "stripe") {
+      return openStripeCharge(sql, {
+        ownerId: actor.client.cleaner_user_id,
+        accountId: lane.accountId,
+        clientId: actor.client.id,
+        jobId: invoice.job_id,
+        kind: invoice.kind === "tip" || invoice.kind === "other" ? invoice.kind : "visit",
+        amountCents: invoice.amount_cents,
+        description: invoice.description,
+        invoiceId: invoice.id,
+      });
+    }
     const cards = await sql<CardRow>`
       select id, brand, last4, source, is_default, failing from payment_cards
       where client_id = ${actor.client.id}
@@ -560,7 +663,18 @@ export const tipJob = createServerFn({ method: "POST" })
     `;
     const job = jobs[0];
     if (!job || job.status !== "completed") throw new Error("Tips are available after a completed visit.");
-    await assertCardChargeAccount(sql, actor.client.cleaner_user_id);
+    const lane = await cardChargeLane(sql, actor.client.cleaner_user_id);
+    if (lane.lane === "stripe") {
+      return openStripeCharge(sql, {
+        ownerId: actor.client.cleaner_user_id,
+        accountId: lane.accountId,
+        clientId: actor.client.id,
+        jobId: job.id,
+        kind: "tip",
+        amountCents: data.amountCents,
+        description: `Tip — ${job.service}`,
+      });
+    }
     const cards = await sql<CardRow>`
       select id, brand, last4, source, is_default, failing from payment_cards
       where client_id = ${actor.client.id}
@@ -610,6 +724,190 @@ export const requestTip = createServerFn({ method: "POST" })
       where id = ${jobId} and cleaner_user_id = ${masterUserId(actor)} and status = 'completed'
     `;
     return { ok: true };
+  });
+
+function cardFromSession(session: {
+  payment_intent?:
+    | string
+    | null
+    | {
+        id: string;
+        latest_charge?:
+          | string
+          | null
+          | {
+              payment_method_details?: {
+                card?: { brand?: string | null; last4?: string | null } | null;
+              } | null;
+            };
+      };
+}) {
+  const pi = session.payment_intent;
+  if (!pi || typeof pi === "string") {
+    return { paymentIntentId: typeof pi === "string" ? pi : null, brand: "Card", last4: "" };
+  }
+  const charge = pi.latest_charge;
+  const card = charge && typeof charge !== "string" ? charge.payment_method_details?.card : null;
+  return { paymentIntentId: pi.id, brand: card?.brand || "Card", last4: card?.last4 || "" };
+}
+
+/** Mark a visit paid only after Stripe reports the connected-account charge succeeded. */
+export async function settleClientCheckoutSession(sessionId: string, accountHint?: string | null) {
+  if (!sessionId.startsWith("cs_")) return { paid: false as const };
+  const sql = await getSql();
+  const rows = await sql<{
+    id: string;
+    stripe_account_id: string | null;
+    amount_cents: number;
+    status: string;
+    job_id: string | null;
+    kind: string;
+    cleaner_user_id: string;
+    client_id: string;
+  }>`
+    select id, stripe_account_id, amount_cents, status, job_id, kind, cleaner_user_id, client_id
+    from invoices
+    where stripe_checkout_session_id = ${sessionId}
+    limit 1
+  `;
+  const invoice = rows[0];
+  if (!invoice?.stripe_account_id) return { paid: false as const };
+  if (accountHint && accountHint !== invoice.stripe_account_id) return { paid: false as const };
+  const { retrieveConnectedChargeSession } = await import("./stripe.server");
+  const session = await retrieveConnectedChargeSession(invoice.stripe_account_id, sessionId);
+  if (session.livemode) return { paid: false as const };
+  if (session.metadata?.purpose !== "client_charge" || session.metadata.invoice_id !== invoice.id) {
+    return { paid: false as const };
+  }
+  if (session.amount_total !== Number(invoice.amount_cents) || session.payment_status !== "paid") {
+    return { paid: false as const };
+  }
+  const hint = cardFromSession(session);
+  const receipt = receiptNo();
+  const flipped = await sql<{ id: string; receipt_number: string | null }>`
+    update invoices set
+      status = 'paid',
+      method = 'card',
+      paid_at = now(),
+      failure_reason = null,
+      receipt_number = coalesce(receipt_number, ${receipt}),
+      stripe_payment_intent_id = ${hint.paymentIntentId}
+    where id = ${invoice.id} and status <> 'paid'
+    returning id, receipt_number
+  `;
+  if (flipped[0] && invoice.job_id && invoice.kind === "visit") {
+    await sql`
+      update jobs set status = 'completed'
+      where id = ${invoice.job_id} and cleaner_user_id = ${invoice.cleaner_user_id}
+    `;
+  }
+  if (flipped[0] && invoice.job_id && invoice.kind === "tip") {
+    const jobs = await sql<{ service: string; start_at: string; client_name: string }>`
+      select j.service, j.start_at::text as start_at, c.name as client_name
+      from jobs j
+      join clients c on c.id = j.client_id
+      where j.id = ${invoice.job_id}
+      limit 1
+    `;
+    await sql`
+      update jobs set tip_cents = tip_cents + ${Number(invoice.amount_cents)}, tip_requested = false
+      where id = ${invoice.job_id}
+    `;
+    const job = jobs[0];
+    if (job) {
+      await insertNotification(sql, {
+        userId: invoice.cleaner_user_id,
+        kind: "tip",
+        title: `${job.client_name} left a ${money(Number(invoice.amount_cents))} tip`,
+        body: `${formatDateTime(job.start_at)} · ${job.service}`,
+        jobId: invoice.job_id,
+        clientId: invoice.client_id,
+        clientName: job.client_name,
+        requestedStartAt: job.start_at,
+      });
+    }
+  }
+  const saved = flipped[0]
+    ? flipped[0].receipt_number
+    : (
+        await sql<{ receipt_number: string | null }>`
+          select receipt_number from invoices where id = ${invoice.id} limit 1
+        `
+      )[0]?.receipt_number;
+  return {
+    paid: true as const,
+    receiptNumber: saved || receipt,
+    brand: hint.brand,
+    last4: hint.last4,
+    amountCents: Number(invoice.amount_cents),
+    invoiceId: invoice.id,
+  };
+}
+
+export const confirmClientCharge = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { sessionId: string }) => {
+    if (!input.sessionId?.startsWith("cs_")) throw new Error("Missing Stripe charge.");
+    return { sessionId: input.sessionId };
+  })
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    const rows = await sql<{ cleaner_user_id: string; client_id: string }>`
+      select cleaner_user_id, client_id
+      from invoices
+      where stripe_checkout_session_id = ${data.sessionId}
+      limit 1
+    `;
+    const row = rows[0];
+    if (!row) throw new Error("This charge was not found.");
+    if (actor.kind === "client") {
+      if (actor.client.id !== row.client_id) throw new Error("This charge was not found.");
+    } else if (isOffice(actor)) {
+      if (masterUserId(actor) !== row.cleaner_user_id) throw new Error("This charge was not found.");
+    } else {
+      throw new Error("This charge was not found.");
+    }
+    const settled = await settleClientCheckoutSession(data.sessionId, null);
+    if (!settled.paid) throw new Error("Stripe has not confirmed this charge.");
+    return settled;
+  });
+
+export const getClientChargeMode = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    const ownerId =
+      actor.kind === "client" || actor.kind === "cleaner" || actor.kind === "admin"
+        ? masterUserId(actor)
+        : null;
+    if (!ownerId) return { mode: "blocked" as const };
+    try {
+      const lane = await cardChargeLane(sql, ownerId);
+      return { mode: lane.lane };
+    } catch {
+      return { mode: "blocked" as const };
+    }
+  });
+
+export const getCardLinkChargeMode = createServerFn({ method: "GET" })
+  .validator((token: string) => {
+    if (!token) throw new Error("This link is missing a token.");
+    return token;
+  })
+  .handler(async ({ data: token }) => {
+    const sql = await getSql();
+    const links = await sql<{ cleaner_user_id: string }>`
+      select cleaner_user_id from card_links where token = ${token} limit 1
+    `;
+    if (!links[0]) throw new Error("This add-card link is invalid.");
+    try {
+      const lane = await cardChargeLane(sql, links[0].cleaner_user_id);
+      return { mode: lane.lane };
+    } catch {
+      return { mode: "blocked" as const };
+    }
   });
 
 export const getInvoice = createServerFn({ method: "GET" })

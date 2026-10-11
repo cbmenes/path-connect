@@ -748,18 +748,18 @@ function PlanSection() {
           {plan.connectStatus === "ready" ? (
             <>
               <p className="mt-1 font-display text-2xl text-navy">Connected</p>
-              <p className="mt-2 text-sm text-muted">Card payments are enabled. Client card charges are not sent to Stripe yet.</p>
+              <p className="mt-2 text-sm text-muted">Card payments are enabled. Client card charges go to this Stripe account. The payout belongs to this cleaning company.</p>
             </>
           ) : plan.connectStatus === "incomplete" ? (
             <>
               <p className="mt-1 font-display text-2xl text-navy">Setup incomplete</p>
               <p className="mt-2 text-sm text-muted">
-                Stripe has not enabled card payments on this account. Finish setup before charging a card. Client card charges are not sent to Stripe.
+                Stripe has not enabled card payments on this account. A restricted account cannot charge. Finish setup before charging a card.
               </p>
             </>
           ) : (
             <p className="mt-2 text-sm text-ink">
-              Connect a Stripe account for this cleaning company. Client card charges are not sent to Stripe yet.
+              Connect a Stripe account for this cleaning company before charging a client card.
             </p>
           )}
           <div className="mt-4 flex flex-wrap gap-2">
@@ -808,7 +808,7 @@ function PlanSection() {
               open={disconnectOpen}
               onOpenChange={setDisconnectOpen}
               title="Disconnect Stripe?"
-              body="CrewWeek forgets this connected account. Connect Stripe starts a new one. Client card charges are not sent to Stripe yet."
+              body="CrewWeek forgets this connected account. Connect Stripe starts a new one."
               confirmLabel="Disconnect Stripe"
               busy={disconnectBusy}
               busyLabel="Disconnecting…"

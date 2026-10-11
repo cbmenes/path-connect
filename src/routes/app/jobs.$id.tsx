@@ -13,7 +13,7 @@ import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } 
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
-import { CardSelect } from "@/components/app/card-manager";
+import { CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
 import { JobForm } from "@/components/app/job-form";
 import { JobChecklist } from "@/components/app/job-checklist";
 import { ClientJobStatus, JobProgress } from "@/components/app/job-progress";
@@ -195,13 +195,17 @@ function JobDetail() {
                   const res = await chargeCard({
                     data: { clientId: job.client_id, amountCents, description, jobId: job.id, cardId },
                   });
+                  if ("checkoutUrl" in res && res.checkoutUrl) {
+                    window.location.assign(res.checkoutUrl);
+                    return;
+                  }
                   if (res.ok) {
                     toast.success(`Paid. Receipt ${res.receiptNumber}. ${res.brand} · ${res.last4}`);
                     setChargeOpen(false);
                     await qc.invalidateQueries({ queryKey: ["invoices"] });
                     await qc.invalidateQueries({ queryKey: ["job", id] });
                     await qc.invalidateQueries({ queryKey: ["dashboard"] });
-                  } else toast.error(res.reason);
+                  } else if ("reason" in res) toast.error(res.reason);
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Charge failed.");
                 } finally {
@@ -371,23 +375,30 @@ function ChargeDialog({
   const [amt, setAmt] = useState((amount / 100).toFixed(2));
   const [desc, setDesc] = useState(description);
   const [cardId, setCardId] = useState("");
+  const mode = useClientChargeMode();
+  const local = mode.data?.mode === "demo";
   const cards = useQuery({
     queryKey: ["cards", clientId],
     queryFn: () => listCardsForClient({ data: clientId }),
+    enabled: local,
   });
   return (
     <DialogContent title="Confirm charge">
       <div className="grid gap-3">
-        <p className="text-sm text-muted">Confirm the amount and description before charging the card on file.</p>
+        <p className="text-sm text-muted">
+          {local
+            ? "Confirm the amount and description before charging the card on file."
+            : "Stripe collects the card. The visit stays unpaid until Stripe confirms the charge."}
+        </p>
         <Field label="Amount">
           <Input type="number" step="0.01" min="0.5" value={amt} onChange={(e) => setAmt(e.target.value)} />
         </Field>
         <Field label="Description">
           <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
         </Field>
-        <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} />
+        {local ? <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} /> : <StripeCollectNote />}
         <Button disabled={busy} onClick={() => onConfirm(Math.round(Number(amt) * 100), desc, cardId || undefined)}>
-          {busy ? "Charging…" : `Charge ${money(Math.round(Number(amt) * 100))}`}
+          {busy ? "Charging…" : local ? `Charge ${money(Math.round(Number(amt) * 100))}` : "Continue to Stripe"}
         </Button>
       </div>
     </DialogContent>

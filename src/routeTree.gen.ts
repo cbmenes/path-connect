@@ -50,6 +50,7 @@ import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
+import { Route as AppChargeReturnRouteImport } from './routes/app/charge.return'
 import { Route as AppClientsIndexRouteImport } from './routes/app/clients.index'
 import { Route as AppClientsIdRouteImport } from './routes/app/clients.$id'
 import { Route as AppClientsImportRouteImport } from './routes/app/clients.import'
@@ -268,6 +269,11 @@ const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   path: '/api/stripe/webhook',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AppChargeReturnRoute = AppChargeReturnRouteImport.update({
+  id: '/charge/return',
+  path: '/charge/return',
+  getParentRoute: () => AppRoute,
+} as any)
 const AppClientsIndexRoute = AppClientsIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -371,6 +377,7 @@ export interface FileRoutesByFullPath {
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/app/charge/return': typeof AppChargeReturnRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
   '/app/clients/new': typeof AppClientsNewRoute
@@ -419,6 +426,7 @@ export interface FileRoutesByTo {
   '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/app/charge/return': typeof AppChargeReturnRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
   '/app/clients/new': typeof AppClientsNewRoute
@@ -475,6 +483,7 @@ export interface FileRoutesById {
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
+  '/app/charge/return': typeof AppChargeReturnRoute
   '/app/clients/$id': typeof AppClientsIdRoute
   '/app/clients/import': typeof AppClientsImportRoute
   '/app/clients/new': typeof AppClientsNewRoute
@@ -532,6 +541,7 @@ export interface FileRouteTypes {
     | '/request/'
     | '/api/auth/$'
     | '/api/stripe/webhook'
+    | '/app/charge/return'
     | '/app/clients/$id'
     | '/app/clients/import'
     | '/app/clients/new'
@@ -580,6 +590,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/api/auth/$'
     | '/api/stripe/webhook'
+    | '/app/charge/return'
     | '/app/clients/$id'
     | '/app/clients/import'
     | '/app/clients/new'
@@ -635,6 +646,7 @@ export interface FileRouteTypes {
     | '/request/'
     | '/api/auth/$'
     | '/api/stripe/webhook'
+    | '/app/charge/return'
     | '/app/clients/$id'
     | '/app/clients/import'
     | '/app/clients/new'
@@ -961,6 +973,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiStripeWebhookRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/app/charge/return': {
+      id: '/app/charge/return'
+      path: '/charge/return'
+      fullPath: '/app/charge/return'
+      preLoaderRoute: typeof AppChargeReturnRouteImport
+      parentRoute: typeof AppRoute
+    }
     '/app/clients/': {
       id: '/app/clients/'
       path: '/'
@@ -1125,6 +1144,7 @@ interface AppRouteChildren {
   AppTimeOffRoute: typeof AppTimeOffRoute
   AppVisitsRoute: typeof AppVisitsRoute
   AppIndexRoute: typeof AppIndexRoute
+  AppChargeReturnRoute: typeof AppChargeReturnRoute
   AppJobsIdRoute: typeof AppJobsIdRoute
   AppJobsNewRoute: typeof AppJobsNewRoute
 }
@@ -1147,6 +1167,7 @@ const AppRouteChildren: AppRouteChildren = {
   AppTimeOffRoute: AppTimeOffRoute,
   AppVisitsRoute: AppVisitsRoute,
   AppIndexRoute: AppIndexRoute,
+  AppChargeReturnRoute: AppChargeReturnRoute,
   AppJobsIdRoute: AppJobsIdRoute,
   AppJobsNewRoute: AppJobsNewRoute,
 }

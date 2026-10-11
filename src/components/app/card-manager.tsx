@@ -1,6 +1,7 @@
 import { useState } from "react";
+import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { addCardAuthenticated, removeCard, setDefaultCard } from "@/lib/sweepbook/payments";
+import { addCardAuthenticated, getClientChargeMode, removeCard, setDefaultCard } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import type { CardRow } from "@/lib/sweepbook/types";
 import { CardForm } from "./card-form";
@@ -8,6 +9,21 @@ import { ConfirmDialog } from "./confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Field, NativeSelect } from "@/components/ui/input";
+
+export function useClientChargeMode() {
+  return useQuery({
+    queryKey: ["client-charge-mode"],
+    queryFn: () => getClientChargeMode(),
+  });
+}
+
+export function StripeCollectNote() {
+  return (
+    <p className="text-sm text-muted">
+      Stripe collects the card on this cleaning company's account. CrewWeek does not store the card number. The visit is marked paid only after Stripe confirms the charge, and the payout belongs to the cleaning company.
+    </p>
+  );
+}
 
 export function CardSelect({
   cards,
@@ -50,6 +66,8 @@ export function CardManager({
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
   const [removeId, setRemoveId] = useState<string | null>(null);
+  const mode = useClientChargeMode();
+  const localCards = mode.data?.mode === "demo";
   const removing = cards.find((c) => c.id === removeId);
 
   return (
@@ -102,7 +120,7 @@ export function CardManager({
           </div>
         </Card>
       ))}
-      {adding ? (
+      {localCards && adding ? (
         <Card>
           <h3 className="mb-3 font-display text-lg text-navy">Add a new card</h3>
           <CardForm
@@ -120,10 +138,16 @@ export function CardManager({
             Cancel
           </Button>
         </Card>
-      ) : (
+      ) : localCards ? (
         <Button variant="outline" onClick={() => setAdding(true)}>
           Replace / add new card
         </Button>
+      ) : mode.data?.mode === "stripe" ? (
+        <StripeCollectNote />
+      ) : mode.data ? (
+        <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
+      ) : (
+        <div className="h-8 animate-pulse rounded-md bg-secondary" />
       )}
       <ConfirmDialog
         open={Boolean(removeId)}

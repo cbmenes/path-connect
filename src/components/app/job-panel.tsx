@@ -13,7 +13,7 @@ import { JobProgress } from "@/components/app/job-progress";
 import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitChargeLine } from "@/components/app/receipt";
 import { VisitStatusBadge } from "@/components/app/status-badge";
-import { CardSelect } from "@/components/app/card-manager";
+import { CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
@@ -61,10 +61,12 @@ export function JobPanel({
   const [manageOpen, setManageOpen] = useState(false);
   const assignGate = useAssignConflictGate();
   const offHints = useTimeOffHints(q.data?.job.start_at, q.data?.job.duration_min);
+  const mode = useClientChargeMode();
+  const localCards = mode.data?.mode === "demo";
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
     queryFn: () => listCardsForClient({ data: q.data!.job.client_id }),
-    enabled: Boolean(q.data?.job.client_id) && canCharge,
+    enabled: Boolean(q.data?.job.client_id) && canCharge && localCards,
   });
 
   if (q.isPending) {
@@ -247,7 +249,7 @@ export function JobPanel({
             <Field label="Description">
               <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
             </Field>
-            <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} />
+            {localCards ? <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} /> : <StripeCollectNote />}
             <Button
               disabled={busy}
               onClick={async () => {
@@ -262,11 +264,15 @@ export function JobPanel({
                       cardId: cardId || undefined,
                     },
                   });
+                  if ("checkoutUrl" in res && res.checkoutUrl) {
+                    window.location.assign(res.checkoutUrl);
+                    return;
+                  }
                   if (res.ok) {
                     toast.success(`Paid. Receipt ${res.receiptNumber}. ${res.brand} · ${res.last4}`);
                     setChargeOpen(false);
                     await onChanged();
-                  } else toast.error(res.reason);
+                  } else if ("reason" in res) toast.error(res.reason);
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Charge failed.");
                 } finally {
@@ -274,7 +280,7 @@ export function JobPanel({
                 }
               }}
             >
-              {busy ? "Charging…" : `Charge ${money(Math.round(Number(amt) * 100) || 0)}`}
+              {busy ? "Charging…" : localCards ? `Charge ${money(Math.round(Number(amt) * 100) || 0)}` : "Continue to Stripe"}
             </Button>
           </div>
         ) : null}

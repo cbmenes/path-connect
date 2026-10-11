@@ -564,6 +564,64 @@ async function onCheckoutCompleted(session: Stripe.Checkout.Session) {
   await applySubscription(subscription, hinted, false);
 }
 
+/** Direct charge on the connected account. The platform does not take the payout. */
+export async function createConnectedChargeCheckout(input: {
+  accountId: string;
+  amountCents: number;
+  description: string;
+  invoiceId: string;
+  customerEmail?: string | null;
+}) {
+  const stripe = stripeClient();
+  const origin = await checkoutOrigin();
+  const description = input.description.trim().slice(0, 120) || "Cleaning";
+  const email = input.customerEmail?.includes("@") ? input.customerEmail.trim() : undefined;
+  let session: Stripe.Checkout.Session;
+  try {
+    session = await stripe.checkout.sessions.create(
+      {
+        mode: "payment",
+        line_items: [
+          {
+            quantity: 1,
+            price_data: {
+              currency: "usd",
+              unit_amount: input.amountCents,
+              product_data: { name: description },
+            },
+          },
+        ],
+        customer_email: email,
+        success_url: `${origin}/app/charge/return?session_id={CHECKOUT_SESSION_ID}`,
+        cancel_url: `${origin}/app/charge/return?canceled=1`,
+        metadata: { purpose: "client_charge", invoice_id: input.invoiceId },
+        payment_intent_data: {
+          metadata: { purpose: "client_charge", invoice_id: input.invoiceId },
+        },
+      },
+      { stripeAccount: input.accountId },
+    );
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Stripe could not start the charge."));
+  }
+  if (session.livemode) throw new Error("A Stripe test charge is required.");
+  if (!session.url || !session.id) throw new Error("Stripe did not return a Checkout link.");
+  return { url: session.url, sessionId: session.id };
+}
+
+export async function retrieveConnectedChargeSession(accountId: string, sessionId: string) {
+  const stripe = stripeClient();
+  try {
+    return await stripe.checkout.sessions.retrieve(
+      sessionId,
+      { expand: ["payment_intent.latest_charge"] },
+      { stripeAccount: accountId },
+    );
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Stripe could not confirm the charge."));
+  }
+}
+
 export async function handleStripeWebhook(raw: Buffer, signature: string | null) {
   if (!signature) return { status: 400, body: { error: "Missing Stripe-Signature" } };
   let stripe: Stripe;
@@ -584,7 +642,13 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
   if (event.livemode) return { status: 200, body: { received: true, ignored: true } };
   try {
     if (event.type === "checkout.session.completed") {
-      await onCheckoutCompleted(event.data.object as Stripe.Checkout.Session);
+      const session = event.data.object as Stripe.Checkout.Session;
+      if (session.mode === "payment" && session.metadata?.purpose === "client_charge" && session.id) {
+        const { settleClientCheckoutSession } = await import("./payments");
+        await settleClientCheckoutSession(session.id, event.account ?? null);
+      } else {
+        await onCheckoutCompleted(session);
+      }
     } else if (event.type === "customer.subscription.updated") {
       await applySubscription(event.data.object as Stripe.Subscription, null, false);
     } else if (event.type === "customer.subscription.deleted") {

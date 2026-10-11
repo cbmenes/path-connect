@@ -3,7 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { useState } from "react";
 import { toast } from "sonner";
 import { getCardLinkPublic } from "@/lib/sweepbook/invites";
-import { addCardByToken } from "@/lib/sweepbook/payments";
+import { addCardByToken, getCardLinkChargeMode } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { CardForm } from "@/components/app/card-form";
 import { SiteChrome } from "@/components/marketing/site-chrome";
@@ -14,6 +14,7 @@ export const Route = createFileRoute("/add-card/$token")({ component: AddCardLin
 function AddCardLink() {
   const { token } = Route.useParams();
   const link = useQuery({ queryKey: ["card-link", token], queryFn: () => getCardLinkPublic({ data: token }) });
+  const mode = useQuery({ queryKey: ["card-link-mode", token], queryFn: () => getCardLinkChargeMode({ data: token }) });
   const [done, setDone] = useState<{ brand: string; last4: string } | null>(null);
   const [busy, setBusy] = useState(false);
 
@@ -29,9 +30,17 @@ function AddCardLink() {
               Add a card for {link.data.business_name || link.data.cleaner_name}
             </h1>
             <p className="mt-2 text-sm text-muted">
-              For {link.data.client_name}. {APP_NAME} never keeps the full card number — only the brand and last four.
+              For {link.data.client_name}. {APP_NAME} never keeps the full card number.
             </p>
-            {done ? (
+            {!mode.data ? (
+              <div className="mt-6 h-32 animate-pulse rounded-xl bg-secondary" />
+            ) : mode.data.mode !== "demo" ? (
+              <p className="mt-6 rounded-xl bg-paper p-5 text-sm text-ink shadow-card">
+                {mode.data.mode === "stripe"
+                  ? "Stripe collects the card when this company charges a visit. This page does not take the card number, and the payout belongs to the cleaning company."
+                  : "This company cannot take a card until Stripe setup is finished."}
+              </p>
+            ) : done ? (
               <p className="mt-6 rounded-xl bg-sage-soft p-5 text-success">
                 Saved {brandLabel(done.brand)} · {done.last4}. You can close this page.
               </p>

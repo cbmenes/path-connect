@@ -13,7 +13,7 @@ import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { formatHours, money } from "@/lib/sweepbook/time";
 import { ClientFields } from "@/components/app/client-fields";
 import { CardForm } from "@/components/app/card-form";
-import { CardManager, CardSelect } from "@/components/app/card-manager";
+import { CardManager, CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
@@ -118,7 +118,7 @@ function ClientProfile() {
         {canCharge ? (
         <Card>
           <h2 className="font-display text-lg text-navy">Cards on file</h2>
-          <p className="mt-1 text-xs text-muted">Brand and last four only. Default is used for charges and tips.</p>
+          <p className="mt-1 text-xs text-muted">Demo keeps brand and last four only. A connected company charges through Stripe.</p>
           <div className="mt-3">
             <CardManager
               clientId={client.id}
@@ -143,22 +143,14 @@ function ClientProfile() {
               Send add-card link
             </Button>
             {cardLink ? <p className="break-all text-xs text-muted">{cardLink}</p> : null}
-            <Button variant="outline" onClick={() => setCollectCard((v) => !v)}>
-              Collect card on site
-            </Button>
-            {collectCard ? (
-              <CardForm
-                submitLabel="Save as backup card"
-                onSubmit={async (payload) => {
-                  const saved = await addCardAuthenticated({
-                    data: { ...payload, clientId: client.id, source: "cleaner" },
-                  });
-                  toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-                  setCollectCard(false);
-                  await qc.invalidateQueries({ queryKey: ["client", id] });
-                }}
-              />
-            ) : null}
+            <CollectOnSite
+              clientId={client.id}
+              open={collectCard}
+              onOpenChange={setCollectCard}
+              onSaved={async () => {
+                await qc.invalidateQueries({ queryKey: ["client", id] });
+              }}
+            />
             {writesLocked ? null : (
             <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
               <DialogTrigger asChild>
@@ -172,11 +164,15 @@ function ClientProfile() {
                   onConfirm={async (amountCents, description, cardId) => {
                     try {
                       const res = await chargeCard({ data: { clientId: client.id, amountCents, description, cardId } });
+                      if ("checkoutUrl" in res && res.checkoutUrl) {
+                        window.location.assign(res.checkoutUrl);
+                        return;
+                      }
                       if (res.ok) {
                         toast.success(`Paid. Receipt ${res.receiptNumber}`);
                         setChargeOpen(false);
                         await qc.invalidateQueries({ queryKey: ["client", id] });
-                      } else toast.error(res.reason);
+                      } else if ("reason" in res) toast.error(res.reason);
                     } catch (err) {
                       toast.error(err instanceof Error ? err.message : "Charge failed.");
                     }
@@ -366,6 +362,41 @@ function DefaultChecklistRow({ templateId }: { templateId?: string | null }) {
   return <Row k="Checklist" v={name} />;
 }
 
+function CollectOnSite({
+  clientId,
+  open,
+  onOpenChange,
+  onSaved,
+}: {
+  clientId: string;
+  open: boolean;
+  onOpenChange: (open: boolean) => void;
+  onSaved: () => Promise<void>;
+}) {
+  const mode = useClientChargeMode();
+  if (mode.data?.mode !== "demo") return null;
+  return (
+    <>
+      <Button variant="outline" onClick={() => onOpenChange(!open)}>
+        Collect card on site
+      </Button>
+      {open ? (
+        <CardForm
+          submitLabel="Save as backup card"
+          onSubmit={async (payload) => {
+            const saved = await addCardAuthenticated({
+              data: { ...payload, clientId, source: "cleaner" },
+            });
+            toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
+            onOpenChange(false);
+            await onSaved();
+          }}
+        />
+      ) : null}
+    </>
+  );
+}
+
 function ChargeForm({
   defaultAmount,
   name,
@@ -380,6 +411,8 @@ function ChargeForm({
   const [amt, setAmt] = useState((defaultAmount / 100).toFixed(2));
   const [desc, setDesc] = useState(`House cleaning — ${name}`);
   const [cardId, setCardId] = useState("");
+  const mode = useClientChargeMode();
+  const local = mode.data?.mode === "demo";
   return (
     <div className="grid gap-3">
       <Field label="Amount">
@@ -388,9 +421,9 @@ function ChargeForm({
       <Field label="Description">
         <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
       </Field>
-      <CardSelect cards={cards} value={cardId} onChange={setCardId} />
+      {local ? <CardSelect cards={cards} value={cardId} onChange={setCardId} /> : <StripeCollectNote />}
       <Button onClick={() => onConfirm(Math.round(Number(amt) * 100), desc, cardId || undefined)}>
-        Charge {money(Math.round(Number(amt) * 100))}
+        {local ? `Charge ${money(Math.round(Number(amt) * 100))}` : "Continue to Stripe"}
       </Button>
     </div>
   );

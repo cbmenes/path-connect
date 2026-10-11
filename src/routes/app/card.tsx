@@ -21,7 +21,7 @@ function CardPage() {
     <div className="mx-auto grid max-w-lg gap-5">
       <PageHeader title="Your card" />
       <p className="text-sm text-muted">
-        The default card is used for visits and tips unless you pick another at checkout. We never store the full number — only brand and last four.
+        Demo companies keep brand and last four on file. A connected company collects the card in Stripe, and CrewWeek does not store the number.
       </p>
       {clientId ? (
         <CardManager

@@ -11,7 +11,7 @@ import { PageHeader } from "@/components/app/empty-state";
 import { VisitChargeLine } from "@/components/app/receipt";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
 import { ClientJobStatus, TileProgressBadge } from "@/components/app/job-progress";
-import { CardSelect } from "@/components/app/card-manager";
+import { CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -295,6 +295,8 @@ function ClientHome({ data }: { data: ClientDashboard }) {
   const [tipCardId, setTipCardId] = useState("");
   const [tipAmount, setTipAmount] = useState("10.00");
   const [tipConfirm, setTipConfirm] = useState(false);
+  const mode = useClientChargeMode();
+  const localCards = mode.data?.mode === "demo";
 
   return (
     <div className="grid gap-6">
@@ -351,8 +353,12 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                       setBusy(true);
                       try {
                         const res = await payInvoiceAsClient({ data: { invoiceId: i.id, cardId: payCardId || undefined } });
+                        if ("checkoutUrl" in res && res.checkoutUrl) {
+                          window.location.assign(res.checkoutUrl);
+                          return;
+                        }
                         if (res.ok) toast.success(`Paid. Receipt ${res.receiptNumber}`);
-                        else toast.error(res.reason);
+                        else if ("reason" in res) toast.error(res.reason);
                         await qc.invalidateQueries({ queryKey: ["dashboard"] });
                       } catch (err) {
                         toast.error(err instanceof Error ? err.message : "Payment failed.");
@@ -361,10 +367,10 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                       }
                     }}
                   >
-                    Pay now
+                    {localCards ? "Pay now" : "Pay with Stripe"}
                   </Button>
                 </div>
-                <CardSelect cards={data.cards} value={payCardId} onChange={setPayCardId} />
+                {localCards ? <CardSelect cards={data.cards} value={payCardId} onChange={setPayCardId} /> : <StripeCollectNote />}
               </Card>
             ))}
           </div>
@@ -395,9 +401,11 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                     {tipConfirm ? (
                       <>
                         <p className="text-sm text-muted">
-                          Charge {money(Math.round(Number(tipAmount) * 100) || 0)} to your default card?
+                          {localCards
+                            ? `Charge ${money(Math.round(Number(tipAmount) * 100) || 0)} to your default card?`
+                            : `Stripe collects ${money(Math.round(Number(tipAmount) * 100) || 0)}. The tip is recorded after Stripe confirms it.`}
                         </p>
-                        <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} />
+                        {localCards ? <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} /> : <StripeCollectNote />}
                         <div className="flex flex-wrap gap-2">
                           <Button variant="outline" onClick={() => setTipConfirm(false)}>
                             Back
@@ -413,12 +421,16 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                                 const res = await tipJob({
                                   data: { jobId: j.id, amountCents, cardId: tipCardId || undefined },
                                 });
+                                if ("checkoutUrl" in res && res.checkoutUrl) {
+                                  window.location.assign(res.checkoutUrl);
+                                  return;
+                                }
                                 if (res.ok) {
                                   toast.success(`Tip sent. Receipt ${res.receiptNumber}`);
                                   setTipFor(null);
                                   setTipConfirm(false);
                                   await qc.invalidateQueries({ queryKey: ["dashboard"] });
-                                } else toast.error(res.reason);
+                                } else if ("reason" in res) toast.error(res.reason);
                               } catch (err) {
                                 toast.error(err instanceof Error ? err.message : "Tip failed.");
                               }
