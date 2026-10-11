@@ -13,14 +13,12 @@ import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
 export function EditMember({
   member,
-  clients,
   canEditPay,
   canEditCharge,
   onClose,
   onSaved,
 }: {
   member: TeamMember;
-  clients: { id: string; name: string }[];
   canEditPay: boolean;
   canEditCharge: boolean;
   onClose: () => void;
@@ -36,7 +34,6 @@ export function EditMember({
   const [messaging, setMessaging] = useState(member.can_message);
   const [charge, setCharge] = useState(Boolean(member.can_charge));
   const [clock, setClock] = useState(member.can_clock_in !== false);
-  const [assigned, setAssigned] = useState(member.assigned_clients.map((c) => c.id));
   const [payType, setPayType] = useState<PayType>(member.pay_type ?? "none");
   const [payDollars, setPayDollars] = useState(((member.pay_amount ?? 0) / 100).toFixed(2));
   const [payPercent, setPayPercent] = useState(String(member.pay_type === "percent" ? member.pay_amount ?? 0 : 0));
@@ -69,7 +66,6 @@ export function EditMember({
                 canMessage: isAdminMember ? undefined : messaging,
                 canClockIn: isAdminMember ? undefined : clock,
                 status: member.pending ? undefined : active ? "active" : "disabled",
-                assignedClientIds: isAdminMember ? undefined : assigned,
                 canCharge: canEditCharge ? charge : undefined,
                 ...(canEditPay && !isAdminMember
                   ? {
@@ -94,7 +90,7 @@ export function EditMember({
                   emergencyPhone,
                   birthday,
                   startDate,
-                  availability,
+                  availability: isAdminMember ? [] : availability,
                 },
               },
             });
@@ -115,6 +111,7 @@ export function EditMember({
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
         <TeamDetailSections
+          showAvailability={!isAdminMember}
           notes={notes}
           onNotes={setNotes}
           availability={availability}
@@ -190,27 +187,6 @@ export function EditMember({
             <Field label="Note (optional)">
               <Textarea value={payNote} onChange={(e) => setPayNote(e.target.value)} />
             </Field>
-          </div>
-        )}
-        {isAdminMember ? null : (
-          <div>
-            <p className="text-sm font-medium">Assigned clients</p>
-            <p className="text-xs text-muted">Their recurring jobs appear on this cleaner’s schedule.</p>
-            <div className="mt-2 grid gap-1">
-              {clients.map((c) => {
-                const on = assigned.includes(c.id);
-                return (
-                  <label key={c.id} className="flex min-h-11 items-center gap-2 rounded-md px-2 hover:bg-secondary">
-                    <input
-                      type="checkbox"
-                      checked={on}
-                      onChange={() => setAssigned(on ? assigned.filter((id) => id !== c.id) : [...assigned, c.id])}
-                    />
-                    <span className="text-sm">{c.name}</span>
-                  </label>
-                );
-              })}
-            </div>
           </div>
         )}
         <Button

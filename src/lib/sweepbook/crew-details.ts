@@ -18,10 +18,12 @@ export async function findAvailabilityHits(
     `select user_id, full_name, availability_json
      from profiles
      where master_user_id = $1 and user_id in (${placeholders})
+       and coalesce(cleaner_kind, 'team') <> 'admin'
      union all
      select id as user_id, name as full_name, availability_json
      from team_invites
-     where master_user_id = $1 and accepted_at is null and id in (${placeholders})`,
+     where master_user_id = $1 and accepted_at is null and id in (${placeholders})
+       and coalesce(invite_kind, 'team') <> 'admin'`,
     [ownerId, ...mine],
   );
   const hits: AvailabilityHit[] = [];
@@ -66,12 +68,14 @@ export const listCrewMarks = createServerFn({ method: "GET" })
        order by name`,
       [ownerId],
     );
-    return [...people, ...pending].map((row) => ({
+    const marks = [...people, ...pending].map((row) => ({
       userId: row.user_id,
       name: row.full_name,
       birthday: dateOnly(row.birthday),
       startDate: dateOnly(row.start_date),
     }));
+    if (actor.kind === "team") return marks.filter((row) => row.userId !== actor.userId);
+    return marks;
   });
 
 function dateOnly(raw: string | null) {

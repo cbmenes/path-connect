@@ -16,6 +16,8 @@ import { CardForm } from "@/components/app/card-form";
 import { CardManager, CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
 import { StripeCardSetup } from "@/components/app/stripe-card-setup";
 import { AssigneePicker } from "@/components/app/assignee-picker";
+import { AssignmentSave, sameIdSet } from "@/components/app/assignment-scope";
+import { CollapsedSection } from "@/components/app/team-details";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
 import { VisitChargeLine } from "@/components/app/receipt";
@@ -200,33 +202,21 @@ function ClientProfile() {
       </div>
 
       <Card>
-        <h2 className="font-display text-lg text-navy">Assigned cleaners</h2>
-        <p className="mt-1 text-sm text-muted">
-          Recurring visits for this household show on each assigned team member’s schedule.
-        </p>
-        <div className="mt-3">
-          <AssigneePicker
-            staff={staff ?? []}
-            selected={assigneeIds ?? (client.assignees ?? []).map((a) => a.user_id)}
-            onChange={setAssigneeIds}
-          />
-        </div>
-        {writesLocked ? null : (
-        <Button
-          className="mt-3"
-          variant="outline"
-          onClick={async () => {
-            const ids = assigneeIds ?? (client.assignees ?? []).map((a) => a.user_id);
-            await setClientAssignees({ data: { clientId: client.id, userIds: ids } });
-            toast.success("Assigned cleaners saved.");
+        <AssignedCleaners
+          clientId={client.id}
+          staff={staff ?? []}
+          savedIds={(client.assignees ?? []).map((a) => a.user_id)}
+          selectedIds={assigneeIds}
+          onSelected={setAssigneeIds}
+          writesLocked={writesLocked}
+          onSaved={async () => {
             await qc.invalidateQueries({ queryKey: ["client", id] });
+            await qc.invalidateQueries({ queryKey: ["clients"] });
             await qc.invalidateQueries({ queryKey: ["jobs"] });
             await qc.invalidateQueries({ queryKey: ["team"] });
+            setAssigneeIds(null);
           }}
-        >
-          Save
-        </Button>
-        )}
+        />
       </Card>
 
       <Card>
@@ -477,5 +467,50 @@ function ChargeForm({
         {`Charge ${money(cents)}`}
       </Button>
     </div>
+  );
+}
+
+function AssignedCleaners({
+  clientId,
+  staff,
+  savedIds,
+  selectedIds,
+  onSelected,
+  writesLocked,
+  onSaved,
+}: {
+  clientId: string;
+  staff: { user_id: string; full_name: string }[];
+  savedIds: string[];
+  selectedIds: string[] | null;
+  onSelected: (ids: string[]) => void;
+  writesLocked: boolean;
+  onSaved: () => Promise<void>;
+}) {
+  const selected = selectedIds ?? savedIds;
+  const summary =
+    staff
+      .filter((person) => selected.includes(person.user_id))
+      .map((person) => person.full_name)
+      .join(", ") || "None";
+  return (
+    <CollapsedSection title="Assigned cleaners" summary={summary}>
+      <p className="text-sm text-muted">
+        Visits for this household show on each assigned person’s schedule. Saving here updates their team page.
+      </p>
+      <AssigneePicker staff={staff} selected={selected} onChange={onSelected} />
+      {writesLocked ? null : (
+        <AssignmentSave
+          unchanged={sameIdSet(selected, savedIds)}
+          previewClientIds={selected.length ? [clientId] : []}
+          previewUserIds={selected}
+          onSave={async (when) => {
+            await setClientAssignees({ data: { clientId, userIds: selected, when } });
+            toast.success("Assigned cleaners saved.");
+            await onSaved();
+          }}
+        />
+      )}
+    </CollapsedSection>
   );
 }

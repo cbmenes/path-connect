@@ -1,8 +1,8 @@
 import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { availabilitySummary } from "@/lib/sweepbook/availability";
-import type { AddressParts } from "@/lib/sweepbook/people";
-import type { AvailabilityWindow } from "@/lib/sweepbook/types";
+import { formatAddress, formatPhoneAsTyped, type AddressParts } from "@/lib/sweepbook/people";
+import type { AvailabilityWindow, TeamMember } from "@/lib/sweepbook/types";
 import { OpenedContent } from "@/components/app/opened-content";
 import { AddressFields } from "@/components/app/address-fields";
 import { PhoneInput } from "@/components/app/phone-input";
@@ -35,6 +35,7 @@ export function TeamDetailSections({
   onBirthday,
   startDate,
   onStartDate,
+  showAvailability = true,
 }: {
   notes: string;
   onNotes: (value: string) => void;
@@ -50,15 +51,17 @@ export function TeamDetailSections({
   onBirthday: (value: string) => void;
   startDate: string;
   onStartDate: (value: string) => void;
+  showAvailability?: boolean;
 }) {
   return (
     <div className="grid gap-2">
-      <DetailSection title="Notes" summary={notes.trim() ? "Saved" : "None"}>
+      <CollapsedSection title="Notes" summary={notes.trim() ? "Saved" : "None"}>
         <Field label="Notes" hint="Only the Master and Admins can see this.">
           <Textarea value={notes} onChange={(e) => onNotes(e.target.value)} />
         </Field>
-      </DetailSection>
-      <DetailSection title="Availability" summary={availabilitySummary(availability)}>
+      </CollapsedSection>
+      {showAvailability ? (
+      <CollapsedSection title="Availability" summary={availabilitySummary(availability)}>
         <p className="text-xs text-muted">
           Optional weekly windows. Leave this empty for no restriction. If you add windows, scheduling is limited to those times.
         </p>
@@ -108,8 +111,9 @@ export function TeamDetailSections({
         >
           Add a window
         </Button>
-      </DetailSection>
-      <DetailSection title="Contact" summary={contactSummary(address, emergencyName)}>
+      </CollapsedSection>
+      ) : null}
+      <CollapsedSection title="Contact" summary={contactSummary(address, emergencyName)}>
         <AddressFields value={address} onChange={onAddress} />
         <Field label="Emergency name">
           <Input value={emergencyName} onChange={(e) => onEmergencyName(e.target.value)} />
@@ -117,8 +121,8 @@ export function TeamDetailSections({
         <Field label="Emergency phone">
           <PhoneInput value={emergencyPhone} onChange={onEmergencyPhone} />
         </Field>
-      </DetailSection>
-      <DetailSection title="Dates" summary={dateSummary(birthday, startDate)}>
+      </CollapsedSection>
+      <CollapsedSection title="Dates" summary={dateSummary(birthday, startDate)}>
         <p className="text-xs text-muted">
           Birthday and the work anniversary from the start date show on the calendar. They are markers, not appointments, and they do not block booking.
         </p>
@@ -130,12 +134,66 @@ export function TeamDetailSections({
             <Input type="date" value={startDate} onChange={(e) => onStartDate(e.target.value)} />
           </Field>
         </div>
-      </DetailSection>
+      </CollapsedSection>
     </div>
   );
 }
 
-function DetailSection({ title, summary, children }: { title: string; summary: string; children: ReactNode }) {
+export function TeamDetailView({ member }: { member: TeamMember }) {
+  const showAvailability = member.office_role !== "admin";
+  const address = formatAddress(addressParts(member));
+  const emergency = [member.emergency_name?.trim(), formatPhoneAsTyped(member.emergency_phone)].filter(Boolean).join(" · ");
+  return (
+    <div className="grid gap-2">
+      <CollapsedSection title="Notes" summary={member.staff_notes?.trim() ? "Saved" : "None"}>
+        <p className="whitespace-pre-wrap text-sm text-ink">{member.staff_notes?.trim() || "None"}</p>
+        <p className="text-xs text-muted">Only the Master and Admins can see this.</p>
+      </CollapsedSection>
+      {showAvailability ? (
+        <CollapsedSection title="Availability" summary={availabilitySummary(member.availability ?? [])}>
+          <p className="text-sm text-ink">
+            {(member.availability ?? []).length
+              ? availabilitySummary(member.availability ?? [])
+              : "No weekly restriction. Scheduling is not limited to a window."}
+          </p>
+        </CollapsedSection>
+      ) : null}
+      <CollapsedSection title="Contact" summary={contactSummary(addressParts(member), member.emergency_name ?? "")}>
+        <p className="text-sm text-ink">{address || "No address"}</p>
+        <p className="text-sm text-ink">{emergency ? `Emergency: ${emergency}` : "No emergency contact"}</p>
+      </CollapsedSection>
+      <CollapsedSection title="Dates" summary={dateSummary(member.birthday ?? "", member.start_date ?? "")}>
+        <p className="text-sm text-ink">{member.birthday ? `Birthday ${prettyDate(member.birthday)}` : "No birthday"}</p>
+        <p className="text-sm text-ink">
+          {member.start_date ? `Start date ${prettyDate(member.start_date)}` : "No start date"}
+        </p>
+        <p className="text-xs text-muted">
+          Birthday and the work anniversary from the start date show on the office calendar. They are markers, not appointments.
+        </p>
+      </CollapsedSection>
+    </div>
+  );
+}
+
+function addressParts(member: TeamMember): AddressParts {
+  return {
+    address_line1: member.address_line1 ?? "",
+    address_line2: member.address_line2 ?? "",
+    city: member.city ?? "",
+    state: member.state ?? "",
+    zip: member.zip ?? "",
+  };
+}
+
+function prettyDate(iso: string) {
+  const [year, month, day] = iso.slice(0, 10).split("-").map(Number);
+  if (!year || !month || !day) return iso;
+  return new Intl.DateTimeFormat("en-US", { month: "short", day: "numeric", year: "numeric", timeZone: "UTC" }).format(
+    new Date(Date.UTC(year, month - 1, day)),
+  );
+}
+
+export function CollapsedSection({ title, summary, children }: { title: string; summary: string; children: ReactNode }) {
   const [open, setOpen] = useState(false);
   return (
     <div className="rounded-xl bg-secondary">

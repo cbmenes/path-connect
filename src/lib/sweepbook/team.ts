@@ -3,7 +3,19 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { PROFILE_COLUMNS, assertOffice, assertActivePlan, getActor, masterUserId, subscriptionInactive } from "./access";
 import { enableTeamAccount, setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
-import { addMemberToClient, queryAssignableStaff, removeMemberFromClient, replaceClientAssignmentsForInvite } from "./assignees";
+import {
+  addMemberToClient,
+  addPersonToJob,
+  listOpenVisitsForClients,
+  parseAssignmentWhen,
+  queryAssignableStaff,
+  removePersonFromJob,
+  replaceClientAssignmentsForInvite,
+  replaceProfileClientLinks,
+  visitsInWindow,
+  type AssignmentWhen,
+} from "./assignees";
+import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
 import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
@@ -314,8 +326,15 @@ function teamFormInput(input: {
     canMessage: inviteKind === "admin" ? true : input.canMessage !== false,
     inviteKind,
     canCharge: inviteKind === "admin" ? Boolean(input.canCharge) : false,
-    details: input.details,
+    details: input.details
+      ? { ...input.details, availability: inviteKind === "admin" ? [] : input.details.availability }
+      : input.details,
   };
+}
+
+function detailsForRole(details: PersonDetailsInput | undefined, isAdmin: boolean) {
+  if (!details || !isAdmin) return details;
+  return { ...details, availability: [] };
 }
 
 export const saveTeamMember = createServerFn({ method: "POST" })
@@ -585,7 +604,6 @@ async function updatePendingTeamInvite(
     phone?: string;
     email?: string;
     canMessage?: boolean;
-    assignedClientIds?: string[];
     payType?: PayType;
     payAmount?: number;
     payNote?: string;
@@ -643,10 +661,7 @@ async function updatePendingTeamInvite(
       where id = ${invite.id} and master_user_id = ${ownerId}
     `;
   }
-  if (data.assignedClientIds && kind !== "admin") {
-    await replaceClientAssignmentsForInvite(sql, ownerId, invite.id, data.assignedClientIds);
-  }
-  await savePersonDetails(sql, "invite", invite.id, ownerId, data.details);
+  await savePersonDetails(sql, "invite", invite.id, ownerId, detailsForRole(data.details, kind === "admin"));
 }
 
 export const updateTeamMember = createServerFn({ method: "POST" })
@@ -660,7 +675,6 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     email?: string;
     canMessage?: boolean;
     status?: TeamStatus;
-    assignedClientIds?: string[];
     payType?: PayType;
     payAmount?: number;
     payNote?: string;
@@ -751,24 +765,96 @@ export const updateTeamMember = createServerFn({ method: "POST" })
         where user_id = ${data.userId} and master_user_id = ${ownerId}
       `;
     }
-    await savePersonDetails(sql, "profile", data.userId, ownerId, data.details);
-    if (data.assignedClientIds && member.cleaner_kind !== "admin") {
-      const owned = await sql<{ id: string }>`
-        select id from clients where cleaner_user_id = ${ownerId}
+    await savePersonDetails(sql, "profile", data.userId, ownerId, detailsForRole(data.details, member.cleaner_kind === "admin"));
+    return { ok: true };
+  });
+
+async function replaceInviteClientLinks(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  ownerId: string,
+  inviteId: string,
+  clientIds: string[],
+) {
+  const owned = await sql<{ id: string }>`
+    select id from clients where cleaner_user_id = ${ownerId}
+  `;
+  const allowed = new Set(owned.map((row) => row.id));
+  const next = [...new Set(clientIds.filter((id) => allowed.has(id)))];
+  await replaceClientAssignmentsForInvite(sql, ownerId, inviteId, next);
+  return next;
+}
+
+export const setCleanerClients = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { userId: string; clientIds: string[]; when: AssignmentWhen }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    await assertActivePlan(sql, actor);
+    const ownerId = masterUserId(actor);
+    const when = parseAssignmentWhen(data.when);
+    if (data.userId === ownerId) throw new Error("The account owner cannot be changed from Team.");
+    const profiles = await sql<{ cleaner_kind: string; full_name: string }>`
+      select coalesce(cleaner_kind, 'team') as cleaner_kind, full_name
+      from profiles
+      where user_id = ${data.userId} and master_user_id = ${ownerId} and role = 'cleaner'
+      limit 1
+    `;
+    const profile = profiles[0];
+    const invites = profile
+      ? []
+      : await sql<{ invite_kind: string; name: string }>`
+          select coalesce(invite_kind, 'team') as invite_kind, name
+          from team_invites
+          where id = ${data.userId} and master_user_id = ${ownerId} and accepted_at is null
+          limit 1
+        `;
+    const invite = invites[0];
+    if (!profile && !invite) throw new Error("Person not found.");
+    const kind = profile?.cleaner_kind ?? invite?.invite_kind ?? "team";
+    if (kind === "master") throw new Error("The account owner cannot be changed from Team.");
+    if (actor.kind === "admin" && kind === "admin") {
+      throw new Error("Admins cannot edit other office admins.");
+    }
+    const requested = [...new Set((data.clientIds ?? []).filter(Boolean))];
+    const currentRows = profile
+      ? await sql<{ client_id: string }>`
+          select ca.client_id from client_assignees ca
+          join clients c on c.id = ca.client_id
+          where ca.user_id = ${data.userId} and c.cleaner_user_id = ${ownerId}
+        `
+      : await sql<{ client_id: string }>`
+          select ica.client_id from invite_client_assignees ica
+          join clients c on c.id = ica.client_id
+          where ica.invite_id = ${data.userId} and c.cleaner_user_id = ${ownerId}
+        `;
+    const before = new Set(currentRows.map((row) => row.client_id));
+    const next = profile
+      ? await replaceProfileClientLinks(sql, ownerId, data.userId, requested)
+      : await replaceInviteClientLinks(sql, ownerId, data.userId, requested);
+    const after = new Set(next);
+    const added = next.filter((id) => !before.has(id));
+    const removed = [...before].filter((id) => !after.has(id));
+    const visits = visitsInWindow(await listOpenVisitsForClients(sql, ownerId, [...added, ...removed]), when);
+    for (const visit of visits) {
+      if (added.includes(visit.client_id)) await addPersonToJob(sql, visit.id, data.userId);
+      else if (removed.includes(visit.client_id)) await removePersonFromJob(sql, visit.id, data.userId);
+    }
+    if (profile) {
+      const names = await sql<{ id: string; name: string }>`
+        select id, name from clients where cleaner_user_id = ${ownerId}
       `;
-      const allowed = new Set(owned.map((c) => c.id));
-      const next = new Set(data.assignedClientIds.filter((id) => allowed.has(id)));
-      const current = await sql<{ client_id: string }>`
-        select ca.client_id from client_assignees ca
-        join clients c on c.id = ca.client_id
-        where ca.user_id = ${data.userId} and c.cleaner_user_id = ${ownerId}
-      `;
-      const currentSet = new Set(current.map((c) => c.client_id));
-      for (const id of next) {
-        if (!currentSet.has(id)) await addMemberToClient(sql, id, data.userId);
-      }
-      for (const id of currentSet) {
-        if (!next.has(id)) await removeMemberFromClient(sql, id, data.userId);
+      const byId = new Map(names.map((row) => [row.id, row.name]));
+      for (const clientId of added) {
+        await insertNotification(sql, {
+          userId: data.userId,
+          kind: "job_assigned",
+          title: `Assigned: ${byId.get(clientId) ?? "Client"}`,
+          body: "You were assigned to this client.",
+          clientId,
+          clientName: byId.get(clientId) ?? null,
+        });
       }
     }
     return { ok: true };

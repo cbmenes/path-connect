@@ -3,13 +3,20 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, assertActivePlan, canChargeClients, getActor, masterUserId } from "./access";
 import {
-  applyAssigneesToClientRecurring,
+  listOpenVisitsForClients,
   parseAssignees,
+  parseAssignmentWhen,
   partitionAssignees,
   queryAssignableStaff,
   replaceClientAssignees,
   replaceInviteAssigneesForClient,
+  replaceJobAssignees,
+  visitsInWindow,
+  type AssignmentWhen,
 } from "./assignees";
+import { findAvailabilityHits } from "./crew-details";
+import { findTimeOffHits, type TimeOffHit } from "./time-off";
+import type { AvailabilityHit } from "./availability";
 import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
 import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
@@ -286,15 +293,63 @@ export const updateClient = createServerFn({ method: "POST" })
     return { ok: true };
   });
 
+export const previewAssignmentConflicts = createServerFn({ method: "POST" })
+  .middleware([authMiddleware])
+  .validator((input: { clientIds: string[]; userIds: string[]; when: AssignmentWhen }) => input)
+  .handler(async ({ context, data }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    assertOffice(actor);
+    const ownerId = masterUserId(actor);
+    const when = parseAssignmentWhen(data.when);
+    const owned = await sql<{ id: string }>`
+      select id from clients where cleaner_user_id = ${ownerId}
+    `;
+    const allowed = new Set(owned.map((row) => row.id));
+    const clientIds = [...new Set((data.clientIds ?? []).filter((id) => allowed.has(id)))];
+    const { ordered } = await partitionAssignees(sql, ownerId, data.userIds ?? []);
+    const visits = visitsInWindow(await listOpenVisitsForClients(sql, ownerId, clientIds), when);
+    if (!visits.length || !ordered.length) {
+      return { timeOff: [] as TimeOffHit[], availability: [] as AvailabilityHit[] };
+    }
+    const timeOff: TimeOffHit[] = [];
+    const seenOff = new Set<string>();
+    const byDuration = new Map<number, Date[]>();
+    for (const visit of visits) {
+      const duration = Number(visit.duration_min) || 0;
+      const starts = byDuration.get(duration) ?? [];
+      starts.push(new Date(visit.start_at));
+      byDuration.set(duration, starts);
+    }
+    for (const [duration, starts] of byDuration) {
+      const hits = await findTimeOffHits(sql, ownerId, starts, duration, ordered);
+      for (const hit of hits) {
+        if (hit.status !== "approved") continue;
+        const key = `${hit.userId}|${hit.requestId}`;
+        if (seenOff.has(key)) continue;
+        seenOff.add(key);
+        timeOff.push(hit);
+      }
+    }
+    const availability = await findAvailabilityHits(
+      sql,
+      ownerId,
+      visits.map((visit) => ({ start: new Date(visit.start_at), durationMin: Number(visit.duration_min) || 0 })),
+      ordered,
+    );
+    return { timeOff, availability };
+  });
+
 export const setClientAssignees = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { clientId: string; userIds: string[] }) => input)
+  .validator((input: { clientId: string; userIds: string[]; when: AssignmentWhen }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
+    const when = parseAssignmentWhen(data.when);
     const owned = await sql<{ id: string; name: string }>`
       select id, name from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1
     `;
@@ -303,13 +358,16 @@ export const setClientAssignees = createServerFn({ method: "POST" })
     const { profileIds, inviteIds, ordered } = await partitionAssignees(sql, ownerId, unique);
     await replaceClientAssignees(sql, data.clientId, profileIds);
     await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, inviteIds);
-    await applyAssigneesToClientRecurring(sql, data.clientId, ordered);
+    const visits = visitsInWindow(await listOpenVisitsForClients(sql, ownerId, [data.clientId]), when);
+    for (const visit of visits) {
+      await replaceJobAssignees(sql, visit.id, ordered);
+    }
     for (const userId of profileIds) {
       await insertNotification(sql, {
         userId,
         kind: "job_assigned",
         title: `Assigned: ${owned[0].name}`,
-        body: "You were assigned to this client's recurring visits.",
+        body: "You were assigned to this client.",
         clientId: data.clientId,
         clientName: owned[0].name,
       });

@@ -1,4 +1,5 @@
 import type { Sql } from "@/lib/db";
+import { addDaysChicago, addMinutes, startOfChicagoDay } from "./time";
 import type { AssigneeRef, JobWithClient } from "./types";
 
 export function parseAssignees(raw: unknown): AssigneeRef[] {
@@ -253,6 +254,94 @@ export async function addMemberToClient(sql: Sql, clientId: string, userId: stri
       where id = ${job.id}
     `;
   }
+}
+
+export type AssignmentWhen = "current" | "future" | "both";
+
+export function parseAssignmentWhen(raw: unknown): AssignmentWhen {
+  if (raw === "current" || raw === "future" || raw === "both") return raw;
+  throw new Error("Choose current appointments, future appointments, or both.");
+}
+
+/** Past visits (already ended) are never included. Current is the rest of today, including a visit still in progress. */
+export function visitInAssignmentWindow(start: Date, durationMin: number, when: AssignmentWhen, now = new Date()) {
+  if (Number.isNaN(start.getTime())) return false;
+  const end = addMinutes(start, Math.max(0, Number(durationMin) || 0));
+  if (end.getTime() <= now.getTime()) return false;
+  if (when === "both") return true;
+  const tomorrow = addDaysChicago(startOfChicagoDay(now), 1);
+  if (when === "future") return start.getTime() >= tomorrow.getTime();
+  return start.getTime() < tomorrow.getTime();
+}
+
+export type OpenVisit = {
+  id: string;
+  client_id: string;
+  start_at: string;
+  duration_min: number;
+};
+
+export async function listOpenVisitsForClients(sql: Sql, ownerId: string, clientIds: string[]) {
+  const unique = [...new Set(clientIds.filter(Boolean))];
+  if (!unique.length) return [] as OpenVisit[];
+  const placeholders = unique.map((_, i) => `$${i + 2}`).join(", ");
+  return sql.query<OpenVisit>(
+    `select id, client_id, start_at::text as start_at, duration_min
+     from jobs
+     where cleaner_user_id = $1
+       and client_id in (${placeholders})
+       and status in ('scheduled', 'reschedule_requested')`,
+    [ownerId, ...unique],
+  );
+}
+
+export function visitsInWindow(visits: OpenVisit[], when: AssignmentWhen, now = new Date()) {
+  return visits.filter((visit) =>
+    visitInAssignmentWindow(new Date(visit.start_at), Number(visit.duration_min), when, now),
+  );
+}
+
+export async function addPersonToJob(sql: Sql, jobId: string, userId: string) {
+  await sql`
+    insert into job_assignees (job_id, user_id) values (${jobId}, ${userId})
+    on conflict do nothing
+  `;
+  await sql`
+    update jobs set assigned_to_user_id = coalesce(assigned_to_user_id, ${userId})
+    where id = ${jobId}
+  `;
+}
+
+export async function removePersonFromJob(sql: Sql, jobId: string, userId: string) {
+  await sql`delete from job_assignees where job_id = ${jobId} and user_id = ${userId}`;
+  const jobs = await sql<{ assigned_to_user_id: string | null }>`
+    select assigned_to_user_id from jobs where id = ${jobId} limit 1
+  `;
+  if (jobs[0]?.assigned_to_user_id !== userId) return;
+  const next = await sql<{ user_id: string }>`
+    select user_id from job_assignees where job_id = ${jobId} limit 1
+  `;
+  await sql`update jobs set assigned_to_user_id = ${next[0]?.user_id ?? null} where id = ${jobId}`;
+}
+
+export async function replaceProfileClientLinks(sql: Sql, ownerId: string, userId: string, clientIds: string[]) {
+  const owned = await sql<{ id: string }>`
+    select id from clients where cleaner_user_id = ${ownerId}
+  `;
+  const allowed = new Set(owned.map((row) => row.id));
+  const next = [...new Set(clientIds.filter((id) => allowed.has(id)))];
+  await sql`
+    delete from client_assignees
+    where user_id = ${userId}
+      and client_id in (select id from clients where cleaner_user_id = ${ownerId})
+  `;
+  for (const clientId of next) {
+    await sql`
+      insert into client_assignees (client_id, user_id) values (${clientId}, ${userId})
+      on conflict do nothing
+    `;
+  }
+  return next;
 }
 
 export async function removeMemberFromClient(sql: Sql, clientId: string, userId: string) {

@@ -70,7 +70,7 @@ function TeamPage() {
     emergencyPhone,
     birthday,
     startDate,
-    availability,
+    availability: inviteKind === "admin" ? [] : availability,
   };
 
   function clearPersonForm() {
@@ -95,7 +95,6 @@ function TeamPage() {
 
   const members = q.data?.members ?? [];
   const admins = q.data?.admins ?? [];
-  const clients = q.data?.clients ?? [];
 
   return (
     <div className="grid gap-6">
@@ -227,6 +226,7 @@ function TeamPage() {
           </Field>
           <div className="md:col-span-2">
             <TeamDetailSections
+              showAvailability={inviteKind === "team"}
               notes={notes}
               onNotes={setNotes}
               availability={availability}
@@ -469,7 +469,6 @@ function TeamPage() {
         {editing ? (
           <EditMember
             member={editing}
-            clients={clients}
             canEditPay={canEditPay}
             canEditCharge={canManageAdmins && editing.office_role === "admin"}
             onClose={() => setEditing(null)}

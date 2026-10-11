@@ -4,12 +4,16 @@ import { useEffect, useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { listJobs } from "@/lib/sweepbook/jobs";
-import { deleteTeamMember, listTeam, resendTeamInvite } from "@/lib/sweepbook/team";
+import { deleteTeamMember, listTeam, resendTeamInvite, setCleanerClients } from "@/lib/sweepbook/team";
+import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { listCrewMarks } from "@/lib/sweepbook/crew-details";
 import { crewMarksForDay } from "@/lib/sweepbook/availability";
 import { addDaysChicago, startOfChicagoDay } from "@/lib/sweepbook/time";
 import { JobPanel } from "@/components/app/job-panel";
 import { EditMember } from "@/components/app/edit-team-member";
+import { AssigneePicker } from "@/components/app/assignee-picker";
+import { AssignmentSave, sameIdSet } from "@/components/app/assignment-scope";
+import { CollapsedSection, TeamDetailView } from "@/components/app/team-details";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
 import {
@@ -56,10 +60,15 @@ function TeamMemberSchedulePage() {
   const [mode, setMode] = useState<CalView>(search.view ?? "month");
   const [anchor, setAnchor] = useState(() => parseAnchor(search.date));
   const [selectedId, setSelectedId] = useState<string | null>(search.job ?? null);
+  const [clientIds, setClientIds] = useState<string[] | null>(null);
 
   useEffect(() => {
     if (search.job) setSelectedId(search.job);
   }, [search.job]);
+
+  useEffect(() => {
+    setClientIds(null);
+  }, [userId]);
 
   useEffect(() => {
     if (search.view) {
@@ -155,9 +164,20 @@ function TeamMemberSchedulePage() {
   }
 
   const person = member;
+  const isAdminPerson = person.office_role === "admin";
   const title = calendarTitle(mode, anchor, range.from);
   const statusLine = person.pending ? (person.invite_sent ? "Invite pending" : "Saved") : person.team_status;
   const inviteLabel = person.pending && !person.invite_sent ? "Send invite" : "Resend invite";
+  const savedClientIds = person.assigned_clients.map((c) => c.id);
+  const selectedClients = clientIds ?? savedClientIds;
+  const addedClients = selectedClients.filter((id) => !savedClientIds.includes(id));
+  const clientChoices = (team.data?.clients ?? []).map((c) => ({ user_id: c.id, full_name: c.name }));
+  const assignmentSummary =
+    clientChoices
+      .filter((c) => selectedClients.includes(c.user_id))
+      .map((c) => c.full_name)
+      .join(", ") || "None";
+  const writesLocked = actorWritesLocked(actor.data);
 
   async function sendInvite() {
     const res = await resendTeamInvite({
@@ -189,8 +209,39 @@ function TeamMemberSchedulePage() {
         }
       />
       <p className="max-w-xl text-sm text-muted">
-        {person.email || person.phone || "No contact"} · {statusLine}. Assigned visits stay on this calendar. Birthday and work anniversary are markers, not appointments.
+        {person.email || person.phone || "No contact"} · {statusLine}.
+        {isAdminPerson
+          ? ""
+          : " Assigned visits stay on this calendar. Birthday and work anniversary are markers, not appointments."}
       </p>
+      <TeamDetailView member={person} />
+      <CollapsedSection title="Assigned clients" summary={assignmentSummary}>
+        <p className="text-xs text-muted">Saving here updates this person on each client page.</p>
+        <AssigneePicker
+          staff={clientChoices}
+          selected={selectedClients}
+          onChange={setClientIds}
+          emptyLabel="No clients yet."
+        />
+        {writesLocked ? null : (
+          <AssignmentSave
+            unchanged={sameIdSet(selectedClients, savedClientIds)}
+            previewClientIds={addedClients}
+            previewUserIds={addedClients.length ? [person.user_id] : []}
+            onSave={async (when) => {
+              await setCleanerClients({ data: { userId: person.user_id, clientIds: selectedClients, when } });
+              toast.success("Assigned clients saved.");
+              await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["client"] });
+              await qc.invalidateQueries({ queryKey: ["clients"] });
+              await qc.invalidateQueries({ queryKey: ["jobs"] });
+              setClientIds(null);
+            }}
+          />
+        )}
+      </CollapsedSection>
+      {isAdminPerson ? null : (
+      <>
       <CalendarNav
         mode={mode}
         title={title}
@@ -222,6 +273,8 @@ function TeamMemberSchedulePage() {
         onJob={(j) => setSelectedId(j.id)}
         marksByDay={marksByDay}
       />
+      </>
+      )}
 
       <Dialog open={Boolean(selectedId)} onOpenChange={(o) => !o && setSelectedId(null)}>
         {selectedId ? (
@@ -248,7 +301,6 @@ function TeamMemberSchedulePage() {
         {editing ? (
           <EditMember
             member={person}
-            clients={team.data?.clients ?? []}
             canEditPay={Boolean(team.data?.canEditPay)}
             canEditCharge={Boolean(team.data?.canManageAdmins) && person.office_role === "admin"}
             onClose={() => setEditing(false)}

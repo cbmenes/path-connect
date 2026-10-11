@@ -9,14 +9,16 @@ export function AssigneePicker({
   selected,
   onChange,
   hints,
+  emptyLabel = "No one to assign yet. Add a person on the Team tab.",
 }: {
   staff: { user_id: string; full_name: string }[];
   selected: string[];
   onChange: (ids: string[]) => void;
   hints?: Record<string, AssigneeHint>;
+  emptyLabel?: string;
 }) {
   if (!staff.length) {
-    return <p className="text-sm text-muted">No one to assign yet. Add a person on the Team tab.</p>;
+    return <p className="text-sm text-muted">{emptyLabel}</p>;
   }
   return (
     <div className="grid gap-1.5">
