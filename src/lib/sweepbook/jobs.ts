@@ -16,6 +16,8 @@ import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
 import { inheritChecklistForNewJob } from "./checklist-store";
 import { findTimeOffHits, type TimeOffHit } from "./time-off";
+import { findAvailabilityHits } from "./crew-details";
+import type { AvailabilityHit } from "./availability";
 import {
   addDaysChicago,
   addMinutes,
@@ -369,6 +371,17 @@ async function findConflictsForStarts(
 }
 
 /** Occurrences from S forward. Recurring series never materialize history before S or before today. */
+function availabilityVisits(starts: Date[], durationMin: number, recurrence?: Recurrence) {
+  let list = starts;
+  if (recurrence && recurrence !== "none") {
+    const now = startOfChicagoDay(new Date());
+    const horizonEnd = addDaysChicago(now, 56);
+    const filtered = starts.filter((s) => s < horizonEnd && s >= now);
+    list = filtered.length ? filtered : starts;
+  }
+  return list.map((start) => ({ start, durationMin }));
+}
+
 function occurrenceStarts(first: Date, recurrence: Recurrence, now = new Date()): Date[] {
   if (recurrence === "none") return [first];
   const stepDays = recurrence === "weekly" ? 7 : recurrence === "biweekly" ? 14 : 28;
@@ -458,7 +471,13 @@ export const checkJobConflicts = createServerFn({ method: "POST" })
       data.assignedToUserIds ?? [],
       { horizonWeeks: data.recurrence && data.recurrence !== "none" ? 8 : undefined },
     );
-    return { conflicts: hits, timeOff };
+    const availability = await findAvailabilityHits(
+      sql,
+      ownerId,
+      availabilityVisits(starts, durationMin, data.recurrence),
+      data.assignedToUserIds ?? [],
+    );
+    return { conflicts: hits, timeOff, availability };
   });
 
 export const checkAssignConflicts = createServerFn({ method: "POST" })
@@ -484,7 +503,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
     );
     const job = jobRows[0];
     if (!job) throw new Error("Visit not found.");
-    if (!ids.length) return { conflicts: [] as ConflictHit[], timeOff: [] as TimeOffHit[] };
+    if (!ids.length) return { conflicts: [] as ConflictHit[], timeOff: [] as TimeOffHit[], availability: [] as AvailabilityHit[] };
 
     const extras =
       data.scope === "client_recurring"
@@ -510,6 +529,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
     const timeOff: TimeOffHit[] = [];
     const seenOff = new Set<string>();
     const horizon = addDaysChicago(startOfChicagoDay(new Date()), 56);
+    const availVisits: { start: Date; durationMin: number }[] = [];
     for (const row of list) {
       const start = new Date(row.start_at);
       hits.push(
@@ -523,6 +543,7 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
         )),
       );
       if (data.scope === "client_recurring" && start >= horizon) continue;
+      availVisits.push({ start, durationMin: Number(row.duration_min) });
       const offs = await findTimeOffHits(sql, ownerId, [start], Number(row.duration_min), ids);
       for (const hit of offs) {
         const key = `${hit.userId}|${hit.requestId}|${hit.status}`;
@@ -531,7 +552,8 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
         timeOff.push(hit);
       }
     }
-    return { conflicts: dedupeHits(hits), timeOff };
+    const availability = await findAvailabilityHits(sql, ownerId, availVisits, ids);
+    return { conflicts: dedupeHits(hits), timeOff, availability };
   });
 
 export const createJob = createServerFn({ method: "POST" })

@@ -298,6 +298,12 @@ export type NotificationRow = {
   handled_at: string | null;
 };
 
+export type AvailabilityWindow = {
+  day: number;
+  start: string;
+  end: string;
+};
+
 export type TeamMember = {
   user_id: string;
   full_name: string;
@@ -318,6 +324,17 @@ export type TeamMember = {
   pay_note?: string | null;
   office_role?: OfficeRole;
   can_charge?: boolean;
+  staff_notes?: string | null;
+  address_line1?: string | null;
+  address_line2?: string | null;
+  city?: string | null;
+  state?: string | null;
+  zip?: string | null;
+  emergency_name?: string | null;
+  emergency_phone?: string | null;
+  birthday?: string | null;
+  start_date?: string | null;
+  availability?: AvailabilityWindow[];
 };
 
 export type BillingMethod = {

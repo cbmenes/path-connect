@@ -1,7 +1,8 @@
 import { useEffect, useState } from "react";
 import { useQuery } from "@tanstack/react-query";
 import { toast } from "sonner";
-import { cancelFutureRecurring, listClientSeries, saveRecurringPlan } from "@/lib/sweepbook/jobs";
+import { cancelFutureRecurring, checkJobConflicts, listClientSeries, saveRecurringPlan } from "@/lib/sweepbook/jobs";
+import type { AvailabilityHit } from "@/lib/sweepbook/availability";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { checkTimeOffConflicts } from "@/lib/sweepbook/time-off";
 import type { TimeOffHit } from "@/lib/sweepbook/time-off";
@@ -126,6 +127,7 @@ function PlanEditor({
   const [busy, setBusy] = useState(false);
   const [cancelOpen, setCancelOpen] = useState(false);
   const [offHits, setOffHits] = useState<TimeOffHit[]>([]);
+  const [availHits, setAvailHits] = useState<AvailabilityHit[]>([]);
   const [pendingSave, setPendingSave] = useState(false);
   const [hh, mm] = time.split(":").map(Number);
   const hintStart = nextWeekdayOnOrAfter(new Date(), weekday, hh || 9, mm || 0);
@@ -249,17 +251,29 @@ function PlanEditor({
             try {
               const [h, m] = time.split(":").map(Number);
               const first = nextWeekdayOnOrAfter(new Date(), weekday, h || 9, m || 0);
+              const startLocal = toDatetimeLocalValue(first);
+              const durationMin = hoursToMinutes(Number(durationHours));
               const check = await checkTimeOffConflicts({
                 data: {
-                  startLocal: toDatetimeLocalValue(first),
-                  durationMin: hoursToMinutes(Number(durationHours)),
+                  startLocal,
+                  durationMin,
                   assignedToUserIds: assignees,
                   recurrence: frequency,
                   horizonWeeks: 8,
                 },
               });
-              if ((check.timeOff ?? []).some((hit) => hit.status === "approved")) {
+              const avail = await checkJobConflicts({
+                data: {
+                  startLocal,
+                  durationMin,
+                  assignedToUserIds: assignees,
+                  recurrence: frequency,
+                },
+              });
+              const outside = avail.availability ?? [];
+              if ((check.timeOff ?? []).some((hit) => hit.status === "approved") || outside.length) {
                 setOffHits(check.timeOff ?? []);
+                setAvailHits(outside);
                 setPendingSave(true);
                 setBusy(false);
                 return;
@@ -311,8 +325,12 @@ function PlanEditor({
         open={pendingSave}
         conflicts={[]}
         timeOff={offHits}
+        availability={availHits}
         busy={busy}
-        onBack={() => setPendingSave(false)}
+        onBack={() => {
+          setPendingSave(false);
+          setAvailHits([]);
+        }}
         onSaveAnyway={persistPlan}
         saveLabel="Assign anyway"
       />

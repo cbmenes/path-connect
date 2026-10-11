@@ -7,7 +7,9 @@ import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { listTimeOff } from "@/lib/sweepbook/time-off";
 import { firstName, timeOffCoversDay } from "@/lib/sweepbook/time-off-overlap";
-import type { DayOffMark } from "@/components/app/calendar-board";
+import { listCrewMarks } from "@/lib/sweepbook/crew-details";
+import { crewMarksForDay } from "@/lib/sweepbook/availability";
+import type { CrewDayMark, DayOffMark } from "@/components/app/calendar-board";
 import {
   addDaysChicago,
   chicagoDate,
@@ -99,6 +101,11 @@ export function OfficeCalendar({
       }),
     enabled: showTimeOff && (isOffice || isTeam),
   });
+  const crewDates = useQuery({
+    queryKey: ["crew-marks"],
+    queryFn: () => listCrewMarks(),
+    enabled: !clientId && (isOffice || isTeam),
+  });
 
   const days = useMemo(() => calendarDays(mode, anchor, range.from), [anchor, mode, range.from]);
   const offByDay = useMemo(() => {
@@ -121,6 +128,17 @@ export function OfficeCalendar({
     }
     return map;
   }, [days, timeOff.data, isTeam, actor.data?.userId, showTimeOff]);
+  const marksByDay = useMemo(() => {
+    const map = new Map<string, CrewDayMark[]>();
+    if (clientId) return map;
+    const people = crewDates.data ?? [];
+    for (const day of days) {
+      const key = isoDay(day);
+      const marks = crewMarksForDay(people, key);
+      if (marks.length) map.set(key, marks);
+    }
+    return map;
+  }, [days, crewDates.data, clientId]);
   const offChips = useMemo(() => {
     const seen = new Map<string, string>();
     for (const marks of offByDay.values()) {
@@ -228,6 +246,7 @@ export function OfficeCalendar({
         named={named}
         canAdd={Boolean(isOffice)}
         offByDay={showTimeOff && (isOffice || isTeam) ? offByDay : undefined}
+        marksByDay={clientId ? undefined : marksByDay}
         onEmpty={(dt) => {
           if (!isOffice) return;
           setAddStart(toDatetimeLocalValue(dt));

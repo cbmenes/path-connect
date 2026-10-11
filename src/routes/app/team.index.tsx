@@ -23,7 +23,9 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { NameFields } from "@/components/app/name-fields";
 import { PhoneInput } from "@/components/app/phone-input";
-import { namesFrom } from "@/lib/sweepbook/people";
+import { addressPartsFrom, namesFrom, type AddressParts } from "@/lib/sweepbook/people";
+import type { AvailabilityWindow } from "@/lib/sweepbook/types";
+import { TeamDetailSections } from "@/components/app/team-details";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/team/")({ component: TeamPage });
@@ -415,6 +417,7 @@ function TeamPage() {
             onSaved={async () => {
               setEditing(null);
               await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["crew-marks"] });
               await qc.invalidateQueries({ queryKey: ["jobs"] });
               await qc.invalidateQueries({ queryKey: ["actor"] });
               await qc.invalidateQueries({ queryKey: ["client"] });
@@ -480,6 +483,13 @@ function EditMember({
   const [payDollars, setPayDollars] = useState(((member.pay_amount ?? 0) / 100).toFixed(2));
   const [payPercent, setPayPercent] = useState(String(member.pay_type === "percent" ? member.pay_amount ?? 0 : 0));
   const [payNote, setPayNote] = useState(member.pay_note ?? "");
+  const [notes, setNotes] = useState(member.staff_notes ?? "");
+  const [availability, setAvailability] = useState<AvailabilityWindow[]>(member.availability ?? []);
+  const [address, setAddress] = useState<AddressParts>(addressPartsFrom(member));
+  const [emergencyName, setEmergencyName] = useState(member.emergency_name ?? "");
+  const [emergencyPhone, setEmergencyPhone] = useState(member.emergency_phone ?? "");
+  const [birthday, setBirthday] = useState(member.birthday ?? "");
+  const [startDate, setStartDate] = useState(member.start_date ?? "");
   const [busy, setBusy] = useState(false);
 
   return (
@@ -514,6 +524,19 @@ function EditMember({
                       payNote,
                     }
                   : {}),
+                details: {
+                  staffNotes: notes,
+                  addressLine1: address.address_line1,
+                  addressLine2: address.address_line2,
+                  city: address.city,
+                  state: address.state,
+                  zip: address.zip,
+                  emergencyName,
+                  emergencyPhone,
+                  birthday,
+                  startDate,
+                  availability,
+                },
               },
             });
             toast.success(isAdminMember ? "Admin updated." : "Team cleaner updated.");
@@ -532,6 +555,22 @@ function EditMember({
         <Field label="Email">
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
+        <TeamDetailSections
+          notes={notes}
+          onNotes={setNotes}
+          availability={availability}
+          onAvailability={setAvailability}
+          address={address}
+          onAddress={setAddress}
+          emergencyName={emergencyName}
+          onEmergencyName={setEmergencyName}
+          emergencyPhone={emergencyPhone}
+          onEmergencyPhone={setEmergencyPhone}
+          birthday={birthday}
+          onBirthday={setBirthday}
+          startDate={startDate}
+          onStartDate={setStartDate}
+        />
         {member.pending ? null : (
           <label className="flex min-h-11 items-center gap-2 text-sm">
             <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />

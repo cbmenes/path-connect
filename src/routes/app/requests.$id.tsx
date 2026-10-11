@@ -11,7 +11,8 @@ import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { calendarAppointmentSearch, fromDatetimeLocalValue, hoursToMinutes, minutesToHours, money } from "@/lib/sweepbook/time";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
-import { timeOffLine } from "@/components/app/conflict-warning";
+import { ConflictWarningDialog, timeOffLine } from "@/components/app/conflict-warning";
+import type { AvailabilityHit } from "@/lib/sweepbook/availability";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
@@ -37,6 +38,8 @@ function RequestDetailPage() {
   const [busy, setBusy] = useState(false);
   const [declineOpen, setDeclineOpen] = useState(false);
   const [declineNote, setDeclineNote] = useState("");
+  const [availHits, setAvailHits] = useState<AvailabilityHit[]>([]);
+  const [confirmAssign, setConfirmAssign] = useState(false);
   const offHints = useTimeOffHints(
     startLocal ? fromDatetimeLocalValue(startLocal) : null,
     hoursToMinutes(Number(durationHours) || 0),
@@ -58,6 +61,29 @@ function RequestDetailPage() {
   if (!detail) return null;
   const r = detail.request;
   const pending = r.status === "pending";
+
+  async function acceptNow() {
+    const durationMin = hoursToMinutes(Number(durationHours) || 0);
+    const res = await acceptCleanRequest({
+      data: {
+        id: r.id,
+        startLocal,
+        durationMin,
+        priceCents,
+        assignedToUserIds: assignees,
+        service,
+        notes,
+      },
+    });
+    toast.success("Request accepted. One visit is on the book.");
+    await qc.invalidateQueries({ queryKey: ["clean-requests"] });
+    await qc.invalidateQueries({ queryKey: ["clean-request", id] });
+    await qc.invalidateQueries({ queryKey: ["jobs"] });
+    await qc.invalidateQueries({ queryKey: ["dashboard"] });
+    await qc.invalidateQueries({ queryKey: ["notifications"] });
+    await qc.invalidateQueries({ queryKey: ["badges"] });
+    await navigate({ to: "/app/calendar", search: calendarAppointmentSearch(res.jobId) });
+  }
 
   return (
     <div className="mx-auto grid max-w-lg gap-5">
@@ -128,25 +154,13 @@ function RequestDetailPage() {
                 if (approvedOff.length) {
                   toast.message(approvedOff.map(timeOffLine).join(" ") + " Accept anyway, or pick someone else.");
                 }
-                const res = await acceptCleanRequest({
-                  data: {
-                    id: r.id,
-                    startLocal,
-                    durationMin,
-                    priceCents,
-                    assignedToUserIds: assignees,
-                    service,
-                    notes,
-                  },
-                });
-                toast.success("Request accepted. One visit is on the book.");
-                await qc.invalidateQueries({ queryKey: ["clean-requests"] });
-                await qc.invalidateQueries({ queryKey: ["clean-request", id] });
-                await qc.invalidateQueries({ queryKey: ["jobs"] });
-                await qc.invalidateQueries({ queryKey: ["dashboard"] });
-                await qc.invalidateQueries({ queryKey: ["notifications"] });
-                await qc.invalidateQueries({ queryKey: ["badges"] });
-                await navigate({ to: "/app/calendar", search: calendarAppointmentSearch(res.jobId) });
+                const outside = conflicts.availability ?? [];
+                if (outside.length) {
+                  setAvailHits(outside);
+                  setConfirmAssign(true);
+                  return;
+                }
+                await acceptNow();
               } catch (err) {
                 toast.error(err instanceof Error ? err.message : "Could not accept.");
               } finally {
@@ -236,6 +250,25 @@ function RequestDetailPage() {
               </Field>
             </div>
           </ConfirmDialog>
+          <ConflictWarningDialog
+            open={confirmAssign}
+            conflicts={[]}
+            availability={availHits}
+            busy={busy}
+            onBack={() => setConfirmAssign(false)}
+            onSaveAnyway={async () => {
+              setBusy(true);
+              try {
+                await acceptNow();
+                setConfirmAssign(false);
+              } catch (err) {
+                toast.error(err instanceof Error ? err.message : "Could not accept.");
+              } finally {
+                setBusy(false);
+              }
+            }}
+            saveLabel="Assign anyway"
+          />
         </>
       ) : null}
     </div>

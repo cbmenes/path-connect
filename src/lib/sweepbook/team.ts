@@ -9,6 +9,7 @@ import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
 import { parsePayType, teamPayAllowed, type PayType } from "./team-pay";
 import { isDemoAccountEmail, type OfficeRole, type Profile, type TeamMember, type TeamStatus } from "./types";
+import { normalizePersonDetails, parseAvailabilityJson, type PersonDetailsInput } from "./availability";
 
 function asBool(v: unknown, fallback = false) {
   if (v === true || v === "t" || v === "true") return true;
@@ -66,10 +67,10 @@ async function assertAdminSeatOpen(sql: Awaited<ReturnType<typeof getSql>>, mast
 }
 
 function mapMember(
-  m: TeamMember & { assigned_json?: unknown },
+  m: TeamMember & { assigned_json?: unknown; availability_json?: unknown },
   includePay: boolean,
 ): TeamMember {
-  const { assigned_json: _ignored, ...rest } = m;
+  const { assigned_json: _ignored, availability_json, ...rest } = m;
   const officeRole = parseOfficeRole(rest.office_role);
   return {
     ...rest,
@@ -83,7 +84,61 @@ function mapMember(
     pay_amount: includePay && officeRole === "team" ? Number(rest.pay_amount || 0) : undefined,
     pay_note: includePay && officeRole === "team" ? rest.pay_note ?? null : undefined,
     assigned_clients: parseClientRefs(m.assigned_json),
+    staff_notes: rest.staff_notes ?? null,
+    birthday: dateOnly(rest.birthday),
+    start_date: dateOnly(rest.start_date),
+    availability: parseAvailabilityJson(availability_json),
   };
+}
+
+function dateOnly(raw: string | null | undefined) {
+  if (!raw) return null;
+  const value = String(raw).slice(0, 10);
+  return /^\d{4}-\d{2}-\d{2}$/.test(value) ? value : null;
+}
+
+async function savePersonDetails(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  kind: "profile" | "invite",
+  id: string,
+  ownerId: string,
+  details: PersonDetailsInput | undefined,
+) {
+  if (!details) return;
+  const parsed = normalizePersonDetails(details);
+  if (kind === "profile") {
+    await sql`
+      update profiles set
+        staff_notes = ${parsed.staffNotes},
+        address_line1 = ${parsed.addressLine1 || null},
+        address_line2 = ${parsed.addressLine2 || null},
+        city = ${parsed.city || null},
+        state = ${parsed.state || null},
+        zip = ${parsed.zip || null},
+        emergency_name = ${parsed.emergencyName},
+        emergency_phone = ${parsed.emergencyPhone},
+        birthday = ${parsed.birthday},
+        start_date = ${parsed.startDate},
+        availability_json = ${parsed.availabilityJson}
+      where user_id = ${id} and master_user_id = ${ownerId}
+    `;
+    return;
+  }
+  await sql`
+    update team_invites set
+      staff_notes = ${parsed.staffNotes},
+      address_line1 = ${parsed.addressLine1 || null},
+      address_line2 = ${parsed.addressLine2 || null},
+      city = ${parsed.city || null},
+      state = ${parsed.state || null},
+      zip = ${parsed.zip || null},
+      emergency_name = ${parsed.emergencyName},
+      emergency_phone = ${parsed.emergencyPhone},
+      birthday = ${parsed.birthday},
+      start_date = ${parsed.startDate},
+      availability_json = ${parsed.availabilityJson}
+    where id = ${id} and master_user_id = ${ownerId}
+  `;
 }
 
 export const listTeam = createServerFn({ method: "GET" })
@@ -106,6 +161,11 @@ export const listTeam = createServerFn({ method: "GET" })
               coalesce(pay_type, 'none') as pay_type,
               coalesce(pay_amount, 0)::int as pay_amount,
               pay_note,
+              staff_notes,
+              address_line1, address_line2, city, state, zip,
+              emergency_name, emergency_phone,
+              birthday::text as birthday, start_date::text as start_date,
+              availability_json,
               (select coalesce(json_agg(json_build_object('id', c.id, 'name', c.name) order by c.name), '[]'::json)
                  from client_assignees ca join clients c on c.id = ca.client_id
                  where ca.user_id = profiles.user_id) as assigned_json
@@ -126,6 +186,11 @@ export const listTeam = createServerFn({ method: "GET" })
               coalesce(pay_type, 'none') as pay_type,
               coalesce(pay_amount, 0)::int as pay_amount,
               pay_note,
+              staff_notes,
+              address_line1, address_line2, city, state, zip,
+              emergency_name, emergency_phone,
+              birthday::text as birthday, start_date::text as start_date,
+              availability_json,
               (select coalesce(json_agg(json_build_object('id', c.id, 'name', c.name) order by c.name), '[]'::json)
                  from invite_client_assignees ica
                  join clients c on c.id = ica.client_id
@@ -347,10 +412,24 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
       pay_amount: number | null;
       pay_note: string | null;
       can_clock_in: boolean | null;
+      staff_notes: string | null;
+      address_line1: string | null;
+      address_line2: string | null;
+      city: string | null;
+      state: string | null;
+      zip: string | null;
+      emergency_name: string | null;
+      emergency_phone: string | null;
+      birthday: string | null;
+      start_date: string | null;
+      availability_json: string | null;
     }>`
       select id, master_user_id, name, email, phone, can_message, accepted_at::text as accepted_at,
              coalesce(invite_kind, 'team') as invite_kind, coalesce(can_charge, false) as can_charge,
-             pay_type, pay_amount, pay_note, can_clock_in
+             pay_type, pay_amount, pay_note, can_clock_in,
+             staff_notes, address_line1, address_line2, city, state, zip,
+             emergency_name, emergency_phone, birthday::text as birthday, start_date::text as start_date,
+             availability_json
       from team_invites where token = ${token} limit 1
     `;
     const invite = rows[0];
@@ -386,12 +465,17 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
     await sql`
       insert into profiles (
         user_id, role, full_name, first_name, last_name, phone, email, cleaner_kind, master_user_id,
-        can_message, team_status, can_charge, pay_type, pay_amount, pay_note, can_clock_in
+        can_message, team_status, can_charge, pay_type, pay_amount, pay_note, can_clock_in,
+        staff_notes, address_line1, address_line2, city, state, zip,
+        emergency_name, emergency_phone, birthday, start_date, availability_json
       ) values (
         ${context.userId}, ${"cleaner"}, ${names.name}, ${names.first_name || null}, ${names.last_name || null},
         ${storePhone(invite.phone)},
         ${u?.email || invite.email}, ${kind}, ${invite.master_user_id},
-        ${invite.can_message}, ${"active"}, ${canCharge}, ${payType}, ${payAmount}, ${payNote}, ${canClockIn}
+        ${invite.can_message}, ${"active"}, ${canCharge}, ${payType}, ${payAmount}, ${payNote}, ${canClockIn},
+        ${invite.staff_notes}, ${invite.address_line1}, ${invite.address_line2}, ${invite.city}, ${invite.state}, ${invite.zip},
+        ${invite.emergency_name}, ${invite.emergency_phone}, ${dateOnly(invite.birthday)}, ${dateOnly(invite.start_date)},
+        ${invite.availability_json}
       )
       on conflict (user_id) do update set
         cleaner_kind = ${kind},
@@ -403,7 +487,18 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
         pay_type = ${payType},
         pay_amount = ${payAmount},
         pay_note = ${payNote},
-        can_clock_in = ${canClockIn}
+        can_clock_in = ${canClockIn},
+        staff_notes = ${invite.staff_notes},
+        address_line1 = ${invite.address_line1},
+        address_line2 = ${invite.address_line2},
+        city = ${invite.city},
+        state = ${invite.state},
+        zip = ${invite.zip},
+        emergency_name = ${invite.emergency_name},
+        emergency_phone = ${invite.emergency_phone},
+        birthday = ${dateOnly(invite.birthday)},
+        start_date = ${dateOnly(invite.start_date)},
+        availability_json = ${invite.availability_json}
     `;
     const assigned = await sql<{ client_id: string }>`
       select client_id from invite_client_assignees where invite_id = ${invite.id}
@@ -489,6 +584,7 @@ async function updatePendingTeamInvite(
     payNote?: string;
     canCharge?: boolean;
     canClockIn?: boolean;
+    details?: PersonDetailsInput;
   },
 ) {
   const invites = await sql<{ id: string; invite_kind: string }>`
@@ -543,6 +639,7 @@ async function updatePendingTeamInvite(
   if (data.assignedClientIds && kind !== "admin") {
     await replaceClientAssignmentsForInvite(sql, ownerId, invite.id, data.assignedClientIds);
   }
+  await savePersonDetails(sql, "invite", invite.id, ownerId, data.details);
 }
 
 export const updateTeamMember = createServerFn({ method: "POST" })
@@ -562,6 +659,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     payNote?: string;
     canCharge?: boolean;
     canClockIn?: boolean;
+    details?: PersonDetailsInput;
   }) => input)
   .handler(async ({ context, data }) => {
     const sql = await getSql();
@@ -646,6 +744,7 @@ export const updateTeamMember = createServerFn({ method: "POST" })
         where user_id = ${data.userId} and master_user_id = ${ownerId}
       `;
     }
+    await savePersonDetails(sql, "profile", data.userId, ownerId, data.details);
     if (data.assignedClientIds && member.cleaner_kind !== "admin") {
       const owned = await sql<{ id: string }>`
         select id from clients where cleaner_user_id = ${ownerId}

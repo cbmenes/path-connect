@@ -21,9 +21,11 @@ import { TileProgressBadge } from "@/components/app/job-progress";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import { indexOverlaps, type OverlapNote } from "@/lib/sweepbook/overlaps";
+import { crewMarkLabel } from "@/lib/sweepbook/availability";
 import { firstName } from "@/lib/sweepbook/time-off-overlap";
 
 export type DayOffMark = { userId: string; name: string; status: "approved" | "pending" };
+export type CrewDayMark = { userId: string; name: string; kind: "birthday" | "anniversary" };
 
 export type CalView = "day" | "week" | "month";
 
@@ -160,6 +162,7 @@ export function WeekGrid({
   onEmpty,
   onJob,
   overlapIndex,
+  marksByDay,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -169,6 +172,7 @@ export function WeekGrid({
   onEmpty: (dt: Date) => void;
   onJob: (j: JobWithClient) => void;
   overlapIndex?: Map<string, OverlapNote[]>;
+  marksByDay?: Map<string, CrewDayMark[]>;
 }) {
   const hours = Array.from({ length: 13 }, (_, i) => i + 7);
   return (
@@ -182,6 +186,7 @@ export function WeekGrid({
           >
             {formatDate(d, { weekday: "short" })}
             <div className="text-lg tabular-nums">{partsInChicago(d).day}</div>
+            <CrewMarkList marks={marksByDay?.get(isoDay(d)) ?? []} />
           </div>
         ))}
       </div>
@@ -268,6 +273,7 @@ export function MonthGrid({
   onJob,
   overlapIndex,
   offByDay,
+  marksByDay,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -278,6 +284,7 @@ export function MonthGrid({
   onJob: (j: JobWithClient) => void;
   overlapIndex?: Map<string, OverlapNote[]>;
   offByDay?: Map<string, DayOffMark[]>;
+  marksByDay?: Map<string, CrewDayMark[]>;
 }) {
   const month = partsInChicago(days[15] ?? days[0]).month;
   return (
@@ -295,6 +302,7 @@ export function MonthGrid({
           const inMonth = partsInChicago(d).month === month;
           const today = sameChicagoDay(d, new Date());
           const offs = offByDay?.get(isoDay(d)) ?? [];
+          const marks = marksByDay?.get(isoDay(d)) ?? [];
           return (
             <button
               key={d.toISOString()}
@@ -330,6 +338,7 @@ export function MonthGrid({
                   ))}
                 </div>
               ) : null}
+              <CrewMarkList marks={marks} />
               <div className="mt-1 grid gap-0.5">
                 {preferOverlapTiles(list, overlapIndex, 3).map((j) => {
                   const notes = notesFor(overlapIndex, j.id);
@@ -386,6 +395,7 @@ export function Agenda({
   onEmpty,
   onJob,
   overlapIndex,
+  marksByDay,
 }: {
   days: Date[];
   jobs: JobWithClient[];
@@ -396,6 +406,7 @@ export function Agenda({
   onEmpty: (day: Date) => void;
   onJob: (j: JobWithClient) => void;
   overlapIndex?: Map<string, OverlapNote[]>;
+  marksByDay?: Map<string, CrewDayMark[]>;
 }) {
   return (
     <div className="grid gap-4">
@@ -407,6 +418,7 @@ export function Agenda({
               <h3 className={cn("text-sm font-medium text-navy", sameChicagoDay(d, new Date()) && "text-sage")}>
                 {formatDate(d, { weekday: "long", month: "short", day: "numeric" })}
               </h3>
+              <CrewMarkList marks={marksByDay?.get(isoDay(d)) ?? []} />
               {canAdd ? (
                 <Button variant="ghost" size="sm" onClick={() => onEmpty(d)}>
                   Add
@@ -478,6 +490,7 @@ export function CalendarBody({
   showOverlap = false,
   overlapForUserId,
   offByDay,
+  marksByDay,
 }: {
   mode: CalView;
   days: Date[];
@@ -491,6 +504,7 @@ export function CalendarBody({
   showOverlap?: boolean;
   overlapForUserId?: string;
   offByDay?: Map<string, DayOffMark[]>;
+  marksByDay?: Map<string, CrewDayMark[]>;
 }) {
   const overlapIndex = useMemo(
     () => (showOverlap ? indexOverlaps(jobs, { onlyCleanerUserId: overlapForUserId }) : undefined),
@@ -508,6 +522,7 @@ export function CalendarBody({
         onJob={onJob}
         overlapIndex={overlapIndex}
         offByDay={offByDay}
+        marksByDay={marksByDay}
       />
     );
   }
@@ -523,6 +538,7 @@ export function CalendarBody({
           onEmpty={onEmpty}
           onJob={onJob}
           overlapIndex={overlapIndex}
+          marksByDay={marksByDay}
         />
       </div>
       <div className="md:hidden">
@@ -536,8 +552,25 @@ export function CalendarBody({
           onEmpty={onEmpty}
           onJob={onJob}
           overlapIndex={overlapIndex}
+          marksByDay={marksByDay}
         />
       </div>
     </>
+  );
+}
+
+function CrewMarkList({ marks }: { marks: CrewDayMark[] }) {
+  if (!marks.length) return null;
+  return (
+    <div className="mt-1 flex flex-wrap gap-0.5">
+      {marks.map((mark) => (
+        <span
+          key={`${mark.kind}-${mark.userId}`}
+          className="rounded bg-sage-soft px-1 text-[10px] font-semibold text-navy"
+        >
+          {crewMarkLabel(mark)}
+        </span>
+      ))}
+    </div>
   );
 }

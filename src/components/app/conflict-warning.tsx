@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { assignJob, checkAssignConflicts, type ConflictHit } from "@/lib/sweepbook/jobs";
+import { availabilityLine, type AvailabilityHit } from "@/lib/sweepbook/availability";
 import type { TimeOffHit } from "@/lib/sweepbook/time-off";
 import { formatDateTime } from "@/lib/sweepbook/time";
 import { Button } from "@/components/ui/button";
@@ -21,6 +22,7 @@ export function ConflictWarningDialog({
   open,
   conflicts,
   timeOff,
+  availability,
   busy,
   onBack,
   onSaveAnyway,
@@ -30,6 +32,7 @@ export function ConflictWarningDialog({
   open: boolean;
   conflicts: ConflictHit[];
   timeOff?: TimeOffHit[];
+  availability?: AvailabilityHit[];
   busy?: boolean;
   onBack: () => void;
   onSaveAnyway: () => void | Promise<void>;
@@ -38,13 +41,20 @@ export function ConflictWarningDialog({
 }) {
   const approved = (timeOff ?? []).filter((h) => h.status === "approved");
   const pending = (timeOff ?? []).filter((h) => h.status === "pending");
+  const outside = availability ?? [];
   const shown = conflicts.slice(0, SHOW_MAX);
   const extra = conflicts.length - shown.length;
+  const shownOutside = outside.slice(0, SHOW_MAX);
+  const extraOutside = outside.length - shownOutside.length;
   const title = approved.length
     ? conflicts.length
       ? "Check this assignment"
       : "This cleaner is off"
-    : "This overlaps another visit";
+    : outside.length
+      ? conflicts.length
+        ? "Check this assignment"
+        : "Outside availability"
+      : "This overlaps another visit";
 
   return (
     <Dialog open={open} onOpenChange={(next) => !next && onBack()}>
@@ -67,6 +77,25 @@ export function ConflictWarningDialog({
           <p className="mt-3 text-sm text-muted">
             {pending.map((h) => timeOffLine(h)).join(" ")}
           </p>
+        ) : null}
+        {outside.length ? (
+          <div className={approved.length ? "mt-4" : ""}>
+            <p className="text-sm text-muted">
+              This visit is outside their weekly availability. Assign anyway, or pick someone else.
+            </p>
+            <ul className="mt-3 grid gap-2">
+              {shownOutside.map((hit) => (
+                <li key={`${hit.userId}-${hit.when}`} className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
+                  {availabilityLine(hit)}
+                </li>
+              ))}
+            </ul>
+            {extraOutside > 0 ? (
+              <p className="mt-2 text-xs text-muted">
+                And {extraOutside} more day{extraOutside === 1 ? "" : "s"} outside availability.
+              </p>
+            ) : null}
+          </div>
         ) : null}
         {conflicts.length ? (
           <>
@@ -96,7 +125,7 @@ export function ConflictWarningDialog({
             {backLabel ?? (approved.length ? "Pick someone else" : "Go back")}
           </Button>
           <Button type="button" disabled={busy} onClick={() => void onSaveAnyway()}>
-            {busy ? "Saving…" : saveLabel ?? (approved.length ? "Assign anyway" : "Save anyway")}
+            {busy ? "Saving…" : saveLabel ?? (approved.length || outside.length ? "Assign anyway" : "Save anyway")}
           </Button>
         </div>
       </DialogContent>
@@ -107,6 +136,7 @@ export function ConflictWarningDialog({
 export function useAssignConflictGate() {
   const [conflicts, setConflicts] = useState<ConflictHit[]>([]);
   const [timeOff, setTimeOff] = useState<TimeOffHit[]>([]);
+  const [availability, setAvailability] = useState<AvailabilityHit[]>([]);
   const [open, setOpen] = useState(false);
   const [busy, setBusy] = useState(false);
   const [pending, setPending] = useState<{
@@ -132,7 +162,8 @@ export function useAssignConflictGate() {
         },
       });
       const approved = (res.timeOff ?? []).filter((h) => h.status === "approved");
-      if (!res.conflicts.length && !approved.length) {
+      const outside = res.availability ?? [];
+      if (!res.conflicts.length && !approved.length && !outside.length) {
         await assignJob({
           data: {
             id: input.jobId,
@@ -150,6 +181,7 @@ export function useAssignConflictGate() {
       setPending(input);
       setConflicts(res.conflicts);
       setTimeOff(res.timeOff ?? []);
+      setAvailability(outside);
       setOpen(true);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not check assignments.");
@@ -175,6 +207,7 @@ export function useAssignConflictGate() {
       setPending(null);
       setConflicts([]);
       setTimeOff([]);
+      setAvailability([]);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save.");
     } finally {
@@ -187,10 +220,12 @@ export function useAssignConflictGate() {
       open={open}
       conflicts={conflicts}
       timeOff={timeOff}
+      availability={availability}
       busy={busy}
       onBack={() => {
         setOpen(false);
         setPending(null);
+        setAvailability([]);
       }}
       onSaveAnyway={saveAnyway}
     />

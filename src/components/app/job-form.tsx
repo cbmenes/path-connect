@@ -11,6 +11,7 @@ import { fromDatetimeLocalValue, hoursToMinutes, minutesToHours, money, toDateti
 import type { ClientRow, Recurrence } from "@/lib/sweepbook/types";
 import { AddressFields } from "./address-fields";
 import { AssigneePicker, type AssigneeHint } from "./assignee-picker";
+import { availabilityLine, type AvailabilityHit } from "@/lib/sweepbook/availability";
 import { conflictLine, ConflictWarningDialog, timeOffLine } from "./conflict-warning";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
@@ -47,6 +48,7 @@ export function JobForm({
   );
   const [conflicts, setConflicts] = useState<ConflictHit[]>([]);
   const [timeOff, setTimeOff] = useState<TimeOffHit[]>([]);
+  const [availability, setAvailability] = useState<AvailabilityHit[]>([]);
   const [offRows, setOffRows] = useState<Awaited<ReturnType<typeof listTimeOff>>>([]);
   const [pendingInput, setPendingInput] = useState<JobInput | null>(null);
   const [checking, setChecking] = useState(false);
@@ -98,10 +100,12 @@ export function JobForm({
         .then((r) => {
           setConflicts(r.conflicts);
           setTimeOff(r.timeOff ?? []);
+          setAvailability(r.availability ?? []);
         })
         .catch(() => {
           setConflicts([]);
           setTimeOff([]);
+          setAvailability([]);
         });
     }, 250);
     return () => clearTimeout(t);
@@ -157,9 +161,11 @@ export function JobForm({
             },
           });
           const approvedOff = (res.timeOff ?? []).filter((h) => h.status === "approved");
-          if (res.conflicts.length || approvedOff.length) {
+          const outside = res.availability ?? [];
+          if (res.conflicts.length || approvedOff.length || outside.length) {
             setConflicts(res.conflicts);
             setTimeOff(res.timeOff ?? []);
+            setAvailability(outside);
             setPendingInput(input);
             return;
           }
@@ -245,6 +251,12 @@ export function JobForm({
             : ""}
         </p>
       ) : null}
+      {availability.length ? (
+        <p className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
+          {availabilityLine(availability[0])}
+          {availability.length > 1 ? ` And ${availability.length - 1} more.` : ""} You can still save after confirming.
+        </p>
+      ) : null}
       {timeOff.some((h) => h.status === "pending") && !timeOff.some((h) => h.status === "approved") ? (
         <p className="text-sm text-muted">{timeOff.filter((h) => h.status === "pending").map(timeOffLine).join(" ")}</p>
       ) : null}
@@ -256,6 +268,7 @@ export function JobForm({
       open={Boolean(pendingInput)}
       conflicts={conflicts}
       timeOff={timeOff}
+      availability={availability}
       busy={submitting}
       onBack={() => setPendingInput(null)}
       onSaveAnyway={async () => {
