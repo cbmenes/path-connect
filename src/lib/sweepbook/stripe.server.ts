@@ -622,6 +622,20 @@ export async function retrieveConnectedChargeSession(accountId: string, sessionI
   }
 }
 
+async function settleConnectedCheckoutEvent(sessionId: string, accountHint: string | null) {
+  const sql = await getSql();
+  const rows = await sql<{ stripe_account_id: string | null }>`
+    select stripe_account_id from invoices
+    where stripe_checkout_session_id = ${sessionId}
+    limit 1
+  `;
+  const accountId = rows[0]?.stripe_account_id;
+  if (!accountId || (accountHint && accountHint !== accountId)) return;
+  const session = await retrieveConnectedChargeSession(accountId, sessionId);
+  const { applyConnectedCharge } = await import("./client-charge.server");
+  await applyConnectedCharge(session, accountId);
+}
+
 export async function handleStripeWebhook(raw: Buffer, signature: string | null) {
   if (!signature) return { status: 400, body: { error: "Missing Stripe-Signature" } };
   let stripe: Stripe;
@@ -644,8 +658,7 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
       if (session.mode === "payment" && session.metadata?.purpose === "client_charge" && session.id) {
-        const { settleClientCheckoutSession } = await import("./payments");
-        await settleClientCheckoutSession(session.id, event.account ?? null);
+        await settleConnectedCheckoutEvent(session.id, event.account ?? null);
       } else {
         await onCheckoutCompleted(session);
       }
