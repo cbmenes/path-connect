@@ -8,6 +8,7 @@ import { chargeCard, listCardsForClient, markAsPaid } from "@/lib/sweepbook/paym
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { formatDate, formatHours, formatTime, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { JobForm } from "@/components/app/job-form";
+import { OpenedContent } from "@/components/app/opened-content";
 import { JobChecklist } from "@/components/app/job-checklist";
 import { JobProgress } from "@/components/app/job-progress";
 import { OverlapDetails } from "@/components/app/overlap-mark";
@@ -243,6 +244,7 @@ export function JobPanel({
         </div>
 
         {chargeOpen && canCharge ? (
+          <OpenedContent>
           <div className="grid gap-2 rounded-xl bg-secondary p-3">
             <p className="text-sm font-medium">Confirm charge</p>
             <Field label="Amount">
@@ -300,9 +302,11 @@ export function JobPanel({
             </>
             )}
           </div>
+          </OpenedContent>
         ) : null}
 
         {editing && canEdit ? (
+          <OpenedContent>
           <JobForm
             showAssign
             initial={{
@@ -330,6 +334,7 @@ export function JobPanel({
               await onChanged();
             }}
           />
+          </OpenedContent>
         ) : null}
       </div>
     </DialogContent>

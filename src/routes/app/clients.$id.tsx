@@ -25,6 +25,7 @@ import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
 import { OfficeCalendar } from "@/components/app/office-calendar";
+import { OpenedContent } from "@/components/app/opened-content";
 
 export const Route = createFileRoute("/app/clients/$id")({ component: ClientProfile });
 
@@ -143,7 +144,11 @@ function ClientProfile() {
             >
               Send add-card link
             </Button>
-            {cardLink ? <p className="break-all text-xs text-muted">{cardLink}</p> : null}
+            {cardLink ? (
+              <OpenedContent>
+                <p className="break-all text-xs text-muted">{cardLink}</p>
+              </OpenedContent>
+            ) : null}
             <CollectOnSite
               clientId={client.id}
               open={collectCard}
@@ -242,13 +247,18 @@ function ClientProfile() {
           </Button>
           )}
         </div>
-        {inviteUrl ? <p className="mt-2 break-all text-xs text-muted">{inviteUrl}</p> : null}
+        {inviteUrl ? (
+          <OpenedContent>
+            <p className="mt-2 break-all text-xs text-muted">{inviteUrl}</p>
+          </OpenedContent>
+        ) : null}
         <p className="mt-2 text-sm text-muted">
           {client.linked_user_id ? "This household already has a portal login." : "They have not joined yet."}
         </p>
       </Card>
 
       {editing ? (
+        <OpenedContent>
         <ClientFields
           initial={{
             first_name: client.first_name ?? undefined,
@@ -284,6 +294,7 @@ function ClientProfile() {
             await qc.invalidateQueries({ queryKey: ["client", id] });
           }}
         />
+        </OpenedContent>
       ) : null}
 
       <OfficeCalendar
@@ -381,29 +392,33 @@ function CollectOnSite({
       <Button variant="outline" onClick={() => onOpenChange(!open)}>
         Collect card on site
       </Button>
-      {open && mode.data.mode === "demo" ? (
-        <CardForm
-          submitLabel="Save as backup card"
-          onSubmit={async (payload) => {
-            const saved = await addCardAuthenticated({
-              data: { ...payload, clientId, source: "cleaner" },
-            });
-            toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-            onOpenChange(false);
-            await onSaved();
-          }}
-        />
-      ) : null}
-      {open && mode.data.mode === "stripe" ? (
-        <StripeCardSetup
-          clientId={clientId}
-          source="cleaner"
-          onSaved={async (saved) => {
-            toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-            onOpenChange(false);
-            await onSaved();
-          }}
-        />
+      {open ? (
+        <OpenedContent>
+          {mode.data.mode === "demo" ? (
+            <CardForm
+              submitLabel="Save as backup card"
+              onSubmit={async (payload) => {
+                const saved = await addCardAuthenticated({
+                  data: { ...payload, clientId, source: "cleaner" },
+                });
+                toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
+                onOpenChange(false);
+                await onSaved();
+              }}
+            />
+          ) : null}
+          {mode.data.mode === "stripe" ? (
+            <StripeCardSetup
+              clientId={clientId}
+              source="cleaner"
+              onSaved={async (saved) => {
+                toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
+                onOpenChange(false);
+                await onSaved();
+              }}
+            />
+          ) : null}
+        </OpenedContent>
       ) : null}
     </>
   );

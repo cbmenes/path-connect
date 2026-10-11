@@ -17,6 +17,7 @@ import { CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } 
 import { StripeCardSetup } from "@/components/app/stripe-card-setup";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { JobForm } from "@/components/app/job-form";
+import { OpenedContent } from "@/components/app/opened-content";
 import { JobChecklist } from "@/components/app/job-checklist";
 import { ClientJobStatus, JobProgress } from "@/components/app/job-progress";
 import { ReminderTestButton } from "@/components/app/reminder-test-button";
@@ -257,6 +258,7 @@ function JobDetail() {
       ) : null}
 
       {editing && officeWrites ? (
+        <OpenedContent>
         <JobForm
           showAssign
           initial={{
@@ -284,6 +286,7 @@ function JobDetail() {
             await qc.invalidateQueries({ queryKey: ["job", id] });
           }}
         />
+        </OpenedContent>
       ) : null}
       <CancelAppointmentDialog
         open={cancelOpen}

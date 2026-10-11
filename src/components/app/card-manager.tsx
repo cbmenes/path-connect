@@ -5,6 +5,7 @@ import { addCardAuthenticated, getClientChargeMode, removeCard, setDefaultCard }
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import type { CardRow } from "@/lib/sweepbook/types";
 import { CardForm } from "./card-form";
+import { OpenedContent } from "./opened-content";
 import { StripeCardSetup } from "./stripe-card-setup";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Button } from "@/components/ui/button";
@@ -128,43 +129,47 @@ export function CardManager({
         </Card>
       ))}
       {localCards && adding ? (
-        <Card>
-          <h3 className="mb-3 font-display text-lg text-navy">Add a new card</h3>
-          <CardForm
-            submitLabel="Save card securely"
-            onSubmit={async (payload) => {
-              const saved = await addCardAuthenticated({
-                data: { ...payload, clientId, source },
-              });
-              toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-              setAdding(false);
-              await onChange();
-            }}
-          />
-          <Button variant="ghost" className="mt-2" onClick={() => setAdding(false)}>
-            Cancel
-          </Button>
-        </Card>
+        <OpenedContent>
+          <Card>
+            <h3 className="mb-3 font-display text-lg text-navy">Add a new card</h3>
+            <CardForm
+              submitLabel="Save card securely"
+              onSubmit={async (payload) => {
+                const saved = await addCardAuthenticated({
+                  data: { ...payload, clientId, source },
+                });
+                toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
+                setAdding(false);
+                await onChange();
+              }}
+            />
+            <Button variant="ghost" className="mt-2" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+          </Card>
+        </OpenedContent>
       ) : localCards ? (
         <Button variant="outline" onClick={() => setAdding(true)}>
           Replace / add new card
         </Button>
       ) : mode.data?.mode === "stripe" && adding ? (
-        <Card>
-          <h3 className="mb-3 font-display text-lg text-navy">Add a card</h3>
-          <StripeCardSetup
-            clientId={clientId}
-            source={source}
-            onSaved={async (saved) => {
-              toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-              setAdding(false);
-              await onChange();
-            }}
-          />
-          <Button variant="ghost" className="mt-2" onClick={() => setAdding(false)}>
-            Cancel
-          </Button>
-        </Card>
+        <OpenedContent>
+          <Card>
+            <h3 className="mb-3 font-display text-lg text-navy">Add a card</h3>
+            <StripeCardSetup
+              clientId={clientId}
+              source={source}
+              onSaved={async (saved) => {
+                toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
+                setAdding(false);
+                await onChange();
+              }}
+            />
+            <Button variant="ghost" className="mt-2" onClick={() => setAdding(false)}>
+              Cancel
+            </Button>
+          </Card>
+        </OpenedContent>
       ) : mode.data?.mode === "stripe" ? (
         <Button variant="outline" onClick={() => setAdding(true)}>
           Add a card
