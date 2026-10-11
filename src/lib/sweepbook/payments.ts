@@ -28,7 +28,13 @@ function receiptNo() {
 
 const CONNECT_REQUIRED = "Connect Stripe in Settings before charging a card.";
 
-/** Demo stays a dry run. A real company must have a Connect account before a card charge. */
+const SETUP_REQUIRED = "Finish Stripe setup in Settings before charging a card.";
+
+/**
+ * Demo stays a dry run and never calls Stripe.
+ * A real company is not ready until Stripe enables card payments.
+ * The charge itself is still not sent to Stripe.
+ */
 async function assertCardChargeAccount(sql: Awaited<ReturnType<typeof getSql>>, ownerId: string) {
   const rows = await sql<{ email: string | null; stripe_account_id: string | null }>`
     select u.email, p.stripe_account_id
@@ -38,7 +44,10 @@ async function assertCardChargeAccount(sql: Awaited<ReturnType<typeof getSql>>, 
     limit 1
   `;
   if (isDemoAccountEmail(rows[0]?.email)) return;
-  if (!rows[0]?.stripe_account_id) throw new Error(CONNECT_REQUIRED);
+  const accountId = rows[0]?.stripe_account_id;
+  if (!accountId) throw new Error(CONNECT_REQUIRED);
+  const { stripeCardPaymentsEnabled } = await import("./stripe.server");
+  if (!(await stripeCardPaymentsEnabled(accountId))) throw new Error(SETUP_REQUIRED);
 }
 
 function pickChargeCard(cards: CardRow[], cardId?: string): CardRow | undefined {

@@ -402,7 +402,13 @@ export async function createOwnerConnectLink(userId: string) {
             losses_collector: "stripe",
           },
         },
-        configuration: { merchant: {} },
+        configuration: {
+          merchant: {
+            capabilities: {
+              card_payments: { requested: true },
+            },
+          },
+        },
         metadata: { user_id: userId },
       });
     } catch (err) {
@@ -411,6 +417,20 @@ export async function createOwnerConnectLink(userId: string) {
     accountId = account.id;
     if (!accountId) throw new Error("Stripe did not return a connected account.");
     await sql`update profiles set stripe_account_id = ${accountId} where user_id = ${userId}`;
+  } else {
+    try {
+      await stripe.v2.core.accounts.update(accountId, {
+        configuration: {
+          merchant: {
+            capabilities: {
+              card_payments: { requested: true },
+            },
+          },
+        },
+      });
+    } catch (err) {
+      throw new Error(safeStripeMessage(err, "Stripe could not prepare card payments for this account."));
+    }
   }
   const origin = await checkoutOrigin();
   let link: Awaited<ReturnType<typeof stripe.v2.core.accountLinks.create>>;
@@ -432,10 +452,27 @@ export async function createOwnerConnectLink(userId: string) {
   return { url: link.url };
 }
 
+/** Connected only when Stripe has enabled card payments. Restricted, pending, or unknown is not ready. */
+export async function stripeCardPaymentsEnabled(accountId: string) {
+  try {
+    const stripe = stripeClient();
+    const account = await stripe.v2.core.accounts.retrieve(accountId, {
+      include: ["configuration.merchant"],
+    });
+    if (account.closed) return false;
+    return account.configuration?.merchant?.capabilities?.card_payments?.status === "active";
+  } catch {
+    return false;
+  }
+}
+
 export async function openOwnerStripeAccount(userId: string) {
   const sql = await getSql();
   const { actor } = await assertActiveConnectMaster(sql, userId);
   if (!actor.profile.stripe_account_id) throw new Error("Connect Stripe before opening the account.");
+  if (!(await stripeCardPaymentsEnabled(actor.profile.stripe_account_id))) {
+    throw new Error("Finish Stripe setup in Settings before opening the account.");
+  }
   return { url: "https://dashboard.stripe.com" };
 }
 

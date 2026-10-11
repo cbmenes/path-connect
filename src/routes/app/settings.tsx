@@ -745,62 +745,44 @@ function PlanSection() {
       {plan.showConnect ? (
         <Card>
           <p className="text-xs uppercase tracking-[0.14em] text-sage">Client cards</p>
-          {plan.connected ? (
+          {plan.connectStatus === "ready" ? (
             <>
               <p className="mt-1 font-display text-2xl text-navy">Connected</p>
-              <p className="mt-2 text-sm text-muted">Client card charges are not sent to Stripe yet.</p>
-              <div className="mt-4 flex flex-wrap gap-2">
-                <Button
-                  variant="outline"
-                  disabled={connectBusy || disconnectBusy}
-                  onClick={async () => {
-                    setConnectBusy(true);
-                    try {
-                      const opened = await openStripeAccount({ data: {} });
-                      window.location.assign(opened.url);
-                    } catch (err) {
-                      toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
-                      setConnectBusy(false);
-                    }
-                  }}
-                >
-                  {connectBusy ? "Opening Stripe…" : "Open Stripe account"}
-                </Button>
-                <Button variant="danger" disabled={connectBusy || disconnectBusy} onClick={() => setDisconnectOpen(true)}>
-                  Disconnect Stripe
-                </Button>
-              </div>
-              <ConfirmDialog
-                open={disconnectOpen}
-                onOpenChange={setDisconnectOpen}
-                title="Disconnect Stripe?"
-                body="CrewWeek forgets this connected account. Connect Stripe starts a new one. Client card charges are not sent to Stripe yet."
-                confirmLabel="Disconnect Stripe"
-                busy={disconnectBusy}
-                busyLabel="Disconnecting…"
-                onConfirm={async () => {
-                  setDisconnectBusy(true);
-                  try {
-                    await disconnectStripeAccount({ data: {} });
-                    setDisconnectOpen(false);
-                    await refresh();
-                    toast.success("Stripe disconnected");
-                  } catch (err) {
-                    toast.error(err instanceof Error ? err.message : "Could not disconnect Stripe.");
-                  } finally {
-                    setDisconnectBusy(false);
-                  }
-                }}
-              />
+              <p className="mt-2 text-sm text-muted">Card payments are enabled. Client card charges are not sent to Stripe yet.</p>
+            </>
+          ) : plan.connectStatus === "incomplete" ? (
+            <>
+              <p className="mt-1 font-display text-2xl text-navy">Setup incomplete</p>
+              <p className="mt-2 text-sm text-muted">
+                Stripe has not enabled card payments on this account. Finish setup before charging a card. Client card charges are not sent to Stripe.
+              </p>
             </>
           ) : (
-            <>
-              <p className="mt-2 text-sm text-ink">
-                Connect a Stripe account for this cleaning company. Client card charges are not sent to Stripe yet.
-              </p>
+            <p className="mt-2 text-sm text-ink">
+              Connect a Stripe account for this cleaning company. Client card charges are not sent to Stripe yet.
+            </p>
+          )}
+          <div className="mt-4 flex flex-wrap gap-2">
+            {plan.connectStatus === "ready" ? (
               <Button
-                className="mt-4"
-                disabled={connectBusy}
+                variant="outline"
+                disabled={connectBusy || disconnectBusy}
+                onClick={async () => {
+                  setConnectBusy(true);
+                  try {
+                    const opened = await openStripeAccount({ data: {} });
+                    window.location.assign(opened.url);
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Could not open Stripe.");
+                    setConnectBusy(false);
+                  }
+                }}
+              >
+                {connectBusy ? "Opening Stripe…" : "Open Stripe account"}
+              </Button>
+            ) : (
+              <Button
+                disabled={connectBusy || disconnectBusy}
                 onClick={async () => {
                   setConnectBusy(true);
                   try {
@@ -812,9 +794,38 @@ function PlanSection() {
                   }
                 }}
               >
-                {connectBusy ? "Opening Stripe…" : "Connect Stripe"}
+                {connectBusy ? "Opening Stripe…" : plan.connectStatus === "incomplete" ? "Continue Stripe setup" : "Connect Stripe"}
               </Button>
-            </>
+            )}
+            {plan.connectStatus === "none" ? null : (
+              <Button variant="danger" disabled={connectBusy || disconnectBusy} onClick={() => setDisconnectOpen(true)}>
+                Disconnect Stripe
+              </Button>
+            )}
+          </div>
+          {plan.connectStatus === "none" ? null : (
+            <ConfirmDialog
+              open={disconnectOpen}
+              onOpenChange={setDisconnectOpen}
+              title="Disconnect Stripe?"
+              body="CrewWeek forgets this connected account. Connect Stripe starts a new one. Client card charges are not sent to Stripe yet."
+              confirmLabel="Disconnect Stripe"
+              busy={disconnectBusy}
+              busyLabel="Disconnecting…"
+              onConfirm={async () => {
+                setDisconnectBusy(true);
+                try {
+                  await disconnectStripeAccount({ data: {} });
+                  setDisconnectOpen(false);
+                  await refresh();
+                  toast.success("Stripe disconnected");
+                } catch (err) {
+                  toast.error(err instanceof Error ? err.message : "Could not disconnect Stripe.");
+                } finally {
+                  setDisconnectBusy(false);
+                }
+              }}
+            />
           )}
         </Card>
       ) : null}

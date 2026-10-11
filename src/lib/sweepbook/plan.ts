@@ -84,6 +84,12 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       cancelAtPeriodEnd: actor.profile.cancel_at_period_end,
       periodEnd: actor.profile.current_period_end,
     });
+    const accountId = demo ? null : actor.profile.stripe_account_id;
+    let connectStatus: "none" | "incomplete" | "ready" = "none";
+    if (accountId) {
+      const { stripeCardPaymentsEnabled } = await import("./stripe.server");
+      connectStatus = (await stripeCardPaymentsEnabled(accountId)) ? "ready" : "incomplete";
+    }
     return {
       access: "master" as const,
       code,
@@ -94,7 +100,8 @@ export const getSaasPlan = createServerFn({ method: "GET" })
       subscribed: Boolean(actor.profile.stripe_subscription_id) && !demo,
       stripeCustomer: Boolean(actor.profile.stripe_customer_id) && !demo,
       showConnect: !demo && actor.profile.plan_status === "active" && !periodEnded,
-      connected: Boolean(actor.profile.stripe_account_id) && !demo,
+      connectStatus,
+      connected: connectStatus === "ready",
       adminCount,
       includedAdmins: includedAdminSeats(code),
       extraAdmins,
