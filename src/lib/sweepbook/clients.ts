@@ -5,6 +5,8 @@ import { assertOffice, assertActivePlan, canChargeClients, getActor, masterUserI
 import {
   applyAssigneesToClientRecurring,
   parseAssignees,
+  partitionAssignees,
+  queryAssignableStaff,
   replaceClientAssignees,
   replaceInviteAssigneesForClient,
 } from "./assignees";
@@ -125,22 +127,7 @@ export const getClient = createServerFn({ method: "GET" })
               from messages where client_id = ${id} and cleaner_user_id = ${ownerId}
               order by created_at desc limit 8
             `;
-      const staff = await sql<{ user_id: string; full_name: string }>`
-        select user_id, full_name from (
-          select user_id, full_name, 0 as sort_pending
-          from profiles
-          where master_user_id = ${ownerId} and coalesce(team_status, 'active') = 'active'
-            and coalesce(cleaner_kind, 'team') = 'team'
-          union all
-          select id as user_id,
-                 case when invited_at is null then name || ' · Saved' else name || ' · Invite pending' end as full_name,
-                 1 as sort_pending
-          from team_invites
-          where master_user_id = ${ownerId} and accepted_at is null
-            and coalesce(invite_kind, 'team') = 'team'
-        ) people
-        order by sort_pending, full_name
-      `;
+      const staff = await queryAssignableStaff(sql, ownerId);
       return { client, jobs, invoices, cards, messages, staff };
     }
     if (actor.kind === "client" && actor.client.id === id) {
@@ -313,18 +300,10 @@ export const setClientAssignees = createServerFn({ method: "POST" })
     `;
     if (!owned[0]) throw new Error("Client not found.");
     const unique = [...new Set((data.userIds ?? []).filter(Boolean))];
-    const pending = await sql<{ id: string }>`
-      select id from team_invites
-      where master_user_id = ${ownerId}
-        and accepted_at is null
-        and coalesce(invite_kind, 'team') = 'team'
-    `;
-    const pendingIds = new Set(pending.map((row) => row.id));
-    const profileIds = unique.filter((id) => !pendingIds.has(id));
-    const inviteIds = unique.filter((id) => pendingIds.has(id));
+    const { profileIds, inviteIds, ordered } = await partitionAssignees(sql, ownerId, unique);
     await replaceClientAssignees(sql, data.clientId, profileIds);
     await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, inviteIds);
-    await applyAssigneesToClientRecurring(sql, data.clientId, profileIds);
+    await applyAssigneesToClientRecurring(sql, data.clientId, ordered);
     for (const userId of profileIds) {
       await insertNotification(sql, {
         userId,

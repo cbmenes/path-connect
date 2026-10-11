@@ -14,19 +14,20 @@ import {
   setTeamMessaging,
   updateTeamMember,
 } from "@/lib/sweepbook/team";
-import { formatPayRate, type PayType } from "@/lib/sweepbook/team-pay";
+import { formatPayRate } from "@/lib/sweepbook/team-pay";
 import { actorWritesLocked, isOfficeActor, type OfficeRole, type TeamMember } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
+import { Dialog } from "@/components/ui/dialog";
 import { NameFields } from "@/components/app/name-fields";
 import { PhoneInput } from "@/components/app/phone-input";
-import { addressPartsFrom, namesFrom, type AddressParts } from "@/lib/sweepbook/people";
+import { emptyAddress, type AddressParts } from "@/lib/sweepbook/people";
 import type { AvailabilityWindow } from "@/lib/sweepbook/types";
 import { TeamDetailSections } from "@/components/app/team-details";
-import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
+import { EditMember } from "@/components/app/edit-team-member";
+import { Field, Input, NativeSelect } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/team/")({ component: TeamPage });
 
@@ -41,6 +42,13 @@ function TeamPage() {
   const [canMessage, setCanMessage] = useState(true);
   const [inviteKind, setInviteKind] = useState<OfficeRole>("team");
   const [canCharge, setCanCharge] = useState(false);
+  const [notes, setNotes] = useState("");
+  const [availability, setAvailability] = useState<AvailabilityWindow[]>([]);
+  const [address, setAddress] = useState<AddressParts>(emptyAddress());
+  const [emergencyName, setEmergencyName] = useState("");
+  const [emergencyPhone, setEmergencyPhone] = useState("");
+  const [birthday, setBirthday] = useState("");
+  const [startDate, setStartDate] = useState("");
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
@@ -51,6 +59,35 @@ function TeamPage() {
   const canManageAdmins = Boolean(q.data?.canManageAdmins);
   const canEditPay = Boolean(q.data?.canEditPay);
   const canToggleAccountMessaging = Boolean(q.data?.canToggleAccountMessaging);
+  const personDetails = {
+    staffNotes: notes,
+    addressLine1: address.address_line1,
+    addressLine2: address.address_line2,
+    city: address.city,
+    state: address.state,
+    zip: address.zip,
+    emergencyName,
+    emergencyPhone,
+    birthday,
+    startDate,
+    availability,
+  };
+
+  function clearPersonForm() {
+    setFirstName("");
+    setLastName("");
+    setPhone("");
+    setEmail("");
+    setCanCharge(false);
+    setInviteKind("team");
+    setNotes("");
+    setAvailability([]);
+    setAddress(emptyAddress());
+    setEmergencyName("");
+    setEmergencyPhone("");
+    setBirthday("");
+    setStartDate("");
+  }
 
   if (actor.data && !isOfficeActor(actor.data)) {
     return <p className="text-muted">Only the office manages the team.</p>;
@@ -150,19 +187,17 @@ function TeamPage() {
             setBusy(true);
             try {
               const res = await createTeamInvite({
-                data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge },
+                data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, details: personDetails },
               });
               const url = `${window.location.origin}${res.path}`;
               setInviteUrl(url);
               await navigator.clipboard?.writeText(url).catch(() => undefined);
               toast.success("Invite link copied.");
-              setFirstName("");
-              setLastName("");
-              setPhone("");
-              setEmail("");
-              setCanCharge(false);
-              setInviteKind("team");
+              clearPersonForm();
               await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["crew-marks"] });
+              await qc.invalidateQueries({ queryKey: ["assignable-staff"] });
+              await qc.invalidateQueries({ queryKey: ["staff"] });
             } catch (err) {
               toast.error(err instanceof Error ? err.message : "Could not create invite.");
             } finally {
@@ -190,6 +225,24 @@ function TeamPage() {
           <Field label="Email">
             <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
           </Field>
+          <div className="md:col-span-2">
+            <TeamDetailSections
+              notes={notes}
+              onNotes={setNotes}
+              availability={availability}
+              onAvailability={setAvailability}
+              address={address}
+              onAddress={setAddress}
+              emergencyName={emergencyName}
+              onEmergencyName={setEmergencyName}
+              emergencyPhone={emergencyPhone}
+              onEmergencyPhone={setEmergencyPhone}
+              birthday={birthday}
+              onBirthday={setBirthday}
+              startDate={startDate}
+              onStartDate={setStartDate}
+            />
+          </div>
           {inviteKind === "team" ? (
             <label className="flex items-center gap-2 text-sm">
               <input type="checkbox" checked={canMessage} onChange={(e) => setCanMessage(e.target.checked)} />
@@ -213,13 +266,15 @@ function TeamPage() {
                 }
                 setBusy(true);
                 try {
-                  await saveTeamMember({ data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge } });
+                  await saveTeamMember({
+                    data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, details: personDetails },
+                  });
                   toast.success("Saved to the team list.");
-                  setFirstName("");
-                  setLastName("");
-                  setPhone("");
-                  setEmail("");
+                  clearPersonForm();
                   await qc.invalidateQueries({ queryKey: ["team"] });
+                  await qc.invalidateQueries({ queryKey: ["crew-marks"] });
+                  await qc.invalidateQueries({ queryKey: ["assignable-staff"] });
+                  await qc.invalidateQueries({ queryKey: ["staff"] });
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Could not save.");
                 } finally {
@@ -246,19 +301,15 @@ function TeamPage() {
             members.map((m) => (
               <Card
                 key={m.user_id}
-                className={`relative flex flex-wrap items-center justify-between gap-3 p-4 ${
-                  m.pending ? "" : "transition-colors hover:bg-secondary/50"
-                }`}
+                className="relative flex flex-wrap items-center justify-between gap-3 p-4 transition-colors hover:bg-secondary/50"
               >
-                {m.pending ? null : (
-                  <Link
-                    to="/app/team/$userId"
-                    params={{ userId: m.user_id }}
-                    aria-label={`Open ${m.full_name}'s schedule`}
-                    className="absolute inset-0 z-0 rounded-xl"
-                  />
-                )}
-                <div className="relative z-10 min-w-0">
+                <Link
+                  to="/app/team/$userId"
+                  params={{ userId: m.user_id }}
+                  aria-label={`Open ${m.full_name}`}
+                  className="absolute inset-0 z-0 rounded-xl"
+                />
+                <div className="pointer-events-none relative min-w-0">
                   <p className="font-medium">{m.full_name}</p>
                   <p className="text-xs text-muted">
                     {m.email || m.phone || "No contact"} ·{" "}
@@ -274,16 +325,14 @@ function TeamPage() {
                       Pay: {formatPayRate(m.pay_type ?? "none", m.pay_amount ?? 0)}
                     </p>
                   )}
-                  {m.pending ? null : (
-                    <p className="mt-1 text-xs font-medium text-navy">View schedule</p>
-                  )}
+                  <p className="mt-1 text-xs font-medium text-navy">Open</p>
                   {m.invite_token ? (
                     <p className="mt-1 break-all text-[11px] text-muted">
                       {typeof window !== "undefined" ? `${window.location.origin}/team-invite/${m.invite_token}` : m.invite_token}
                     </p>
                   ) : null}
                 </div>
-                <div className="relative z-10 flex flex-wrap gap-2">
+                <div className="pointer-events-auto relative z-10 flex flex-wrap gap-2">
                   {m.pending ? (
                     <Button
                       variant="outline"
@@ -357,8 +406,17 @@ function TeamPage() {
               <EmptyState title="No admins yet" body="Add an office helper above and choose Admin as the role." />
             ) : (
               admins.map((m) => (
-                <Card key={m.user_id} className="flex flex-wrap items-center justify-between gap-3 p-4">
-                  <div className="min-w-0">
+                <Card
+                  key={m.user_id}
+                  className="relative flex flex-wrap items-center justify-between gap-3 p-4 transition-colors hover:bg-secondary/50"
+                >
+                  <Link
+                    to="/app/team/$userId"
+                    params={{ userId: m.user_id }}
+                    aria-label={`Open ${m.full_name}`}
+                    className="absolute inset-0 z-0 rounded-xl"
+                  />
+                  <div className="pointer-events-none relative min-w-0">
                     <p className="font-medium">{m.full_name}</p>
                     <p className="text-xs text-muted">
                       {m.email || m.phone || "No contact"} ·{" "}
@@ -367,6 +425,7 @@ function TeamPage() {
                     <p className="mt-1 text-xs text-muted">
                       Can charge clients: {m.can_charge ? "On" : "Off"}
                     </p>
+                    <p className="mt-1 text-xs font-medium text-navy">Open</p>
                     {m.invite_token ? (
                       <p className="mt-1 break-all text-[11px] text-muted">
                         {typeof window !== "undefined"
@@ -375,7 +434,7 @@ function TeamPage() {
                       </p>
                     ) : null}
                   </div>
-                  <div className="flex flex-wrap gap-2">
+                  <div className="pointer-events-auto relative z-10 flex flex-wrap gap-2">
                     {m.pending ? (
                       <Button
                         variant="outline"
@@ -450,231 +509,5 @@ function TeamPage() {
         }}
       />
     </div>
-  );
-}
-
-function EditMember({
-  member,
-  clients,
-  canEditPay,
-  canEditCharge,
-  onClose,
-  onSaved,
-}: {
-  member: TeamMember;
-  clients: { id: string; name: string }[];
-  canEditPay: boolean;
-  canEditCharge: boolean;
-  onClose: () => void;
-  onSaved: () => Promise<void>;
-}) {
-  const isAdminMember = member.office_role === "admin";
-  const names = namesFrom(member.first_name, member.last_name, member.full_name);
-  const [firstName, setFirstName] = useState(names.first_name);
-  const [lastName, setLastName] = useState(names.last_name);
-  const [phone, setPhone] = useState(member.phone ?? "");
-  const [email, setEmail] = useState(member.email ?? "");
-  const [active, setActive] = useState(member.team_status !== "disabled");
-  const [messaging, setMessaging] = useState(member.can_message);
-  const [charge, setCharge] = useState(Boolean(member.can_charge));
-  const [clock, setClock] = useState(member.can_clock_in !== false);
-  const [assigned, setAssigned] = useState(member.assigned_clients.map((c) => c.id));
-  const [payType, setPayType] = useState<PayType>(member.pay_type ?? "none");
-  const [payDollars, setPayDollars] = useState(((member.pay_amount ?? 0) / 100).toFixed(2));
-  const [payPercent, setPayPercent] = useState(String(member.pay_type === "percent" ? member.pay_amount ?? 0 : 0));
-  const [payNote, setPayNote] = useState(member.pay_note ?? "");
-  const [notes, setNotes] = useState(member.staff_notes ?? "");
-  const [availability, setAvailability] = useState<AvailabilityWindow[]>(member.availability ?? []);
-  const [address, setAddress] = useState<AddressParts>(addressPartsFrom(member));
-  const [emergencyName, setEmergencyName] = useState(member.emergency_name ?? "");
-  const [emergencyPhone, setEmergencyPhone] = useState(member.emergency_phone ?? "");
-  const [birthday, setBirthday] = useState(member.birthday ?? "");
-  const [startDate, setStartDate] = useState(member.start_date ?? "");
-  const [busy, setBusy] = useState(false);
-
-  return (
-    <DialogContent title={`Edit ${member.full_name}`} className="max-h-[90dvh] overflow-y-auto">
-      <form
-        className="grid gap-3"
-        onSubmit={async (e) => {
-          e.preventDefault();
-          setBusy(true);
-          try {
-            await updateTeamMember({
-              data: {
-                userId: member.user_id,
-                firstName,
-                lastName,
-                phone,
-                email,
-                canMessage: isAdminMember ? undefined : messaging,
-                canClockIn: isAdminMember ? undefined : clock,
-                status: member.pending ? undefined : active ? "active" : "disabled",
-                assignedClientIds: isAdminMember ? undefined : assigned,
-                canCharge: canEditCharge ? charge : undefined,
-                ...(canEditPay && !isAdminMember
-                  ? {
-                      payType,
-                      payAmount:
-                        payType === "none"
-                          ? 0
-                          : payType === "percent"
-                            ? Math.round(Number(payPercent) || 0)
-                            : Math.round(Number(payDollars) * 100),
-                      payNote,
-                    }
-                  : {}),
-                details: {
-                  staffNotes: notes,
-                  addressLine1: address.address_line1,
-                  addressLine2: address.address_line2,
-                  city: address.city,
-                  state: address.state,
-                  zip: address.zip,
-                  emergencyName,
-                  emergencyPhone,
-                  birthday,
-                  startDate,
-                  availability,
-                },
-              },
-            });
-            toast.success(isAdminMember ? "Admin updated." : "Team cleaner updated.");
-            await onSaved();
-          } catch (err) {
-            toast.error(err instanceof Error ? err.message : "Could not save.");
-          } finally {
-            setBusy(false);
-          }
-        }}
-      >
-        <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
-        <Field label="Phone">
-          <PhoneInput value={phone} onChange={setPhone} />
-        </Field>
-        <Field label="Email">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </Field>
-        <TeamDetailSections
-          notes={notes}
-          onNotes={setNotes}
-          availability={availability}
-          onAvailability={setAvailability}
-          address={address}
-          onAddress={setAddress}
-          emergencyName={emergencyName}
-          onEmergencyName={setEmergencyName}
-          emergencyPhone={emergencyPhone}
-          onEmergencyPhone={setEmergencyPhone}
-          birthday={birthday}
-          onBirthday={setBirthday}
-          startDate={startDate}
-          onStartDate={setStartDate}
-        />
-        {member.pending ? null : (
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" checked={active} onChange={(e) => setActive(e.target.checked)} />
-            Active
-          </label>
-        )}
-        {canEditCharge ? (
-          <label className="flex min-h-11 items-center gap-2 text-sm">
-            <input type="checkbox" checked={charge} onChange={(e) => setCharge(e.target.checked)} />
-            Can charge clients
-          </label>
-        ) : null}
-        {isAdminMember ? null : (
-          <div className="flex flex-wrap gap-2">
-            <Button type="button" variant="outline" onClick={() => setMessaging((v) => !v)}>
-              Messaging: {messaging ? "On" : "Off"}
-            </Button>
-            <Button type="button" variant="outline" onClick={() => setClock((v) => !v)}>
-              Clock in/out: {clock ? "On" : "Off"}
-            </Button>
-          </div>
-        )}
-        {!canEditPay || isAdminMember ? null : (
-          <div className="grid gap-3 rounded-xl bg-secondary p-3">
-            <p className="text-sm font-medium">Pay rate</p>
-            <p className="text-xs text-muted">Used on Team pay. This cleaner never sees the rate.</p>
-            <Field label="Pay type">
-              <NativeSelect value={payType} onChange={(e) => setPayType(e.target.value as PayType)}>
-                <option value="none">None</option>
-                <option value="hourly">Hourly</option>
-                <option value="per_job">Per job</option>
-                <option value="percent">Percent of job price</option>
-              </NativeSelect>
-            </Field>
-            {payType === "hourly" || payType === "per_job" ? (
-              <Field label={payType === "hourly" ? "Hourly rate" : "Per-job rate"}>
-                <Input
-                  type="number"
-                  min={0}
-                  step="0.01"
-                  value={payDollars}
-                  onChange={(e) => setPayDollars(e.target.value)}
-                />
-              </Field>
-            ) : null}
-            {payType === "percent" ? (
-              <Field label="Percent of job price">
-                <Input
-                  type="number"
-                  min={0}
-                  max={100}
-                  step={1}
-                  value={payPercent}
-                  onChange={(e) => setPayPercent(e.target.value)}
-                />
-              </Field>
-            ) : null}
-            <Field label="Note (optional)">
-              <Textarea value={payNote} onChange={(e) => setPayNote(e.target.value)} />
-            </Field>
-          </div>
-        )}
-        {isAdminMember ? null : (
-        <div>
-          <p className="text-sm font-medium">Assigned clients</p>
-          <p className="text-xs text-muted">Their recurring jobs appear on this cleaner’s schedule.</p>
-          <div className="mt-2 grid gap-1">
-            {clients.map((c) => {
-              const on = assigned.includes(c.id);
-              return (
-                <label key={c.id} className="flex min-h-11 items-center gap-2 rounded-md px-2 hover:bg-secondary">
-                  <input
-                    type="checkbox"
-                    checked={on}
-                    onChange={() => setAssigned(on ? assigned.filter((id) => id !== c.id) : [...assigned, c.id])}
-                  />
-                  <span className="text-sm">{c.name}</span>
-                </label>
-              );
-            })}
-          </div>
-        </div>
-        )}
-        <Button
-          type="button"
-          variant="outline"
-          onClick={async () => {
-            const res = await resendTeamInvite({ data: { userId: member.user_id, inviteToken: member.invite_token } });
-            const url = `${window.location.origin}${res.path}`;
-            await navigator.clipboard?.writeText(url).catch(() => undefined);
-            toast.success("Invite link copied.");
-          }}
-        >
-          Resend invite
-        </Button>
-        <div className="flex gap-2">
-          <Button type="submit" disabled={busy}>
-            {busy ? "Saving…" : "Save"}
-          </Button>
-          <Button type="button" variant="ghost" onClick={onClose}>
-            Cancel
-          </Button>
-        </div>
-      </form>
-    </DialogContent>
   );
 }

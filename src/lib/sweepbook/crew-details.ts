@@ -17,7 +17,11 @@ export async function findAvailabilityHits(
   const rows = await sql.query<{ user_id: string; full_name: string; availability_json: string | null }>(
     `select user_id, full_name, availability_json
      from profiles
-     where master_user_id = $1 and user_id in (${placeholders})`,
+     where master_user_id = $1 and user_id in (${placeholders})
+     union all
+     select id as user_id, name as full_name, availability_json
+     from team_invites
+     where master_user_id = $1 and accepted_at is null and id in (${placeholders})`,
     [ownerId, ...mine],
   );
   const hits: AvailabilityHit[] = [];

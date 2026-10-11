@@ -29,10 +29,26 @@ export const JOB_SELECT = `
   j.on_the_way_at::text as on_the_way_at, j.started_at::text as started_at,
   j.finished_at::text as finished_at,
   c.name as client_name, c.phone as client_phone, c.notes as client_notes,
-  assignee.full_name as assignee_name,
-  (select coalesce(json_agg(json_build_object('user_id', p.user_id, 'full_name', p.full_name) order by p.full_name), '[]'::json)
-     from job_assignees ja join profiles p on p.user_id = ja.user_id
-     where ja.job_id = j.id) as assignees_json,
+  coalesce(
+    assignee.full_name,
+    (select case when ti.invited_at is null then ti.name || ' · Saved' else ti.name || ' · Invite pending' end
+     from team_invites ti
+     where ti.id = j.assigned_to_user_id and ti.accepted_at is null
+     limit 1)
+  ) as assignee_name,
+  (select coalesce(json_agg(json_build_object('user_id', assigned.user_id, 'full_name', assigned.full_name) order by assigned.full_name), '[]'::json)
+     from (
+       select p.user_id, p.full_name
+       from job_assignees ja
+       join profiles p on p.user_id = ja.user_id
+       where ja.job_id = j.id
+       union all
+       select i.id as user_id,
+              case when i.invited_at is null then i.name || ' · Saved' else i.name || ' · Invite pending' end as full_name
+       from job_assignees ja
+       join team_invites i on i.id = ja.user_id
+       where ja.job_id = j.id and i.accepted_at is null
+     ) assigned) as assignees_json,
   pay.status as payment_status,
   pay.paid_at::text as payment_paid_at,
   pay.method as payment_method,

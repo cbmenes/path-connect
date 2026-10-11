@@ -3,7 +3,7 @@ import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { PROFILE_COLUMNS, assertOffice, assertActivePlan, getActor, masterUserId, subscriptionInactive } from "./access";
 import { enableTeamAccount, setTeamAccountToggle, setTeamPersonToggle } from "./team-toggles";
-import { addMemberToClient, removeMemberFromClient, replaceClientAssignmentsForInvite } from "./assignees";
+import { addMemberToClient, queryAssignableStaff, removeMemberFromClient, replaceClientAssignmentsForInvite } from "./assignees";
 import { ensureDemoSeed } from "./seed";
 import { namesFrom, storePhone } from "./people";
 import { nid } from "./time";
@@ -249,13 +249,7 @@ export const listAssignableStaff = createServerFn({ method: "GET" })
       return [] as { user_id: string; full_name: string }[];
     }
     const ownerId = masterUserId(actor);
-    return sql<{ user_id: string; full_name: string }>`
-      select user_id, full_name from profiles
-      where master_user_id = ${ownerId}
-        and coalesce(team_status, 'active') = 'active'
-        and coalesce(cleaner_kind, 'team') = 'team'
-      order by full_name
-    `;
+    return queryAssignableStaff(sql, ownerId);
   });
 
 async function upsertSavedInvite(
@@ -306,6 +300,7 @@ function teamFormInput(input: {
   canMessage?: boolean;
   inviteKind?: OfficeRole;
   canCharge?: boolean;
+  details?: PersonDetailsInput;
 }) {
   const names = namesFrom(input.firstName, input.lastName, input.name);
   if (!names.first_name || !names.last_name) throw new Error("First and last name are required.");
@@ -319,6 +314,7 @@ function teamFormInput(input: {
     canMessage: inviteKind === "admin" ? true : input.canMessage !== false,
     inviteKind,
     canCharge: inviteKind === "admin" ? Boolean(input.canCharge) : false,
+    details: input.details,
   };
 }
 
@@ -335,6 +331,7 @@ export const saveTeamMember = createServerFn({ method: "POST" })
     }
     const ownerId = masterUserId(actor);
     const saved = await upsertSavedInvite(sql, ownerId, data);
+    await savePersonDetails(sql, "invite", saved.id, ownerId, data.details);
     if (data.inviteKind === "admin") await syncExtraAdminSeats(ownerId);
     return {
       token: saved.token,
@@ -358,6 +355,7 @@ export const createTeamInvite = createServerFn({ method: "POST" })
     }
     const ownerId = masterUserId(actor);
     const saved = await upsertSavedInvite(sql, ownerId, data);
+    await savePersonDetails(sql, "invite", saved.id, ownerId, data.details);
     await sql`update team_invites set invited_at = now() where token = ${saved.token}`;
     if (data.inviteKind === "admin") await syncExtraAdminSeats(ownerId);
     if (data.inviteKind === "team" && data.canMessage) {
@@ -507,6 +505,15 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
       await addMemberToClient(sql, row.client_id, context.userId);
     }
     await sql`delete from invite_client_assignees where invite_id = ${invite.id}`;
+    await sql`
+      insert into job_assignees (job_id, user_id)
+      select job_id, ${context.userId}
+      from job_assignees
+      where user_id = ${invite.id}
+      on conflict do nothing
+    `;
+    await sql`delete from job_assignees where user_id = ${invite.id}`;
+    await sql`update jobs set assigned_to_user_id = ${context.userId} where assigned_to_user_id = ${invite.id}`;
     await sql`update team_invites set accepted_at = now() where token = ${token}`;
     if (kind === "admin") await syncExtraAdminSeats(invite.master_user_id);
     return { ok: true };
@@ -816,6 +823,12 @@ export const resendTeamInvite = createServerFn({ method: "POST" })
     return { token, path: `/team-invite/${token}`, name: member[0].full_name, email: member[0].email };
   });
 
+async function clearInviteAssignments(sql: Awaited<ReturnType<typeof getSql>>, inviteId: string) {
+  await sql`delete from invite_client_assignees where invite_id = ${inviteId}`;
+  await sql`delete from job_assignees where user_id = ${inviteId}`;
+  await sql`update jobs set assigned_to_user_id = null where assigned_to_user_id = ${inviteId}`;
+}
+
 export const deleteTeamMember = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { userId: string; pending?: boolean }) => input)
@@ -842,12 +855,10 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
         if (byToken[0].invite_kind === "admin" && actor.kind !== "cleaner") {
           throw new Error("Admins cannot remove an admin invite.");
         }
-        await sql`
-          delete from invite_client_assignees
-          where invite_id in (
-            select id from team_invites where token = ${data.userId} and master_user_id = ${ownerId}
-          )
+        const tokenRows = await sql<{ id: string }>`
+          select id from team_invites where token = ${data.userId} and master_user_id = ${ownerId} limit 1
         `;
+        if (tokenRows[0]) await clearInviteAssignments(sql, tokenRows[0].id);
         await sql`delete from team_invites where token = ${data.userId} and master_user_id = ${ownerId}`;
         if (byToken[0].invite_kind === "admin") await syncExtraAdminSeats(ownerId);
         return { ok: true, name: byToken[0].name };
@@ -855,7 +866,7 @@ export const deleteTeamMember = createServerFn({ method: "POST" })
       if (invite[0].invite_kind === "admin" && actor.kind !== "cleaner") {
         throw new Error("Admins cannot remove an admin invite.");
       }
-      await sql`delete from invite_client_assignees where invite_id = ${data.userId}`;
+      await clearInviteAssignments(sql, data.userId);
       await sql`delete from team_invites where id = ${data.userId} and master_user_id = ${ownerId}`;
       if (invite[0].invite_kind === "admin") await syncExtraAdminSeats(ownerId);
       return { ok: true, name: invite[0].name };

@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, assertActivePlan, getActor, masterUserId } from "./access";
-import { replaceJobAssignees } from "./assignees";
+import { partitionAssignees, replaceJobAssignees } from "./assignees";
 import { inheritChecklistForNewJob } from "./checklist-store";
 import { insertNotification } from "./notifications";
 import {
@@ -369,7 +369,11 @@ export const acceptCleanRequest = createServerFn({ method: "POST" })
 
     const start = fromDatetimeLocalValue(data.startLocal);
     const jobId = nid("job");
-    const assigneeIds = data.assignedToUserIds ?? [];
+    const { ordered: assigneeIds, profileIds } = await partitionAssignees(
+      sql,
+      ownerId,
+      data.assignedToUserIds ?? [],
+    );
     const jobAddress = address || existing[0]?.address || null;
     await sql`
       insert into jobs (
@@ -387,8 +391,8 @@ export const acceptCleanRequest = createServerFn({ method: "POST" })
     `;
     await replaceJobAssignees(sql, jobId, assigneeIds);
     await inheritChecklistForNewJob(sql, ownerId, clientId, jobId);
-    if (assigneeIds.length) {
-      for (const userId of assigneeIds) {
+    if (profileIds.length) {
+      for (const userId of profileIds) {
         await insertNotification(sql, {
           userId,
           kind: "job_assigned",

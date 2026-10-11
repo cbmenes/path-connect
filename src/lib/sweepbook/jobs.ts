@@ -4,10 +4,13 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { JOB_FROM, JOB_SELECT, assertClient, assertOffice, assertStaff, assertActivePlan, getActor, isOffice, masterUserId } from "./access";
 import {
   applyAssigneesToClientRecurring,
-  getClientAssigneeIds,
+  inheritedAssigneeIds,
   hydrateJob,
+  partitionAssignees,
+  queryAssignableStaff,
   redactJobMoney,
   replaceClientAssignees,
+  replaceInviteAssigneesForClient,
   replaceJobAssignees,
   teamCanAccessJob,
 } from "./assignees";
@@ -56,9 +59,16 @@ export const listJobs = createServerFn({ method: "GET" })
       // Office-only filters. Team / client callers ignore a client-sent id.
       if (data.assignedToUserId) {
         const member = await sql.query<{ user_id: string }>(
-          `select user_id from profiles
-           where user_id = $1 and master_user_id = $2 and role = 'cleaner'
-             and coalesce(cleaner_kind, 'team') = 'team'
+          `select user_id from (
+             select user_id from profiles
+             where user_id = $1 and master_user_id = $2 and role = 'cleaner'
+               and coalesce(team_status, 'active') = 'active'
+               and coalesce(cleaner_kind, 'team') in ('team', 'admin')
+             union all
+             select id as user_id from team_invites
+             where id = $1 and master_user_id = $2 and accepted_at is null
+               and coalesce(invite_kind, 'team') in ('team', 'admin')
+           ) people
            limit 1`,
           [data.assignedToUserId, ownerId],
         );
@@ -159,12 +169,7 @@ export const getJob = createServerFn({ method: "GET" })
               select cancellation_policy from profiles where user_id = ${job.cleaner_user_id} limit 1
             `
           )[0]?.cancellation_policy;
-    const staff = await sql<{ user_id: string; full_name: string }>`
-      select user_id, full_name from profiles
-      where master_user_id = ${job.cleaner_user_id} and coalesce(team_status, 'active') = 'active'
-        and coalesce(cleaner_kind, 'team') = 'team'
-      order by full_name
-    `;
+    const staff = await queryAssignableStaff(sql, job.cleaner_user_id);
     const assigneeIds = [
       ...new Set(
         [
@@ -275,6 +280,16 @@ async function loadNames(sql: Awaited<ReturnType<typeof getSql>>, userIds: strin
     unique,
   );
   for (const row of rows) map.set(row.user_id, row.full_name);
+  const invites = await sql.query<{ user_id: string; full_name: string }>(
+    `select id as user_id,
+            case when invited_at is null then name || ' · Saved' else name || ' · Invite pending' end as full_name
+     from team_invites
+     where id in (${placeholders}) and accepted_at is null`,
+    unique,
+  );
+  for (const row of invites) {
+    if (!map.has(row.user_id)) map.set(row.user_id, row.full_name);
+  }
   return map;
 }
 
@@ -425,7 +440,16 @@ async function notifyAssignees(
   jobId?: string,
   body?: string,
 ) {
-  for (const userId of userIds) {
+  const ids = [...new Set(userIds.filter(Boolean))];
+  if (!ids.length) return;
+  const placeholders = ids.map((_, i) => `$${i + 1}`).join(", ");
+  const live = await sql.query<{ user_id: string }>(
+    `select user_id from profiles where user_id in (${placeholders})`,
+    ids,
+  );
+  const known = new Set(live.map((row) => row.user_id));
+  for (const userId of ids) {
+    if (!known.has(userId)) continue;
     await insertNotification(sql, {
       userId,
       kind: "job_assigned",
@@ -582,8 +606,9 @@ export const createJob = createServerFn({ method: "POST" })
     if (!client) throw new Error("Client not found.");
     const jobParts = data.address_line1 || data.city ? addressPartsFrom(data) : addressPartsFrom(client);
     const jobAddress = formatAddress(jobParts, data.address || client.address || "");
-    const inherited = await getClientAssigneeIds(sql, data.clientId);
-    const assigneeIds = data.assignedToUserIds !== undefined ? data.assignedToUserIds : inherited;
+    const inherited = await inheritedAssigneeIds(sql, data.clientId);
+    const rawIds = data.assignedToUserIds !== undefined ? data.assignedToUserIds : inherited;
+    const { ordered: assigneeIds, profileIds } = await partitionAssignees(sql, ownerId, rawIds);
     const first = fromDatetimeLocalValue(data.startLocal);
     const starts = occurrenceStarts(first, data.recurrence);
     if (!starts.length) {
@@ -614,10 +639,10 @@ export const createJob = createServerFn({ method: "POST" })
       await inheritChecklistForNewJob(sql, ownerId, data.clientId, id, data.checklistTemplateId);
       created.push({ id, start: start.toISOString() });
     }
-    if (assigneeIds.length) {
+    if (profileIds.length) {
       await notifyAssignees(
         sql,
-        assigneeIds,
+        profileIds,
         data.clientId,
         client.name,
         created[0]?.id,
@@ -641,7 +666,7 @@ export const updateJob = createServerFn({ method: "POST" })
     await assertActivePlan(sql, actor);
     const ownerId = masterUserId(actor);
     const start = fromDatetimeLocalValue(data.startLocal);
-    const assigneeIds = data.assignedToUserIds ?? [];
+    const { ordered: assigneeIds } = await partitionAssignees(sql, ownerId, data.assignedToUserIds ?? []);
     const parts = addressPartsFrom(data);
     await sql`
       update jobs set
@@ -680,19 +705,22 @@ export const assignJob = createServerFn({ method: "POST" })
     `;
     const job = rows[0];
     if (!job) throw new Error("Visit not found.");
-    const ids = [...new Set((data.assignedToUserIds ?? []).filter(Boolean))];
+    const { profileIds, inviteIds, ordered } = await partitionAssignees(
+      sql,
+      ownerId,
+      data.assignedToUserIds ?? [],
+    );
     const clients = await sql<{ name: string }>`select name from clients where id = ${job.client_id} limit 1`;
     if (data.scope === "client_recurring") {
-      await replaceClientAssignees(sql, job.client_id, ids);
-      await applyAssigneesToClientRecurring(sql, job.client_id, ids);
-      await replaceJobAssignees(sql, job.id, ids);
-    } else {
-      await replaceJobAssignees(sql, job.id, ids);
+      await replaceClientAssignees(sql, job.client_id, profileIds);
+      await replaceInviteAssigneesForClient(sql, ownerId, job.client_id, inviteIds);
+      await applyAssigneesToClientRecurring(sql, job.client_id, ordered);
     }
-    if (ids.length) {
+    await replaceJobAssignees(sql, job.id, ordered);
+    if (profileIds.length) {
       await notifyAssignees(
         sql,
-        ids,
+        profileIds,
         job.client_id,
         clients[0]?.name || "a visit",
         job.id,
@@ -789,11 +817,19 @@ async function loadRecurringPlans(
     );
     const template = futureScheduled[0] ?? jobs[jobs.length - 1];
     const assigneeIds = await sql<{ user_id: string; full_name: string }>`
-      select ja.user_id, p.full_name
-      from job_assignees ja
-      join profiles p on p.user_id = ja.user_id
-      where ja.job_id = ${template.id}
-      order by p.full_name
+      select user_id, full_name from (
+        select ja.user_id, p.full_name
+        from job_assignees ja
+        join profiles p on p.user_id = ja.user_id
+        where ja.job_id = ${template.id}
+        union all
+        select i.id as user_id,
+               case when i.invited_at is null then i.name || ' · Saved' else i.name || ' · Invite pending' end as full_name
+        from job_assignees ja
+        join team_invites i on i.id = ja.user_id
+        where ja.job_id = ${template.id} and i.accepted_at is null
+      ) assigned
+      order by full_name
     `;
     const p = partsInChicago(template.start_at);
     plans.push({
@@ -857,7 +893,11 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
     if (priceCents < 0) throw new Error("Price cannot be negative.");
     const effective = parseEffectiveDate(data.effectiveDate);
     const clock = parseClock(data.time);
-    const assigneeIds = [...new Set((data.assignedToUserIds ?? []).filter(Boolean))];
+    const { profileIds, inviteIds, ordered: assigneeIds } = await partitionAssignees(
+      sql,
+      ownerId,
+      data.assignedToUserIds ?? [],
+    );
 
     const clients = await sql<{
       id: string;
@@ -944,7 +984,8 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
         default_duration_min = ${durationMin}
       where id = ${data.clientId} and cleaner_user_id = ${ownerId}
     `;
-    await replaceClientAssignees(sql, data.clientId, assigneeIds);
+    await replaceClientAssignees(sql, data.clientId, profileIds);
+    await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, inviteIds);
 
     return { ok: true, created, conflictCount };
   });

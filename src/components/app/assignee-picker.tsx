@@ -16,7 +16,7 @@ export function AssigneePicker({
   hints?: Record<string, AssigneeHint>;
 }) {
   if (!staff.length) {
-    return <p className="text-sm text-muted">No team cleaners yet. Invite someone from the Team tab.</p>;
+    return <p className="text-sm text-muted">No one to assign yet. Add a person on the Team tab.</p>;
   }
   return (
     <div className="grid gap-1.5">

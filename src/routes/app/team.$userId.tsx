@@ -1,11 +1,16 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useQuery, useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
+import { toast } from "sonner";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { listJobs } from "@/lib/sweepbook/jobs";
-import { listTeam } from "@/lib/sweepbook/team";
+import { deleteTeamMember, listTeam, resendTeamInvite } from "@/lib/sweepbook/team";
+import { listCrewMarks } from "@/lib/sweepbook/crew-details";
+import { crewMarksForDay } from "@/lib/sweepbook/availability";
 import { addDaysChicago, startOfChicagoDay } from "@/lib/sweepbook/time";
 import { JobPanel } from "@/components/app/job-panel";
+import { EditMember } from "@/components/app/edit-team-member";
+import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
 import {
   CalendarBody,
@@ -18,6 +23,7 @@ import {
   readCalView,
   writeCalView,
   type CalView,
+  type CrewDayMark,
 } from "@/components/app/calendar-board";
 import { Button } from "@/components/ui/button";
 import { Dialog } from "@/components/ui/dialog";
@@ -44,6 +50,9 @@ function TeamMemberSchedulePage() {
     enabled: actor.data?.kind === "cleaner" || actor.data?.kind === "admin",
   });
   const qc = useQueryClient();
+  const [editing, setEditing] = useState(false);
+  const [removeOpen, setRemoveOpen] = useState(false);
+  const [removing, setRemoving] = useState(false);
   const [mode, setMode] = useState<CalView>(search.view ?? "month");
   const [anchor, setAnchor] = useState(() => parseAnchor(search.date));
   const [selectedId, setSelectedId] = useState<string | null>(search.job ?? null);
@@ -64,6 +73,11 @@ function TeamMemberSchedulePage() {
 
   const range = useMemo(() => calendarRange(mode, anchor), [anchor, mode]);
   const days = useMemo(() => calendarDays(mode, anchor, range.from), [anchor, mode, range.from]);
+  const crewDates = useQuery({
+    queryKey: ["crew-marks"],
+    queryFn: () => listCrewMarks(),
+    enabled: actor.data?.kind === "cleaner" || actor.data?.kind === "admin",
+  });
 
   const jobs = useQuery({
     queryKey: ["jobs", "member", userId, range.from.toISOString(), range.to.toISOString()],
@@ -79,7 +93,16 @@ function TeamMemberSchedulePage() {
     refetchOnMount: "always",
   });
 
-  const member = (team.data?.members ?? []).find((m) => m.user_id === userId && !m.pending);
+  const member = [...(team.data?.members ?? []), ...(team.data?.admins ?? [])].find((m) => m.user_id === userId);
+  const marksByDay = useMemo(() => {
+    const map = new Map<string, CrewDayMark[]>();
+    const mine = (crewDates.data ?? []).filter((person) => person.userId === userId);
+    for (const day of days) {
+      const marks = crewMarksForDay(mine, isoDay(day));
+      if (marks.length) map.set(isoDay(day), marks);
+    }
+    return map;
+  }, [crewDates.data, days, userId]);
 
   function setView(next: CalView, day?: Date) {
     const d = day ?? anchor;
@@ -126,18 +149,47 @@ function TeamMemberSchedulePage() {
     return (
       <div className="grid gap-4">
         <PageHeader title="Schedule" action={back} />
-        <p className="text-sm text-muted">That cleaner is not on your team.</p>
+        <p className="text-sm text-muted">That person is not on your team.</p>
       </div>
     );
   }
 
+  const person = member;
   const title = calendarTitle(mode, anchor, range.from);
+  const statusLine = person.pending ? (person.invite_sent ? "Invite pending" : "Saved") : person.team_status;
+  const inviteLabel = person.pending && !person.invite_sent ? "Send invite" : "Resend invite";
+
+  async function sendInvite() {
+    const res = await resendTeamInvite({
+      data: person.pending ? { inviteToken: person.invite_token } : { userId: person.user_id },
+    });
+    const url = `${window.location.origin}${res.path}`;
+    await navigator.clipboard?.writeText(url).catch(() => undefined);
+    toast.success(person.pending && !person.invite_sent ? "Invite sent. Link copied." : "Invite link copied.");
+    await qc.invalidateQueries({ queryKey: ["team"] });
+  }
 
   return (
     <div className="grid gap-5">
-      <PageHeader title={`${member.full_name}’s schedule`} action={back} />
+      <PageHeader
+        title={person.full_name}
+        action={
+          <div className="flex flex-wrap gap-2">
+            <Button variant="outline" onClick={() => setEditing(true)}>
+              Edit
+            </Button>
+            <Button variant="outline" onClick={() => void sendInvite().catch((err) => toast.error(err instanceof Error ? err.message : "Could not send invite."))}>
+              {inviteLabel}
+            </Button>
+            <Button variant="ghost" onClick={() => setRemoveOpen(true)}>
+              Remove
+            </Button>
+            {back}
+          </div>
+        }
+      />
       <p className="max-w-xl text-sm text-muted">
-        Appointments assigned to {member.full_name}. Prices and paid status match the main calendar.
+        {person.email || person.phone || "No contact"} · {statusLine}. Assigned visits stay on this calendar. Birthday and work anniversary are markers, not appointments.
       </p>
       <CalendarNav
         mode={mode}
@@ -168,6 +220,7 @@ function TeamMemberSchedulePage() {
         canAdd={false}
         onEmpty={() => undefined}
         onJob={(j) => setSelectedId(j.id)}
+        marksByDay={marksByDay}
       />
 
       <Dialog open={Boolean(selectedId)} onOpenChange={(o) => !o && setSelectedId(null)}>
@@ -190,6 +243,47 @@ function TeamMemberSchedulePage() {
           />
         ) : null}
       </Dialog>
+
+      <Dialog open={editing} onOpenChange={setEditing}>
+        {editing ? (
+          <EditMember
+            member={person}
+            clients={team.data?.clients ?? []}
+            canEditPay={Boolean(team.data?.canEditPay)}
+            canEditCharge={Boolean(team.data?.canManageAdmins) && person.office_role === "admin"}
+            onClose={() => setEditing(false)}
+            onSaved={async () => {
+              setEditing(false);
+              await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["crew-marks"] });
+              await qc.invalidateQueries({ queryKey: ["jobs"] });
+              await qc.invalidateQueries({ queryKey: ["assignable-staff"] });
+              await qc.invalidateQueries({ queryKey: ["staff"] });
+            }}
+          />
+        ) : null}
+      </Dialog>
+
+      <ConfirmDialog
+        open={removeOpen}
+        onOpenChange={setRemoveOpen}
+        title={person.office_role === "admin" ? "Remove admin?" : "Remove team cleaner?"}
+        body={`Are you sure you want to remove ${person.full_name}? This cannot be undone.`}
+        busy={removing}
+        onConfirm={async () => {
+          setRemoving(true);
+          try {
+            await deleteTeamMember({ data: { userId: person.user_id, pending: person.pending } });
+            toast.message("Removed.");
+            setRemoveOpen(false);
+            await navigate({ to: "/app/team" });
+          } catch (err) {
+            toast.error(err instanceof Error ? err.message : "Could not remove.");
+          } finally {
+            setRemoving(false);
+          }
+        }}
+      />
     </div>
   );
 }
