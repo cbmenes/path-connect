@@ -520,8 +520,10 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
     const assigned = await sql<{ client_id: string }>`
       select client_id from invite_client_assignees where invite_id = ${invite.id}
     `;
-    for (const row of assigned) {
-      await addMemberToClient(sql, row.client_id, context.userId);
+    if (kind !== "admin") {
+      for (const row of assigned) {
+        await addMemberToClient(sql, row.client_id, context.userId);
+      }
     }
     await sql`delete from invite_client_assignees where invite_id = ${invite.id}`;
     await sql`
@@ -814,9 +816,7 @@ export const setCleanerClients = createServerFn({ method: "POST" })
     if (!profile && !invite) throw new Error("Person not found.");
     const kind = profile?.cleaner_kind ?? invite?.invite_kind ?? "team";
     if (kind === "master") throw new Error("The account owner cannot be changed from Team.");
-    if (actor.kind === "admin" && kind === "admin") {
-      throw new Error("Admins cannot edit other office admins.");
-    }
+    if (kind === "admin") throw new Error("An Admin cannot be assigned to a client.");
     const requested = [...new Set((data.clientIds ?? []).filter(Boolean))];
     const currentRows = profile
       ? await sql<{ client_id: string }>`

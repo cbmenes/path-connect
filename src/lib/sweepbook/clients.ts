@@ -6,8 +6,8 @@ import {
   listOpenVisitsForClients,
   parseAssignees,
   parseAssignmentWhen,
-  partitionAssignees,
-  queryAssignableStaff,
+  partitionClientCleaners,
+  queryAssignableCleaners,
   replaceClientAssignees,
   replaceInviteAssigneesForClient,
   replaceJobAssignees,
@@ -48,12 +48,14 @@ const CLIENT_SELECT = `
        from client_assignees ca
        join profiles p on p.user_id = ca.user_id
        where ca.client_id = clients.id
+         and coalesce(p.cleaner_kind, 'team') = 'team'
        union all
        select i.id as user_id,
               case when i.invited_at is null then i.name || ' · Saved' else i.name || ' · Invite pending' end as full_name
        from invite_client_assignees ica
        join team_invites i on i.id = ica.invite_id
        where ica.client_id = clients.id and i.accepted_at is null
+         and coalesce(i.invite_kind, 'team') = 'team'
      ) assigned) as assignees_json
 `;
 
@@ -134,7 +136,7 @@ export const getClient = createServerFn({ method: "GET" })
               from messages where client_id = ${id} and cleaner_user_id = ${ownerId}
               order by created_at desc limit 8
             `;
-      const staff = await queryAssignableStaff(sql, ownerId);
+      const staff = await queryAssignableCleaners(sql, ownerId);
       return { client, jobs, invoices, cards, messages, staff };
     }
     if (actor.kind === "client" && actor.client.id === id) {
@@ -307,7 +309,7 @@ export const previewAssignmentConflicts = createServerFn({ method: "POST" })
     `;
     const allowed = new Set(owned.map((row) => row.id));
     const clientIds = [...new Set((data.clientIds ?? []).filter((id) => allowed.has(id)))];
-    const { ordered } = await partitionAssignees(sql, ownerId, data.userIds ?? []);
+    const { ordered } = await partitionClientCleaners(sql, ownerId, data.userIds ?? []);
     const visits = visitsInWindow(await listOpenVisitsForClients(sql, ownerId, clientIds), when);
     if (!visits.length || !ordered.length) {
       return { timeOff: [] as TimeOffHit[], availability: [] as AvailabilityHit[] };
@@ -355,7 +357,7 @@ export const setClientAssignees = createServerFn({ method: "POST" })
     `;
     if (!owned[0]) throw new Error("Client not found.");
     const unique = [...new Set((data.userIds ?? []).filter(Boolean))];
-    const { profileIds, inviteIds, ordered } = await partitionAssignees(sql, ownerId, unique);
+    const { profileIds, inviteIds, ordered } = await partitionClientCleaners(sql, ownerId, unique);
     await replaceClientAssignees(sql, data.clientId, profileIds);
     await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, inviteIds);
     const visits = visitsInWindow(await listOpenVisitsForClients(sql, ownerId, [data.clientId]), when);

@@ -205,8 +205,12 @@ function ClientProfile() {
         <AssignedCleaners
           clientId={client.id}
           staff={staff ?? []}
-          savedIds={(client.assignees ?? []).map((a) => a.user_id)}
-          selectedIds={assigneeIds}
+          savedIds={(client.assignees ?? [])
+            .map((a) => a.user_id)
+            .filter((id) => (staff ?? []).some((person) => person.user_id === id))}
+          selectedIds={
+            assigneeIds?.filter((id) => (staff ?? []).some((person) => person.user_id === id)) ?? null
+          }
           onSelected={setAssigneeIds}
           writesLocked={writesLocked}
           onSaved={async () => {

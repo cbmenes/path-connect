@@ -7,6 +7,7 @@ import {
   inheritedAssigneeIds,
   hydrateJob,
   partitionAssignees,
+  partitionClientCleaners,
   queryAssignableStaff,
   redactJobMoney,
   replaceClientAssignees,
@@ -705,15 +706,16 @@ export const assignJob = createServerFn({ method: "POST" })
     `;
     const job = rows[0];
     if (!job) throw new Error("Visit not found.");
-    const { profileIds, inviteIds, ordered } = await partitionAssignees(
+    const { profileIds, ordered } = await partitionAssignees(
       sql,
       ownerId,
       data.assignedToUserIds ?? [],
     );
     const clients = await sql<{ name: string }>`select name from clients where id = ${job.client_id} limit 1`;
     if (data.scope === "client_recurring") {
-      await replaceClientAssignees(sql, job.client_id, profileIds);
-      await replaceInviteAssigneesForClient(sql, ownerId, job.client_id, inviteIds);
+      const clientSide = await partitionClientCleaners(sql, ownerId, ordered);
+      await replaceClientAssignees(sql, job.client_id, clientSide.profileIds);
+      await replaceInviteAssigneesForClient(sql, ownerId, job.client_id, clientSide.inviteIds);
       await applyAssigneesToClientRecurring(sql, job.client_id, ordered);
     }
     await replaceJobAssignees(sql, job.id, ordered);
@@ -893,7 +895,7 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
     if (priceCents < 0) throw new Error("Price cannot be negative.");
     const effective = parseEffectiveDate(data.effectiveDate);
     const clock = parseClock(data.time);
-    const { profileIds, inviteIds, ordered: assigneeIds } = await partitionAssignees(
+    const { ordered: assigneeIds } = await partitionAssignees(
       sql,
       ownerId,
       data.assignedToUserIds ?? [],
@@ -984,8 +986,9 @@ export const saveRecurringPlan = createServerFn({ method: "POST" })
         default_duration_min = ${durationMin}
       where id = ${data.clientId} and cleaner_user_id = ${ownerId}
     `;
-    await replaceClientAssignees(sql, data.clientId, profileIds);
-    await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, inviteIds);
+    const clientSide = await partitionClientCleaners(sql, ownerId, assigneeIds);
+    await replaceClientAssignees(sql, data.clientId, clientSide.profileIds);
+    await replaceInviteAssigneesForClient(sql, ownerId, data.clientId, clientSide.inviteIds);
 
     return { ok: true, created, conflictCount };
   });

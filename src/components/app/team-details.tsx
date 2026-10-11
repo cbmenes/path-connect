@@ -5,6 +5,7 @@ import { formatAddress, formatPhoneAsTyped, type AddressParts } from "@/lib/swee
 import type { AvailabilityWindow, TeamMember } from "@/lib/sweepbook/types";
 import { OpenedContent } from "@/components/app/opened-content";
 import { AddressFields } from "@/components/app/address-fields";
+import { NameFields } from "@/components/app/name-fields";
 import { PhoneInput } from "@/components/app/phone-input";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
@@ -36,6 +37,15 @@ export function TeamDetailSections({
   startDate,
   onStartDate,
   showAvailability = true,
+  showIdentity = false,
+  firstName = "",
+  onFirstName,
+  lastName = "",
+  onLastName,
+  phone = "",
+  onPhone,
+  email = "",
+  onEmail,
 }: {
   notes: string;
   onNotes: (value: string) => void;
@@ -52,9 +62,45 @@ export function TeamDetailSections({
   startDate: string;
   onStartDate: (value: string) => void;
   showAvailability?: boolean;
+  showIdentity?: boolean;
+  firstName?: string;
+  onFirstName?: (value: string) => void;
+  lastName?: string;
+  onLastName?: (value: string) => void;
+  phone?: string;
+  onPhone?: (value: string) => void;
+  email?: string;
+  onEmail?: (value: string) => void;
 }) {
   return (
     <div className="grid gap-2">
+      <CollapsedSection
+        title="Contact"
+        summary={contactSummary(address, showIdentity ? { phone, email } : undefined)}
+      >
+        {showIdentity && onFirstName && onLastName ? (
+          <NameFields firstName={firstName} lastName={lastName} onFirst={onFirstName} onLast={onLastName} />
+        ) : null}
+        {showIdentity && onPhone ? (
+          <Field label="Phone">
+            <PhoneInput value={phone} onChange={onPhone} />
+          </Field>
+        ) : null}
+        {showIdentity && onEmail ? (
+          <Field label="Email">
+            <Input type="email" value={email} onChange={(e) => onEmail(e.target.value)} />
+          </Field>
+        ) : null}
+        <AddressFields value={address} onChange={onAddress} />
+      </CollapsedSection>
+      <CollapsedSection title="Emergency contact" summary={emergencySummary(emergencyName, emergencyPhone)}>
+        <Field label="Emergency name">
+          <Input value={emergencyName} onChange={(e) => onEmergencyName(e.target.value)} />
+        </Field>
+        <Field label="Emergency phone">
+          <PhoneInput value={emergencyPhone} onChange={onEmergencyPhone} />
+        </Field>
+      </CollapsedSection>
       <CollapsedSection title="Notes" summary={notes.trim() ? "Saved" : "None"}>
         <Field label="Notes" hint="Only the Master and Admins can see this.">
           <Textarea value={notes} onChange={(e) => onNotes(e.target.value)} />
@@ -113,15 +159,6 @@ export function TeamDetailSections({
         </Button>
       </CollapsedSection>
       ) : null}
-      <CollapsedSection title="Contact" summary={contactSummary(address, emergencyName)}>
-        <AddressFields value={address} onChange={onAddress} />
-        <Field label="Emergency name">
-          <Input value={emergencyName} onChange={(e) => onEmergencyName(e.target.value)} />
-        </Field>
-        <Field label="Emergency phone">
-          <PhoneInput value={emergencyPhone} onChange={onEmergencyPhone} />
-        </Field>
-      </CollapsedSection>
       <CollapsedSection title="Dates" summary={dateSummary(birthday, startDate)}>
         <p className="text-xs text-muted">
           Birthday and the work anniversary from the start date show on the calendar. They are markers, not appointments, and they do not block booking.
@@ -142,9 +179,26 @@ export function TeamDetailSections({
 export function TeamDetailView({ member }: { member: TeamMember }) {
   const showAvailability = member.office_role !== "admin";
   const address = formatAddress(addressParts(member));
-  const emergency = [member.emergency_name?.trim(), formatPhoneAsTyped(member.emergency_phone)].filter(Boolean).join(" · ");
+  const phone = formatPhoneAsTyped(member.phone);
+  const email = member.email?.trim() || "";
   return (
     <div className="grid gap-2">
+      <CollapsedSection
+        title="Contact"
+        summary={contactSummary(addressParts(member), { phone: member.phone ?? "", email })}
+      >
+        <p className="text-sm text-ink">{member.full_name}</p>
+        <p className="text-sm text-ink">{phone || "No phone"}</p>
+        <p className="text-sm text-ink">{email || "No email"}</p>
+        <p className="text-sm text-ink">{address || "No address"}</p>
+      </CollapsedSection>
+      <CollapsedSection
+        title="Emergency contact"
+        summary={emergencySummary(member.emergency_name ?? "", member.emergency_phone ?? "")}
+      >
+        <p className="text-sm text-ink">{member.emergency_name?.trim() || "No emergency name"}</p>
+        <p className="text-sm text-ink">{formatPhoneAsTyped(member.emergency_phone) || "No emergency phone"}</p>
+      </CollapsedSection>
       <CollapsedSection title="Notes" summary={member.staff_notes?.trim() ? "Saved" : "None"}>
         <p className="whitespace-pre-wrap text-sm text-ink">{member.staff_notes?.trim() || "None"}</p>
         <p className="text-xs text-muted">Only the Master and Admins can see this.</p>
@@ -158,10 +212,6 @@ export function TeamDetailView({ member }: { member: TeamMember }) {
           </p>
         </CollapsedSection>
       ) : null}
-      <CollapsedSection title="Contact" summary={contactSummary(addressParts(member), member.emergency_name ?? "")}>
-        <p className="text-sm text-ink">{address || "No address"}</p>
-        <p className="text-sm text-ink">{emergency ? `Emergency: ${emergency}` : "No emergency contact"}</p>
-      </CollapsedSection>
       <CollapsedSection title="Dates" summary={dateSummary(member.birthday ?? "", member.start_date ?? "")}>
         <p className="text-sm text-ink">{member.birthday ? `Birthday ${prettyDate(member.birthday)}` : "No birthday"}</p>
         <p className="text-sm text-ink">
@@ -222,13 +272,21 @@ function replaceAt(rows: AvailabilityWindow[], index: number, next: Availability
   return rows.map((row, i) => (i === index ? next : row));
 }
 
-function contactSummary(address: AddressParts, emergencyName: string) {
+function contactSummary(address: AddressParts, identity?: { phone?: string; email?: string }) {
+  const phone = formatPhoneAsTyped(identity?.phone);
+  if (phone) return phone;
+  if (identity?.email?.trim()) return identity.email.trim();
   const place = [address.city, address.state].filter(Boolean).join(", ");
-  if (place && emergencyName.trim()) return `${place} · ${emergencyName.trim()}`;
   if (place) return place;
   if (address.address_line1.trim()) return address.address_line1.trim();
-  if (emergencyName.trim()) return emergencyName.trim();
   return "None";
+}
+
+function emergencySummary(name: string, phone: string) {
+  const who = name.trim();
+  const formatted = formatPhoneAsTyped(phone);
+  if (who && formatted) return `${who} · ${formatted}`;
+  return who || formatted || "None";
 }
 
 function dateSummary(birthday: string, startDate: string) {

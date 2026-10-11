@@ -5,8 +5,6 @@ import type { PayType } from "@/lib/sweepbook/team-pay";
 import type { AvailabilityWindow, TeamMember } from "@/lib/sweepbook/types";
 import { addressPartsFrom, namesFrom, type AddressParts } from "@/lib/sweepbook/people";
 import { TeamDetailSections } from "@/components/app/team-details";
-import { NameFields } from "@/components/app/name-fields";
-import { PhoneInput } from "@/components/app/phone-input";
 import { Button } from "@/components/ui/button";
 import { DialogContent } from "@/components/ui/dialog";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
@@ -103,15 +101,17 @@ export function EditMember({
           }
         }}
       >
-        <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
-        <Field label="Phone">
-          <PhoneInput value={phone} onChange={setPhone} />
-        </Field>
-        <Field label="Email">
-          <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-        </Field>
         <TeamDetailSections
           showAvailability={!isAdminMember}
+          showIdentity
+          firstName={firstName}
+          onFirstName={setFirstName}
+          lastName={lastName}
+          onLastName={setLastName}
+          phone={phone}
+          onPhone={setPhone}
+          email={email}
+          onEmail={setEmail}
           notes={notes}
           onNotes={setNotes}
           availability={availability}

@@ -109,16 +109,78 @@ export async function partitionAssignees(sql: Sql, ownerId: string, ids: string[
   };
 }
 
-/** Profile assignees plus saved people assigned to the household before they accept. */
+/** Team cleaners only. Admins can be assigned to a visit, not to a client. */
+export async function queryAssignableCleaners(sql: Sql, ownerId: string) {
+  return sql.query<{ user_id: string; full_name: string }>(
+    `select user_id, full_name from (
+       select user_id, full_name, 0 as sort_pending
+       from profiles
+       where master_user_id = $1
+         and coalesce(team_status, 'active') = 'active'
+         and coalesce(cleaner_kind, 'team') = 'team'
+       union all
+       select id as user_id,
+              case when invited_at is null then name || ' · Saved' else name || ' · Invite pending' end as full_name,
+              1 as sort_pending
+       from team_invites
+       where master_user_id = $1
+         and accepted_at is null
+         and coalesce(invite_kind, 'team') = 'team'
+     ) people
+     order by sort_pending, full_name`,
+    [ownerId],
+  );
+}
+
+/** Drop Admins. A client relationship is Team cleaners only. */
+export async function partitionClientCleaners(sql: Sql, ownerId: string, ids: string[]) {
+  const unique = [...new Set(ids.filter(Boolean))];
+  if (!unique.length) return { profileIds: [] as string[], inviteIds: [] as string[], ordered: [] as string[] };
+  const placeholders = unique.map((_, i) => `$${i + 2}`).join(", ");
+  const profiles = await sql.query<{ user_id: string }>(
+    `select user_id from profiles
+     where master_user_id = $1
+       and user_id in (${placeholders})
+       and coalesce(team_status, 'active') = 'active'
+       and coalesce(cleaner_kind, 'team') = 'team'`,
+    [ownerId, ...unique],
+  );
+  const invites = await sql.query<{ id: string }>(
+    `select id from team_invites
+     where master_user_id = $1
+       and id in (${placeholders})
+       and accepted_at is null
+       and coalesce(invite_kind, 'team') = 'team'`,
+    [ownerId, ...unique],
+  );
+  const profileSet = new Set(profiles.map((row) => row.user_id));
+  const inviteSet = new Set(invites.map((row) => row.id));
+  const ordered = unique.filter((id) => profileSet.has(id) || inviteSet.has(id));
+  return {
+    profileIds: ordered.filter((id) => profileSet.has(id)),
+    inviteIds: ordered.filter((id) => inviteSet.has(id)),
+    ordered,
+  };
+}
+
+/** Team cleaners on the household. Admins already linked are not copied onto a new visit. */
 export async function inheritedAssigneeIds(sql: Sql, clientId: string) {
-  const profiles = await getClientAssigneeIds(sql, clientId);
+  const profiles = await sql<{ user_id: string }>`
+    select ca.user_id
+    from client_assignees ca
+    join profiles p on p.user_id = ca.user_id
+    where ca.client_id = ${clientId}
+      and coalesce(p.cleaner_kind, 'team') = 'team'
+  `;
   const invites = await sql<{ invite_id: string }>`
     select ica.invite_id
     from invite_client_assignees ica
     join team_invites i on i.id = ica.invite_id
-    where ica.client_id = ${clientId} and i.accepted_at is null
+    where ica.client_id = ${clientId}
+      and i.accepted_at is null
+      and coalesce(i.invite_kind, 'team') = 'team'
   `;
-  return [...profiles, ...invites.map((row) => row.invite_id)];
+  return [...profiles.map((row) => row.user_id), ...invites.map((row) => row.invite_id)];
 }
 
 export async function getJobAssigneeIds(sql: Sql, jobId: string) {

@@ -9,6 +9,7 @@ import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { listCrewMarks } from "@/lib/sweepbook/crew-details";
 import { crewMarksForDay } from "@/lib/sweepbook/availability";
 import { addDaysChicago, startOfChicagoDay } from "@/lib/sweepbook/time";
+import { addressPartsFrom, formatAddress, formatPhoneAsTyped } from "@/lib/sweepbook/people";
 import { JobPanel } from "@/components/app/job-panel";
 import { EditMember } from "@/components/app/edit-team-member";
 import { AssigneePicker } from "@/components/app/assignee-picker";
@@ -208,13 +209,19 @@ function TeamMemberSchedulePage() {
           </div>
         }
       />
+      <div className="grid gap-1 text-sm text-ink">
+        <p>{formatPhoneAsTyped(person.phone) || "No phone"}</p>
+        <p>{person.email?.trim() || "No email"}</p>
+        <p>{formatAddress(addressPartsFrom(person)) || "No address"}</p>
+      </div>
       <p className="max-w-xl text-sm text-muted">
-        {person.email || person.phone || "No contact"} · {statusLine}.
+        {statusLine}.
         {isAdminPerson
           ? ""
           : " Assigned visits stay on this calendar. Birthday and work anniversary are markers, not appointments."}
       </p>
       <TeamDetailView member={person} />
+      {isAdminPerson ? null : (
       <CollapsedSection title="Assigned clients" summary={assignmentSummary}>
         <p className="text-xs text-muted">Saving here updates this person on each client page.</p>
         <AssigneePicker
@@ -240,6 +247,7 @@ function TeamMemberSchedulePage() {
           />
         )}
       </CollapsedSection>
+      )}
       {isAdminPerson ? null : (
       <>
       <CalendarNav
