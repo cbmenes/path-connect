@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useState, type ReactNode } from "react";
+import { createPortal } from "react-dom";
 import { toast } from "sonner";
 import { previewAssignmentConflicts } from "@/lib/sweepbook/clients";
 import { availabilityLine, type AvailabilityHit } from "@/lib/sweepbook/availability";
@@ -6,7 +7,6 @@ import type { TimeOffHit } from "@/lib/sweepbook/time-off";
 import { timeOffLine } from "@/components/app/conflict-warning";
 import type { AssignmentWhen } from "@/lib/sweepbook/assignees";
 import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent } from "@/components/ui/dialog";
 
 export function sameIdSet(a: string[], b: string[]) {
   if (a.length !== b.length) return false;
@@ -49,8 +49,8 @@ export function AssignmentSave({
         setNotice({ when, timeOff: check.timeOff, availability: check.availability });
         return;
       }
-      await onSave(when);
       setScopeOpen(false);
+      await onSave(when);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save the assignment.");
     } finally {
@@ -60,10 +60,11 @@ export function AssignmentSave({
 
   async function confirm() {
     if (!notice) return;
+    const when = notice.when;
+    setNotice(null);
     setBusy(true);
     try {
-      await onSave(notice.when);
-      setNotice(null);
+      await onSave(when);
     } catch (err) {
       toast.error(err instanceof Error ? err.message : "Could not save the assignment.");
     } finally {
@@ -93,8 +94,8 @@ export function AssignmentSave({
       >
         Save
       </Button>
-      <Dialog open={scopeOpen} onOpenChange={(open) => !busy && setScopeOpen(open)}>
-        <DialogContent title="Apply this assignment to" className="max-h-[90dvh] overflow-y-auto">
+      {scopeOpen ? (
+        <ChoiceOverlay title="Apply this assignment to">
           <p className="text-sm text-muted">Past appointments stay as they are.</p>
           <div className="mt-3 grid gap-2">
             <Button type="button" variant="outline" disabled={busy} onClick={() => void choose("current")}>
@@ -107,47 +108,63 @@ export function AssignmentSave({
               Current and future
             </Button>
           </div>
-        </DialogContent>
-      </Dialog>
-      <Dialog open={Boolean(notice)} onOpenChange={(open) => !open && !busy && setNotice(null)}>
-        {notice ? (
-          <DialogContent title={title} className="max-h-[90dvh] overflow-y-auto">
-            {notice.timeOff.length ? (
-              <div className="grid gap-2">
-                <p className="text-sm text-ink">This conflicts with approved time off.</p>
-                <ul className="grid gap-2">
-                  {notice.timeOff.slice(0, 8).map((hit) => (
-                    <li key={`${hit.userId}-${hit.requestId}`} className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
-                      {timeOffLine(hit)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            {notice.availability.length ? (
-              <div className="mt-3 grid gap-2">
-                <p className="text-sm text-ink">This conflicts with availability.</p>
-                <ul className="grid gap-2">
-                  {notice.availability.slice(0, 8).map((hit) => (
-                    <li key={`${hit.userId}-${hit.when}`} className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
-                      {availabilityLine(hit)}
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            ) : null}
-            <p className="mt-3 text-sm text-muted">You can still save this assignment.</p>
-            <div className="mt-4 flex gap-2">
-              <Button type="button" variant="ghost" disabled={busy} onClick={() => setNotice(null)}>
-                Go back
-              </Button>
-              <Button type="button" disabled={busy} onClick={() => void confirm()}>
-                {busy ? "Saving…" : "Save anyway"}
-              </Button>
+        </ChoiceOverlay>
+      ) : null}
+      {notice ? (
+        <ChoiceOverlay title={title}>
+          {notice.timeOff.length ? (
+            <div className="grid gap-2">
+              <p className="text-sm text-ink">This conflicts with approved time off.</p>
+              <ul className="grid gap-2">
+                {notice.timeOff.slice(0, 8).map((hit) => (
+                  <li key={`${hit.userId}-${hit.requestId}`} className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
+                    {timeOffLine(hit)}
+                  </li>
+                ))}
+              </ul>
             </div>
-          </DialogContent>
-        ) : null}
-      </Dialog>
+          ) : null}
+          {notice.availability.length ? (
+            <div className="mt-3 grid gap-2">
+              <p className="text-sm text-ink">This conflicts with availability.</p>
+              <ul className="grid gap-2">
+                {notice.availability.slice(0, 8).map((hit) => (
+                  <li key={`${hit.userId}-${hit.when}`} className="rounded-md bg-warn/15 px-3 py-2 text-sm text-warn">
+                    {availabilityLine(hit)}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          ) : null}
+          <p className="mt-3 text-sm text-muted">You can still save this assignment.</p>
+          <div className="mt-4 flex gap-2">
+            <Button type="button" variant="ghost" disabled={busy} onClick={() => setNotice(null)}>
+              Go back
+            </Button>
+            <Button type="button" disabled={busy} onClick={() => void confirm()}>
+              {busy ? "Saving…" : "Save anyway"}
+            </Button>
+          </div>
+        </ChoiceOverlay>
+      ) : null}
     </>
+  );
+}
+
+function ChoiceOverlay({ title, children }: { title: string; children: ReactNode }) {
+  if (typeof document === "undefined") return null;
+  return createPortal(
+    <div className="fixed inset-0 z-50 grid place-items-center bg-navy-deep/40 p-4">
+      <div
+        role="dialog"
+        aria-modal="true"
+        aria-label={title}
+        className="max-h-[90dvh] w-[min(100%-1.5rem,28rem)] overflow-y-auto rounded-xl bg-paper p-5 shadow-card"
+      >
+        <h2 className="mb-4 font-display text-xl text-ink">{title}</h2>
+        {children}
+      </div>
+    </div>,
+    document.body,
   );
 }
