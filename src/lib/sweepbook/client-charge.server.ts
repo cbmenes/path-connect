@@ -68,6 +68,25 @@ export async function applyConnectedCharge(session: ConnectedChargeSession, acco
   if (session.metadata.invoice_id !== invoice.id) return { paid: false as const };
   if (session.amount_total !== Number(invoice.amount_cents)) return { paid: false as const };
   const hint = cardFromSession(session);
+  return finalizePaidInvoice(sql, invoice, hint.paymentIntentId, hint.brand, hint.last4);
+}
+
+type PaidInvoice = {
+  id: string;
+  amount_cents: number;
+  job_id: string | null;
+  kind: string;
+  cleaner_user_id: string;
+  client_id: string;
+};
+
+async function finalizePaidInvoice(
+  sql: Awaited<ReturnType<typeof getSql>>,
+  invoice: PaidInvoice,
+  paymentIntentId: string | null,
+  brand: string,
+  last4: string,
+) {
   const receipt = receiptNo();
   const flipped = await sql<{ id: string; receipt_number: string | null }>`
     update invoices set
@@ -76,7 +95,7 @@ export async function applyConnectedCharge(session: ConnectedChargeSession, acco
       paid_at = now(),
       failure_reason = null,
       receipt_number = coalesce(receipt_number, ${receipt}),
-      stripe_payment_intent_id = ${hint.paymentIntentId}
+      stripe_payment_intent_id = ${paymentIntentId}
     where id = ${invoice.id} and status <> 'paid'
     returning id, receipt_number
   `;
@@ -122,9 +141,36 @@ export async function applyConnectedCharge(session: ConnectedChargeSession, acco
   return {
     paid: true as const,
     receiptNumber: saved || receipt,
-    brand: hint.brand,
-    last4: hint.last4,
+    brand,
+    last4,
     amountCents: Number(invoice.amount_cents),
     invoiceId: invoice.id,
   };
+}
+
+/** Mark paid only after a saved-card PaymentIntent on the connected account succeeded. */
+export async function applySavedCardPayment(input: {
+  invoiceId: string;
+  accountId: string;
+  paymentIntentId: string;
+  amountCents: number;
+  livemode: boolean;
+  status: string;
+  brand: string;
+  last4: string;
+}) {
+  if (input.livemode || input.status !== "succeeded" || !input.paymentIntentId.startsWith("pi_")) {
+    return { paid: false as const };
+  }
+  const sql = await getSql();
+  const rows = await sql<PaidInvoice & { stripe_account_id: string | null }>`
+    select id, stripe_account_id, amount_cents, job_id, kind, cleaner_user_id, client_id
+    from invoices
+    where id = ${input.invoiceId}
+    limit 1
+  `;
+  const invoice = rows[0];
+  if (!invoice?.stripe_account_id || invoice.stripe_account_id !== input.accountId) return { paid: false as const };
+  if (Number(invoice.amount_cents) !== input.amountCents) return { paid: false as const };
+  return finalizePaidInvoice(sql, invoice, input.paymentIntentId, input.brand || "Card", input.last4 || "");
 }

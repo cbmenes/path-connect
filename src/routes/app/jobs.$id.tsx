@@ -13,7 +13,9 @@ import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } 
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
-import { CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
+import { CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
+import { StripeCardSetup } from "@/components/app/stripe-card-setup";
+import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { JobForm } from "@/components/app/job-form";
 import { JobChecklist } from "@/components/app/job-checklist";
 import { ClientJobStatus, JobProgress } from "@/components/app/job-progress";
@@ -195,10 +197,6 @@ function JobDetail() {
                   const res = await chargeCard({
                     data: { clientId: job.client_id, amountCents, description, jobId: job.id, cardId },
                   });
-                  if ("checkoutUrl" in res && res.checkoutUrl) {
-                    window.location.assign(res.checkoutUrl);
-                    return;
-                  }
                   if (res.ok) {
                     toast.success(`Paid. Receipt ${res.receiptNumber}. ${res.brand} · ${res.last4}`);
                     setChargeOpen(false);
@@ -375,20 +373,38 @@ function ChargeDialog({
   const [amt, setAmt] = useState((amount / 100).toFixed(2));
   const [desc, setDesc] = useState(description);
   const [cardId, setCardId] = useState("");
+  const qc = useQueryClient();
   const mode = useClientChargeMode();
   const local = mode.data?.mode === "demo";
   const cards = useQuery({
     queryKey: ["cards", clientId],
     queryFn: () => listCardsForClient({ data: clientId }),
-    enabled: local,
+    enabled: Boolean(clientId) && mode.data?.mode !== "blocked",
   });
+  const saved = defaultSavedCard(cards.data ?? []);
+  const cents = Math.round(Number(amt) * 100);
   return (
     <DialogContent title="Confirm charge">
+      {mode.data?.mode === "blocked" ? (
+        <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
+      ) : mode.data?.mode === "stripe" && cards.data && !saved ? (
+        <div className="grid gap-3">
+          <p className="text-sm text-muted">No card on file. Add one here. Charge stays in CrewWeek after the card is saved.</p>
+          <StripeCardSetup
+            clientId={clientId}
+            source="cleaner"
+            onSaved={async (card) => {
+              toast.success(`Saved ${brandLabel(card.brand)} · ${card.last4}`);
+              await qc.invalidateQueries({ queryKey: ["cards", clientId] });
+            }}
+          />
+        </div>
+      ) : (
       <div className="grid gap-3">
         <p className="text-sm text-muted">
           {local
             ? "Confirm the amount and description before charging the card on file."
-            : "Stripe collects the card. The visit stays unpaid until Stripe confirms the charge."}
+            : "This charges the saved card on the cleaning company's Stripe account. The visit is marked paid only after Stripe confirms it."}
         </p>
         <Field label="Amount">
           <Input type="number" step="0.01" min="0.5" value={amt} onChange={(e) => setAmt(e.target.value)} />
@@ -396,11 +412,12 @@ function ChargeDialog({
         <Field label="Description">
           <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
         </Field>
-        {local ? <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} /> : <StripeCollectNote />}
-        <Button disabled={busy} onClick={() => onConfirm(Math.round(Number(amt) * 100), desc, cardId || undefined)}>
-          {busy ? "Charging…" : local ? `Charge ${money(Math.round(Number(amt) * 100))}` : "Continue to Stripe"}
+        {local ? <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} /> : <StripeCollectNote card={saved} />}
+        <Button disabled={busy} onClick={() => onConfirm(cents, desc, local ? cardId || undefined : saved?.id)}>
+          {busy ? "Charging…" : `Charge ${money(cents)}`}
         </Button>
       </div>
+      )}
     </DialogContent>
   );
 }

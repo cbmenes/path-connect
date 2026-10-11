@@ -6,6 +6,7 @@ import { getCardLinkPublic } from "@/lib/sweepbook/invites";
 import { addCardByToken, getCardLinkChargeMode } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { CardForm } from "@/components/app/card-form";
+import { StripeCardSetup } from "@/components/app/stripe-card-setup";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { APP_NAME } from "@/lib/brand";
 
@@ -34,11 +35,9 @@ function AddCardLink() {
             </p>
             {!mode.data ? (
               <div className="mt-6 h-32 animate-pulse rounded-xl bg-secondary" />
-            ) : mode.data.mode !== "demo" ? (
+            ) : mode.data.mode === "blocked" ? (
               <p className="mt-6 rounded-xl bg-paper p-5 text-sm text-ink shadow-card">
-                {mode.data.mode === "stripe"
-                  ? "Stripe collects the card when this company charges a visit. This page does not take the card number, and the payout belongs to the cleaning company."
-                  : "This company cannot take a card until Stripe setup is finished."}
+                This company cannot take a card until Stripe setup is finished.
               </p>
             ) : done ? (
               <p className="mt-6 rounded-xl bg-sage-soft p-5 text-success">
@@ -46,6 +45,16 @@ function AddCardLink() {
               </p>
             ) : (
               <div className="mt-6 rounded-xl bg-paper p-5 shadow-card">
+                {mode.data.mode === "stripe" ? (
+                  <StripeCardSetup
+                    token={token}
+                    source="client"
+                    onSaved={(saved) => {
+                      setDone({ brand: saved.brand, last4: saved.last4 });
+                      toast.success("Card saved.");
+                    }}
+                  />
+                ) : (
                 <CardForm
                   submitting={busy}
                   submitLabel="Save card securely"
@@ -64,6 +73,7 @@ function AddCardLink() {
                     }
                   }}
                 />
+                )}
               </div>
             )}
           </>

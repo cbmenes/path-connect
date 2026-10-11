@@ -5,6 +5,7 @@ import { addCardAuthenticated, getClientChargeMode, removeCard, setDefaultCard }
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import type { CardRow } from "@/lib/sweepbook/types";
 import { CardForm } from "./card-form";
+import { StripeCardSetup } from "./stripe-card-setup";
 import { ConfirmDialog } from "./confirm-dialog";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
@@ -17,12 +18,18 @@ export function useClientChargeMode() {
   });
 }
 
-export function StripeCollectNote() {
+export function StripeCollectNote({ card }: { card?: { brand: string; last4: string } | null }) {
   return (
     <p className="text-sm text-muted">
-      Stripe collects the card on this cleaning company's account. CrewWeek does not store the card number. The visit is marked paid only after Stripe confirms the charge, and the payout belongs to the cleaning company.
+      {card
+        ? `Charging ${brandLabel(card.brand)} · ${card.last4} on this cleaning company's Stripe account. The visit is marked paid only after Stripe confirms it, and the payout belongs to the cleaning company.`
+        : "Stripe collects the first card on this cleaning company's account. CrewWeek stores the brand and last four. After that, Charge stays here."}
     </p>
   );
+}
+
+export function defaultSavedCard<T extends { is_default: boolean }>(cards: T[]) {
+  return cards.find((card) => card.is_default) ?? cards[0] ?? null;
 }
 
 export function CardSelect({
@@ -142,8 +149,26 @@ export function CardManager({
         <Button variant="outline" onClick={() => setAdding(true)}>
           Replace / add new card
         </Button>
+      ) : mode.data?.mode === "stripe" && adding ? (
+        <Card>
+          <h3 className="mb-3 font-display text-lg text-navy">Add a card</h3>
+          <StripeCardSetup
+            clientId={clientId}
+            source={source}
+            onSaved={async (saved) => {
+              toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
+              setAdding(false);
+              await onChange();
+            }}
+          />
+          <Button variant="ghost" className="mt-2" onClick={() => setAdding(false)}>
+            Cancel
+          </Button>
+        </Card>
       ) : mode.data?.mode === "stripe" ? (
-        <StripeCollectNote />
+        <Button variant="outline" onClick={() => setAdding(true)}>
+          Add a card
+        </Button>
       ) : mode.data ? (
         <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
       ) : (

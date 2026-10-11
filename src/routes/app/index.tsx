@@ -11,7 +11,8 @@ import { PageHeader } from "@/components/app/empty-state";
 import { VisitChargeLine } from "@/components/app/receipt";
 import { InvoiceStatusBadge, VisitStatusBadge } from "@/components/app/status-badge";
 import { ClientJobStatus, TileProgressBadge } from "@/components/app/job-progress";
-import { CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
+import { CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
+import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogTrigger } from "@/components/ui/dialog";
@@ -347,16 +348,20 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                     <p className="tabular text-sm text-muted">{money(i.amount_cents)}</p>
                     <VisitChargeLine jobStart={i.job_start_at} status={i.status} paidAt={i.paid_at} method={i.method} note={i.paid_note} />
                   </div>
+                  {mode.data?.mode === "stripe" && !defaultSavedCard(data.cards) ? (
+                    <Button variant="outline" asChild>
+                      <Link to="/app/card">Add a card</Link>
+                    </Button>
+                  ) : mode.data?.mode === "blocked" ? null : (
                   <Button
                     disabled={busy}
                     onClick={async () => {
                       setBusy(true);
                       try {
-                        const res = await payInvoiceAsClient({ data: { invoiceId: i.id, cardId: payCardId || undefined } });
-                        if ("checkoutUrl" in res && res.checkoutUrl) {
-                          window.location.assign(res.checkoutUrl);
-                          return;
-                        }
+                        const saved = defaultSavedCard(data.cards);
+                        const res = await payInvoiceAsClient({
+                          data: { invoiceId: i.id, cardId: localCards ? payCardId || undefined : saved?.id },
+                        });
                         if (res.ok) toast.success(`Paid. Receipt ${res.receiptNumber}`);
                         else if ("reason" in res) toast.error(res.reason);
                         await qc.invalidateQueries({ queryKey: ["dashboard"] });
@@ -367,10 +372,19 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                       }
                     }}
                   >
-                    {localCards ? "Pay now" : "Pay with Stripe"}
+                    Pay now
                   </Button>
+                  )}
                 </div>
-                {localCards ? <CardSelect cards={data.cards} value={payCardId} onChange={setPayCardId} /> : <StripeCollectNote />}
+                {mode.data?.mode === "blocked" ? (
+                  <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
+                ) : localCards ? (
+                  <CardSelect cards={data.cards} value={payCardId} onChange={setPayCardId} />
+                ) : defaultSavedCard(data.cards) ? (
+                  <StripeCollectNote card={defaultSavedCard(data.cards)} />
+                ) : mode.data?.mode === "stripe" ? (
+                  <p className="text-sm text-muted">Add a card before paying. Stripe collects it, and CrewWeek keeps the brand and last four.</p>
+                ) : null}
               </Card>
             ))}
           </div>
@@ -401,11 +415,21 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                     {tipConfirm ? (
                       <>
                         <p className="text-sm text-muted">
-                          {localCards
-                            ? `Charge ${money(Math.round(Number(tipAmount) * 100) || 0)} to your default card?`
-                            : `Stripe collects ${money(Math.round(Number(tipAmount) * 100) || 0)}. The tip is recorded after Stripe confirms it.`}
+                          {mode.data?.mode === "stripe" && defaultSavedCard(data.cards)
+                            ? `Charge ${money(Math.round(Number(tipAmount) * 100) || 0)} to ${brandLabel(defaultSavedCard(data.cards)!.brand)} · ${defaultSavedCard(data.cards)!.last4}?`
+                            : `Charge ${money(Math.round(Number(tipAmount) * 100) || 0)} to your default card?`}
                         </p>
-                        {localCards ? <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} /> : <StripeCollectNote />}
+                        {mode.data?.mode === "blocked" ? (
+                          <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
+                        ) : mode.data?.mode === "stripe" && !defaultSavedCard(data.cards) ? (
+                          <Button variant="outline" asChild>
+                            <Link to="/app/card">Add a card</Link>
+                          </Button>
+                        ) : localCards ? (
+                          <CardSelect cards={data.cards} value={tipCardId} onChange={setTipCardId} />
+                        ) : (
+                          <StripeCollectNote card={defaultSavedCard(data.cards)} />
+                        )}
                         <div className="flex flex-wrap gap-2">
                           <Button variant="outline" onClick={() => setTipConfirm(false)}>
                             Back
@@ -418,13 +442,10 @@ function ClientHome({ data }: { data: ClientDashboard }) {
                                 return;
                               }
                               try {
+                                const saved = defaultSavedCard(data.cards);
                                 const res = await tipJob({
-                                  data: { jobId: j.id, amountCents, cardId: tipCardId || undefined },
+                                  data: { jobId: j.id, amountCents, cardId: localCards ? tipCardId || undefined : saved?.id },
                                 });
-                                if ("checkoutUrl" in res && res.checkoutUrl) {
-                                  window.location.assign(res.checkoutUrl);
-                                  return;
-                                }
                                 if (res.ok) {
                                   toast.success(`Tip sent. Receipt ${res.receiptNumber}`);
                                   setTipFor(null);

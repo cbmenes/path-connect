@@ -52,9 +52,16 @@ export function stripeSecretKey() {
   return key;
 }
 
+function stripePublishableKey() {
+  const key = envValue("STRIPE_PUBLISHABLE_KEY");
+  if (!key) throw new Error("Stripe is not configured.");
+  if (!key.startsWith("pk_test_")) throw new Error("A Stripe test publishable key is required.");
+  return key;
+}
+
 function safeStripeMessage(err: unknown, fallback: string) {
   const raw = err instanceof Error ? err.message : "";
-  if (!raw || /sk_(live|test)_|rk_(live|test)_|whsec_/i.test(raw)) return fallback;
+  if (!raw || /sk_(live|test)_|rk_(live|test)_|pk_(live|test)_|whsec_/i.test(raw)) return fallback;
   return raw;
 }
 
@@ -609,6 +616,107 @@ export async function createConnectedChargeCheckout(input: {
   return { url: session.url, sessionId: session.id };
 }
 
+/** Customer and SetupIntent on the connected account. The browser confirms the card with Stripe.js. */
+export async function beginConnectedCardSetup(input: {
+  accountId: string;
+  existingCustomerId: string | null;
+  email?: string | null;
+  name?: string | null;
+}) {
+  const stripe = stripeClient();
+  const publishableKey = stripePublishableKey();
+  try {
+    let customerId = input.existingCustomerId;
+    if (!customerId) {
+      const customer = await stripe.customers.create(
+        {
+          email: input.email?.includes("@") ? input.email.trim() : undefined,
+          name: input.name?.trim() || undefined,
+        },
+        { stripeAccount: input.accountId },
+      );
+      if (customer.livemode) throw new Error("A Stripe test card setup is required.");
+      customerId = customer.id;
+    }
+    const setup = await stripe.setupIntents.create(
+      {
+        customer: customerId,
+        allowed_payment_method_types: ["card"],
+        usage: "off_session",
+      },
+      { stripeAccount: input.accountId },
+    );
+    if (setup.livemode || !setup.client_secret) throw new Error("A Stripe test card setup is required.");
+    return { clientSecret: setup.client_secret, customerId, publishableKey, accountId: input.accountId };
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Stripe could not start card setup."));
+  }
+}
+
+/** Brand and last four only. The full card number never leaves Stripe. */
+export async function readConnectedSetupCard(accountId: string, setupIntentId: string) {
+  if (!setupIntentId.startsWith("seti_")) throw new Error("Missing Stripe card setup.");
+  const stripe = stripeClient();
+  try {
+    const setup = await stripe.setupIntents.retrieve(
+      setupIntentId,
+      { expand: ["payment_method"] },
+      { stripeAccount: accountId },
+    );
+    if (setup.livemode) throw new Error("A Stripe test card setup is required.");
+    if (setup.status !== "succeeded") throw new Error("Stripe has not saved this card.");
+    const pm = setup.payment_method;
+    if (!pm || typeof pm === "string" || !pm.id.startsWith("pm_") || !pm.card?.last4) {
+      throw new Error("Stripe did not return a card.");
+    }
+    const customerId = typeof setup.customer === "string" ? setup.customer : setup.customer?.id || null;
+    if (!customerId) throw new Error("Stripe did not save this card on the connected account.");
+    return {
+      customerId,
+      paymentMethodId: pm.id,
+      brand: pm.card.brand || "Card",
+      last4: pm.card.last4,
+      expMonth: pm.card.exp_month ?? null,
+      expYear: pm.card.exp_year ?? null,
+      holderName: pm.billing_details?.name || null,
+    };
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Stripe could not save this card."));
+  }
+}
+
+/** Off-session charge of a saved card on the connected account. No Checkout redirect. */
+export async function chargeConnectedSavedCard(input: {
+  accountId: string;
+  customerId: string;
+  paymentMethodId: string;
+  amountCents: number;
+  description: string;
+  invoiceId: string;
+}) {
+  const stripe = stripeClient();
+  try {
+    const intent = await stripe.paymentIntents.create(
+      {
+        amount: input.amountCents,
+        currency: "usd",
+        customer: input.customerId,
+        payment_method: input.paymentMethodId,
+        off_session: true,
+        confirm: true,
+        description: input.description.trim().slice(0, 120) || "Cleaning",
+        metadata: { purpose: "client_charge", invoice_id: input.invoiceId },
+        expand: ["latest_charge"],
+      },
+      { stripeAccount: input.accountId },
+    );
+    if (intent.livemode) throw new Error("A Stripe test charge is required.");
+    return { id: intent.id, status: intent.status, amount: intent.amount };
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Stripe could not charge this card."));
+  }
+}
+
 export async function retrieveConnectedChargeSession(accountId: string, sessionId: string) {
   const stripe = stripeClient();
   try {
@@ -620,6 +728,27 @@ export async function retrieveConnectedChargeSession(accountId: string, sessionI
   } catch (err) {
     throw new Error(safeStripeMessage(err, "Stripe could not confirm the charge."));
   }
+}
+
+async function settleSavedCardEvent(paymentIntentId: string, invoiceId: string, accountId: string) {
+  const stripe = stripeClient();
+  const intent = await stripe.paymentIntents.retrieve(paymentIntentId, {}, { stripeAccount: accountId });
+  if (intent.livemode || intent.status !== "succeeded") return;
+  if (intent.metadata?.invoice_id !== invoiceId || intent.metadata.purpose !== "client_charge") return;
+  const charge = intent.latest_charge;
+  const card =
+    charge && typeof charge !== "string" ? charge.payment_method_details?.card : null;
+  const { applySavedCardPayment } = await import("./client-charge.server");
+  await applySavedCardPayment({
+    invoiceId,
+    accountId,
+    paymentIntentId: intent.id,
+    amountCents: intent.amount,
+    livemode: intent.livemode,
+    status: intent.status,
+    brand: card?.brand || "Card",
+    last4: card?.last4 || "",
+  });
 }
 
 async function settleConnectedCheckoutEvent(sessionId: string, accountHint: string | null) {
@@ -661,6 +790,11 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
         await settleConnectedCheckoutEvent(session.id, event.account ?? null);
       } else {
         await onCheckoutCompleted(session);
+      }
+    } else if (event.type === "payment_intent.succeeded") {
+      const intent = event.data.object as Stripe.PaymentIntent;
+      if (intent.metadata?.purpose === "client_charge" && intent.metadata.invoice_id && event.account) {
+        await settleSavedCardEvent(intent.id, intent.metadata.invoice_id, event.account);
       }
     } else if (event.type === "customer.subscription.updated") {
       await applySubscription(event.data.object as Stripe.Subscription, null, false);

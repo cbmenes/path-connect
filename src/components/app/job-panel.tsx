@@ -13,7 +13,9 @@ import { JobProgress } from "@/components/app/job-progress";
 import { OverlapDetails } from "@/components/app/overlap-mark";
 import { VisitChargeLine } from "@/components/app/receipt";
 import { VisitStatusBadge } from "@/components/app/status-badge";
-import { CardSelect, StripeCollectNote, useClientChargeMode } from "@/components/app/card-manager";
+import { CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
+import { StripeCardSetup } from "@/components/app/stripe-card-setup";
+import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { AssigneePicker } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
@@ -66,7 +68,7 @@ export function JobPanel({
   const cards = useQuery({
     queryKey: ["cards", q.data?.job.client_id],
     queryFn: () => listCardsForClient({ data: q.data!.job.client_id }),
-    enabled: Boolean(q.data?.job.client_id) && canCharge && localCards,
+    enabled: Boolean(q.data?.job.client_id) && canCharge && mode.data?.mode !== "blocked",
   });
 
   if (q.isPending) {
@@ -249,25 +251,38 @@ export function JobPanel({
             <Field label="Description">
               <Input value={desc} onChange={(e) => setDesc(e.target.value)} />
             </Field>
-            {localCards ? <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} /> : <StripeCollectNote />}
+            {mode.data?.mode === "blocked" ? (
+              <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
+            ) : mode.data?.mode === "stripe" && cards.data && !defaultSavedCard(cards.data) ? (
+              <div className="grid gap-3">
+                <p className="text-sm text-muted">No card on file. Add one here. Charge stays in CrewWeek after the card is saved.</p>
+                <StripeCardSetup
+                  clientId={job.client_id}
+                  source="cleaner"
+                  onSaved={async (card) => {
+                    toast.success(`Saved ${brandLabel(card.brand)} · ${card.last4}`);
+                    await cards.refetch();
+                  }}
+                />
+              </div>
+            ) : (
+            <>
+            {localCards ? <CardSelect cards={cards.data ?? []} value={cardId} onChange={setCardId} /> : <StripeCollectNote card={defaultSavedCard(cards.data ?? [])} />}
             <Button
               disabled={busy}
               onClick={async () => {
                 setBusy(true);
                 try {
+                  const saved = defaultSavedCard(cards.data ?? []);
                   const res = await chargeCard({
                     data: {
                       clientId: job.client_id,
                       amountCents: Math.round(Number(amt) * 100),
                       description: desc,
                       jobId: job.id,
-                      cardId: cardId || undefined,
+                      cardId: localCards ? cardId || undefined : saved?.id,
                     },
                   });
-                  if ("checkoutUrl" in res && res.checkoutUrl) {
-                    window.location.assign(res.checkoutUrl);
-                    return;
-                  }
                   if (res.ok) {
                     toast.success(`Paid. Receipt ${res.receiptNumber}. ${res.brand} · ${res.last4}`);
                     setChargeOpen(false);
@@ -280,8 +295,10 @@ export function JobPanel({
                 }
               }}
             >
-              {busy ? "Charging…" : localCards ? `Charge ${money(Math.round(Number(amt) * 100) || 0)}` : "Continue to Stripe"}
+              {busy ? "Charging…" : `Charge ${money(Math.round(Number(amt) * 100) || 0)}`}
             </Button>
+            </>
+            )}
           </div>
         ) : null}
 

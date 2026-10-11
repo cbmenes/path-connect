@@ -748,7 +748,7 @@ function PlanSection() {
           {plan.connectStatus === "ready" ? (
             <>
               <p className="mt-1 font-display text-2xl text-navy">Connected</p>
-              <p className="mt-2 text-sm text-muted">Card payments are enabled. Client card charges go to this Stripe account. The payout belongs to this cleaning company.</p>
+              <p className="mt-2 text-sm text-muted">Card payments are enabled. A saved client card is charged on this Stripe account. Stripe collects the first card. The payout belongs to this cleaning company.</p>
             </>
           ) : plan.connectStatus === "incomplete" ? (
             <>
