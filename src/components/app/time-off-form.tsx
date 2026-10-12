@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import type { TimeOffKind } from "@/lib/sweepbook/time-off-overlap";
 import { chicagoDateInputValue } from "@/lib/sweepbook/time";
 import { Button } from "@/components/ui/button";
@@ -35,6 +35,11 @@ export function TimeOffForm({
   const [startTime, setStartTime] = useState(initial?.startTime ?? "09:00");
   const [endTime, setEndTime] = useState(initial?.endTime ?? "17:00");
   const [note, setNote] = useState(initial?.note ?? "");
+
+  useEffect(() => {
+    if (!people?.length) return;
+    if (!people.some((person) => person.user_id === userId)) setUserId(people[0].user_id);
+  }, [people, userId]);
 
   return (
     <form

@@ -4,30 +4,22 @@ import { useState } from "react";
 import { toast } from "sonner";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import {
-  createTeamInvite,
   deleteTeamMember,
   listTeam,
   resendTeamInvite,
-  saveTeamMember,
   setTeamClockIn,
   setTeamMemberClockIn,
   setTeamMessaging,
   updateTeamMember,
 } from "@/lib/sweepbook/team";
 import { formatPayRate } from "@/lib/sweepbook/team-pay";
-import { actorWritesLocked, isOfficeActor, type OfficeRole, type TeamMember } from "@/lib/sweepbook/types";
+import { actorWritesLocked, isOfficeActor, type TeamMember } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";
 import { Button } from "@/components/ui/button";
 import { Card } from "@/components/ui/card";
 import { Dialog } from "@/components/ui/dialog";
-import { NameFields } from "@/components/app/name-fields";
-import { PhoneInput } from "@/components/app/phone-input";
-import { emptyAddress, type AddressParts } from "@/lib/sweepbook/people";
-import type { AvailabilityWindow } from "@/lib/sweepbook/types";
-import { TeamDetailSections } from "@/components/app/team-details";
 import { EditMember } from "@/components/app/edit-team-member";
-import { Field, Input, NativeSelect } from "@/components/ui/input";
 
 export const Route = createFileRoute("/app/team/")({ component: TeamPage });
 
@@ -35,22 +27,6 @@ function TeamPage() {
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const q = useQuery({ queryKey: ["team"], queryFn: () => listTeam() });
   const qc = useQueryClient();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [email, setEmail] = useState("");
-  const [canMessage, setCanMessage] = useState(true);
-  const [inviteKind, setInviteKind] = useState<OfficeRole>("team");
-  const [canCharge, setCanCharge] = useState(false);
-  const [notes, setNotes] = useState("");
-  const [availability, setAvailability] = useState<AvailabilityWindow[]>([]);
-  const [address, setAddress] = useState<AddressParts>(emptyAddress());
-  const [emergencyName, setEmergencyName] = useState("");
-  const [emergencyPhone, setEmergencyPhone] = useState("");
-  const [birthday, setBirthday] = useState("");
-  const [startDate, setStartDate] = useState("");
-  const [inviteUrl, setInviteUrl] = useState<string | null>(null);
-  const [busy, setBusy] = useState(false);
   const [editing, setEditing] = useState<TeamMember | null>(null);
   const [removeTarget, setRemoveTarget] = useState<TeamMember | null>(null);
   const [removing, setRemoving] = useState(false);
@@ -59,35 +35,6 @@ function TeamPage() {
   const canManageAdmins = Boolean(q.data?.canManageAdmins);
   const canEditPay = Boolean(q.data?.canEditPay);
   const canToggleAccountMessaging = Boolean(q.data?.canToggleAccountMessaging);
-  const personDetails = {
-    staffNotes: notes,
-    addressLine1: address.address_line1,
-    addressLine2: address.address_line2,
-    city: address.city,
-    state: address.state,
-    zip: address.zip,
-    emergencyName,
-    emergencyPhone,
-    birthday,
-    startDate,
-    availability: inviteKind === "admin" ? [] : availability,
-  };
-
-  function clearPersonForm() {
-    setFirstName("");
-    setLastName("");
-    setPhone("");
-    setEmail("");
-    setCanCharge(false);
-    setInviteKind("team");
-    setNotes("");
-    setAvailability([]);
-    setAddress(emptyAddress());
-    setEmergencyName("");
-    setEmergencyPhone("");
-    setBirthday("");
-    setStartDate("");
-  }
 
   if (actor.data && !isOfficeActor(actor.data)) {
     return <p className="text-muted">Only the office manages the team.</p>;
@@ -102,6 +49,9 @@ function TeamPage() {
         title="Team"
         action={
           <div className="flex flex-wrap gap-2">
+            <Button asChild>
+              <Link to="/app/team/new">Add Team Member</Link>
+            </Button>
             <Button variant="outline" asChild>
               <Link to="/app/time-off">Time off</Link>
             </Button>
@@ -177,121 +127,6 @@ function TeamPage() {
         </Button>
       </Card>
 
-      <Card>
-        <h2 className="font-display text-lg text-navy">Add a person</h2>
-        <form
-          className="mt-3 grid gap-3 md:grid-cols-2"
-          onSubmit={async (e) => {
-            e.preventDefault();
-            setBusy(true);
-            try {
-              const res = await createTeamInvite({
-                data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, details: personDetails },
-              });
-              const url = `${window.location.origin}${res.path}`;
-              setInviteUrl(url);
-              await navigator.clipboard?.writeText(url).catch(() => undefined);
-              toast.success("Invite link copied.");
-              clearPersonForm();
-              await qc.invalidateQueries({ queryKey: ["team"] });
-              await qc.invalidateQueries({ queryKey: ["crew-marks"] });
-              await qc.invalidateQueries({ queryKey: ["assignable-staff"] });
-              await qc.invalidateQueries({ queryKey: ["staff"] });
-            } catch (err) {
-              toast.error(err instanceof Error ? err.message : "Could not create invite.");
-            } finally {
-              setBusy(false);
-            }
-          }}
-        >
-          {canManageAdmins ? (
-            <Field label="Role">
-              <NativeSelect
-                value={inviteKind}
-                onChange={(e) => setInviteKind(e.target.value === "admin" ? "admin" : "team")}
-              >
-                <option value="team">Team cleaner</option>
-                <option value="admin">Admin</option>
-              </NativeSelect>
-            </Field>
-          ) : null}
-          <div className="md:col-span-2">
-            <NameFields firstName={firstName} lastName={lastName} onFirst={setFirstName} onLast={setLastName} />
-          </div>
-          <Field label="Phone">
-            <PhoneInput value={phone} onChange={setPhone} />
-          </Field>
-          <Field label="Email">
-            <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
-          </Field>
-          <div className="md:col-span-2">
-            <TeamDetailSections
-              showAvailability={inviteKind === "team"}
-              notes={notes}
-              onNotes={setNotes}
-              availability={availability}
-              onAvailability={setAvailability}
-              address={address}
-              onAddress={setAddress}
-              emergencyName={emergencyName}
-              onEmergencyName={setEmergencyName}
-              emergencyPhone={emergencyPhone}
-              onEmergencyPhone={setEmergencyPhone}
-              birthday={birthday}
-              onBirthday={setBirthday}
-              startDate={startDate}
-              onStartDate={setStartDate}
-            />
-          </div>
-          {inviteKind === "team" ? (
-            <label className="flex items-center gap-2 text-sm">
-              <input type="checkbox" checked={canMessage} onChange={(e) => setCanMessage(e.target.checked)} />
-              Can message clients
-            </label>
-          ) : (
-            <label className="flex items-center gap-2 text-sm md:col-span-2">
-              <input type="checkbox" checked={canCharge} onChange={(e) => setCanCharge(e.target.checked)} />
-              Can charge clients
-            </label>
-          )}
-          <div className="flex flex-wrap gap-2 md:col-span-2">
-            <Button
-              type="button"
-              variant="outline"
-              disabled={busy || writesLocked}
-              onClick={async () => {
-                if (!firstName.trim() || !lastName.trim()) {
-                  toast.error("First and last name are required.");
-                  return;
-                }
-                setBusy(true);
-                try {
-                  await saveTeamMember({
-                    data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, details: personDetails },
-                  });
-                  toast.success("Saved to the team list.");
-                  clearPersonForm();
-                  await qc.invalidateQueries({ queryKey: ["team"] });
-                  await qc.invalidateQueries({ queryKey: ["crew-marks"] });
-                  await qc.invalidateQueries({ queryKey: ["assignable-staff"] });
-                  await qc.invalidateQueries({ queryKey: ["staff"] });
-                } catch (err) {
-                  toast.error(err instanceof Error ? err.message : "Could not save.");
-                } finally {
-                  setBusy(false);
-                }
-              }}
-            >
-              {busy ? "Saving…" : "Save"}
-            </Button>
-            <Button type="submit" disabled={busy || writesLocked}>
-              {busy ? "Sending…" : "Send invite"}
-            </Button>
-          </div>
-        </form>
-        {inviteUrl ? <p className="mt-2 break-all text-xs text-muted">{inviteUrl}</p> : null}
-      </Card>
-
       <section>
         <h2 className="font-display text-xl text-navy">Cleaners</h2>
         <div className="mt-3 grid gap-2">
@@ -340,7 +175,6 @@ function TeamPage() {
                       onClick={async () => {
                         const res = await resendTeamInvite({ data: { inviteToken: m.invite_token } });
                         const url = `${window.location.origin}${res.path}`;
-                        setInviteUrl(url);
                         await navigator.clipboard?.writeText(url).catch(() => undefined);
                         toast.success(m.invite_sent ? "Invite link copied." : "Invite sent. Link copied.");
                         await qc.invalidateQueries({ queryKey: ["team"] });
@@ -403,7 +237,7 @@ function TeamPage() {
           </p>
           <div className="mt-3 grid gap-2">
             {admins.length === 0 ? (
-              <EmptyState title="No admins yet" body="Add an office helper above and choose Admin as the role." />
+              <EmptyState title="No admins yet" body="Add an office helper and choose Admin as the role." />
             ) : (
               admins.map((m) => (
                 <Card
@@ -442,7 +276,6 @@ function TeamPage() {
                         onClick={async () => {
                           const res = await resendTeamInvite({ data: { inviteToken: m.invite_token } });
                           const url = `${window.location.origin}${res.path}`;
-                          setInviteUrl(url);
                           await navigator.clipboard?.writeText(url).catch(() => undefined);
                           toast.success(m.invite_sent ? "Invite link copied." : "Invite sent. Link copied.");
                           await qc.invalidateQueries({ queryKey: ["team"] });

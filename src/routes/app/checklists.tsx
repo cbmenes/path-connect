@@ -139,7 +139,7 @@ function ChecklistsPage() {
             ))}
           </ul>
         ) : (
-          <p className="text-sm text-muted">No team cleaners yet.</p>
+          <p className="text-sm text-muted">No team cleaners have been invited/added to portal yet.</p>
         )}
       </Card>
 

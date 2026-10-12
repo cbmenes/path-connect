@@ -63,10 +63,24 @@ export type TimeOffPerson = {
 };
 
 const SELECT = `
-  t.id, t.master_user_id, t.user_id, p.full_name as user_name,
+  t.id, t.master_user_id, t.user_id,
+  coalesce(
+    p.full_name,
+    case
+      when i.id is null then null
+      when i.invited_at is null then i.name || ' · Saved'
+      else i.name || ' · Invite pending'
+    end
+  ) as user_name,
   t.kind, t.start_date, t.end_date, t.start_time, t.end_time,
   t.note, t.deny_note, t.status, t.created_by_user_id, t.handled_by_user_id,
   t.handled_at::text as handled_at, t.created_at::text as created_at
+`;
+
+const TIME_OFF_FROM = `
+  from time_off t
+  left join profiles p on p.user_id = t.user_id
+  left join team_invites i on i.id = t.user_id
 `;
 
 function parseKind(raw: unknown): TimeOffKind {
@@ -111,24 +125,32 @@ function parseInput(input: {
 }
 
 async function assertTimeOffTarget(sql: Sql, ownerId: string, userId: string) {
-  if (userId === ownerId) return;
-  const rows = await sql<{ user_id: string }>`
+  if (!userId || userId === ownerId) throw new Error("That cleaner is not on this team.");
+  const profiles = await sql<{ user_id: string }>`
     select user_id from profiles
     where user_id = ${userId}
       and master_user_id = ${ownerId}
       and role = 'cleaner'
       and coalesce(cleaner_kind, 'team') = 'team'
-      and coalesce(team_status, 'active') = 'active'
+      and coalesce(team_status, 'active') <> 'disabled'
     limit 1
   `;
-  if (!rows[0]) throw new Error("That cleaner is not on this team.");
+  if (profiles[0]) return;
+  const invites = await sql<{ id: string }>`
+    select id from team_invites
+    where id = ${userId}
+      and master_user_id = ${ownerId}
+      and accepted_at is null
+      and coalesce(invite_kind, 'team') = 'team'
+    limit 1
+  `;
+  if (!invites[0]) throw new Error("That cleaner is not on this team.");
 }
 
 async function loadRow(sql: Sql, id: string, ownerId: string) {
   const rows = await sql.query<TimeOffRow>(
     `select ${SELECT}
-     from time_off t
-     join profiles p on p.user_id = t.user_id
+     ${TIME_OFF_FROM}
      where t.id = $1 and t.master_user_id = $2
      limit 1`,
     [id, ownerId],
@@ -202,8 +224,7 @@ export async function findTimeOffHits(
   const placeholders = mine.map((_, i) => `$${i + 4}`).join(", ");
   const rows = await sql.query<TimeOffRow>(
     `select ${SELECT}
-     from time_off t
-     join profiles p on p.user_id = t.user_id
+     ${TIME_OFF_FROM}
      where t.master_user_id = $1
        and t.status in ('pending', 'approved')
        and t.start_date <= $2
@@ -240,21 +261,27 @@ export const listTimeOffPeople = createServerFn({ method: "GET" })
     const actor = await getActor(sql, context.userId);
     assertOffice(actor);
     const ownerId = masterUserId(actor);
-    const team = await sql<{ user_id: string; full_name: string }>`
-      select user_id, full_name from profiles
-      where master_user_id = ${ownerId}
-        and coalesce(team_status, 'active') = 'active'
-        and coalesce(cleaner_kind, 'team') = 'team'
-      order by full_name
-    `;
-    const master = await sql<{ user_id: string; full_name: string }>`
-      select user_id, full_name from profiles where user_id = ${ownerId} limit 1
-    `;
-    const people: TimeOffPerson[] = [
-      ...team.map((t) => ({ ...t, kind: "team" as const })),
-      ...(master[0] ? [{ ...master[0], kind: "master" as const }] : []),
-    ];
-    return people;
+    const team = await sql.query<{ user_id: string; full_name: string }>(
+      `select user_id, full_name from (
+         select user_id, full_name, 0 as sort_pending
+         from profiles
+         where master_user_id = $1
+           and role = 'cleaner'
+           and coalesce(cleaner_kind, 'team') = 'team'
+           and coalesce(team_status, 'active') <> 'disabled'
+         union all
+         select id as user_id,
+                case when invited_at is null then name || ' · Saved' else name || ' · Invite pending' end as full_name,
+                1 as sort_pending
+         from team_invites
+         where master_user_id = $1
+           and accepted_at is null
+           and coalesce(invite_kind, 'team') = 'team'
+       ) people
+       order by sort_pending, full_name`,
+      [ownerId],
+    );
+    return team.map((person) => ({ ...person, kind: "team" as const }));
   });
 
 export const listTimeOff = createServerFn({ method: "GET" })
@@ -286,8 +313,7 @@ export const listTimeOff = createServerFn({ method: "GET" })
     extra += ` and t.status <> 'cancelled'`;
     const rows = await sql.query<TimeOffRow>(
       `select ${SELECT}
-       from time_off t
-       join profiles p on p.user_id = t.user_id
+       ${TIME_OFF_FROM}
        where t.master_user_id = $1 ${extra}
        order by t.start_date asc, t.created_at desc`,
       params,
@@ -312,7 +338,8 @@ export const createTimeOff = createServerFn({ method: "POST" })
     assertStaff(actor);
     const ownerId = masterUserId(actor);
     const office = isOffice(actor);
-    const userId = office ? data.userId || ownerId : actor.userId;
+    const userId = office ? data.userId || "" : actor.userId;
+    if (!userId) throw new Error("Choose a cleaner.");
     if (!office && userId !== actor.userId) {
       throw new Error("You can only request time off for yourself.");
     }

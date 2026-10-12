@@ -63,6 +63,7 @@ import { Route as AppRequestsIndexRouteImport } from './routes/app/requests.inde
 import { Route as AppRequestsIdRouteImport } from './routes/app/requests.$id'
 import { Route as AppTeamIndexRouteImport } from './routes/app/team.index'
 import { Route as AppTeamUserIdRouteImport } from './routes/app/team.$userId'
+import { Route as AppTeamNewRouteImport } from './routes/app/team.new'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -334,6 +335,11 @@ const AppTeamUserIdRoute = AppTeamUserIdRouteImport.update({
   path: '/$userId',
   getParentRoute: () => AppTeamRoute,
 } as any)
+const AppTeamNewRoute = AppTeamNewRouteImport.update({
+  id: '/new',
+  path: '/new',
+  getParentRoute: () => AppTeamRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -386,6 +392,7 @@ export interface FileRoutesByFullPath {
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
   '/app/requests/$id': typeof AppRequestsIdRoute
   '/app/team/$userId': typeof AppTeamUserIdRoute
+  '/app/team/new': typeof AppTeamNewRoute
   '/app/clients/': typeof AppClientsIndexRoute
   '/app/messages/': typeof AppMessagesIndexRoute
   '/app/requests/': typeof AppRequestsIndexRoute
@@ -435,6 +442,7 @@ export interface FileRoutesByTo {
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
   '/app/requests/$id': typeof AppRequestsIdRoute
   '/app/team/$userId': typeof AppTeamUserIdRoute
+  '/app/team/new': typeof AppTeamNewRoute
   '/app/clients': typeof AppClientsIndexRoute
   '/app/messages': typeof AppMessagesIndexRoute
   '/app/requests': typeof AppRequestsIndexRoute
@@ -492,6 +500,7 @@ export interface FileRoutesById {
   '/app/messages/$clientId': typeof AppMessagesClientIdRoute
   '/app/requests/$id': typeof AppRequestsIdRoute
   '/app/team/$userId': typeof AppTeamUserIdRoute
+  '/app/team/new': typeof AppTeamNewRoute
   '/app/clients/': typeof AppClientsIndexRoute
   '/app/messages/': typeof AppMessagesIndexRoute
   '/app/requests/': typeof AppRequestsIndexRoute
@@ -550,6 +559,7 @@ export interface FileRouteTypes {
     | '/app/messages/$clientId'
     | '/app/requests/$id'
     | '/app/team/$userId'
+    | '/app/team/new'
     | '/app/clients/'
     | '/app/messages/'
     | '/app/requests/'
@@ -599,6 +609,7 @@ export interface FileRouteTypes {
     | '/app/messages/$clientId'
     | '/app/requests/$id'
     | '/app/team/$userId'
+    | '/app/team/new'
     | '/app/clients'
     | '/app/messages'
     | '/app/requests'
@@ -655,6 +666,7 @@ export interface FileRouteTypes {
     | '/app/messages/$clientId'
     | '/app/requests/$id'
     | '/app/team/$userId'
+    | '/app/team/new'
     | '/app/clients/'
     | '/app/messages/'
     | '/app/requests/'
@@ -1064,6 +1076,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof AppTeamUserIdRouteImport
       parentRoute: typeof AppTeamRoute
     }
+    '/app/team/new': {
+      id: '/app/team/new'
+      path: '/new'
+      fullPath: '/app/team/new'
+      preLoaderRoute: typeof AppTeamNewRouteImport
+      parentRoute: typeof AppTeamRoute
+    }
   }
 }
 
@@ -1115,11 +1134,13 @@ const AppRequestsRouteWithChildren = AppRequestsRoute._addFileChildren(
 
 interface AppTeamRouteChildren {
   AppTeamUserIdRoute: typeof AppTeamUserIdRoute
+  AppTeamNewRoute: typeof AppTeamNewRoute
   AppTeamIndexRoute: typeof AppTeamIndexRoute
 }
 
 const AppTeamRouteChildren: AppTeamRouteChildren = {
   AppTeamUserIdRoute: AppTeamUserIdRoute,
+  AppTeamNewRoute: AppTeamNewRoute,
   AppTeamIndexRoute: AppTeamIndexRoute,
 }
 
