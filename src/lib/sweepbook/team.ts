@@ -79,12 +79,10 @@ async function assertAdminSeatOpen(sql: Awaited<ReturnType<typeof getSql>>, mast
   }
 }
 
-function mapMember(
-  m: TeamMember & { assigned_json?: unknown; availability_json?: unknown },
-  includePay: boolean,
-): TeamMember {
+function mapMember(m: TeamMember & { assigned_json?: unknown; availability_json?: unknown }): TeamMember {
   const { assigned_json: _ignored, availability_json, ...rest } = m;
   const officeRole = parseOfficeRole(rest.office_role);
+  const teamCleaner = officeRole === "team";
   return {
     ...rest,
     office_role: officeRole,
@@ -93,9 +91,9 @@ function mapMember(
     can_see_checklists: asBool(rest.can_see_checklists, true),
     can_clock_in: asBool(rest.can_clock_in, true),
     invite_sent: asBool(rest.invite_sent, false),
-    pay_type: includePay && officeRole === "team" ? parsePayType(rest.pay_type) : undefined,
-    pay_amount: includePay && officeRole === "team" ? Number(rest.pay_amount || 0) : undefined,
-    pay_note: includePay && officeRole === "team" ? rest.pay_note ?? null : undefined,
+    pay_type: teamCleaner ? parsePayType(rest.pay_type) : undefined,
+    pay_amount: teamCleaner ? Number(rest.pay_amount || 0) : undefined,
+    pay_note: teamCleaner ? rest.pay_note ?? null : undefined,
     assigned_clients: parseClientRefs(m.assigned_json),
     staff_notes: rest.staff_notes ?? null,
     birthday: dateOnly(rest.birthday),
@@ -216,10 +214,7 @@ export const listTeam = createServerFn({ method: "GET" })
     const clients = await sql<{ id: string; name: string }>`
       select id, name from clients where cleaner_user_id = ${ownerId} order by name
     `;
-    const all = [
-      ...pending.map((m) => mapMember(m, includePay)),
-      ...members.map((m) => mapMember(m, includePay)),
-    ];
+    const all = [...pending.map((m) => mapMember(m)), ...members.map((m) => mapMember(m))];
     const teamMembers = all.filter((m) => m.office_role !== "admin");
     const admins = actor.kind === "cleaner" ? all.filter((m) => m.office_role === "admin") : [];
     return {
@@ -247,7 +242,7 @@ export const listTeam = createServerFn({ method: "GET" })
         true,
       ),
       canManageAdmins: actor.kind === "cleaner",
-      canEditPay: includePay,
+      canEditPay: true,
       teamPayEnabled: includePay,
       canToggleAccountMessaging: true,
     };
@@ -664,7 +659,6 @@ async function updatePendingTeamInvite(
     await sql`update team_invites set can_charge = ${data.canCharge} where id = ${invite.id}`;
   }
   if (data.payType !== undefined) {
-    if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included in the Office Subscription.");
     if (kind === "admin") throw new Error("Admins do not have a team pay rate.");
     const payType = parsePayType(data.payType);
     let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));
@@ -768,7 +762,6 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       await sql`update profiles set can_charge = ${data.canCharge} where user_id = ${data.userId}`;
     }
     if (data.payType !== undefined) {
-      if (!(await teamPayAllowed(sql, actor))) throw new Error("Team pay is included in the Office Subscription.");
       if (member.cleaner_kind === "admin") throw new Error("Admins do not have a team pay rate.");
       const payType = parsePayType(data.payType);
       let payAmount = Math.max(0, Math.round(Number(data.payAmount || 0)));

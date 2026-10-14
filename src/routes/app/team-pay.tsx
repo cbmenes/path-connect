@@ -89,7 +89,7 @@ function TeamPayPage() {
       {locked ? (
         <Card>
           <p className="text-sm text-ink">
-            Included in the Office Subscription. You can see Team pay here. Setting a cleaner&apos;s rate, payroll, and marking Team pay paid are available in the Office Subscription.
+            Included in the Office Subscription. Cleaner rates are set on the Team page. The tally is available on the Office Subscription.
           </p>
         </Card>
       ) : null}

@@ -4,7 +4,8 @@ import { useMemo, useState } from "react";
 import { toast } from "sonner";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { listJobs } from "@/lib/sweepbook/jobs";
-import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { listVisitCleaners } from "@/lib/sweepbook/team";
+import { plainPersonName } from "@/components/app/assignee-picker";
 import {
   addDaysChicago,
   addMinutes,
@@ -32,8 +33,8 @@ type Mode = "day" | "week";
 function SheetPage() {
   const actor = useQuery({ queryKey: ["actor"], queryFn: () => getMyActor() });
   const staff = useQuery({
-    queryKey: ["assignable-staff"],
-    queryFn: () => listAssignableStaff(),
+    queryKey: ["visit-cleaners"],
+    queryFn: () => listVisitCleaners(),
     enabled: isOfficeActor(actor.data),
   });
   const [mode, setMode] = useState<Mode>("day");
@@ -171,7 +172,7 @@ function SheetPage() {
               <option value="">All team</option>
               {(staff.data ?? []).map((s) => (
                 <option key={s.user_id} value={s.user_id}>
-                  {s.full_name}
+                  {plainPersonName(s.full_name)}
                 </option>
               ))}
             </NativeSelect>
