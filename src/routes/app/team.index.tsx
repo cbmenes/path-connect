@@ -308,6 +308,7 @@ function TeamPage() {
             onSaved={async () => {
               setEditing(null);
               await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["team-pay"] });
               await qc.invalidateQueries({ queryKey: ["crew-marks"] });
               await qc.invalidateQueries({ queryKey: ["jobs"] });
               await qc.invalidateQueries({ queryKey: ["actor"] });

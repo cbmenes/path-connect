@@ -2,13 +2,14 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { availabilitySummary } from "@/lib/sweepbook/availability";
 import { formatAddress, formatPhoneAsTyped, type AddressParts } from "@/lib/sweepbook/people";
+import { formatPayRate, payTypeLabel, type PayType } from "@/lib/sweepbook/team-pay";
 import type { AvailabilityWindow, TeamMember } from "@/lib/sweepbook/types";
 import { OpenedContent } from "@/components/app/opened-content";
 import { AddressFields } from "@/components/app/address-fields";
 import { NameFields } from "@/components/app/name-fields";
 import { PhoneInput } from "@/components/app/phone-input";
 import { Button } from "@/components/ui/button";
-import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
+import { Field, Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
 
 const DAYS = [
@@ -107,57 +108,9 @@ export function TeamDetailSections({
         </Field>
       </CollapsedSection>
       {showAvailability ? (
-      <CollapsedSection title="Availability" summary={availabilitySummary(availability)}>
-        <p className="text-xs text-muted">
-          Optional weekly windows. Leave this empty for no restriction. If you add windows, scheduling is limited to those times.
-        </p>
-        <div className="grid gap-2">
-          {availability.map((window, index) => (
-            <div key={`${window.day}-${index}`} className="grid gap-2 sm:grid-cols-[1fr_7rem_7rem_auto] sm:items-end">
-              <Field label="Day">
-                <NativeSelect
-                  value={String(window.day)}
-                  onChange={(e) => onAvailability(replaceAt(availability, index, { ...window, day: Number(e.target.value) }))}
-                >
-                  {DAYS.map((d) => (
-                    <option key={d.day} value={d.day}>
-                      {d.label}
-                    </option>
-                  ))}
-                </NativeSelect>
-              </Field>
-              <Field label="Start">
-                <Input
-                  type="time"
-                  value={window.start}
-                  onChange={(e) => onAvailability(replaceAt(availability, index, { ...window, start: e.target.value }))}
-                />
-              </Field>
-              <Field label="End">
-                <Input
-                  type="time"
-                  value={window.end}
-                  onChange={(e) => onAvailability(replaceAt(availability, index, { ...window, end: e.target.value }))}
-                />
-              </Field>
-              <Button
-                type="button"
-                variant="ghost"
-                onClick={() => onAvailability(availability.filter((_, i) => i !== index))}
-              >
-                Remove
-              </Button>
-            </div>
-          ))}
-        </div>
-        <Button
-          type="button"
-          variant="outline"
-          onClick={() => onAvailability([...availability, { day: 1, start: "09:00", end: "17:00" }])}
-        >
-          Add a window
-        </Button>
-      </CollapsedSection>
+        <CollapsedSection title="Availability" summary={availabilitySummary(availability)}>
+          <AvailabilityEditor value={availability} onChange={onAvailability} />
+        </CollapsedSection>
       ) : null}
       <CollapsedSection title="Dates" summary={dateSummary(birthday, startDate)}>
         <p className="text-xs text-muted">
@@ -176,7 +129,7 @@ export function TeamDetailSections({
   );
 }
 
-export function TeamDetailView({ member }: { member: TeamMember }) {
+export function TeamDetailView({ member, showPay = false }: { member: TeamMember; showPay?: boolean }) {
   const showAvailability = member.office_role !== "admin";
   const address = formatAddress(addressParts(member));
   const phone = formatPhoneAsTyped(member.phone);
@@ -221,7 +174,112 @@ export function TeamDetailView({ member }: { member: TeamMember }) {
           Birthday and the work anniversary from the start date show on the office calendar. They are markers, not appointments.
         </p>
       </CollapsedSection>
+      {showPay ? (
+        <CollapsedSection title="Pay rate" summary={payRateSummary(member.pay_type, member.pay_amount)}>
+          <p className="text-sm text-ink">{payRateSummary(member.pay_type, member.pay_amount)}</p>
+          {member.pay_note?.trim() ? <p className="text-sm text-ink">{member.pay_note.trim()}</p> : null}
+          <p className="text-xs text-muted">This cleaner never sees this rate.</p>
+        </CollapsedSection>
+      ) : null}
     </div>
+  );
+}
+
+function payRateSummary(type: PayType | undefined, amount: number | undefined) {
+  const payType = type ?? "none";
+  if (payType === "none") return "No rate set";
+  return `${payTypeLabel(payType)} · ${formatPayRate(payType, amount ?? 0)}`;
+}
+
+function AvailabilityEditor({
+  value,
+  onChange,
+}: {
+  value: AvailabilityWindow[];
+  onChange: (value: AvailabilityWindow[]) => void;
+}) {
+  const [days, setDays] = useState(() => [...new Set(value.map((window) => window.day))].sort((a, b) => a - b));
+  const [start, setStart] = useState(value[0]?.start || "09:00");
+  const [end, setEnd] = useState(value[0]?.end || "17:00");
+  const [touched, setTouched] = useState(false);
+  const mixed =
+    !touched &&
+    value.length > 1 &&
+    value.some((window) => window.start !== value[0]?.start || window.end !== value[0]?.end);
+  const invalid = days.length > 0 && start >= end;
+
+  function publish(nextDays: number[], nextStart: string, nextEnd: string) {
+    const ordered = [...nextDays].sort((a, b) => a - b);
+    setTouched(true);
+    setDays(ordered);
+    if (!ordered.length) {
+      onChange([]);
+      return;
+    }
+    onChange(ordered.map((day) => ({ day, start: nextStart, end: nextEnd })));
+  }
+
+  return (
+    <>
+      <p className="text-xs text-muted">
+        Optional weekly windows. Leave every day unchecked for no restriction. Checked days limit scheduling to the start and end time below.
+      </p>
+      <div className="grid grid-cols-2 gap-x-3 sm:grid-cols-4">
+        {DAYS.map((d) => (
+          <label key={d.day} className="flex min-h-11 items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              checked={days.includes(d.day)}
+              onChange={() => {
+                const next = days.includes(d.day) ? days.filter((day) => day !== d.day) : [...days, d.day];
+                publish(next, start, end);
+              }}
+            />
+            {d.label}
+          </label>
+        ))}
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        <Field label="Start">
+          <Input
+            type="time"
+            value={start}
+            onChange={(e) => {
+              setStart(e.target.value);
+              publish(days, e.target.value, end);
+            }}
+          />
+        </Field>
+        <Field label="End">
+          <Input
+            type="time"
+            value={end}
+            onChange={(e) => {
+              setEnd(e.target.value);
+              publish(days, start, e.target.value);
+            }}
+          />
+        </Field>
+      </div>
+      {mixed ? (
+        <p className="text-xs text-muted">
+          Saved days use more than one time. Checking a day or changing these times applies one start and end to every checked day.
+        </p>
+      ) : null}
+      {invalid ? <p className="text-xs text-danger">End time must be after the start time.</p> : null}
+      <Button
+        type="button"
+        variant="ghost"
+        disabled={!days.length}
+        onClick={() => {
+          setStart("09:00");
+          setEnd("17:00");
+          publish([], "09:00", "17:00");
+        }}
+      >
+        Clear
+      </Button>
+    </>
   );
 }
 
@@ -266,10 +324,6 @@ export function CollapsedSection({ title, summary, children }: { title: string; 
       ) : null}
     </div>
   );
-}
-
-function replaceAt(rows: AvailabilityWindow[], index: number, next: AvailabilityWindow) {
-  return rows.map((row, i) => (i === index ? next : row));
 }
 
 function contactSummary(address: AddressParts, identity?: { phone?: string; email?: string }) {

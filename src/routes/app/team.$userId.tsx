@@ -234,7 +234,10 @@ function TeamMemberSchedulePage() {
           ? ""
           : " Assigned visits stay on this calendar. Birthday and work anniversary are markers, not appointments."}
       </p>
-      <TeamDetailView member={person} />
+      <TeamDetailView
+        member={person}
+        showPay={!isAdminPerson && actor.data?.userId !== person.user_id}
+      />
       {isAdminPerson ? null : (
       <CollapsedSection title="Assigned clients" summary={assignmentSummary}>
         <p className="text-xs text-muted">Saving here updates this person on each client page.</p>
@@ -329,6 +332,7 @@ function TeamMemberSchedulePage() {
             onSaved={async () => {
               setEditing(false);
               await qc.invalidateQueries({ queryKey: ["team"] });
+              await qc.invalidateQueries({ queryKey: ["team-pay"] });
               await qc.invalidateQueries({ queryKey: ["crew-marks"] });
               await qc.invalidateQueries({ queryKey: ["jobs"] });
               await qc.invalidateQueries({ queryKey: ["assignable-staff"] });

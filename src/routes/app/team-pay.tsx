@@ -32,6 +32,8 @@ function TeamPayPage() {
     queryKey: ["team-pay", from, to],
     queryFn: () => getTeamPayTally({ data: { from, to } }),
     enabled: Boolean(from && to && office),
+    staleTime: 0,
+    refetchOnMount: "always",
   });
 
   if (actor.data?.kind === "client") return <Navigate to="/app/visits" />;

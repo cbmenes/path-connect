@@ -108,10 +108,26 @@ export const getTeamPayTally = createServerFn({ method: "GET" })
       pay_amount: number;
       pay_note: string | null;
     }>(
-      `select user_id, full_name, coalesce(pay_type, 'none') as pay_type,
-              coalesce(pay_amount, 0)::int as pay_amount, pay_note
-       from profiles
-       where master_user_id = $1 and role = 'cleaner'
+      `select user_id, full_name, pay_type, pay_amount, pay_note
+       from (
+         select user_id, full_name,
+                coalesce(pay_type, 'none') as pay_type,
+                coalesce(pay_amount, 0)::int as pay_amount,
+                pay_note
+         from profiles
+         where master_user_id = $1
+           and role = 'cleaner'
+           and coalesce(cleaner_kind, 'team') = 'team'
+         union all
+         select id as user_id, name as full_name,
+                coalesce(pay_type, 'none') as pay_type,
+                coalesce(pay_amount, 0)::int as pay_amount,
+                pay_note
+         from team_invites
+         where master_user_id = $1
+           and accepted_at is null
+           and coalesce(invite_kind, 'team') = 'team'
+       ) people
        order by full_name`,
       [ownerId],
     );
