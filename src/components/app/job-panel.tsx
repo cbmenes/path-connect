@@ -5,7 +5,7 @@ import { toast } from "sonner";
 import { getJob, removeJob, setJobStatus, updateJob } from "@/lib/sweepbook/jobs";
 import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { chargeCard, listCardsForClient, markAsPaid } from "@/lib/sweepbook/payments";
-import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { listVisitCleaners } from "@/lib/sweepbook/team";
 import { formatDate, formatHours, formatTime, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
 import { JobForm } from "@/components/app/job-form";
 import { OpenedContent } from "@/components/app/opened-content";
@@ -17,7 +17,7 @@ import { VisitStatusBadge } from "@/components/app/status-badge";
 import { CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
 import { StripeCardSetup } from "@/components/app/stripe-card-setup";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
-import { AssigneePicker } from "@/components/app/assignee-picker";
+import { AssigneePicker, plainPersonName, selectionOnStaff } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { ManageRecurringDialog } from "@/components/app/manage-recurring";
@@ -49,7 +49,7 @@ export function JobPanel({
   onChanged: () => Promise<void>;
 }) {
   const q = useQuery({ queryKey: ["job", id], queryFn: () => getJob({ data: id }) });
-  const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: canEdit });
+  const staff = useQuery({ queryKey: ["visit-cleaners"], queryFn: () => listVisitCleaners(), enabled: canEdit });
   const [editing, setEditing] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const [markOpen, setMarkOpen] = useState(false);
@@ -89,7 +89,7 @@ export function JobPanel({
   const { job } = q.data;
 
   const currentIds = (job.assignees ?? []).map((a) => a.user_id);
-  const selectedIds = assigneeIds ?? currentIds;
+  const selectedIds = selectionOnStaff(assigneeIds ?? currentIds, staff.data);
 
   return (
     <>
@@ -117,9 +117,11 @@ export function JobPanel({
         <p className="text-sm text-muted">{job.address}</p>
         {job.notes ? <p className="text-sm">{job.notes}</p> : null}
         {job.assignees?.length ? (
-          <p className="text-xs text-muted">Assigned to {job.assignees.map((a) => a.full_name).join(", ")}</p>
+          <p className="text-xs text-muted">
+            Assigned to {job.assignees.map((a) => plainPersonName(a.full_name)).join(", ")}
+          </p>
         ) : job.assignee_name ? (
-          <p className="text-xs text-muted">Assigned to {job.assignee_name}</p>
+          <p className="text-xs text-muted">Assigned to {plainPersonName(job.assignee_name)}</p>
         ) : null}
 
         {(canEdit || isTeam) && job.status !== "cancelled" ? (
@@ -153,7 +155,10 @@ export function JobPanel({
           <div className="grid gap-2 rounded-xl bg-secondary p-3">
             <p className="text-sm font-medium">Assigned cleaners</p>
             <AssigneePicker
-              staff={staff.data ?? []}
+              staff={(staff.data ?? []).map((person) => ({
+                ...person,
+                full_name: plainPersonName(person.full_name),
+              }))}
               selected={selectedIds}
               onChange={setAssigneeIds}
               hints={offHints}

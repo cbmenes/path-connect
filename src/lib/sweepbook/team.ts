@@ -9,6 +9,7 @@ import {
   listOpenVisitsForClients,
   parseAssignmentWhen,
   queryAssignableStaff,
+  queryVisitCleaners,
   removePersonFromJob,
   replaceClientAssignmentsForInvite,
   replaceProfileClientLinks,
@@ -262,6 +263,19 @@ export const listAssignableStaff = createServerFn({ method: "GET" })
     }
     const ownerId = masterUserId(actor);
     return queryAssignableStaff(sql, ownerId);
+  });
+
+/** Cleaners who can be assigned to a visit. Team only, including people not yet invited. */
+export const listVisitCleaners = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const sql = await getSql();
+    const actor = await getActor(sql, context.userId);
+    if (!actor || (actor.kind !== "cleaner" && actor.kind !== "admin")) {
+      return [] as { user_id: string; full_name: string }[];
+    }
+    const ownerId = masterUserId(actor);
+    return queryVisitCleaners(sql, ownerId);
   });
 
 async function upsertSavedInvite(

@@ -7,10 +7,10 @@ import { useAssignConflictGate } from "@/components/app/conflict-warning";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import { actorWritesLocked } from "@/lib/sweepbook/types";
 import { chargeCard, listCardsForClient, markAsPaid, requestTip } from "@/lib/sweepbook/payments";
-import { listAssignableStaff } from "@/lib/sweepbook/team";
+import { listVisitCleaners } from "@/lib/sweepbook/team";
 import { appointmentMessageThread } from "@/lib/sweepbook/threads";
 import { formatDateTime, formatHours, hoursUntil, money, toDatetimeLocalValue } from "@/lib/sweepbook/time";
-import { AssigneePicker } from "@/components/app/assignee-picker";
+import { AssigneePicker, plainPersonName, selectionOnStaff } from "@/components/app/assignee-picker";
 import { useTimeOffHints } from "@/components/app/use-time-off-hints";
 import { CancelAppointmentDialog, MarkPaidDialog, RemoveAppointmentDialog } from "@/components/app/confirm-dialog";
 import { CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
@@ -58,7 +58,7 @@ function JobDetail() {
     actor.data?.kind === "cleaner" ||
     actor.data?.kind === "admin" ||
     (actor.data?.kind === "team" && actor.data.canMessage);
-  const staff = useQuery({ queryKey: ["staff"], queryFn: () => listAssignableStaff(), enabled: isOffice });
+  const staff = useQuery({ queryKey: ["visit-cleaners"], queryFn: () => listVisitCleaners(), enabled: isOffice });
   const offHints = useTimeOffHints(jobQ.data?.job.start_at, jobQ.data?.job.duration_min);
 
   if (jobQ.isPending) return <div className="h-40 animate-pulse rounded-xl bg-secondary" />;
@@ -92,9 +92,11 @@ function JobDetail() {
         {job.notes ? <p className="text-sm">{job.notes}</p> : null}
         {job.recurrence !== "none" ? <p className="text-xs text-muted">Repeats {job.recurrence}</p> : null}
         {job.assignees?.length ? (
-          <p className="text-xs text-muted">Assigned to {job.assignees.map((a) => a.full_name).join(", ")}</p>
+          <p className="text-xs text-muted">
+            Assigned to {job.assignees.map((a) => plainPersonName(a.full_name)).join(", ")}
+          </p>
         ) : job.assignee_name ? (
-          <p className="text-xs text-muted">Assigned to {job.assignee_name}</p>
+          <p className="text-xs text-muted">Assigned to {plainPersonName(job.assignee_name)}</p>
         ) : null}
       </Card>
       {isOffice || isTeam ? (
@@ -125,8 +127,11 @@ function JobDetail() {
         <Card className="grid gap-3">
           <h2 className="font-display text-lg text-navy">Assigned cleaners</h2>
           <AssigneePicker
-            staff={staff.data ?? []}
-            selected={assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id)}
+            staff={(staff.data ?? []).map((person) => ({
+              ...person,
+              full_name: plainPersonName(person.full_name),
+            }))}
+            selected={selectionOnStaff(assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id), staff.data)}
             onChange={setAssigneeIds}
             hints={offHints}
           />
@@ -143,7 +148,10 @@ function JobDetail() {
             variant="outline"
             disabled={assignGate.busy}
             onClick={() => {
-              const ids = assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id);
+              const ids = selectionOnStaff(
+                assigneeIds ?? (job.assignees ?? []).map((a) => a.user_id),
+                staff.data,
+              );
               void assignGate.requestAssign({
                 jobId: job.id,
                 assignedToUserIds: ids,

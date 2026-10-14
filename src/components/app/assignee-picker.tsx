@@ -4,6 +4,17 @@ import { cn } from "@/lib/utils";
 
 export type AssigneeHint = "off" | "pending";
 
+export function plainPersonName(name: string) {
+  return name.replace(/ · (Saved|Invite pending)$/, "");
+}
+
+/** Keep a saved selection limited to people who are actually listed. */
+export function selectionOnStaff(selected: string[], staff: { user_id: string }[] | undefined) {
+  if (!staff) return selected;
+  const allowed = new Set(staff.map((person) => person.user_id));
+  return selected.filter((id) => allowed.has(id));
+}
+
 export function AssigneePicker({
   staff,
   selected,

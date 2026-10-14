@@ -109,7 +109,28 @@ export async function partitionAssignees(sql: Sql, ownerId: string, ids: string[
   };
 }
 
-/** Team cleaners only. Admins can be assigned to a visit, not to a client. */
+/** Team cleaners for a visit. Pending invites stay assignable. Names have no status suffix. */
+export async function queryVisitCleaners(sql: Sql, ownerId: string) {
+  return sql.query<{ user_id: string; full_name: string }>(
+    `select user_id, full_name from (
+       select user_id, full_name, 0 as sort_pending
+       from profiles
+       where master_user_id = $1
+         and coalesce(team_status, 'active') = 'active'
+         and coalesce(cleaner_kind, 'team') = 'team'
+       union all
+       select id as user_id, name as full_name, 1 as sort_pending
+       from team_invites
+       where master_user_id = $1
+         and accepted_at is null
+         and coalesce(invite_kind, 'team') = 'team'
+     ) people
+     order by sort_pending, full_name`,
+    [ownerId],
+  );
+}
+
+/** Team cleaners for a client. Pending invites stay assignable. */
 export async function queryAssignableCleaners(sql: Sql, ownerId: string) {
   return sql.query<{ user_id: string; full_name: string }>(
     `select user_id, full_name from (
