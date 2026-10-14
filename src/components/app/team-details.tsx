@@ -2,7 +2,7 @@ import { useState, type ReactNode } from "react";
 import { ChevronDown } from "lucide-react";
 import { availabilitySummary } from "@/lib/sweepbook/availability";
 import { formatAddress, formatPhoneAsTyped, type AddressParts } from "@/lib/sweepbook/people";
-import { formatPayRate, payTypeLabel, type PayType } from "@/lib/sweepbook/team-pay";
+import { formatPayRate, payTypeLabel, type PayType } from "@/lib/sweepbook/pay-rate";
 import type { AvailabilityWindow, TeamMember } from "@/lib/sweepbook/types";
 import { OpenedContent } from "@/components/app/opened-content";
 import { AddressFields } from "@/components/app/address-fields";

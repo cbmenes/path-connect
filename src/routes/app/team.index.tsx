@@ -12,7 +12,7 @@ import {
   setTeamMessaging,
   updateTeamMember,
 } from "@/lib/sweepbook/team";
-import { formatPayRate } from "@/lib/sweepbook/team-pay";
+import { formatPayRate } from "@/lib/sweepbook/pay-rate";
 import { actorWritesLocked, isOfficeActor, type TeamMember } from "@/lib/sweepbook/types";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { EmptyState, PageHeader } from "@/components/app/empty-state";

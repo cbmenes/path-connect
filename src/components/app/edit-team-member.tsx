@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { toast } from "sonner";
 import { resendTeamInvite, updateTeamMember } from "@/lib/sweepbook/team";
-import type { PayType } from "@/lib/sweepbook/team-pay";
+import type { PayType } from "@/lib/sweepbook/pay-rate";
 import type { AvailabilityWindow, TeamMember } from "@/lib/sweepbook/types";
 import { addressPartsFrom, namesFrom, type AddressParts } from "@/lib/sweepbook/people";
 import { TeamDetailSections } from "@/components/app/team-details";
