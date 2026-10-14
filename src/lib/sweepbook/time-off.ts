@@ -270,9 +270,7 @@ export const listTimeOffPeople = createServerFn({ method: "GET" })
            and coalesce(cleaner_kind, 'team') = 'team'
            and coalesce(team_status, 'active') <> 'disabled'
          union all
-         select id as user_id,
-                case when invited_at is null then name || ' · Saved' else name || ' · Invite pending' end as full_name,
-                1 as sort_pending
+         select id as user_id, name as full_name, 1 as sort_pending
          from team_invites
          where master_user_id = $1
            and accepted_at is null

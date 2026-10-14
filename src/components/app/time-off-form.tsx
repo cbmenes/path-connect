@@ -4,6 +4,10 @@ import { chicagoDateInputValue } from "@/lib/sweepbook/time";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
+function cleanerOptionLabel(name: string) {
+  return name.replace(/ · (Saved|Invite pending)$/, "");
+}
+
 export type TimeOffFormValue = {
   userId?: string;
   kind: TimeOffKind;
@@ -54,8 +58,7 @@ export function TimeOffForm({
           <NativeSelect value={userId} onChange={(e) => setUserId(e.target.value)} required>
             {people.map((p) => (
               <option key={p.user_id} value={p.user_id}>
-                {p.full_name}
-                {p.kind === "master" ? " (owner)" : ""}
+                {cleanerOptionLabel(p.full_name)}
               </option>
             ))}
           </NativeSelect>

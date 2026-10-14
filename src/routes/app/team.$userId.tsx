@@ -35,6 +35,17 @@ import { Dialog } from "@/components/ui/dialog";
 
 type Search = { view?: CalView; date?: string; job?: string };
 
+function restoreScroll(top: number) {
+  const apply = () => {
+    if (Math.abs(window.scrollY - top) > 1) window.scrollTo({ top, left: 0, behavior: "auto" });
+  };
+  apply();
+  requestAnimationFrame(() => {
+    apply();
+    requestAnimationFrame(apply);
+  });
+}
+
 export const Route = createFileRoute("/app/team/$userId")({
   validateSearch: (s: Record<string, unknown>): Search => ({
     view: s.view === "day" || s.view === "month" || s.view === "week" ? s.view : undefined,
@@ -130,13 +141,16 @@ function TeamMemberSchedulePage() {
   function shift(dir: number) {
     const delta = mode === "month" ? dir * 28 : mode === "week" ? dir * 7 : dir;
     const next = addDaysChicago(anchor, delta);
+    const top = window.scrollY;
     setAnchor(next);
     void navigate({
       to: "/app/team/$userId",
       params: { userId },
       search: { view: mode, date: isoDay(next) },
       replace: true,
+      resetScroll: false,
     });
+    restoreScroll(top);
   }
 
   const back = (
