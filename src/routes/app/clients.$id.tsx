@@ -8,11 +8,10 @@ import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
 import { actorCanCharge, actorWritesLocked } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
 import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
-import { addCardAuthenticated, chargeCard, createCardLink } from "@/lib/sweepbook/payments";
+import { chargeCard, createCardLink } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { formatHours, money } from "@/lib/sweepbook/time";
 import { ClientFields } from "@/components/app/client-fields";
-import { CardForm } from "@/components/app/card-form";
 import { CardManager, CardSelect, StripeCollectNote, defaultSavedCard, useClientChargeMode } from "@/components/app/card-manager";
 import { StripeCardSetup } from "@/components/app/stripe-card-setup";
 import { AssigneePicker } from "@/components/app/assignee-picker";
@@ -29,6 +28,9 @@ import { Field, Input } from "@/components/ui/input";
 import { OfficeCalendar } from "@/components/app/office-calendar";
 import { OpenedContent } from "@/components/app/opened-content";
 
+const STRIPE_SETUP_NOTE =
+  "This company cannot charge a card until Stripe setup is finished. To add Stripe for charging clients, go to Billing under the Settings tab. Under “Client Cards” click Connect Stripe.";
+
 export const Route = createFileRoute("/app/clients/$id")({ component: ClientProfile });
 
 function ClientProfile() {
@@ -42,7 +44,6 @@ function ClientProfile() {
   const [editing, setEditing] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
   const [cardLink, setCardLink] = useState<string | null>(null);
-  const [collectCard, setCollectCard] = useState(false);
   const [chargeOpen, setChargeOpen] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
   const [removeOpen, setRemoveOpen] = useState(false);
@@ -128,6 +129,7 @@ function ClientProfile() {
               clientId={client.id}
               cards={cards}
               source="cleaner"
+              blockedMessage={STRIPE_SETUP_NOTE}
               onChange={async () => {
                 await qc.invalidateQueries({ queryKey: ["client", id] });
               }}
@@ -151,14 +153,6 @@ function ClientProfile() {
                 <p className="break-all text-xs text-muted">{cardLink}</p>
               </OpenedContent>
             ) : null}
-            <CollectOnSite
-              clientId={client.id}
-              open={collectCard}
-              onOpenChange={setCollectCard}
-              onSaved={async () => {
-                await qc.invalidateQueries({ queryKey: ["client", id] });
-              }}
-            />
             {writesLocked ? null : (
             <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
               <DialogTrigger asChild>
@@ -368,56 +362,6 @@ function DefaultChecklistRow({ templateId }: { templateId?: string | null }) {
   return <Row k="Checklist" v={name} />;
 }
 
-function CollectOnSite({
-  clientId,
-  open,
-  onOpenChange,
-  onSaved,
-}: {
-  clientId: string;
-  open: boolean;
-  onOpenChange: (open: boolean) => void;
-  onSaved: () => Promise<void>;
-}) {
-  const mode = useClientChargeMode();
-  if (!mode.data || mode.data.mode === "blocked") return null;
-  return (
-    <>
-      <Button variant="outline" onClick={() => onOpenChange(!open)}>
-        Collect card on site
-      </Button>
-      {open ? (
-        <OpenedContent>
-          {mode.data.mode === "demo" ? (
-            <CardForm
-              submitLabel="Save as backup card"
-              onSubmit={async (payload) => {
-                const saved = await addCardAuthenticated({
-                  data: { ...payload, clientId, source: "cleaner" },
-                });
-                toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-                onOpenChange(false);
-                await onSaved();
-              }}
-            />
-          ) : null}
-          {mode.data.mode === "stripe" ? (
-            <StripeCardSetup
-              clientId={clientId}
-              source="cleaner"
-              onSaved={async (saved) => {
-                toast.success(`Saved ${brandLabel(saved.brand)} · ${saved.last4}`);
-                onOpenChange(false);
-                await onSaved();
-              }}
-            />
-          ) : null}
-        </OpenedContent>
-      ) : null}
-    </>
-  );
-}
-
 function ChargeForm({
   defaultAmount,
   name,
@@ -441,7 +385,7 @@ function ChargeForm({
   const saved = defaultSavedCard(cards);
   const cents = Math.round(Number(amt) * 100);
   if (mode.data?.mode === "blocked") {
-    return <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>;
+    return <p className="text-sm text-muted">{STRIPE_SETUP_NOTE}</p>;
   }
   if (mode.data?.mode === "stripe" && !saved) {
     return (

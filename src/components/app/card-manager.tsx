@@ -65,11 +65,13 @@ export function CardManager({
   cards,
   source,
   onChange,
+  blockedMessage = "This company cannot charge a card until Stripe setup is finished.",
 }: {
   clientId: string;
   cards: CardRow[];
   source: "client" | "cleaner";
   onChange: () => Promise<void> | void;
+  blockedMessage?: string;
 }) {
   const [adding, setAdding] = useState(false);
   const [busy, setBusy] = useState<string | null>(null);
@@ -175,7 +177,7 @@ export function CardManager({
           Add a card
         </Button>
       ) : mode.data ? (
-        <p className="text-sm text-muted">This company cannot charge a card until Stripe setup is finished.</p>
+        <p className="text-sm text-muted">{blockedMessage}</p>
       ) : (
         <div className="h-8 animate-pulse rounded-md bg-secondary" />
       )}
