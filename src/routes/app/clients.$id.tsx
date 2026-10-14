@@ -404,6 +404,9 @@ function ChargeForm({
   }
   return (
     <div className="grid gap-3">
+      <p className="text-sm text-muted">
+        If charging for specific cleaning appointment, for accounting, charge card in the calendar tab by clicking on the specific appointment you want to charge for. Click Charge in the window for that appointment.
+      </p>
       <Field label="Amount">
         <Input type="number" step="0.01" value={amt} onChange={(e) => setAmt(e.target.value)} />
       </Field>
