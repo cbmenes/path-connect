@@ -27,7 +27,6 @@ export function EditMember({
   const [firstName, setFirstName] = useState(names.first_name);
   const [lastName, setLastName] = useState(names.last_name);
   const [phone, setPhone] = useState(member.phone ?? "");
-  const [smsOptIn, setSmsOptIn] = useState(member.sms_opt_in === true);
   const [email, setEmail] = useState(member.email ?? "");
   const [active, setActive] = useState(member.team_status !== "disabled");
   const [messaging, setMessaging] = useState(member.can_message);
@@ -62,7 +61,6 @@ export function EditMember({
                 lastName,
                 phone,
                 email,
-                smsOptIn,
                 canMessage: isAdminMember ? undefined : messaging,
                 canClockIn: isAdminMember ? undefined : clock,
                 status: member.pending ? undefined : active ? "active" : "disabled",
@@ -112,8 +110,6 @@ export function EditMember({
           onLastName={setLastName}
           phone={phone}
           onPhone={setPhone}
-          smsOptIn={smsOptIn}
-          onSmsOptIn={setSmsOptIn}
           email={email}
           onEmail={setEmail}
           notes={notes}

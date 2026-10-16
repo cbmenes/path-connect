@@ -20,6 +20,7 @@ import type { AvailabilityHit } from "./availability";
 import { insertNotification } from "./notifications";
 import { ensureDemoSeed } from "./seed";
 import { displayName, formatAddress, storePhone, type AddressParts } from "./people";
+import { parseSmsConsent } from "./sms-consent";
 import { nid } from "./time";
 import { applyClientDefaultToFutureJobs } from "./checklist-store";
 import type { AssigneeRef, CardRow, ClientRow, InvoiceWithClient, JobRow, MessageRow } from "./types";
@@ -41,7 +42,8 @@ const CLIENT_SELECT = `
   address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
   access_notes, pets, supplies, default_price_cents, default_duration_min,
   usual_day, usual_time, frequency, notes, checklist_template_id,
-  coalesce(sms_opt_in, false) as sms_opt_in,
+  coalesce(sms_consent, 'none') as sms_consent,
+  sms_confirmed_at::text as sms_confirmed_at,
   created_at::text as created_at,
   (select coalesce(json_agg(json_build_object('user_id', user_id, 'full_name', full_name) order by full_name), '[]'::json)
      from (
@@ -60,16 +62,12 @@ const CLIENT_SELECT = `
      ) assigned) as assignees_json
 `;
 
-function smsOptInRecorded(value: unknown) {
-  return value === true || value === "t" || value === "true";
-}
-
 function withAssignees(row: ClientRow & { assignees_json?: unknown }): ClientRow {
   const assignees = parseAssignees(row.assignees_json);
   const { assignees_json: _ignored, ...rest } = row;
   return {
     ...rest,
-    sms_opt_in: smsOptInRecorded(rest.sms_opt_in),
+    sms_consent: parseSmsConsent(rest.sms_consent),
     assignees,
     assigned_user_ids: assignees.map((a) => a.user_id),
   };
@@ -185,7 +183,7 @@ export type ClientInput = {
   frequency?: string;
   notes?: string;
   checklist_template_id?: string | null;
-  sms_opt_in?: boolean;
+  sms_request?: boolean;
 };
 
 function cleanClient(input: ClientInput) {
@@ -225,7 +223,7 @@ function cleanClient(input: ClientInput) {
     frequency: input.frequency?.trim() || null,
     notes: input.notes?.trim() || null,
     checklist_template_id: input.checklist_template_id?.trim() || null,
-    sms_opt_in: input.sms_opt_in === true,
+    sms_request: input.sms_request === true,
   };
 }
 
@@ -245,18 +243,25 @@ export const createClient = createServerFn({ method: "POST" })
         id, cleaner_user_id, name, first_name, last_name, phone, email, address,
         address_line1, address_line2, city, state, zip, bedrooms, bathrooms, square_footage,
         access_notes, pets, supplies,
-        default_price_cents, default_duration_min,         usual_day, usual_time, frequency, notes,
-        checklist_template_id, sms_opt_in, sms_opt_in_at
+        default_price_cents, default_duration_min, usual_day, usual_time, frequency, notes,
+        checklist_template_id
       ) values (
         ${id}, ${ownerId}, ${data.name}, ${data.first_name}, ${data.last_name}, ${data.phone}, ${data.email}, ${data.address},
         ${data.address_line1}, ${data.address_line2}, ${data.city}, ${data.state}, ${data.zip},
         ${data.bedrooms}, ${data.bathrooms}, ${data.square_footage},
         ${data.access_notes}, ${data.pets}, ${data.supplies}, ${data.default_price_cents},
         ${data.default_duration_min}, ${data.usual_day}, ${data.usual_time}, ${data.frequency},
-        ${data.notes}, ${templateId}, ${data.sms_opt_in}, ${data.sms_opt_in ? new Date() : null}
+        ${data.notes}, ${templateId}
       )
     `;
-    return { id };
+    const { applyClientSmsRequest } = await import("./sms.server");
+    const smsNotice = await applyClientSmsRequest(sql, {
+      clientId: id,
+      ownerId,
+      checked: data.sms_request,
+      phone: data.phone,
+    });
+    return { id, smsNotice };
   });
 
 export const updateClient = createServerFn({ method: "POST" })
@@ -298,15 +303,20 @@ export const updateClient = createServerFn({ method: "POST" })
         usual_time = ${data.usual_time},
         frequency = ${data.frequency},
         notes = ${data.notes},
-        checklist_template_id = ${data.checklist_template_id},
-        sms_opt_in = ${data.sms_opt_in},
-        sms_opt_in_at = case when ${data.sms_opt_in} then coalesce(sms_opt_in_at, now()) else null end
+        checklist_template_id = ${data.checklist_template_id}
       where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
+    const { applyClientSmsRequest } = await import("./sms.server");
+    const smsNotice = await applyClientSmsRequest(sql, {
+      clientId: data.id,
+      ownerId,
+      checked: data.sms_request,
+      phone: data.phone,
+    });
     if ((prev[0].checklist_template_id ?? null) !== (data.checklist_template_id ?? null)) {
       await applyClientDefaultToFutureJobs(sql, ownerId, data.id, data.checklist_template_id);
     }
-    return { ok: true };
+    return { ok: true as const, smsNotice };
   });
 
 export const previewAssignmentConflicts = createServerFn({ method: "POST" })

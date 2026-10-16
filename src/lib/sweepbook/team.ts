@@ -99,7 +99,6 @@ function mapMember(m: TeamMember & { assigned_json?: unknown; availability_json?
     birthday: dateOnly(rest.birthday),
     start_date: dateOnly(rest.start_date),
     availability: parseAvailabilityJson(availability_json),
-    sms_opt_in: asBool(rest.sms_opt_in, false),
   };
 }
 
@@ -178,7 +177,6 @@ export const listTeam = createServerFn({ method: "GET" })
               emergency_name, emergency_phone,
               birthday::text as birthday, start_date::text as start_date,
               availability_json,
-              coalesce(sms_opt_in, false) as sms_opt_in,
               (select coalesce(json_agg(json_build_object('id', c.id, 'name', c.name) order by c.name), '[]'::json)
                  from client_assignees ca join clients c on c.id = ca.client_id
                  where ca.user_id = profiles.user_id) as assigned_json
@@ -204,7 +202,6 @@ export const listTeam = createServerFn({ method: "GET" })
               emergency_name, emergency_phone,
               birthday::text as birthday, start_date::text as start_date,
               availability_json,
-              coalesce(sms_opt_in, false) as sms_opt_in,
               (select coalesce(json_agg(json_build_object('id', c.id, 'name', c.name) order by c.name), '[]'::json)
                  from invite_client_assignees ica
                  join clients c on c.id = ica.client_id
@@ -286,7 +283,6 @@ async function upsertSavedInvite(
     canMessage: boolean;
     inviteKind: OfficeRole;
     canCharge: boolean;
-    smsOptIn: boolean;
   },
 ) {
   if (data.email) {
@@ -301,9 +297,7 @@ async function upsertSavedInvite(
       await sql`
         update team_invites
         set name = ${data.name}, phone = ${data.phone}, can_message = ${data.canMessage},
-            invite_kind = ${data.inviteKind}, can_charge = ${data.canCharge},
-            sms_opt_in = ${data.smsOptIn},
-            sms_opt_in_at = case when ${data.smsOptIn} then coalesce(sms_opt_in_at, now()) else null end
+            invite_kind = ${data.inviteKind}, can_charge = ${data.canCharge}
         where id = ${existing[0].id}
       `;
       return { id: existing[0].id, token: existing[0].token, alreadyInvited: Boolean(existing[0].invited_at) };
@@ -312,13 +306,8 @@ async function upsertSavedInvite(
   const token = nid("tinv").replace(/-/g, "").slice(0, 22);
   const id = nid("tinv");
   await sql`
-    insert into team_invites (
-      id, token, master_user_id, name, phone, email, can_message, invite_kind, can_charge, sms_opt_in, sms_opt_in_at
-    )
-    values (
-      ${id}, ${token}, ${ownerId}, ${data.name}, ${data.phone}, ${data.email}, ${data.canMessage},
-      ${data.inviteKind}, ${data.canCharge}, ${data.smsOptIn}, ${data.smsOptIn ? new Date() : null}
-    )
+    insert into team_invites (id, token, master_user_id, name, phone, email, can_message, invite_kind, can_charge)
+    values (${id}, ${token}, ${ownerId}, ${data.name}, ${data.phone}, ${data.email}, ${data.canMessage}, ${data.inviteKind}, ${data.canCharge})
   `;
   return { id, token, alreadyInvited: false };
 }
@@ -332,7 +321,6 @@ function teamFormInput(input: {
   canMessage?: boolean;
   inviteKind?: OfficeRole;
   canCharge?: boolean;
-  smsOptIn?: boolean;
   details?: PersonDetailsInput;
 }) {
   const names = namesFrom(input.firstName, input.lastName, input.name);
@@ -347,7 +335,6 @@ function teamFormInput(input: {
     canMessage: inviteKind === "admin" ? true : input.canMessage !== false,
     inviteKind,
     canCharge: inviteKind === "admin" ? Boolean(input.canCharge) : false,
-    smsOptIn: input.smsOptIn === true,
     details: input.details
       ? { ...input.details, availability: inviteKind === "admin" ? [] : input.details.availability }
       : input.details,
@@ -462,15 +449,13 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
       birthday: string | null;
       start_date: string | null;
       availability_json: string | null;
-      sms_opt_in: boolean | null;
-      sms_opt_in_at: string | null;
     }>`
       select id, master_user_id, name, email, phone, can_message, accepted_at::text as accepted_at,
              coalesce(invite_kind, 'team') as invite_kind, coalesce(can_charge, false) as can_charge,
              pay_type, pay_amount, pay_note, can_clock_in,
              staff_notes, address_line1, address_line2, city, state, zip,
              emergency_name, emergency_phone, birthday::text as birthday, start_date::text as start_date,
-             availability_json, coalesce(sms_opt_in, false) as sms_opt_in, sms_opt_in_at::text as sms_opt_in_at
+             availability_json
       from team_invites where token = ${token} limit 1
     `;
     const invite = rows[0];
@@ -502,15 +487,13 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
     if (payType === "percent") payAmount = Math.min(100, payAmount);
     const payNote = kind === "team" ? invite.pay_note : null;
     const canClockIn = kind === "team" ? invite.can_clock_in !== false : true;
-    const smsOptIn = asBool(invite.sms_opt_in, false);
     const names = namesFrom(undefined, undefined, u?.name || invite.name);
     await sql`
       insert into profiles (
         user_id, role, full_name, first_name, last_name, phone, email, cleaner_kind, master_user_id,
         can_message, team_status, can_charge, pay_type, pay_amount, pay_note, can_clock_in,
         staff_notes, address_line1, address_line2, city, state, zip,
-        emergency_name, emergency_phone, birthday, start_date, availability_json,
-        sms_opt_in, sms_opt_in_at
+        emergency_name, emergency_phone, birthday, start_date, availability_json
       ) values (
         ${context.userId}, ${"cleaner"}, ${names.name}, ${names.first_name || null}, ${names.last_name || null},
         ${storePhone(invite.phone)},
@@ -518,7 +501,7 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
         ${invite.can_message}, ${"active"}, ${canCharge}, ${payType}, ${payAmount}, ${payNote}, ${canClockIn},
         ${invite.staff_notes}, ${invite.address_line1}, ${invite.address_line2}, ${invite.city}, ${invite.state}, ${invite.zip},
         ${invite.emergency_name}, ${invite.emergency_phone}, ${dateOnly(invite.birthday)}, ${dateOnly(invite.start_date)},
-        ${invite.availability_json}, ${smsOptIn}, ${smsOptIn ? invite.sms_opt_in_at : null}
+        ${invite.availability_json}
       )
       on conflict (user_id) do update set
         cleaner_kind = ${kind},
@@ -541,9 +524,7 @@ export const acceptTeamInvite = createServerFn({ method: "POST" })
         emergency_phone = ${invite.emergency_phone},
         birthday = ${dateOnly(invite.birthday)},
         start_date = ${dateOnly(invite.start_date)},
-        availability_json = ${invite.availability_json},
-        sms_opt_in = ${smsOptIn},
-        sms_opt_in_at = ${smsOptIn ? invite.sms_opt_in_at : null}
+        availability_json = ${invite.availability_json}
     `;
     const assigned = await sql<{ client_id: string }>`
       select client_id from invite_client_assignees where invite_id = ${invite.id}
@@ -639,7 +620,6 @@ async function updatePendingTeamInvite(
     payNote?: string;
     canCharge?: boolean;
     canClockIn?: boolean;
-    smsOptIn?: boolean;
     details?: PersonDetailsInput;
   },
 ) {
@@ -691,14 +671,6 @@ async function updatePendingTeamInvite(
       where id = ${invite.id} and master_user_id = ${ownerId}
     `;
   }
-  if (data.smsOptIn !== undefined) {
-    await sql`
-      update team_invites
-      set sms_opt_in = ${data.smsOptIn},
-          sms_opt_in_at = case when ${data.smsOptIn} then coalesce(sms_opt_in_at, now()) else null end
-      where id = ${invite.id} and master_user_id = ${ownerId}
-    `;
-  }
   await savePersonDetails(sql, "invite", invite.id, ownerId, detailsForRole(data.details, kind === "admin"));
 }
 
@@ -718,7 +690,6 @@ export const updateTeamMember = createServerFn({ method: "POST" })
     payNote?: string;
     canCharge?: boolean;
     canClockIn?: boolean;
-    smsOptIn?: boolean;
     details?: PersonDetailsInput;
   }) => input)
   .handler(async ({ context, data }) => {
@@ -800,14 +771,6 @@ export const updateTeamMember = createServerFn({ method: "POST" })
       await sql`
         update profiles
         set pay_type = ${payType}, pay_amount = ${payAmount}, pay_note = ${payNote}
-        where user_id = ${data.userId} and master_user_id = ${ownerId}
-      `;
-    }
-    if (data.smsOptIn !== undefined) {
-      await sql`
-        update profiles
-        set sms_opt_in = ${data.smsOptIn},
-            sms_opt_in_at = case when ${data.smsOptIn} then coalesce(sms_opt_in_at, now()) else null end
         where user_id = ${data.userId} and master_user_id = ${ownerId}
       `;
     }

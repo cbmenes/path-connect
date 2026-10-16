@@ -159,7 +159,8 @@ export type ClientRow = {
   frequency: string | null;
   notes: string | null;
   checklist_template_id: string | null;
-  sms_opt_in?: boolean;
+  sms_consent?: "none" | "requested" | "confirmed" | "opted_out";
+  sms_confirmed_at?: string | null;
   created_at: string;
   assigned_user_ids?: string[];
   assignees?: AssigneeRef[];
@@ -336,7 +337,6 @@ export type TeamMember = {
   birthday?: string | null;
   start_date?: string | null;
   availability?: AvailabilityWindow[];
-  sms_opt_in?: boolean;
 };
 
 export type BillingMethod = {

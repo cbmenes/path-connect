@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import type { ClientInput } from "@/lib/sweepbook/clients";
+import type { SmsConsent } from "@/lib/sweepbook/sms-consent";
 import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
 import { hoursToMinutes, minutesToHours } from "@/lib/sweepbook/time";
@@ -16,7 +17,7 @@ export function ClientFields({
   submitting,
   submitLabel,
 }: {
-  initial?: Partial<ClientInput> & { name?: string; address?: string };
+  initial?: Partial<ClientInput> & { name?: string; address?: string; sms_consent?: SmsConsent };
   onSubmit: (input: ClientInput) => void;
   submitting?: boolean;
   submitLabel: string;
@@ -25,7 +26,8 @@ export function ClientFields({
   const [firstName, setFirstName] = useState(names.first_name);
   const [lastName, setLastName] = useState(names.last_name);
   const [phone, setPhone] = useState(initial?.phone ?? "");
-  const [smsOptIn, setSmsOptIn] = useState(initial?.sms_opt_in === true);
+  const consent = initial?.sms_consent ?? "none";
+  const [smsRequest, setSmsRequest] = useState(consent === "requested" || consent === "confirmed");
   const [email, setEmail] = useState(initial?.email ?? "");
   const [address, setAddress] = useState(initial ? addressPartsFrom(initial) : emptyAddress());
   const [bedrooms, setBedrooms] = useState(initial?.bedrooms != null ? String(initial.bedrooms) : "");
@@ -72,7 +74,7 @@ export function ClientFields({
           last_name: lastName,
           phone,
           email,
-          sms_opt_in: smsOptIn,
+          sms_request: smsRequest,
           ...address,
           bedrooms: bedrooms ? Number(bedrooms) : null,
           bathrooms: bathrooms ? Number(bathrooms) : null,
@@ -99,7 +101,7 @@ export function ClientFields({
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
       </div>
-      <SmsOptInCheckbox checked={smsOptIn} onChange={setSmsOptIn} />
+      <SmsOptInCheckbox checked={smsRequest} onChange={setSmsRequest} status={consent} />
       <AddressFields value={address} onChange={setAddress} />
       <div className="grid gap-3 md:grid-cols-3">
         <Field label="Bedrooms" hint="Optional">

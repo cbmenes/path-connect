@@ -254,7 +254,7 @@ function ClientProfile() {
             name: client.name,
             phone: client.phone ?? undefined,
             email: client.email ?? undefined,
-            sms_opt_in: client.sms_opt_in === true,
+            sms_consent: client.sms_consent ?? "none",
             address: client.address ?? undefined,
             address_line1: client.address_line1 ?? undefined,
             address_line2: client.address_line2 ?? undefined,
@@ -277,8 +277,8 @@ function ClientProfile() {
           }}
           submitLabel="Save profile"
           onSubmit={async (input) => {
-            await updateClient({ data: { ...input, id: client.id } });
-            toast.success("Profile saved.");
+            const saved = await updateClient({ data: { ...input, id: client.id } });
+            toast.success(saved.smsNotice ? `Profile saved. ${saved.smsNotice}` : "Profile saved.");
             setEditing(false);
             await qc.invalidateQueries({ queryKey: ["client", id] });
           }}

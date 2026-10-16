@@ -49,6 +49,7 @@ import { Route as RequestIndexRouteImport } from './routes/request.index'
 import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiSmsInboundRouteImport } from './routes/api/sms/inbound'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as AppChargeReturnRouteImport } from './routes/app/charge.return'
 import { Route as AppClientsIndexRouteImport } from './routes/app/clients.index'
@@ -265,6 +266,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSmsInboundRoute = ApiSmsInboundRouteImport.update({
+  id: '/api/sms/inbound',
+  path: '/api/sms/inbound',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiStripeWebhookRoute = ApiStripeWebhookRouteImport.update({
   id: '/api/stripe/webhook',
   path: '/api/stripe/webhook',
@@ -382,6 +388,7 @@ export interface FileRoutesByFullPath {
   '/book/': typeof BookIndexRoute
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
   '/app/clients/$id': typeof AppClientsIdRoute
@@ -432,6 +439,7 @@ export interface FileRoutesByTo {
   '/book': typeof BookIndexRoute
   '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
   '/app/clients/$id': typeof AppClientsIdRoute
@@ -490,6 +498,7 @@ export interface FileRoutesById {
   '/book/': typeof BookIndexRoute
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
   '/app/clients/$id': typeof AppClientsIdRoute
@@ -549,6 +558,7 @@ export interface FileRouteTypes {
     | '/book/'
     | '/request/'
     | '/api/auth/$'
+    | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
     | '/app/clients/$id'
@@ -599,6 +609,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/request'
     | '/api/auth/$'
+    | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
     | '/app/clients/$id'
@@ -656,6 +667,7 @@ export interface FileRouteTypes {
     | '/book/'
     | '/request/'
     | '/api/auth/$'
+    | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
     | '/app/clients/$id'
@@ -693,6 +705,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiSmsInboundRoute: typeof ApiSmsInboundRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
 
@@ -978,6 +991,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/sms/inbound': {
+      id: '/api/sms/inbound'
+      path: '/api/sms/inbound'
+      fullPath: '/api/sms/inbound'
+      preLoaderRoute: typeof ApiSmsInboundRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/stripe/webhook': {
       id: '/api/stripe/webhook'
       path: '/api/stripe/webhook'
@@ -1240,6 +1260,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiSmsInboundRoute: ApiSmsInboundRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
 export const routeTree = rootRouteImport
