@@ -7,6 +7,8 @@ import { deleteClient, getClient, setClientAssignees, updateClient } from "@/lib
 import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
 import { actorCanCharge, actorWritesLocked } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
+import { createSmsConsentLink } from "@/lib/sweepbook/sms-consent-link";
+import { smsConsentStatusLabel } from "@/lib/sweepbook/sms-consent";
 import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
 import { chargeCard, createCardLink } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
@@ -43,6 +45,7 @@ function ClientProfile() {
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
   const [inviteUrl, setInviteUrl] = useState<string | null>(null);
+  const [consentUrl, setConsentUrl] = useState<string | null>(null);
   const [cardLink, setCardLink] = useState<string | null>(null);
   const [chargeOpen, setChargeOpen] = useState(false);
   const [assigneeIds, setAssigneeIds] = useState<string[] | null>(null);
@@ -218,6 +221,61 @@ function ClientProfile() {
       </Card>
 
       <Card>
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <h2 className="font-display text-lg text-navy">SMS consent</h2>
+          {writesLocked ? null : (
+            <div className="flex flex-wrap gap-2">
+              <Button
+                variant="outline"
+                onClick={async () => {
+                  try {
+                    const res = await createSmsConsentLink({ data: client.id });
+                    const url = `${window.location.origin}${res.path}`;
+                    setConsentUrl(url);
+                    await navigator.clipboard?.writeText(url).catch(() => undefined);
+                    toast.success("Consent link copied.");
+                  } catch (err) {
+                    toast.error(err instanceof Error ? err.message : "Could not copy the link.");
+                  }
+                }}
+              >
+                Copy consent link
+              </Button>
+              {client.email ? (
+                <Button
+                  variant="outline"
+                  onClick={async () => {
+                    try {
+                      const res = await createSmsConsentLink({ data: client.id });
+                      const url = `${window.location.origin}${res.path}`;
+                      setConsentUrl(url);
+                      const subject = encodeURIComponent("SMS consent");
+                      const body = encodeURIComponent(
+                        `Please open this link to opt in to text messages about your cleanings: ${url}`,
+                      );
+                      window.location.href = `mailto:${client.email}?subject=${subject}&body=${body}`;
+                    } catch (err) {
+                      toast.error(err instanceof Error ? err.message : "Could not open email.");
+                    }
+                  }}
+                >
+                  Email consent link
+                </Button>
+              ) : null}
+            </div>
+          )}
+        </div>
+        {consentUrl ? (
+          <OpenedContent>
+            <p className="mt-2 break-all text-xs text-muted">{consentUrl}</p>
+          </OpenedContent>
+        ) : null}
+        <p className="mt-2 text-sm text-muted">
+          {smsConsentStatusLabel(client.sms_consent ?? "none")}. Texts stay off until they check the box and submit.
+        </p>
+      </Card>
+
+      <Card>
         <div className="flex items-center justify-between">
           <h2 className="font-display text-lg text-navy">Invite to the portal</h2>
           {writesLocked ? null : (
@@ -254,7 +312,6 @@ function ClientProfile() {
             name: client.name,
             phone: client.phone ?? undefined,
             email: client.email ?? undefined,
-            sms_consent: client.sms_consent ?? "none",
             address: client.address ?? undefined,
             address_line1: client.address_line1 ?? undefined,
             address_line2: client.address_line2 ?? undefined,
@@ -277,8 +334,8 @@ function ClientProfile() {
           }}
           submitLabel="Save profile"
           onSubmit={async (input) => {
-            const saved = await updateClient({ data: { ...input, id: client.id } });
-            toast.success(saved.smsNotice ? `Profile saved. ${saved.smsNotice}` : "Profile saved.");
+            await updateClient({ data: { ...input, id: client.id } });
+            toast.success("Profile saved.");
             setEditing(false);
             await qc.invalidateQueries({ queryKey: ["client", id] });
           }}

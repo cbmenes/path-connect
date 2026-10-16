@@ -159,7 +159,7 @@ export type ClientRow = {
   frequency: string | null;
   notes: string | null;
   checklist_template_id: string | null;
-  sms_consent?: "none" | "requested" | "confirmed" | "opted_out";
+  sms_consent?: "none" | "confirmed" | "opted_out";
   sms_confirmed_at?: string | null;
   created_at: string;
   assigned_user_ids?: string[];

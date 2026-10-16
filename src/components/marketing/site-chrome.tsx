@@ -99,6 +99,9 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             <Link to="/terms" className="text-paper/70 hover:text-paper">
               Terms & Conditions
             </Link>
+            <Link to="/sms-consent" className="text-paper/70 hover:text-paper">
+              SMS consent
+            </Link>
             <Link to="/contact" className="text-paper/70 hover:text-paper">
               Contact
             </Link>

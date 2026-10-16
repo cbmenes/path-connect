@@ -1,32 +1,49 @@
-import { APP_NAME } from "@/lib/brand";
-import { smsConsentNote, type SmsConsent } from "@/lib/sweepbook/sms-consent";
+import { useState } from "react";
+import { smsConsentLabel } from "@/lib/sweepbook/sms-consent";
+import { Button } from "@/components/ui/button";
 
-export function SmsOptInCheckbox({
-  checked,
-  onChange,
-  status = "none",
+export function SmsConsentForm({
+  companyName,
+  clientName,
+  phone,
+  onSubmit,
+  submitting,
+  submitLabel = "Submit",
 }: {
-  checked: boolean;
-  onChange: (checked: boolean) => void;
-  status?: SmsConsent;
+  companyName: string;
+  clientName?: string;
+  phone: string;
+  onSubmit: (agreed: boolean) => void | Promise<void>;
+  submitting?: boolean;
+  submitLabel?: string;
 }) {
-  const note = smsConsentNote(status);
+  const [agreed, setAgreed] = useState(false);
+  const label = smsConsentLabel(companyName);
   return (
-    <div className="grid gap-1">
+    <form
+      className="grid gap-4"
+      onSubmit={(e) => {
+        e.preventDefault();
+        void onSubmit(agreed);
+      }}
+    >
+      {clientName ? <p className="text-sm text-ink">{clientName}</p> : null}
+      <p className="text-sm text-ink">
+        <span className="text-muted">Phone number on file: </span>
+        {phone}
+      </p>
       <label className="flex cursor-pointer items-start gap-2 text-sm leading-snug text-ink">
         <input
           type="checkbox"
           className="mt-0.5 size-4 shrink-0"
-          checked={checked}
-          disabled={status === "confirmed"}
-          onChange={(e) => onChange(e.target.checked)}
+          checked={agreed}
+          onChange={(e) => setAgreed(e.target.checked)}
         />
-        <span>
-          Ask this client to confirm SMS from {APP_NAME}. They must reply YES before appointment reminders, on-my-way
-          alerts, or cancellation notices are sent. Message and data rates may apply. Reply STOP to opt out.
-        </span>
+        <span>{label}</span>
       </label>
-      {note ? <p className="pl-6 text-xs text-muted">{note}</p> : null}
-    </div>
+      <Button type="submit" disabled={submitting}>
+        {submitting ? "Saving…" : submitLabel}
+      </Button>
+    </form>
   );
 }

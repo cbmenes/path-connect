@@ -183,7 +183,6 @@ export type ClientInput = {
   frequency?: string;
   notes?: string;
   checklist_template_id?: string | null;
-  sms_request?: boolean;
 };
 
 function cleanClient(input: ClientInput) {
@@ -223,7 +222,6 @@ function cleanClient(input: ClientInput) {
     frequency: input.frequency?.trim() || null,
     notes: input.notes?.trim() || null,
     checklist_template_id: input.checklist_template_id?.trim() || null,
-    sms_request: input.sms_request === true,
   };
 }
 
@@ -254,14 +252,7 @@ export const createClient = createServerFn({ method: "POST" })
         ${data.notes}, ${templateId}
       )
     `;
-    const { applyClientSmsRequest } = await import("./sms.server");
-    const smsNotice = await applyClientSmsRequest(sql, {
-      clientId: id,
-      ownerId,
-      checked: data.sms_request,
-      phone: data.phone,
-    });
-    return { id, smsNotice };
+    return { id };
   });
 
 export const updateClient = createServerFn({ method: "POST" })
@@ -306,17 +297,10 @@ export const updateClient = createServerFn({ method: "POST" })
         checklist_template_id = ${data.checklist_template_id}
       where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
-    const { applyClientSmsRequest } = await import("./sms.server");
-    const smsNotice = await applyClientSmsRequest(sql, {
-      clientId: data.id,
-      ownerId,
-      checked: data.sms_request,
-      phone: data.phone,
-    });
     if ((prev[0].checklist_template_id ?? null) !== (data.checklist_template_id ?? null)) {
       await applyClientDefaultToFutureJobs(sql, ownerId, data.id, data.checklist_template_id);
     }
-    return { ok: true as const, smsNotice };
+    return { ok: true as const };
   });
 
 export const previewAssignmentConflicts = createServerFn({ method: "POST" })

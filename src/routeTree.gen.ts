@@ -22,6 +22,7 @@ import { Route as PrivacyRouteImport } from './routes/privacy'
 import { Route as RequestRouteImport } from './routes/request'
 import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
+import { Route as SmsConsentRouteImport } from './routes/sms-consent'
 import { Route as TermsRouteImport } from './routes/terms'
 import { Route as AddCardTokenRouteImport } from './routes/add-card.$token'
 import { Route as ApiRemindersRouteImport } from './routes/api/reminders'
@@ -44,6 +45,7 @@ import { Route as AppTimeOffRouteImport } from './routes/app/time-off'
 import { Route as AppVisitsRouteImport } from './routes/app/visits'
 import { Route as BookIndexRouteImport } from './routes/book.index'
 import { Route as BookSlugRouteImport } from './routes/book.$slug'
+import { Route as ConsentTokenRouteImport } from './routes/consent.$token'
 import { Route as InviteTokenRouteImport } from './routes/invite.$token'
 import { Route as RequestIndexRouteImport } from './routes/request.index'
 import { Route as RequestSlugRouteImport } from './routes/request.$slug'
@@ -129,6 +131,11 @@ const ResetPasswordRoute = ResetPasswordRouteImport.update({
 const SignupRoute = SignupRouteImport.update({
   id: '/signup',
   path: '/signup',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const SmsConsentRoute = SmsConsentRouteImport.update({
+  id: '/sms-consent',
+  path: '/sms-consent',
   getParentRoute: () => rootRouteImport,
 } as any)
 const TermsRoute = TermsRouteImport.update({
@@ -240,6 +247,11 @@ const BookSlugRoute = BookSlugRouteImport.update({
   id: '/$slug',
   path: '/$slug',
   getParentRoute: () => BookRoute,
+} as any)
+const ConsentTokenRoute = ConsentTokenRouteImport.update({
+  id: '/consent/$token',
+  path: '/consent/$token',
+  getParentRoute: () => rootRouteImport,
 } as any)
 const InviteTokenRoute = InviteTokenRouteImport.update({
   id: '/invite/$token',
@@ -361,6 +373,7 @@ export interface FileRoutesByFullPath {
   '/request': typeof RequestRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/sms-consent': typeof SmsConsentRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
   '/api/reminders': typeof ApiRemindersRoute
@@ -381,6 +394,7 @@ export interface FileRoutesByFullPath {
   '/app/time-off': typeof AppTimeOffRoute
   '/app/visits': typeof AppVisitsRoute
   '/book/$slug': typeof BookSlugRoute
+  '/consent/$token': typeof ConsentTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/request/$slug': typeof RequestSlugRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
@@ -416,6 +430,7 @@ export interface FileRoutesByTo {
   '/privacy': typeof PrivacyRoute
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/sms-consent': typeof SmsConsentRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
   '/api/reminders': typeof ApiRemindersRoute
@@ -432,6 +447,7 @@ export interface FileRoutesByTo {
   '/app/time-off': typeof AppTimeOffRoute
   '/app/visits': typeof AppVisitsRoute
   '/book/$slug': typeof BookSlugRoute
+  '/consent/$token': typeof ConsentTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/request/$slug': typeof RequestSlugRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
@@ -471,6 +487,7 @@ export interface FileRoutesById {
   '/request': typeof RequestRouteWithChildren
   '/reset-password': typeof ResetPasswordRoute
   '/signup': typeof SignupRoute
+  '/sms-consent': typeof SmsConsentRoute
   '/terms': typeof TermsRoute
   '/add-card/$token': typeof AddCardTokenRoute
   '/api/reminders': typeof ApiRemindersRoute
@@ -491,6 +508,7 @@ export interface FileRoutesById {
   '/app/time-off': typeof AppTimeOffRoute
   '/app/visits': typeof AppVisitsRoute
   '/book/$slug': typeof BookSlugRoute
+  '/consent/$token': typeof ConsentTokenRoute
   '/invite/$token': typeof InviteTokenRoute
   '/request/$slug': typeof RequestSlugRoute
   '/team-invite/$token': typeof TeamInviteTokenRoute
@@ -531,6 +549,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/reset-password'
     | '/signup'
+    | '/sms-consent'
     | '/terms'
     | '/add-card/$token'
     | '/api/reminders'
@@ -551,6 +570,7 @@ export interface FileRouteTypes {
     | '/app/time-off'
     | '/app/visits'
     | '/book/$slug'
+    | '/consent/$token'
     | '/invite/$token'
     | '/request/$slug'
     | '/team-invite/$token'
@@ -586,6 +606,7 @@ export interface FileRouteTypes {
     | '/privacy'
     | '/reset-password'
     | '/signup'
+    | '/sms-consent'
     | '/terms'
     | '/add-card/$token'
     | '/api/reminders'
@@ -602,6 +623,7 @@ export interface FileRouteTypes {
     | '/app/time-off'
     | '/app/visits'
     | '/book/$slug'
+    | '/consent/$token'
     | '/invite/$token'
     | '/request/$slug'
     | '/team-invite/$token'
@@ -640,6 +662,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/reset-password'
     | '/signup'
+    | '/sms-consent'
     | '/terms'
     | '/add-card/$token'
     | '/api/reminders'
@@ -660,6 +683,7 @@ export interface FileRouteTypes {
     | '/app/time-off'
     | '/app/visits'
     | '/book/$slug'
+    | '/consent/$token'
     | '/invite/$token'
     | '/request/$slug'
     | '/team-invite/$token'
@@ -699,9 +723,11 @@ export interface RootRouteChildren {
   RequestRoute: typeof RequestRouteWithChildren
   ResetPasswordRoute: typeof ResetPasswordRoute
   SignupRoute: typeof SignupRoute
+  SmsConsentRoute: typeof SmsConsentRoute
   TermsRoute: typeof TermsRoute
   AddCardTokenRoute: typeof AddCardTokenRoute
   ApiRemindersRoute: typeof ApiRemindersRoute
+  ConsentTokenRoute: typeof ConsentTokenRoute
   InviteTokenRoute: typeof InviteTokenRoute
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
@@ -800,6 +826,13 @@ declare module '@tanstack/react-router' {
       path: '/signup'
       fullPath: '/signup'
       preLoaderRoute: typeof SignupRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/sms-consent': {
+      id: '/sms-consent'
+      path: '/sms-consent'
+      fullPath: '/sms-consent'
+      preLoaderRoute: typeof SmsConsentRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/terms': {
@@ -955,6 +988,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/book/$slug'
       preLoaderRoute: typeof BookSlugRouteImport
       parentRoute: typeof BookRoute
+    }
+    '/consent/$token': {
+      id: '/consent/$token'
+      path: '/consent/$token'
+      fullPath: '/consent/$token'
+      preLoaderRoute: typeof ConsentTokenRouteImport
+      parentRoute: typeof rootRouteImport
     }
     '/invite/$token': {
       id: '/invite/$token'
@@ -1254,9 +1294,11 @@ const rootRouteChildren: RootRouteChildren = {
   RequestRoute: RequestRouteWithChildren,
   ResetPasswordRoute: ResetPasswordRoute,
   SignupRoute: SignupRoute,
+  SmsConsentRoute: SmsConsentRoute,
   TermsRoute: TermsRoute,
   AddCardTokenRoute: AddCardTokenRoute,
   ApiRemindersRoute: ApiRemindersRoute,
+  ConsentTokenRoute: ConsentTokenRoute,
   InviteTokenRoute: InviteTokenRoute,
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,

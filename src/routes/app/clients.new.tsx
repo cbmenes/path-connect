@@ -36,7 +36,7 @@ function NewClient() {
           setBusy(true);
           try {
             const res = await createClient({ data: input });
-            toast.success(res.smsNotice ? `Client added. ${res.smsNotice}` : "Client added.");
+            toast.success("Client added.");
             await navigate({ to: "/app/clients/$id", params: { id: res.id } });
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not save.");
