@@ -144,6 +144,7 @@ async function createPgliteSql(): Promise<Sql> {
     }) as Record<string, string>;
     // 0006_reminders.sql — email reminder_sends + profile reminder flags.
     // 0007_team_pay.sql — Master-only team cleaner pay_type / pay_amount / pay_note.
+    // 0024_sms_opt_in.sql — SMS consent on clients, team profiles, and pending invites.
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );

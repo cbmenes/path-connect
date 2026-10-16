@@ -23,6 +23,7 @@ function AddTeamMemberPage() {
   const [firstName, setFirstName] = useState("");
   const [lastName, setLastName] = useState("");
   const [phone, setPhone] = useState("");
+  const [smsOptIn, setSmsOptIn] = useState(false);
   const [email, setEmail] = useState("");
   const [canMessage, setCanMessage] = useState(true);
   const [inviteKind, setInviteKind] = useState<OfficeRole>("team");
@@ -88,7 +89,7 @@ function AddTeamMemberPage() {
             setBusy(true);
             try {
               const res = await createTeamInvite({
-                data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, details: personDetails },
+                data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, smsOptIn, details: personDetails },
               });
               const url = `${window.location.origin}${res.path}`;
               await navigator.clipboard?.writeText(url).catch(() => undefined);
@@ -122,6 +123,8 @@ function AddTeamMemberPage() {
             onLastName={setLastName}
             phone={phone}
             onPhone={setPhone}
+            smsOptIn={smsOptIn}
+            onSmsOptIn={setSmsOptIn}
             email={email}
             onEmail={setEmail}
             notes={notes}
@@ -160,7 +163,7 @@ function AddTeamMemberPage() {
                 setBusy(true);
                 try {
                   await saveTeamMember({
-                    data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, details: personDetails },
+                    data: { firstName, lastName, phone, email, canMessage, inviteKind, canCharge, smsOptIn, details: personDetails },
                   });
                   toast.success("Saved to the team list.");
                   await refreshTeam();

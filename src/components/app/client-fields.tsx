@@ -6,6 +6,7 @@ import { hoursToMinutes, minutesToHours } from "@/lib/sweepbook/time";
 import { AddressFields } from "@/components/app/address-fields";
 import { NameFields } from "@/components/app/name-fields";
 import { PhoneInput } from "@/components/app/phone-input";
+import { SmsOptInCheckbox } from "@/components/app/sms-opt-in";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
@@ -24,6 +25,7 @@ export function ClientFields({
   const [firstName, setFirstName] = useState(names.first_name);
   const [lastName, setLastName] = useState(names.last_name);
   const [phone, setPhone] = useState(initial?.phone ?? "");
+  const [smsOptIn, setSmsOptIn] = useState(initial?.sms_opt_in === true);
   const [email, setEmail] = useState(initial?.email ?? "");
   const [address, setAddress] = useState(initial ? addressPartsFrom(initial) : emptyAddress());
   const [bedrooms, setBedrooms] = useState(initial?.bedrooms != null ? String(initial.bedrooms) : "");
@@ -70,6 +72,7 @@ export function ClientFields({
           last_name: lastName,
           phone,
           email,
+          sms_opt_in: smsOptIn,
           ...address,
           bedrooms: bedrooms ? Number(bedrooms) : null,
           bathrooms: bathrooms ? Number(bathrooms) : null,
@@ -96,6 +99,7 @@ export function ClientFields({
           <Input type="email" value={email} onChange={(e) => setEmail(e.target.value)} />
         </Field>
       </div>
+      <SmsOptInCheckbox checked={smsOptIn} onChange={setSmsOptIn} />
       <AddressFields value={address} onChange={setAddress} />
       <div className="grid gap-3 md:grid-cols-3">
         <Field label="Bedrooms" hint="Optional">

@@ -254,6 +254,7 @@ function ClientProfile() {
             name: client.name,
             phone: client.phone ?? undefined,
             email: client.email ?? undefined,
+            sms_opt_in: client.sms_opt_in === true,
             address: client.address ?? undefined,
             address_line1: client.address_line1 ?? undefined,
             address_line2: client.address_line2 ?? undefined,

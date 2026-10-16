@@ -8,6 +8,7 @@ import { OpenedContent } from "@/components/app/opened-content";
 import { AddressFields } from "@/components/app/address-fields";
 import { NameFields } from "@/components/app/name-fields";
 import { PhoneInput } from "@/components/app/phone-input";
+import { SmsOptInCheckbox } from "@/components/app/sms-opt-in";
 import { Button } from "@/components/ui/button";
 import { Field, Input, Textarea } from "@/components/ui/input";
 import { cn } from "@/lib/utils";
@@ -47,6 +48,8 @@ export function TeamDetailSections({
   onPhone,
   email = "",
   onEmail,
+  smsOptIn = false,
+  onSmsOptIn,
 }: {
   notes: string;
   onNotes: (value: string) => void;
@@ -72,6 +75,8 @@ export function TeamDetailSections({
   onPhone?: (value: string) => void;
   email?: string;
   onEmail?: (value: string) => void;
+  smsOptIn?: boolean;
+  onSmsOptIn?: (value: boolean) => void;
 }) {
   return (
     <div className="grid gap-2">
@@ -87,6 +92,7 @@ export function TeamDetailSections({
             <PhoneInput value={phone} onChange={onPhone} />
           </Field>
         ) : null}
+        {onSmsOptIn ? <SmsOptInCheckbox checked={smsOptIn} onChange={onSmsOptIn} /> : null}
         {showIdentity && onEmail ? (
           <Field label="Email">
             <Input type="email" value={email} onChange={(e) => onEmail(e.target.value)} />
