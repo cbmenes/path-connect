@@ -1,26 +1,33 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { SiteChrome } from "@/components/marketing/site-chrome";
-import { APP_NAME } from "@/lib/brand";
+import { APP_NAME, SUPPORT_EMAIL } from "@/lib/brand";
 
-export const Route = createFileRoute("/terms")({ component: Terms });
+export const Route = createFileRoute("/terms")({
+  head: () => ({ meta: [{ title: `Terms & Conditions · ${APP_NAME}` }] }),
+  component: Terms,
+});
 
 function Terms() {
   return (
     <SiteChrome>
       <article className="mx-auto max-w-2xl px-4 py-14">
-        <h1 className="font-display text-4xl text-navy">Terms</h1>
+        <h1 className="font-display text-4xl text-navy">Terms & Conditions</h1>
         <div className="mt-6 grid gap-4 text-muted">
           <p>
-            {APP_NAME} is a tool for a cleaning business owner, their crew, and the households they invite. You are responsible for the
-            work you schedule, the prices you charge, and the cancellation policy you publish to clients.
+            {APP_NAME} is a tool for a cleaning business owner and the people they invite. You are responsible for
+            your account, the people you add, and the work you schedule through it.
           </p>
           <p>
-            Demo accounts are for evaluation. The Crew Plan is $39 per month or $390 per year. The Office Plan is $79 per month or $790 per year. Annual billing is two months free. Extra office admins are $19 per month or $190 per year. Cleaners and clients are not billed. Clients do not pay {APP_NAME}.
+            Use {APP_NAME} for your cleaning business. Do not misuse another person’s account, or use the service to
+            harass, mislead, or message someone who has not opted in.
           </p>
-          <p>
-            Payment features currently run in test mode so you can practice charging, tipping, and recording cash or
-            Venmo. Do not enter a live card you are not willing to use in a demonstration.
-          </p>
+          <h2 className="mt-4 font-display text-2xl text-navy">SMS Terms</h2>
+          <ul className="grid list-disc gap-2 pl-5">
+            <li>Message and data rates may apply.</li>
+            <li>Message frequency varies based on scheduled cleanings.</li>
+            <li>Recipients can opt out at any time by replying STOP.</li>
+            <li>Help is available by replying HELP or contacting {SUPPORT_EMAIL}.</li>
+          </ul>
         </div>
       </article>
     </SiteChrome>

@@ -94,10 +94,10 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
               About
             </Link>
             <Link to="/privacy" className="text-paper/70 hover:text-paper">
-              Privacy
+              Privacy Policy
             </Link>
             <Link to="/terms" className="text-paper/70 hover:text-paper">
-              Terms
+              Terms & Conditions
             </Link>
             <Link to="/contact" className="text-paper/70 hover:text-paper">
               Contact
