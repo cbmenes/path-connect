@@ -1,7 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { sendClientNotice } from "./client-notify";
 import { assertActivePlan, getActor, isOffice, masterUserId, teamCanClockIn } from "./access";
 import { teamCanAccessJob } from "./assignees";
 import {
@@ -83,23 +82,8 @@ export const setJobProgress = createServerFn({ method: "POST" })
         status = ${nextJobStatus}
       where id = ${job.id} and cleaner_user_id = ${ownerId}
     `;
-    let notice: string | null = null;
-    if (data.status === "on_the_way" && !job.on_the_way_at) {
-      const cleanerName = actor.profile.full_name;
-      try {
-        const sent = await sendClientNotice(sql, {
-          jobId: job.id,
-          kind: "on_the_way",
-          cleanerName,
-        });
-        notice = sent.summary;
-      } catch (err) {
-        console.error("[crewweek notify]", err instanceof Error ? err.message : "on-the-way failed");
-      }
-    }
     return {
       ok: true,
-      notice,
       progress_status: data.status,
       on_the_way_at: onTheWayAt,
       started_at: startedAt,

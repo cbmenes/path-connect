@@ -372,10 +372,15 @@ export async function processDueReminders(): Promise<ProcessStats> {
 
   for (const row of rows) {
     stats.checked += 1;
-    try {
-      await sendClientNotice(sql, { jobId: row.id, kind: "reminder" });
-    } catch (err) {
-      console.error("[crewweek notify]", err instanceof Error ? err.message : "reminder failed");
+    const leadMs = new Date(row.start_at).getTime() - now.getTime();
+    const dayMs = 24 * 60 * 60 * 1000;
+    const slackMs = 30 * 60 * 1000;
+    if (leadMs <= dayMs + slackMs && leadMs > dayMs - slackMs) {
+      try {
+        await sendClientNotice(sql, { jobId: row.id, kind: "reminder" });
+      } catch (err) {
+        console.error("[crewweek notify]", err instanceof Error ? err.message : "reminder failed");
+      }
     }
     const visit = toVisit(row);
     const dueAt = new Date(new Date(row.start_at).getTime() - 24 * 60 * 60 * 1000);

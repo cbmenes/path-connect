@@ -103,10 +103,10 @@ export function JobProgress({
   async function setStatus(status: ProgressStatus) {
     setBusy(status);
     try {
-      const saved = await setJobProgress({ data: { jobId: job.id, status } });
-      const base =
-        status === "on_the_way" ? "On the way." : status === "in_progress" ? "Job started." : "Job finished.";
-      toast.success(saved.notice ? `${base} ${saved.notice}` : base);
+      await setJobProgress({ data: { jobId: job.id, status } });
+      toast.success(
+        status === "on_the_way" ? "On the way." : status === "in_progress" ? "Job started." : "Job finished.",
+      );
       setFinishOpen(false);
       await onChanged();
     } catch (err) {

@@ -99,7 +99,7 @@ async function postTwilio(to: string, body: string) {
 
 export async function sendClientNotice(
   sql: Sql,
-  input: { jobId: string; kind: ClientNoticeKind; cleanerName?: string },
+  input: { jobId: string; kind: ClientNoticeKind },
 ): Promise<ClientNoticeResult> {
   const rows = await sql<NoticeRow>`
     select j.id as job_id, j.start_at::text as start_at, j.address,
@@ -122,8 +122,6 @@ export async function sendClientNotice(
     companyName: row.company_name || "",
     date: noticeDate(row.start_at),
     time: formatTime(row.start_at),
-    cleanerName: input.cleanerName || "",
-    address: row.address || row.client_address || "",
   });
   const mode = deliveryMode(row.owner_email);
   const channels: Array<"sms" | "email"> = [];
