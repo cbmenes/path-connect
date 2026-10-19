@@ -51,6 +51,7 @@ import { Route as RequestIndexRouteImport } from './routes/request.index'
 import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
+import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
 import { Route as ApiSmsInboundRouteImport } from './routes/api/sms/inbound'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as AppChargeReturnRouteImport } from './routes/app/charge.return'
@@ -278,6 +279,11 @@ const ApiAuthSplatRoute = ApiAuthSplatRouteImport.update({
   path: '/api/auth/$',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
+  id: '/api/cron/reminders',
+  path: '/api/cron/reminders',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSmsInboundRoute = ApiSmsInboundRouteImport.update({
   id: '/api/sms/inbound',
   path: '/api/sms/inbound',
@@ -402,6 +408,7 @@ export interface FileRoutesByFullPath {
   '/book/': typeof BookIndexRoute
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
@@ -455,6 +462,7 @@ export interface FileRoutesByTo {
   '/book': typeof BookIndexRoute
   '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
@@ -516,6 +524,7 @@ export interface FileRoutesById {
   '/book/': typeof BookIndexRoute
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
+  '/api/cron/reminders': typeof ApiCronRemindersRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
@@ -578,6 +587,7 @@ export interface FileRouteTypes {
     | '/book/'
     | '/request/'
     | '/api/auth/$'
+    | '/api/cron/reminders'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
@@ -631,6 +641,7 @@ export interface FileRouteTypes {
     | '/book'
     | '/request'
     | '/api/auth/$'
+    | '/api/cron/reminders'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
@@ -691,6 +702,7 @@ export interface FileRouteTypes {
     | '/book/'
     | '/request/'
     | '/api/auth/$'
+    | '/api/cron/reminders'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
@@ -731,6 +743,7 @@ export interface RootRouteChildren {
   InviteTokenRoute: typeof InviteTokenRoute
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
+  ApiCronRemindersRoute: typeof ApiCronRemindersRoute
   ApiSmsInboundRoute: typeof ApiSmsInboundRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
@@ -1031,6 +1044,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiAuthSplatRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/reminders': {
+      id: '/api/cron/reminders'
+      path: '/api/cron/reminders'
+      fullPath: '/api/cron/reminders'
+      preLoaderRoute: typeof ApiCronRemindersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/sms/inbound': {
       id: '/api/sms/inbound'
       path: '/api/sms/inbound'
@@ -1302,6 +1322,7 @@ const rootRouteChildren: RootRouteChildren = {
   InviteTokenRoute: InviteTokenRoute,
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
+  ApiCronRemindersRoute: ApiCronRemindersRoute,
   ApiSmsInboundRoute: ApiSmsInboundRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }
