@@ -147,6 +147,7 @@ async function createPgliteSql(): Promise<Sql> {
     // 0024_sms_opt_in.sql — SMS consent on clients, team profiles, and pending invites.
     // 0025_sms_consent_status.sql — client consent requested, confirmed, or opted out.
     // 0026_client_sms_consent_link.sql — client consent token; clear company-requested status.
+    // 0027_client_notices.sql — one reminder, on-my-way, or cancellation notice per visit.
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );

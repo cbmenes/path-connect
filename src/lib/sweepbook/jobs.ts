@@ -15,6 +15,7 @@ import {
   replaceJobAssignees,
   teamCanAccessJob,
 } from "./assignees";
+import { sendClientNotice } from "./client-notify";
 import { insertNotification } from "./notifications";
 import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
@@ -743,7 +744,7 @@ export const setJobStatus = createServerFn({ method: "POST" })
     assertStaff(actor);
     const ownerId = masterUserId(actor);
     const rows = await sql<JobRow>`
-      select id, series_id, start_at::text as start_at, assigned_to_user_id, client_id, price_cents, service
+      select id, status, series_id, start_at::text as start_at, assigned_to_user_id, client_id, price_cents, service
       from jobs
       where id = ${data.id} and cleaner_user_id = ${ownerId} limit 1
     `;
@@ -753,11 +754,21 @@ export const setJobStatus = createServerFn({ method: "POST" })
       throw new Error("Team cleaners cannot change visit status.");
     }
     await assertActivePlan(sql, actor);
+    const cancelling = data.status === "cancelled" && job.status !== "cancelled";
     await sql`
       update jobs set status = ${data.status}, cancel_reason = ${data.reason ?? null}
       where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
-    return { ok: true };
+    let notice: string | null = null;
+    if (cancelling) {
+      try {
+        const sent = await sendClientNotice(sql, { jobId: job.id, kind: "cancellation" });
+        notice = sent.summary;
+      } catch (err) {
+        console.error("[crewweek notify]", err instanceof Error ? err.message : "cancellation failed");
+      }
+    }
+    return { ok: true, notice };
   });
 
 function parseEffectiveDate(raw: string) {
@@ -1061,6 +1072,11 @@ export const clientCancelOrReschedule = createServerFn({ method: "POST" })
       update jobs set status = 'cancelled', cancel_reason = ${data.note ?? null}
       where id = ${data.id} and client_id = ${actor.client.id}
     `;
+    try {
+      await sendClientNotice(sql, { jobId: job.id, kind: "cancellation" });
+    } catch (err) {
+      console.error("[crewweek notify]", err instanceof Error ? err.message : "cancellation failed");
+    }
     const title = `${actor.client.name} cancelled a visit`;
     const bodyParts = [formatDateTime(job.start_at), data.note ? data.note : null].filter(Boolean);
     const recipients = new Set<string>([job.cleaner_user_id]);

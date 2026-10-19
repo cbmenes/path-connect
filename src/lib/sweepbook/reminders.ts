@@ -2,6 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql, type Sql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { assertOffice, getActor, masterUserId } from "./access";
+import { sendClientNotice } from "./client-notify";
 import { MAIL_NOT_CONFIGURED, fromAddress, isMailConfigured, publicAppUrl, sendMail } from "./mail";
 import { APP_NAME } from "@/lib/brand";
 import { formatDate, formatHours, formatTime, nid } from "./time";
@@ -371,6 +372,11 @@ export async function processDueReminders(): Promise<ProcessStats> {
 
   for (const row of rows) {
     stats.checked += 1;
+    try {
+      await sendClientNotice(sql, { jobId: row.id, kind: "reminder" });
+    } catch (err) {
+      console.error("[crewweek notify]", err instanceof Error ? err.message : "reminder failed");
+    }
     const visit = toVisit(row);
     const dueAt = new Date(new Date(row.start_at).getTime() - 24 * 60 * 60 * 1000);
     const masterOn = asBool(row.master_reminders, true);

@@ -303,8 +303,8 @@ function JobDetail() {
         onConfirm={async () => {
           setBusy(true);
           try {
-            await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
-            toast.message("Visit cancelled.");
+            const saved = await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
+            toast.message(saved.notice ? `Visit cancelled. ${saved.notice}` : "Visit cancelled.");
             setCancelOpen(false);
             await qc.invalidateQueries({ queryKey: ["job", id] });
             await qc.invalidateQueries({ queryKey: ["jobs"] });

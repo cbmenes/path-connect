@@ -350,8 +350,8 @@ export function JobPanel({
       onConfirm={async () => {
         setBusy(true);
         try {
-          await setJobStatus({ data: { id: job.id, status: "cancelled", reason: "Cancelled by cleaner" } });
-          toast.message("Visit cancelled.");
+          const saved = await setJobStatus({ data: { id: job.id, status: "cancelled", reason: "Cancelled by cleaner" } });
+          toast.message(saved.notice ? `Visit cancelled. ${saved.notice}` : "Visit cancelled.");
           setCancelOpen(false);
           await onChanged();
           onClose();
