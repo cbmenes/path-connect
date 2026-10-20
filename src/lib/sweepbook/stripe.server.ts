@@ -43,12 +43,20 @@ function envValue(name: string) {
   return value || "";
 }
 
+function isTestSecret(key: string) {
+  return key.startsWith("sk_test_") || key.startsWith("rk_test_");
+}
+
+function isLiveSecret(key: string) {
+  return key.startsWith("sk_live_") || key.startsWith("rk_live_");
+}
+
 export function stripeSecretKey() {
   const key = envValue("STRIPE_SECRET_KEY");
   if (!key) throw new Error("Stripe is not configured.");
-  if (!key.startsWith("sk_test_") && !key.startsWith("rk_test_")) {
-    throw new Error("A Stripe test secret key is required.");
-  }
+  const production = process.env.NODE_ENV === "production" || process.env.VERCEL_ENV === "production";
+  if (production && isLiveSecret(key)) return key;
+  if (!isTestSecret(key)) throw new Error("A Stripe test secret key is required.");
   return key;
 }
 
@@ -765,6 +773,13 @@ async function settleConnectedCheckoutEvent(sessionId: string, accountHint: stri
   await applyConnectedCharge(session, accountId);
 }
 
+function ownerSubscriptionEvent(event: Stripe.Event) {
+  if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") return true;
+  if (event.type !== "checkout.session.completed") return false;
+  const session = event.data.object as Stripe.Checkout.Session;
+  return session.mode === "subscription";
+}
+
 export async function handleStripeWebhook(raw: Buffer, signature: string | null) {
   if (!signature) return { status: 400, body: { error: "Missing Stripe-Signature" } };
   let stripe: Stripe;
@@ -782,7 +797,9 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
   } catch {
     return { status: 400, body: { error: "Invalid signature" } };
   }
-  if (event.livemode) return { status: 200, body: { received: true, ignored: true } };
+  if (event.livemode && !ownerSubscriptionEvent(event)) {
+    return { status: 200, body: { received: true, ignored: true } };
+  }
   try {
     if (event.type === "checkout.session.completed") {
       const session = event.data.object as Stripe.Checkout.Session;
