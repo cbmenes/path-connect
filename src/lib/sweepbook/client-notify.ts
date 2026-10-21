@@ -10,8 +10,7 @@ import { formatDate, formatTime, nid } from "./time";
  * Operational SMS and email for consented clients.
  * Credentials stay in the host environment:
  * TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, RESEND_API_KEY.
- * Delivery stays in test mode unless NOTIFY_DELIVERY=live.
- * Demo companies always stay in test mode.
+ * Real companies send. Demo companies stay in test mode and only log.
  */
 
 type NoticeRow = {
@@ -34,7 +33,7 @@ export type ClientNoticeResult = {
 
 function deliveryMode(ownerEmail: string | null): "dry-run" | "live" {
   if (isDemoAccountEmail(ownerEmail)) return "dry-run";
-  return process.env.NOTIFY_DELIVERY?.trim().toLowerCase() === "live" ? "live" : "dry-run";
+  return "live";
 }
 
 function toE164(phone: string | null | undefined) {
@@ -47,13 +46,19 @@ function noticeDate(startAt: string) {
   return formatDate(startAt, { weekday: "long", month: "long", day: "numeric" });
 }
 
-async function alreadySent(sql: Sql, jobId: string, kind: ClientNoticeKind, channel: string) {
-  const rows = await sql<{ id: string }>`
-    select id from client_notices
+async function existingNotice(sql: Sql, jobId: string, kind: ClientNoticeKind, channel: string) {
+  const rows = await sql<{ id: string; status: string }>`
+    select id, status from client_notices
     where job_id = ${jobId} and kind = ${kind} and channel = ${channel}
     limit 1
   `;
-  return Boolean(rows[0]);
+  return rows[0] ?? null;
+}
+
+function noticeAlreadyDone(status: string | null, mode: "dry-run" | "live") {
+  if (!status) return false;
+  if (mode === "dry-run") return true;
+  return status === "sent";
 }
 
 async function recordNotice(
@@ -68,6 +73,15 @@ async function recordNotice(
     body: string;
   },
 ) {
+  const existing = await existingNotice(sql, input.jobId, input.kind, input.channel);
+  if (existing) {
+    await sql`
+      update client_notices
+      set status = ${input.status}, destination = ${input.destination}, body = ${input.body}
+      where id = ${existing.id}
+    `;
+    return;
+  }
   const id = nid("note");
   await sql`
     insert into client_notices (
@@ -127,47 +141,45 @@ export async function sendClientNotice(
   const channels: Array<"sms" | "email"> = [];
   const smsTo = toE164(row.client_phone);
   const emailTo = (row.client_email || "").trim();
-  if (smsTo && !(await alreadySent(sql, row.job_id, input.kind, "sms"))) channels.push("sms");
-  if (emailTo.includes("@") && !(await alreadySent(sql, row.job_id, input.kind, "email"))) channels.push("email");
+  const smsRow = smsTo ? await existingNotice(sql, row.job_id, input.kind, "sms") : null;
+  const emailRow = emailTo.includes("@") ? await existingNotice(sql, row.job_id, input.kind, "email") : null;
+  if (smsTo && !noticeAlreadyDone(smsRow?.status ?? null, mode)) channels.push("sms");
+  if (emailTo.includes("@") && !noticeAlreadyDone(emailRow?.status ?? null, mode)) channels.push("email");
   if (!channels.length) return { logged: false, summary: null };
 
+  const delivered: Array<"sms" | "email"> = [];
   for (const channel of channels) {
     const destination = channel === "sms" ? smsTo! : emailTo;
-    if (mode === "dry-run") {
-      console.info(`[crewweek notify dry-run] ${channel} ${input.kind} to ${destination}: ${body}`);
+    try {
+      if (mode === "dry-run") {
+        console.info(`[crewweek notify dry-run] ${channel} ${input.kind} to ${destination}: ${body}`);
+      } else if (channel === "sms") {
+        await postTwilio(destination, body);
+      } else {
+        await sendMail({
+          to: destination,
+          from: fromAddress(),
+          subject: clientNoticeSubject(input.kind),
+          text: body,
+        });
+      }
       await recordNotice(sql, {
         jobId: row.job_id,
         clientId: row.client_id,
         kind: input.kind,
         channel,
-        status: "dry_run",
+        status: mode === "dry-run" ? "dry_run" : "sent",
         destination,
         body,
       });
-      continue;
+      delivered.push(channel);
+    } catch (err) {
+      console.error("[crewweek notify]", err instanceof Error ? err.message : "notice failed");
     }
-    if (channel === "sms") {
-      await postTwilio(destination, body);
-    } else {
-      await sendMail({
-        to: destination,
-        from: fromAddress(),
-        subject: clientNoticeSubject(input.kind),
-        text: body,
-      });
-    }
-    await recordNotice(sql, {
-      jobId: row.job_id,
-      clientId: row.client_id,
-      kind: input.kind,
-      channel,
-      status: "sent",
-      destination,
-      body,
-    });
   }
+  if (!delivered.length) return { logged: false, summary: null };
 
-  const what = channels.map((channel) => (channel === "sms" ? "text" : "email")).join(" and ");
+  const what = delivered.map((channel) => (channel === "sms" ? "text" : "email")).join(" and ");
   const summary = mode === "dry-run" ? `Test mode: ${what} logged, not sent.` : `${what} sent.`;
   return { logged: true, summary };
 }
