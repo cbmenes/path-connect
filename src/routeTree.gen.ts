@@ -52,6 +52,7 @@ import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
+import { Route as ApiSessionRememberRouteImport } from './routes/api/session/remember'
 import { Route as ApiSmsInboundRouteImport } from './routes/api/sms/inbound'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
 import { Route as AppChargeReturnRouteImport } from './routes/app/charge.return'
@@ -284,6 +285,11 @@ const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
   path: '/api/cron/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiSessionRememberRoute = ApiSessionRememberRouteImport.update({
+  id: '/api/session/remember',
+  path: '/api/session/remember',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSmsInboundRoute = ApiSmsInboundRouteImport.update({
   id: '/api/sms/inbound',
   path: '/api/sms/inbound',
@@ -409,6 +415,7 @@ export interface FileRoutesByFullPath {
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/session/remember': typeof ApiSessionRememberRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
@@ -463,6 +470,7 @@ export interface FileRoutesByTo {
   '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/session/remember': typeof ApiSessionRememberRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
@@ -525,6 +533,7 @@ export interface FileRoutesById {
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/session/remember': typeof ApiSessionRememberRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
   '/app/charge/return': typeof AppChargeReturnRoute
@@ -588,6 +597,7 @@ export interface FileRouteTypes {
     | '/request/'
     | '/api/auth/$'
     | '/api/cron/reminders'
+    | '/api/session/remember'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
@@ -642,6 +652,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/api/auth/$'
     | '/api/cron/reminders'
+    | '/api/session/remember'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
@@ -703,6 +714,7 @@ export interface FileRouteTypes {
     | '/request/'
     | '/api/auth/$'
     | '/api/cron/reminders'
+    | '/api/session/remember'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
     | '/app/charge/return'
@@ -744,6 +756,7 @@ export interface RootRouteChildren {
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronRemindersRoute: typeof ApiCronRemindersRoute
+  ApiSessionRememberRoute: typeof ApiSessionRememberRoute
   ApiSmsInboundRoute: typeof ApiSmsInboundRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
 }
@@ -1051,6 +1064,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/session/remember': {
+      id: '/api/session/remember'
+      path: '/api/session/remember'
+      fullPath: '/api/session/remember'
+      preLoaderRoute: typeof ApiSessionRememberRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/sms/inbound': {
       id: '/api/sms/inbound'
       path: '/api/sms/inbound'
@@ -1323,6 +1343,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronRemindersRoute: ApiCronRemindersRoute,
+  ApiSessionRememberRoute: ApiSessionRememberRoute,
   ApiSmsInboundRoute: ApiSmsInboundRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,
 }

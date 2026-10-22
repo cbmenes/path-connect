@@ -35,10 +35,14 @@ function storeBearer(token?: string | null) {
   }
 }
 
-export async function emailSignIn(email: string, password: string) {
-  const { data, error } = await authClient.signIn.email({ email, password });
+export async function emailSignIn(email: string, password: string, stayLoggedIn = false) {
+  const { data, error } = await authClient.signIn.email({ email, password, rememberMe: true });
   if (error) throw new Error(error.message || "Could not sign in.");
   storeBearer(data?.token);
+  if (stayLoggedIn) {
+    const res = await fetch("/api/session/remember", { method: "POST", credentials: "same-origin" });
+    if (!res.ok) throw new Error("Could not keep you logged in.");
+  }
   return data;
 }
 
@@ -67,6 +71,7 @@ function Login() {
             ? DEMO_CLEANER_PASSWORD
             : "",
   );
+  const [stayLoggedIn, setStayLoggedIn] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -79,7 +84,7 @@ function Login() {
     setBusy(true);
     setError(null);
     try {
-      await emailSignIn(email, password);
+      await emailSignIn(email, password, stayLoggedIn);
       await navigate({ to: "/app" });
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not sign in.");
@@ -126,6 +131,15 @@ function Login() {
               autoComplete="current-password"
             />
           </Field>
+          <label className="flex cursor-pointer items-center gap-2 text-sm text-ink">
+            <input
+              type="checkbox"
+              className="size-4 shrink-0 accent-navy"
+              checked={stayLoggedIn}
+              onChange={(e) => setStayLoggedIn(e.target.checked)}
+            />
+            Stay logged in for 30 days.
+          </label>
           <p className="text-right text-sm">
             <Link to="/forgot-password" className="text-navy underline-offset-4 hover:underline">
               Forgot password?
