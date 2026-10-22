@@ -28,7 +28,8 @@ export const JOB_SELECT = `
   j.checklist_template_id, j.progress_status,
   j.on_the_way_at::text as on_the_way_at, j.started_at::text as started_at,
   j.finished_at::text as finished_at,
-  c.name as client_name, c.phone as client_phone, c.notes as client_notes,
+  c.name as client_name, c.phone as client_phone, c.email as client_email,
+  coalesce(c.sms_consent, 'none') as client_sms_consent, c.notes as client_notes,
   coalesce(
     assignee.full_name,
     (select case when ti.invited_at is null then ti.name || ' · Saved' else ti.name || ' · Invite pending' end

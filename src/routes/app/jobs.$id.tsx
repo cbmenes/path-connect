@@ -300,10 +300,12 @@ function JobDetail() {
         open={cancelOpen}
         onOpenChange={setCancelOpen}
         busy={busy}
-        onConfirm={async () => {
+        email={job.client_email}
+        smsConsent={job.client_sms_consent}
+        onConfirm={async (notify) => {
           setBusy(true);
           try {
-            const saved = await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner" } });
+            const saved = await setJobStatus({ data: { id, status: "cancelled", reason: "Cancelled by cleaner", notify } });
             toast.message(saved.notice ? `Visit cancelled. ${saved.notice}` : "Visit cancelled.");
             setCancelOpen(false);
             await qc.invalidateQueries({ queryKey: ["job", id] });

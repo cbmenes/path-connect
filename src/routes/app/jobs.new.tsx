@@ -49,7 +49,8 @@ function NewJob() {
           setBusy(true);
           try {
             const res = await createJob({ data: input });
-            toast.success(res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.");
+            const saved = res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.";
+            toast.success(res.notice ? `${saved} ${res.notice}` : saved);
             await qc.invalidateQueries({ queryKey: ["jobs"] });
             await qc.invalidateQueries({ queryKey: ["dashboard"] });
             const start = input.startLocal || res.startAt;
@@ -64,6 +65,7 @@ function NewJob() {
             await navigate({ to: "/app/calendar", search: { view: "week", date } });
           } catch (err) {
             toast.error(err instanceof Error ? err.message : "Could not save.");
+            throw err;
           } finally {
             setBusy(false);
           }

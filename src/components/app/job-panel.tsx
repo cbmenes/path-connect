@@ -37,6 +37,7 @@ export function JobPanel({
   actorUserId,
   onClose,
   onChanged,
+  onOverlayChange,
 }: {
   id: string;
   canEdit: boolean;
@@ -47,6 +48,7 @@ export function JobPanel({
   actorUserId?: string;
   onClose: () => void;
   onChanged: () => Promise<void>;
+  onOverlayChange?: (open: boolean) => void;
 }) {
   const q = useQuery({ queryKey: ["job", id], queryFn: () => getJob({ data: id }) });
   const staff = useQuery({ queryKey: ["visit-cleaners"], queryFn: () => listVisitCleaners(), enabled: canEdit });
@@ -345,14 +347,20 @@ export function JobPanel({
     </DialogContent>
     <CancelAppointmentDialog
       open={cancelOpen}
-      onOpenChange={setCancelOpen}
+      onOpenChange={(open) => {
+        setCancelOpen(open);
+        onOverlayChange?.(open);
+      }}
       busy={busy}
-      onConfirm={async () => {
+      email={job.client_email}
+      smsConsent={job.client_sms_consent}
+      onConfirm={async (notify) => {
         setBusy(true);
         try {
-          const saved = await setJobStatus({ data: { id: job.id, status: "cancelled", reason: "Cancelled by cleaner" } });
+          const saved = await setJobStatus({ data: { id: job.id, status: "cancelled", reason: "Cancelled by cleaner", notify } });
           toast.message(saved.notice ? `Visit cancelled. ${saved.notice}` : "Visit cancelled.");
           setCancelOpen(false);
+          onOverlayChange?.(false);
           await onChanged();
           onClose();
         } finally {

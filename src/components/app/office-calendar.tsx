@@ -66,6 +66,7 @@ export function OfficeCalendar({
   const [mode, setMode] = useState<CalView>(urlSearch?.view ?? "month");
   const [anchor, setAnchor] = useState(() => parseAnchor(urlSearch?.date));
   const [addStart, setAddStart] = useState<string | null>(urlSearch?.start ?? null);
+  const [notifyLock, setNotifyLock] = useState(false);
   const [selectedId, setSelectedId] = useState<string | null>(urlSearch?.job ?? null);
   const [busy, setBusy] = useState(false);
 
@@ -254,12 +255,13 @@ export function OfficeCalendar({
         onJob={(j) => setSelectedId(j.id)}
       />
 
-      <Dialog open={Boolean(addStart)} onOpenChange={(o) => !o && setAddStart(null)}>
+      <Dialog open={Boolean(addStart)} onOpenChange={(o) => { if (!o && notifyLock) return; if (!o) setAddStart(null); }}>
         <DialogContent title="Add appointment" className="max-h-[90dvh] w-[min(100%-1.5rem,36rem)] overflow-y-auto">
           {addStart ? (
             <JobForm
               key={`${addStart}-${clientId ?? ""}`}
               showAssign={isOffice}
+              onNotifyOpenChange={setNotifyLock}
               initial={{
                 startLocal: addStart,
                 durationMin: 120,
@@ -273,7 +275,8 @@ export function OfficeCalendar({
                 setBusy(true);
                 try {
                   const res = await createJob({ data: input });
-                  toast.success(res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.");
+                  const saved = res.count > 1 ? `Created ${res.count} visits.` : "Visit saved.";
+                  toast.success(res.notice ? `${saved} ${res.notice}` : saved);
                   setAddStart(null);
                   await refreshJobs();
                   if (input.startLocal) {
@@ -283,6 +286,7 @@ export function OfficeCalendar({
                   }
                 } catch (err) {
                   toast.error(err instanceof Error ? err.message : "Could not save.");
+                  throw err;
                 } finally {
                   setBusy(false);
                 }
@@ -292,10 +296,11 @@ export function OfficeCalendar({
         </DialogContent>
       </Dialog>
 
-      <Dialog open={Boolean(selectedId)} onOpenChange={(o) => !o && setSelectedId(null)}>
+      <Dialog open={Boolean(selectedId)} onOpenChange={(o) => { if (!o && notifyLock) return; if (!o) setSelectedId(null); }}>
         {selectedId ? (
           <JobPanel
             id={selectedId}
+            onOverlayChange={setNotifyLock}
             canEdit={Boolean(isOffice) && !writesLocked}
             canCharge={Boolean(canCharge)}
             isTeam={Boolean(isTeam)}

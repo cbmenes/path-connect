@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { toast } from "sonner";
 import { listClients } from "@/lib/sweepbook/clients";
 import { checkJobConflicts, type ConflictHit, type JobInput } from "@/lib/sweepbook/jobs";
+import type { NoticeChannelChoice } from "@/lib/sweepbook/client-notice-copy";
 import { listAssignableStaff } from "@/lib/sweepbook/team";
 import { listTimeOff } from "@/lib/sweepbook/time-off";
 import type { TimeOffHit } from "@/lib/sweepbook/time-off";
@@ -13,6 +14,7 @@ import { AddressFields } from "./address-fields";
 import { AssigneePicker, type AssigneeHint } from "./assignee-picker";
 import { availabilityLine, type AvailabilityHit } from "@/lib/sweepbook/availability";
 import { conflictLine, ConflictWarningDialog, timeOffLine } from "./conflict-warning";
+import { NotifyClientDialog } from "./notify-client-dialog";
 import { Button } from "@/components/ui/button";
 import { Field, Input, NativeSelect, Textarea } from "@/components/ui/input";
 
@@ -23,13 +25,15 @@ export function JobForm({
   submitLabel,
   showAssign,
   lockClient,
+  onNotifyOpenChange,
 }: {
   initial?: Partial<JobInput> & { id?: string };
-  onSubmit: (input: JobInput) => void;
+  onSubmit: (input: JobInput & { notify?: false | NoticeChannelChoice }) => void | Promise<void>;
   submitting?: boolean;
   submitLabel: string;
   showAssign?: boolean;
   lockClient?: boolean;
+  onNotifyOpenChange?: (open: boolean) => void;
 }) {
   const [clients, setClients] = useState<ClientRow[]>([]);
   const [staff, setStaff] = useState<{ user_id: string; full_name: string }[]>([]);
@@ -51,7 +55,9 @@ export function JobForm({
   const [availability, setAvailability] = useState<AvailabilityHit[]>([]);
   const [offRows, setOffRows] = useState<Awaited<ReturnType<typeof listTimeOff>>>([]);
   const [pendingInput, setPendingInput] = useState<JobInput | null>(null);
+  const [bookDraft, setBookDraft] = useState<JobInput | null>(null);
   const [checking, setChecking] = useState(false);
+  const selectedClient = clients.find((c) => c.id === clientId);
 
   useEffect(() => {
     void listClients().then(setClients).catch(() => setClients([]));
@@ -137,9 +143,25 @@ export function JobForm({
     };
   }
 
-  async function submitNow(input: JobInput) {
-    onSubmit(input);
+  function submitNow(input: JobInput) {
     setPendingInput(null);
+    if (initial?.id) {
+      void onSubmit(input);
+      return;
+    }
+    setBookDraft(input);
+    onNotifyOpenChange?.(true);
+  }
+
+  async function finishBook(notify: false | NoticeChannelChoice) {
+    if (!bookDraft) return;
+    try {
+      await onSubmit({ ...bookDraft, notify });
+      setBookDraft(null);
+      onNotifyOpenChange?.(false);
+    } catch {
+      /* The page shows the error and the choice stays open. */
+    }
   }
 
   return (
@@ -272,9 +294,24 @@ export function JobForm({
       busy={submitting}
       onBack={() => setPendingInput(null)}
       onSaveAnyway={async () => {
-        if (pendingInput) await submitNow(pendingInput);
+        if (pendingInput) submitNow(pendingInput);
       }}
       saveLabel="Save anyway"
+    />
+    <NotifyClientDialog
+      open={Boolean(bookDraft)}
+      onOpenChange={(next) => {
+        if (next) return;
+        setBookDraft(null);
+        onNotifyOpenChange?.(false);
+      }}
+      title="Notify the client about this booking?"
+      email={selectedClient?.email}
+      smsConsent={selectedClient?.sms_consent}
+      busy={submitting}
+      busyLabel="Saving…"
+      onSkip={() => finishBook(false)}
+      onSend={(choice) => finishBook(choice)}
     />
     </>
   );

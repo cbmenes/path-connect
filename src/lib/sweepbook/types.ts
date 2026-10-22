@@ -201,6 +201,8 @@ export type JobRow = {
 export type JobWithClient = JobRow & {
   client_name: string;
   client_phone: string | null;
+  client_email: string | null;
+  client_sms_consent: string | null;
   client_notes: string | null;
   assignee_name: string | null;
   assignees: AssigneeRef[];

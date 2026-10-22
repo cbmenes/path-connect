@@ -16,6 +16,7 @@ import {
   teamCanAccessJob,
 } from "./assignees";
 import { sendClientNotice } from "./client-notify";
+import type { NoticeChannelChoice } from "./client-notice-copy";
 import { insertNotification } from "./notifications";
 import { addressPartsFrom, formatAddress } from "./people";
 import { ensureDemoSeed } from "./seed";
@@ -221,6 +222,13 @@ export type JobInput = {
   assignedToUserIds?: string[];
   checklistTemplateId?: string | null;
 };
+
+function parseNotifyChoice(value: unknown): NoticeChannelChoice | false | undefined {
+  if (value === false) return false;
+  if (!value || typeof value !== "object") return undefined;
+  const row = value as { email?: unknown; sms?: unknown };
+  return { email: row.email === true, sms: row.sms === true };
+}
 
 function parseJobInput(input: JobInput): JobInput {
   if (!input.clientId) throw new Error("Choose a client.");
@@ -584,7 +592,10 @@ export const checkAssignConflicts = createServerFn({ method: "POST" })
 
 export const createJob = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: JobInput) => parseJobInput(input))
+  .validator((input: JobInput & { notify?: unknown }) => ({
+    ...parseJobInput(input),
+    notify: parseNotifyChoice(input.notify),
+  }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
@@ -651,7 +662,20 @@ export const createJob = createServerFn({ method: "POST" })
         `${starts.length} visit${starts.length === 1 ? "" : "s"} added to your book.`,
       );
     }
-    return { id: created[0]?.id, startAt: created[0]?.start, count: created.length, conflictCount };
+    let notice: string | null = null;
+    if (data.notify && created[0]) {
+      try {
+        const sent = await sendClientNotice(sql, {
+          jobId: created[0].id,
+          kind: "booking",
+          channels: data.notify,
+        });
+        notice = sent.summary;
+      } catch (err) {
+        console.error("[crewweek notify]", err instanceof Error ? err.message : "booking failed");
+      }
+    }
+    return { id: created[0]?.id, startAt: created[0]?.start, count: created.length, conflictCount, notice };
   });
 
 export const updateJob = createServerFn({ method: "POST" })
@@ -737,7 +761,12 @@ export const assignJob = createServerFn({ method: "POST" })
 
 export const setJobStatus = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
-  .validator((input: { id: string; status: "scheduled" | "cancelled"; reason?: string }) => input)
+  .validator((input: { id: string; status: "scheduled" | "cancelled"; reason?: string; notify?: unknown }) => ({
+    id: input.id,
+    status: input.status,
+    reason: input.reason,
+    notify: parseNotifyChoice(input.notify),
+  }))
   .handler(async ({ context, data }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
@@ -760,9 +789,13 @@ export const setJobStatus = createServerFn({ method: "POST" })
       where id = ${data.id} and cleaner_user_id = ${ownerId}
     `;
     let notice: string | null = null;
-    if (cancelling) {
+    if (cancelling && data.notify !== false) {
       try {
-        const sent = await sendClientNotice(sql, { jobId: job.id, kind: "cancellation" });
+        const sent = await sendClientNotice(sql, {
+          jobId: job.id,
+          kind: "cancellation",
+          channels: data.notify || undefined,
+        });
         notice = sent.summary;
       } catch (err) {
         console.error("[crewweek notify]", err instanceof Error ? err.message : "cancellation failed");

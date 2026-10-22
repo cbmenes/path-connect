@@ -1,4 +1,6 @@
 import { useEffect, useState, type ReactNode } from "react";
+import type { NoticeChannelChoice } from "@/lib/sweepbook/client-notice-copy";
+import { NotifyClientDialog } from "@/components/app/notify-client-dialog";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent } from "@/components/ui/dialog";
 import { Field, Input } from "@/components/ui/input";
@@ -50,24 +52,29 @@ export function CancelAppointmentDialog({
   open,
   onOpenChange,
   busy,
+  email,
+  smsConsent,
   onConfirm,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   busy?: boolean;
-  onConfirm: () => void | Promise<void>;
+  email?: string | null;
+  smsConsent?: string | null;
+  onConfirm: (notify: false | NoticeChannelChoice) => void | Promise<void>;
 }) {
   return (
-    <ConfirmDialog
+    <NotifyClientDialog
       open={open}
       onOpenChange={onOpenChange}
-      title="Are you sure you want to cancel this appointment?"
-      body="The visit will stay on the calendar as Cancelled."
-      cancelLabel="Keep appointment"
-      confirmLabel="Cancel appointment"
-      busyLabel="Cancelling…"
+      title="Notify the client about this cancellation?"
+      note="The visit will stay on the calendar as Cancelled."
+      email={email}
+      smsConsent={smsConsent}
       busy={busy}
-      onConfirm={onConfirm}
+      busyLabel="Cancelling…"
+      onSkip={() => onConfirm(false)}
+      onSend={(choice) => onConfirm(choice)}
     />
   );
 }

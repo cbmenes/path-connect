@@ -2,7 +2,12 @@ import type { Sql } from "@/lib/db";
 import { fromAddress, sendMail } from "./mail";
 import { phoneDigits } from "./people";
 import { canSendOperationalSms, parseSmsConsent } from "./sms-consent";
-import { clientNoticeBody, clientNoticeSubject, type ClientNoticeKind } from "./client-notice-copy";
+import {
+  clientNoticeBody,
+  clientNoticeSubject,
+  type ClientNoticeKind,
+  type NoticeChannelChoice,
+} from "./client-notice-copy";
 import { isDemoAccountEmail } from "./types";
 import { formatDate, formatTime, nid } from "./time";
 
@@ -114,7 +119,7 @@ async function postTwilio(to: string, body: string) {
 
 export async function sendClientNotice(
   sql: Sql,
-  input: { jobId: string; kind: ClientNoticeKind },
+  input: { jobId: string; kind: ClientNoticeKind; channels?: NoticeChannelChoice },
 ): Promise<ClientNoticeResult> {
   const rows = await sql<NoticeRow>`
     select j.id as job_id, j.start_at::text as start_at, j.address,
@@ -139,8 +144,10 @@ export async function sendClientNotice(
   });
   const mode = deliveryMode(row.owner_email);
   const channels: Array<"sms" | "email"> = [];
-  const smsTo = canSendOperationalSms(parseSmsConsent(row.sms_consent)) ? toE164(row.client_phone) : null;
-  const emailTo = (row.client_email || "").trim();
+  const wantSms = input.channels ? input.channels.sms : true;
+  const wantEmail = input.channels ? input.channels.email : true;
+  const smsTo = wantSms && canSendOperationalSms(parseSmsConsent(row.sms_consent)) ? toE164(row.client_phone) : null;
+  const emailTo = wantEmail ? (row.client_email || "").trim() : "";
   const smsRow = smsTo ? await existingNotice(sql, row.job_id, input.kind, "sms") : null;
   const emailRow = emailTo.includes("@") ? await existingNotice(sql, row.job_id, input.kind, "email") : null;
   if (smsTo && !noticeAlreadyDone(smsRow?.status ?? null, mode)) channels.push("sms");
