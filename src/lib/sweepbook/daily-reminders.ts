@@ -6,8 +6,8 @@ import { chicagoDate, partsInChicago } from "./time";
  * One morning pass for the Vercel cron (13:00 UTC, 8:00 AM US Central during
  * daylight time). The 5-minute scheduler still only logs a reminder inside
  * the half-hour around 24 hours. This pass covers the next calendar day in
- * America/Chicago so that single run reaches every consented client with a
- * cleaning about a day out.
+ * America/Chicago so that single run reaches every client with an email
+ * or SMS consent who has a cleaning about a day out.
  */
 
 export type DailyReminderStats = {
@@ -40,7 +40,10 @@ export async function processDailyAppointmentReminders(now = new Date()): Promis
     from jobs j
     join clients c on c.id = j.client_id
     where j.status = ${"scheduled"}
-      and c.sms_consent = ${"confirmed"}
+      and (
+        position('@' in coalesce(c.email, '')) > 0
+        or c.sms_consent = ${"confirmed"}
+      )
       and j.start_at >= ${from.toISOString()}
       and j.start_at < ${until.toISOString()}
     order by j.start_at asc

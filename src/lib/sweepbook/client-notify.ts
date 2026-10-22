@@ -7,7 +7,8 @@ import { isDemoAccountEmail } from "./types";
 import { formatDate, formatTime, nid } from "./time";
 
 /**
- * Operational SMS and email for consented clients.
+ * Operational email for any client with an address, and SMS only after the
+ * client completes the consent link. STOP blocks SMS. Email can still go.
  * Credentials stay in the host environment:
  * TWILIO_ACCOUNT_SID, TWILIO_AUTH_TOKEN, TWILIO_FROM_NUMBER, RESEND_API_KEY.
  * Real companies send. Demo companies stay in test mode and only log.
@@ -130,7 +131,6 @@ export async function sendClientNotice(
   `;
   const row = rows[0];
   if (!row) return { logged: false, summary: null };
-  if (!canSendOperationalSms(parseSmsConsent(row.sms_consent))) return { logged: false, summary: null };
 
   const body = clientNoticeBody(input.kind, {
     companyName: row.company_name || "",
@@ -139,7 +139,7 @@ export async function sendClientNotice(
   });
   const mode = deliveryMode(row.owner_email);
   const channels: Array<"sms" | "email"> = [];
-  const smsTo = toE164(row.client_phone);
+  const smsTo = canSendOperationalSms(parseSmsConsent(row.sms_consent)) ? toE164(row.client_phone) : null;
   const emailTo = (row.client_email || "").trim();
   const smsRow = smsTo ? await existingNotice(sql, row.job_id, input.kind, "sms") : null;
   const emailRow = emailTo.includes("@") ? await existingNotice(sql, row.job_id, input.kind, "email") : null;
