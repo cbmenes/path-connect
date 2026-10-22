@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
+import { GROK_PROVIDERS, authClient, authEnabled, rememberBearer, signIn } from "@/lib/auth/client";
 import { bootstrapDemo } from "@/lib/sweepbook/bootstrap";
 import {
   DEMO_ADMIN_EMAIL,
@@ -39,7 +39,8 @@ export async function emailSignIn(email: string, password: string, stayLoggedIn 
   const { data, error } = await authClient.signIn.email({ email, password, rememberMe: true });
   if (error) throw new Error(error.message || "Could not sign in.");
   storeBearer(data?.token);
-  if (stayLoggedIn) {
+  if (stayLoggedIn && data?.token) {
+    rememberBearer(data.token);
     const res = await fetch("/api/session/remember", { method: "POST", credentials: "same-origin" });
     if (!res.ok) throw new Error("Could not keep you logged in.");
   }
@@ -77,7 +78,14 @@ function Login() {
 
   useEffect(() => {
     void bootstrapDemo();
-  }, []);
+    let cancel = false;
+    void authClient.getSession().then(({ data }) => {
+      if (!cancel && data?.user) void navigate({ to: "/app" });
+    });
+    return () => {
+      cancel = true;
+    };
+  }, [navigate]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();

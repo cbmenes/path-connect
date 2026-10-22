@@ -13,7 +13,8 @@ function cookieValue(header: string, name: string) {
 }
 
 function setCookieHeader(name: string, value: string, maxAge: number) {
-  return `${name}=${value}; Path=/; HttpOnly; Secure; SameSite=Lax; Max-Age=${maxAge}`;
+  const expires = new Date(Date.now() + maxAge * 1000).toUTCString();
+  return `${name}=${value}; Path=/; Expires=${expires}; Max-Age=${maxAge}; HttpOnly; Secure; SameSite=Lax`;
 }
 
 export async function rememberSession(request: Request) {

@@ -46,14 +46,47 @@ export { GROK_PROVIDERS };
 // to server functions, via `@/lib/auth/middleware`). Empty everywhere except the
 // preview after a popup sign-in, so the cookie path is untouched elsewhere.
 const BEARER_KEY = "grok-auth.bearer-token";
+const STAY_KEY = "grok-auth.stay";
+const STAY_MS = 30 * 24 * 60 * 60 * 1000;
 
-/** The stored preview bearer token, or null. */
+function readStayToken(): string | null {
+  try {
+    const raw = window.localStorage.getItem(STAY_KEY);
+    if (!raw) return null;
+    const saved = JSON.parse(raw) as { token?: string; expiresAt?: number };
+    if (!saved.token || !saved.expiresAt || saved.expiresAt <= Date.now()) {
+      window.localStorage.removeItem(STAY_KEY);
+      return null;
+    }
+    return saved.token;
+  } catch {
+    return null;
+  }
+}
+
+/** The stored preview bearer token, or null. A 30-day stay survives browser close. */
 export function getBearerToken(): string | null {
   if (typeof window === "undefined") return null;
   try {
-    return window.sessionStorage.getItem(BEARER_KEY);
+    const existing = window.sessionStorage.getItem(BEARER_KEY);
+    if (existing) return existing;
+    const stayed = readStayToken();
+    if (!stayed) return null;
+    window.sessionStorage.setItem(BEARER_KEY, stayed);
+    return stayed;
   } catch {
     return null;
+  }
+}
+
+/** Keep this login's token for 30 days, including after the browser closes. */
+export function rememberBearer(token: string): void {
+  if (typeof window === "undefined" || !token) return;
+  try {
+    window.localStorage.setItem(STAY_KEY, JSON.stringify({ token, expiresAt: Date.now() + STAY_MS }));
+    window.sessionStorage.setItem(BEARER_KEY, token);
+  } catch {
+    /* storage unavailable — ignore */
   }
 }
 
@@ -61,7 +94,10 @@ function setBearerToken(token: string | null): void {
   if (typeof window === "undefined") return;
   try {
     if (token) window.sessionStorage.setItem(BEARER_KEY, token);
-    else window.sessionStorage.removeItem(BEARER_KEY);
+    else {
+      window.sessionStorage.removeItem(BEARER_KEY);
+      window.localStorage.removeItem(STAY_KEY);
+    }
   } catch {
     /* storage unavailable — ignore */
   }
