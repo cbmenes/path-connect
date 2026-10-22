@@ -8,7 +8,7 @@ import { listChecklistTemplates } from "@/lib/sweepbook/checklists";
 import { actorCanCharge, actorWritesLocked } from "@/lib/sweepbook/types";
 import { createInvite } from "@/lib/sweepbook/invites";
 import { createSmsConsentLink } from "@/lib/sweepbook/sms-consent-link";
-import { smsConsentStatusLabel } from "@/lib/sweepbook/sms-consent";
+import type { SmsConsent } from "@/lib/sweepbook/sms-consent";
 import { adminClientThread, masterClientThread } from "@/lib/sweepbook/threads";
 import { chargeCard, createCardLink } from "@/lib/sweepbook/payments";
 import { brandLabel } from "@/lib/sweepbook/card-utils";
@@ -270,8 +270,9 @@ function ClientProfile() {
             <p className="mt-2 break-all text-xs text-muted">{consentUrl}</p>
           </OpenedContent>
         ) : null}
-        <p className="mt-2 text-sm text-muted">
-          {smsConsentStatusLabel(client.sms_consent ?? "none")}. Texts stay off until they check the box and submit.
+        <p className="mt-2 text-sm font-medium text-ink">{clientSmsStatus(client.sms_consent ?? "none")}</p>
+        <p className="mt-1 text-sm text-muted">
+          Emails are sent regardless. Text messages are sent only after the client consents to SMS.
         </p>
       </Card>
 
@@ -403,6 +404,12 @@ function ClientProfile() {
       />
     </div>
   );
+}
+
+function clientSmsStatus(status: SmsConsent) {
+  if (status === "confirmed") return "SMS consented.";
+  if (status === "opted_out") return "SMS opted out.";
+  return "SMS not yet consented.";
 }
 
 function Row({ k, v }: { k: string; v?: string | null }) {
