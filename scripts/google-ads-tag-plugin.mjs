@@ -22,7 +22,8 @@ function wrapHtmlResponses(middlewares) {
 
     const originalWrite = res.write.bind(res);
     const originalEnd = res.end.bind(res);
-    const inserter = createGoogleAdsTagInserter();
+    const purchase = pathOnly === "/welcome" || pathOnly === "/welcome/";
+    const inserter = createGoogleAdsTagInserter({ purchase });
     let mode = null;
 
     const decideMode = () => {

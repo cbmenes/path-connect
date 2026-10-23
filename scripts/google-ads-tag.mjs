@@ -8,11 +8,26 @@ export const GOOGLE_ADS_TAG_SNIPPET = `<!-- Google tag (gtag.js) -->
   gtag('config', 'AW-18531899573');
 </script>`;
 
+/** Purchase conversion. Only the /welcome success page. */
+export const GOOGLE_ADS_PURCHASE_SNIPPET = `<!-- Event snippet for Purchase (1) conversion page -->
+<script>
+  gtag('event', 'conversion', {
+    'send_to': 'AW-18531899573/L_DCOmYlacdELWx2YRF',
+    'transaction_id': '',
+    // 'new_customer': true /* calculate dynamically, populate with true/false */,
+  });
+</script>`;
+
+const PURCHASE_SEND_TO = "AW-18531899573/L_DCOmYlacdELWx2YRF";
+
 /**
  * Insert the tag once, immediately after the opening head tag.
+ * On the purchase success page, the event snippet follows that tag.
  * Holds a short tail so a head tag split across chunks is still found.
+ * @param {{ purchase?: boolean }} [options]
  */
-export function createGoogleAdsTagInserter() {
+export function createGoogleAdsTagInserter(options = {}) {
+  const purchase = options.purchase === true;
   let pending = "";
   let done = false;
 
@@ -41,8 +56,16 @@ export function createGoogleAdsTagInserter() {
 
       done = true;
       const after = text.slice(end + 1);
-      if (after.startsWith(GOOGLE_ADS_TAG_SNIPPET)) return text;
-      return text.slice(0, end + 1) + GOOGLE_ADS_TAG_SNIPPET + after;
+      const headEnd = end + 1;
+      if (after.startsWith(GOOGLE_ADS_TAG_SNIPPET)) {
+        if (!purchase || after.includes(PURCHASE_SEND_TO)) return text;
+        const eventAt = headEnd + GOOGLE_ADS_TAG_SNIPPET.length;
+        return text.slice(0, eventAt) + "\n" + GOOGLE_ADS_PURCHASE_SNIPPET + text.slice(eventAt);
+      }
+      const block = purchase
+        ? `${GOOGLE_ADS_TAG_SNIPPET}\n${GOOGLE_ADS_PURCHASE_SNIPPET}`
+        : GOOGLE_ADS_TAG_SNIPPET;
+      return text.slice(0, headEnd) + block + after;
     },
     flush() {
       const rest = pending;

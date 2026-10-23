@@ -5,6 +5,7 @@
 import { createGoogleAdsTagInserter } from "../../scripts/google-ads-tag.mjs";
 
 interface GoogleAdsEvent {
+  url: URL;
   req: { method: string };
 }
 
@@ -25,7 +26,9 @@ export default async function googleAdsTagMiddleware(
     return result;
   }
 
-  const inserter = createGoogleAdsTagInserter();
+  const path = event.url?.pathname ?? "";
+  const purchase = path === "/welcome" || path === "/welcome/";
+  const inserter = createGoogleAdsTagInserter({ purchase });
   const decoder = new TextDecoder();
   const encoder = new TextEncoder();
   const transformed = result.body.pipeThrough(
