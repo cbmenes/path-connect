@@ -24,6 +24,7 @@ import { Route as ResetPasswordRouteImport } from './routes/reset-password'
 import { Route as SignupRouteImport } from './routes/signup'
 import { Route as SmsConsentRouteImport } from './routes/sms-consent'
 import { Route as TermsRouteImport } from './routes/terms'
+import { Route as WelcomeRouteImport } from './routes/welcome'
 import { Route as AddCardTokenRouteImport } from './routes/add-card.$token'
 import { Route as ApiRemindersRouteImport } from './routes/api/reminders'
 import { Route as AppIndexRouteImport } from './routes/app/index'
@@ -143,6 +144,11 @@ const SmsConsentRoute = SmsConsentRouteImport.update({
 const TermsRoute = TermsRouteImport.update({
   id: '/terms',
   path: '/terms',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const WelcomeRoute = WelcomeRouteImport.update({
+  id: '/welcome',
+  path: '/welcome',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AddCardTokenRoute = AddCardTokenRouteImport.update({
@@ -387,6 +393,7 @@ export interface FileRoutesByFullPath {
   '/signup': typeof SignupRoute
   '/sms-consent': typeof SmsConsentRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/add-card/$token': typeof AddCardTokenRoute
   '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
@@ -446,6 +453,7 @@ export interface FileRoutesByTo {
   '/signup': typeof SignupRoute
   '/sms-consent': typeof SmsConsentRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/add-card/$token': typeof AddCardTokenRoute
   '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
@@ -505,6 +513,7 @@ export interface FileRoutesById {
   '/signup': typeof SignupRoute
   '/sms-consent': typeof SmsConsentRoute
   '/terms': typeof TermsRoute
+  '/welcome': typeof WelcomeRoute
   '/add-card/$token': typeof AddCardTokenRoute
   '/api/reminders': typeof ApiRemindersRoute
   '/app/calendar': typeof AppCalendarRoute
@@ -569,6 +578,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sms-consent'
     | '/terms'
+    | '/welcome'
     | '/add-card/$token'
     | '/api/reminders'
     | '/app/calendar'
@@ -628,6 +638,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sms-consent'
     | '/terms'
+    | '/welcome'
     | '/add-card/$token'
     | '/api/reminders'
     | '/app/calendar'
@@ -686,6 +697,7 @@ export interface FileRouteTypes {
     | '/signup'
     | '/sms-consent'
     | '/terms'
+    | '/welcome'
     | '/add-card/$token'
     | '/api/reminders'
     | '/app/calendar'
@@ -749,6 +761,7 @@ export interface RootRouteChildren {
   SignupRoute: typeof SignupRoute
   SmsConsentRoute: typeof SmsConsentRoute
   TermsRoute: typeof TermsRoute
+  WelcomeRoute: typeof WelcomeRoute
   AddCardTokenRoute: typeof AddCardTokenRoute
   ApiRemindersRoute: typeof ApiRemindersRoute
   ConsentTokenRoute: typeof ConsentTokenRoute
@@ -866,6 +879,13 @@ declare module '@tanstack/react-router' {
       path: '/terms'
       fullPath: '/terms'
       preLoaderRoute: typeof TermsRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/welcome': {
+      id: '/welcome'
+      path: '/welcome'
+      fullPath: '/welcome'
+      preLoaderRoute: typeof WelcomeRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/add-card/$token': {
@@ -1336,6 +1356,7 @@ const rootRouteChildren: RootRouteChildren = {
   SignupRoute: SignupRoute,
   SmsConsentRoute: SmsConsentRoute,
   TermsRoute: TermsRoute,
+  WelcomeRoute: WelcomeRoute,
   AddCardTokenRoute: AddCardTokenRoute,
   ApiRemindersRoute: ApiRemindersRoute,
   ConsentTokenRoute: ConsentTokenRoute,

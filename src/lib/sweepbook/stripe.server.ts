@@ -300,7 +300,7 @@ export async function createOwnerCheckout(userId: string, plan: SaasPlanCode, in
     customer: customerId,
     client_reference_id: userId,
     line_items: [{ price, quantity: 1 }],
-    success_url: `${origin}/app?checkout=success`,
+    success_url: `${origin}/welcome`,
     cancel_url: `${origin}/choose-plan?checkout=canceled`,
     metadata: { user_id: userId, plan, interval },
     subscription_data: { metadata: { user_id: userId, plan, interval } },
