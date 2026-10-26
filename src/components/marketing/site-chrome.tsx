@@ -2,7 +2,7 @@ import { Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { Menu, X } from "lucide-react";
 import { CrewWeekLogo } from "@/components/brand/logo";
-import { APP_HOST, APP_NAME, HELLO_EMAIL, PUBLIC_SITE, SUPPORT_EMAIL } from "@/lib/brand";
+import { APP_HOST, APP_NAME, PUBLIC_SITE, SUPPORT_EMAIL } from "@/lib/brand";
 import { Button } from "@/components/ui/button";
 import { InstallHint } from "@/components/app/install-hint";
 
@@ -105,9 +105,6 @@ export function SiteChrome({ children }: { children: React.ReactNode }) {
             <Link to="/contact" className="text-paper/70 hover:text-paper">
               Contact
             </Link>
-            <a href={`mailto:${HELLO_EMAIL}`} className="text-paper/70 hover:text-paper">
-              {HELLO_EMAIL}
-            </a>
             <a href={`mailto:${SUPPORT_EMAIL}`} className="text-paper/70 hover:text-paper">
               {SUPPORT_EMAIL}
             </a>

@@ -33,10 +33,18 @@ function parseFrom(from: string): { email: string; name?: string } {
   return { email: from };
 }
 
-export async function sendMail(input: { to: string; subject: string; text: string; html?: string; from?: string }) {
+export async function sendMail(input: {
+  to: string;
+  subject: string;
+  text: string;
+  html?: string;
+  from?: string;
+  replyTo?: string;
+}) {
   const to = input.to.trim();
   if (!to || !to.includes("@")) throw new Error("Recipient email is missing or invalid.");
   const from = input.from?.trim() || fromAddress();
+  const replyTo = input.replyTo?.trim();
   const resendKey = process.env.RESEND_API_KEY?.trim() || process.env.EMAIL_API_KEY?.trim();
   if (resendKey) {
     const res = await fetch("https://api.resend.com/emails", {
@@ -51,6 +59,7 @@ export async function sendMail(input: { to: string; subject: string; text: strin
         subject: input.subject,
         text: input.text,
         html: input.html || input.text.replace(/\n/g, "<br />"),
+        ...(replyTo ? { reply_to: replyTo } : {}),
       }),
     });
     if (!res.ok) {
@@ -72,6 +81,7 @@ export async function sendMail(input: { to: string; subject: string; text: strin
       body: JSON.stringify({
         personalizations: [{ to: [{ email: to }] }],
         from: parsed,
+        ...(replyTo ? { reply_to: { email: replyTo } } : {}),
         subject: input.subject,
         content: [
           { type: "text/plain", value: input.text },
