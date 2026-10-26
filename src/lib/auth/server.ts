@@ -166,6 +166,7 @@ const database = databaseUrl
 
 /** Session token cookie name — also read by the live-preview popup completion page. */
 export const SESSION_TOKEN_COOKIE = "__Host-grok-auth.session_token";
+export const DONT_REMEMBER_COOKIE = "__Host-grok-auth.dont_remember";
 
 // Built separately so the `betterAuth({...})` call stays easy to edit without
 // breaking brackets (models often trip on the conditional plugin spread).

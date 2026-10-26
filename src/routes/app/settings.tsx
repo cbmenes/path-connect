@@ -24,6 +24,7 @@ import {
   changeSaasPlan,
   disconnectStripeAccount,
   getSaasPlan,
+  listSubscriptionInvoices,
   openBillingPortal,
   openStripeAccount,
   periodStillOpen,
@@ -597,6 +598,55 @@ function AdminPlanNote() {
   );
 }
 
+function invoiceStatusLabel(status: string) {
+  if (status === "paid") return "Paid";
+  if (status === "open") return "Open";
+  if (status === "void") return "Void";
+  if (status === "uncollectible") return "Unpaid";
+  if (status === "draft") return "Draft";
+  return status;
+}
+
+function BillingHistory() {
+  const q = useQuery({ queryKey: ["subscription-invoices"], queryFn: () => listSubscriptionInvoices() });
+  return (
+    <Card>
+      <h2 className="font-display text-lg text-navy">Billing history</h2>
+      <p className="mt-1 text-sm text-muted">Subscription charges for this CrewWeek account.</p>
+      {q.isPending ? <div className="mt-3 h-16 animate-pulse rounded-lg bg-secondary" /> : null}
+      {q.isError ? (
+        <p className="mt-3 text-sm text-danger">{q.error instanceof Error ? q.error.message : "Billing history is unavailable right now."}</p>
+      ) : null}
+      {q.data?.demo ? <p className="mt-3 text-sm text-muted">Demo accounts are not charged.</p> : null}
+      {q.data && !q.data.demo && q.data.invoices.length === 0 ? (
+        <p className="mt-3 text-sm text-muted">No subscription charges yet.</p>
+      ) : null}
+      {q.data && q.data.invoices.length > 0 ? (
+        <ul className="mt-3 grid gap-2">
+          {q.data.invoices.map((invoice) => (
+            <li key={invoice.id} className="flex items-start justify-between gap-3 rounded-lg bg-secondary/60 px-3 py-2 text-sm">
+              <div>
+                <p className="font-medium text-ink">{invoice.number || "Subscription"}</p>
+                <p className="text-xs text-muted">
+                  {formatDate(new Date(invoice.created * 1000), { month: "short", day: "numeric", year: "numeric" })} · {invoiceStatusLabel(invoice.status)}
+                </p>
+              </div>
+              <div className="text-right">
+                <p className="tabular text-navy">{money(invoice.amountCents)}</p>
+                {invoice.hostedUrl ? (
+                  <a className="text-xs text-navy underline-offset-4 hover:underline" href={invoice.hostedUrl} target="_blank" rel="noreferrer">
+                    View
+                  </a>
+                ) : null}
+              </div>
+            </li>
+          ))}
+        </ul>
+      ) : null}
+    </Card>
+  );
+}
+
 function PlanSection() {
   const { connect } = Route.useSearch();
   const q = useQuery({ queryKey: ["saas-plan"], queryFn: () => getSaasPlan() });
@@ -742,6 +792,7 @@ function PlanSection() {
           </div>
         ) : null}
       </Card>
+      <BillingHistory />
       {plan.showConnect ? (
         <Card>
           <p className="text-xs uppercase tracking-[0.14em] text-sage">Client cards</p>

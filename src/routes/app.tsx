@@ -2,6 +2,7 @@ import { createFileRoute, Link, Outlet, useNavigate, useRouterState } from "@tan
 import { useQuery } from "@tanstack/react-query";
 import { useEffect } from "react";
 import { Button } from "@/components/ui/button";
+import { reapplyRememberedSession } from "@/lib/auth/client";
 import { RedirectToSignIn } from "@/lib/auth/gates";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
 import { getMyActor } from "@/lib/sweepbook/bootstrap";
@@ -27,6 +28,10 @@ function AppLayout() {
       return false;
     },
   });
+
+  useEffect(() => {
+    void reapplyRememberedSession();
+  }, []);
 
   useEffect(() => {
     if (!user || actor.isPending) return;

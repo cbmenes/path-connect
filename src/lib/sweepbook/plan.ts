@@ -145,6 +145,13 @@ export const openBillingPortal = createServerFn({ method: "POST" })
     return createOwnerBillingPortal(context.userId);
   });
 
+export const listSubscriptionInvoices = createServerFn({ method: "GET" })
+  .middleware([authMiddleware])
+  .handler(async ({ context }) => {
+    const { listOwnerSubscriptionInvoices } = await import("./stripe.server");
+    return listOwnerSubscriptionInvoices(context.userId);
+  });
+
 export const beginStripeCheckout = createServerFn({ method: "POST" })
   .middleware([authMiddleware])
   .validator((input: { code: string; interval?: string }) => ({

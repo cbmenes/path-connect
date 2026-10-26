@@ -79,6 +79,34 @@ export function getBearerToken(): string | null {
   }
 }
 
+/** True when this browser still has a 30-day stay token. */
+export function hasRememberedLogin(): boolean {
+  return readStayToken() !== null;
+}
+
+const STAY_REAPPLY_KEY = "grok-auth.stay-reapplied";
+
+/** Put the 30-day cookie back after a new browser session. One try per tab. */
+export async function reapplyRememberedSession(): Promise<void> {
+  if (typeof window === "undefined" || !hasRememberedLogin()) return;
+  try {
+    if (window.sessionStorage.getItem(STAY_REAPPLY_KEY)) return;
+    window.sessionStorage.setItem(STAY_REAPPLY_KEY, "1");
+  } catch {
+    return;
+  }
+  const token = getBearerToken();
+  try {
+    await fetch("/api/session/remember", {
+      method: "POST",
+      credentials: "same-origin",
+      headers: token ? { Authorization: `Bearer ${token}` } : {},
+    });
+  } catch {
+    /* the stored token still signs the next request in */
+  }
+}
+
 /** Keep this login's token for 30 days, including after the browser closes. */
 export function rememberBearer(token: string): void {
   if (typeof window === "undefined" || !token) return;

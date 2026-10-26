@@ -47,7 +47,7 @@ function Home() {
         <div className="mx-auto grid max-w-6xl gap-8 px-4 py-12 md:grid-cols-4">
           {[
             { k: "Invite-only", v: "No public cleaner search. You send the link." },
-            { k: "Owner-ready", v: "Built around real weekly routes, not gig matching." },
+            { k: "Owner-ready", v: "Built around real recurring appointments." },
             { k: "Cards, not chase", v: "Charge a saved card. Mark Venmo or cash as paid." },
             { k: "Works everywhere", v: "Phone, iPad, laptop — same website, same logins." },
           ].map((item) => (
@@ -63,8 +63,8 @@ function Home() {
         id="scheduling"
         icon={CalendarCheck}
         kicker="Scheduling"
-        title="One-off visits and a recurring route."
-        body="Day and week views on a laptop. An agenda on your phone. Weekly, biweekly, and monthly jobs, with a warning if you double-book a cleaner."
+        title="One-off visits and recurring appointments."
+        body="Day, week, and month views, plus Today. Weekly, biweekly, and monthly jobs, with a warning if you double-book a cleaner."
         preview={<SchedulingPreview />}
       />
       <Feature
@@ -192,7 +192,7 @@ function Pricing() {
         </article>
       </div>
       <p className="mt-6 text-sm text-muted">
-        Unlimited Team and Clients. Extra Admins are $19/mo or $190/year and are not in Checkout. Annual billing is two months free. Mark as Paid is available on the Crew Plan and the Office Plan.
+        Unlimited Team and Clients. Extra Admins are $19/mo or $190/year and are not in Checkout. Annual billing is two months free.
       </p>
       <p className="mt-2 text-sm text-muted">
         The owner pays the software subscription. Client cards on file are separate.
@@ -246,7 +246,7 @@ function HeroPreview() {
     <div className="rounded-2xl bg-navy p-3 shadow-card md:p-4">
       <div className="rounded-xl bg-bg p-4">
         <div className="flex items-center justify-between">
-          <p className="font-display text-lg text-navy">Wednesday route</p>
+          <p className="font-display text-lg text-navy">Wednesday appointments</p>
           <span className="rounded-full bg-sage-soft px-2 py-0.5 text-xs text-success">3 visits</span>
         </div>
         <ul className="mt-4 grid gap-3">

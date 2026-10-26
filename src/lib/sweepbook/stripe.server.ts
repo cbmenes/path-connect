@@ -526,6 +526,44 @@ export async function createOwnerBillingPortal(userId: string) {
   return { url: session.url };
 }
 
+export type OwnerInvoice = {
+  id: string;
+  number: string | null;
+  status: string;
+  created: number;
+  amountCents: number;
+  hostedUrl: string | null;
+};
+
+/** Subscription invoices for the Master. Does not change the plan or the payment method. */
+export async function listOwnerSubscriptionInvoices(userId: string) {
+  const sql = await getSql();
+  const actor = await getActor(sql, userId);
+  if (actor.kind !== "cleaner") throw new Error("Billing is Master-only.");
+  const email = await userEmail(sql, userId);
+  if (isDemoEmail(email)) return { demo: true as const, invoices: [] as OwnerInvoice[] };
+  const customerId = actor.profile.stripe_customer_id;
+  if (!customerId) return { demo: false as const, invoices: [] as OwnerInvoice[] };
+  const stripe = stripeClient();
+  let listed: Awaited<ReturnType<typeof stripe.invoices.list>>;
+  try {
+    listed = await stripe.invoices.list({ customer: customerId, limit: 24 });
+  } catch (err) {
+    throw new Error(safeStripeMessage(err, "Billing history is unavailable right now."));
+  }
+  return {
+    demo: false as const,
+    invoices: listed.data.map((invoice) => ({
+      id: invoice.id,
+      number: invoice.number,
+      status: invoice.status || "open",
+      created: invoice.created,
+      amountCents: invoice.status === "paid" ? invoice.amount_paid : invoice.amount_due,
+      hostedUrl: invoice.hosted_invoice_url,
+    })),
+  };
+}
+
 export async function cancelOwnerSubscription(userId: string) {
   const sql = await getSql();
   const actor = await getActor(sql, userId);

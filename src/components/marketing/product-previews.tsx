@@ -25,55 +25,53 @@ function Row({ children }: { children: React.ReactNode }) {
 }
 
 export function SchedulingPreview() {
-  const days = [
-    { d: "Mon", n: "29" },
-    { d: "Tue", n: "30", on: true },
-    { d: "Wed", n: "1" },
-    { d: "Thu", n: "2" },
-    { d: "Fri", n: "3" },
-  ];
+  const today = new Date();
+  const year = today.getFullYear();
+  const month = today.getMonth();
+  const label = today.toLocaleDateString("en-US", { month: "long", year: "numeric" });
+  const first = new Date(year, month, 1);
+  const start = new Date(year, month, 1 - first.getDay());
+  const cells = Array.from({ length: 42 }, (_, i) => new Date(year, start.getMonth(), start.getDate() + i));
+  const visits: Record<number, string> = { 6: "Nguyen", 14: "Brooks", 21: "Harper" };
   return (
-    <Frame title="Week" meta="Oklahoma City">
-      <div className="mb-3 flex items-center justify-between gap-2">
-        <p className="text-sm font-medium text-navy">Sep 29 – Oct 3</p>
-        <div className="flex rounded-md bg-secondary p-0.5 text-xs">
-          <span className="rounded px-2 py-1 text-muted">Day</span>
-          <span className="rounded bg-paper px-2 py-1 font-medium text-navy shadow-soft">Week</span>
+    <Frame title="Calendar" meta="Month">
+      <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
+        <p className="text-sm font-medium text-navy">{label}</p>
+        <div className="flex flex-wrap items-center gap-1">
+          <div className="flex rounded-md bg-secondary p-0.5 text-[11px]">
+            <span className="rounded px-1.5 py-1 text-muted">Day</span>
+            <span className="rounded px-1.5 py-1 text-muted">Week</span>
+            <span className="rounded bg-paper px-1.5 py-1 font-medium text-navy shadow-soft">Month</span>
+          </div>
+          <span className="rounded-md border border-border bg-paper px-1.5 py-1 text-[11px] font-medium text-navy">Today</span>
         </div>
       </div>
-      <div className="mb-3 grid grid-cols-5 gap-1">
-        {days.map((day) => (
-          <div
-            key={day.d}
-            className={
-              day.on
-                ? "rounded-md bg-navy px-1 py-1.5 text-center text-paper"
-                : "rounded-md bg-paper px-1 py-1.5 text-center text-muted"
-            }
-          >
-            <p className="text-xs">{day.d}</p>
-            <p className="text-sm font-medium tabular">{day.n}</p>
+      <div className="grid grid-cols-7 overflow-hidden rounded-lg border border-border bg-paper">
+        {["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"].map((day) => (
+          <div key={day} className="border-b border-border py-1 text-center text-[10px] font-medium uppercase tracking-wide text-muted">
+            {day.slice(0, 1)}
           </div>
         ))}
-      </div>
-      <div className="grid gap-2">
-        <Row>
-          <div className="flex items-start justify-between gap-2">
-            <div className="min-w-0">
-              <p className="text-sm font-medium text-ink">Nguyen — weekly — Tue 9:00</p>
-              <p className="text-xs text-muted">Nichols Hills · 2.5 hr</p>
+        {cells.map((day) => {
+          const inMonth = day.getMonth() === month;
+          const isToday = day.toDateString() === today.toDateString();
+          const visit = inMonth ? visits[day.getDate()] : undefined;
+          return (
+            <div
+              key={day.toISOString()}
+              className={
+                isToday
+                  ? "min-h-9 border-b border-r border-border bg-sage-soft px-0.5 py-0.5"
+                  : inMonth
+                    ? "min-h-9 border-b border-r border-border px-0.5 py-0.5"
+                    : "min-h-9 border-b border-r border-border bg-secondary/50 px-0.5 py-0.5"
+              }
+            >
+              <p className={inMonth ? "text-[10px] font-medium tabular text-navy" : "text-[10px] tabular text-muted"}>{day.getDate()}</p>
+              {visit ? <p className="truncate text-[8px] font-medium text-ink">{visit}</p> : null}
             </div>
-            <Badge tone="warn">Overlaps</Badge>
-          </div>
-        </Row>
-        <Row>
-          <p className="text-sm font-medium text-ink">Brooks — biweekly — Wed 1:00</p>
-          <p className="text-xs text-muted">Heritage Hills · recurring</p>
-        </Row>
-        <Row>
-          <p className="text-sm font-medium text-ink">Harper — monthly — Thu 10:00</p>
-          <p className="text-xs text-muted">1421 Drury Lane</p>
-        </Row>
+          );
+        })}
       </div>
     </Frame>
   );
@@ -226,7 +224,7 @@ export function TeamPayPreview() {
 
 export function TimeOffPreview() {
   return (
-    <Frame title="Time off" meta="Blocks the route">
+    <Frame title="Time off" meta="Blocks appointments">
       <div className="grid gap-2">
         <Row>
           <div className="flex items-start justify-between gap-2">

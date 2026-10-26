@@ -1,6 +1,6 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
-import { GROK_PROVIDERS, authClient, authEnabled, rememberBearer, signIn } from "@/lib/auth/client";
+import { GROK_PROVIDERS, authClient, authEnabled, hasRememberedLogin, rememberBearer, signIn } from "@/lib/auth/client";
 import { CrewWeekLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
@@ -43,21 +43,28 @@ function Login() {
   useEffect(() => {
     let cancel = false;
     void (async () => {
-      const { data } = await authClient.getSession();
-      if (cancel || !isDemoAccountEmail(data?.user?.email)) return;
-      // Drop a leftover one-click demo session. The form stays on this page.
-      await authClient.signOut();
-      try {
-        sessionStorage.removeItem("grok-auth.bearer-token");
-        localStorage.removeItem("grok-auth.stay");
-      } catch {
-        /* ignore */
+      const staying = hasRememberedLogin();
+      const { data, error } = await authClient.getSession();
+      if (cancel || error) return;
+      const email = data?.user?.email;
+      if (!email) return;
+      if (isDemoAccountEmail(email) && !staying) {
+        // Drop a leftover one-click demo session. The form stays on this page.
+        await authClient.signOut();
+        try {
+          sessionStorage.removeItem("grok-auth.bearer-token");
+          localStorage.removeItem("grok-auth.stay");
+        } catch {
+          /* ignore */
+        }
+        return;
       }
+      if (staying) void navigate({ to: "/app" });
     })();
     return () => {
       cancel = true;
     };
-  }, []);
+  }, [navigate]);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
