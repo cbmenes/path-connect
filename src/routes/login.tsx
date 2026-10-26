@@ -1,11 +1,11 @@
 import { createFileRoute, Link, useNavigate } from "@tanstack/react-router";
 import { useEffect, useState } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, rememberBearer, signIn } from "@/lib/auth/client";
-import { bootstrapDemo } from "@/lib/sweepbook/bootstrap";
 import { CrewWeekLogo } from "@/components/brand/logo";
 import { Button } from "@/components/ui/button";
 import { Field, Input } from "@/components/ui/input";
 import { SiteChrome } from "@/components/marketing/site-chrome";
+import { isDemoAccountEmail } from "@/lib/sweepbook/types";
 
 export const Route = createFileRoute("/login")({
   component: Login,
@@ -41,15 +41,23 @@ function Login() {
   const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
-    void bootstrapDemo();
     let cancel = false;
-    void authClient.getSession().then(({ data }) => {
-      if (!cancel && data?.user) void navigate({ to: "/app" });
-    });
+    void (async () => {
+      const { data } = await authClient.getSession();
+      if (cancel || !isDemoAccountEmail(data?.user?.email)) return;
+      // Drop a leftover one-click demo session. The form stays on this page.
+      await authClient.signOut();
+      try {
+        sessionStorage.removeItem("grok-auth.bearer-token");
+        localStorage.removeItem("grok-auth.stay");
+      } catch {
+        /* ignore */
+      }
+    })();
     return () => {
       cancel = true;
     };
-  }, [navigate]);
+  }, []);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
