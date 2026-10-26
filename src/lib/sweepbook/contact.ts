@@ -1,5 +1,6 @@
 import { createServerFn } from "@tanstack/react-start";
 import { SUPPORT_EMAIL } from "@/lib/brand";
+import { sendMail } from "./mail";
 
 const SEND_FAILED = "We couldn't send your message. Email support@getcrewweek.com instead.";
 
@@ -20,7 +21,6 @@ export const submitContact = createServerFn({ method: "POST" })
     return { name, email, message };
   })
   .handler(async ({ data }) => {
-    const { sendMail } = await import("./mail");
     const text = [`Name: ${data.name}`, `Email: ${data.email}`, "", data.message].join("\n");
     try {
       await sendMail({
