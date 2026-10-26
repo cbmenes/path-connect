@@ -37,9 +37,6 @@ function Home() {
                 Get started <ArrowRight className="size-4" />
               </Link>
             </Button>
-            <Button size="lg" variant="outline" asChild>
-              <a href="/login?demo=cleaner">See demo</a>
-            </Button>
           </div>
           <p className="mt-4 text-sm text-muted">Crew Plan $39/mo. Office Plan $79/mo. Unlimited cleaners and client logins.</p>
         </div>
@@ -206,9 +203,6 @@ function Pricing() {
         </Button>
         <Button asChild>
           <Link to="/choose-plan">Get started</Link>
-        </Button>
-        <Button variant="outline" asChild>
-          <a href="/login?demo=cleaner">See demo</a>
         </Button>
       </div>
     </section>
