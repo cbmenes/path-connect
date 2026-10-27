@@ -5,6 +5,7 @@ import { CrewWeekLogo } from "@/components/brand/logo";
 import { SiteChrome } from "@/components/marketing/site-chrome";
 import { Button } from "@/components/ui/button";
 import { useCurrentUserState } from "@/lib/auth/use-current-user";
+import { EmbeddedCheckoutForm } from "@/components/app/embedded-checkout";
 import { beginStripeCheckout, getSaasPlan, type BillingInterval, type SaasPlanCode } from "@/lib/sweepbook/plan";
 import { cn } from "@/lib/utils";
 
@@ -42,6 +43,7 @@ function ChoosePlan() {
   const [interval, setInterval] = useState<BillingInterval>("month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<{ clientSecret: string; publishableKey: string } | null>(null);
   const selected = PLANS.find((plan) => plan.code === code) ?? PLANS[0];
   const current = useQuery({
     queryKey: ["saas-plan", user?.id],
@@ -49,14 +51,15 @@ function ChoosePlan() {
     enabled: Boolean(user),
   });
 
-  async function checkout() {
+  async function startCheckout() {
     setBusy(true);
     setError(null);
     try {
       const session = await beginStripeCheckout({ data: { code, interval } });
-      window.location.assign(session.url);
+      setCheckout(session);
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not start checkout.");
+    } finally {
       setBusy(false);
     }
   }
@@ -124,14 +127,22 @@ function ChoosePlan() {
               Annual billing is two months free: Crew Plan $390/year, Office Plan $790/year. Mark as Paid is available on the Crew Plan and the Office Plan.
             </p>
             {error ? <p className="text-sm text-danger">{error}</p> : null}
+            {checkout ? (
+              <div className="rounded-xl bg-paper p-5 shadow-card">
+                <EmbeddedCheckoutForm clientSecret={checkout.clientSecret} publishableKey={checkout.publishableKey} />
+                <Button variant="ghost" className="mt-2" onClick={() => setCheckout(null)}>
+                  Choose a different plan
+                </Button>
+              </div>
+            ) : null}
             <div className="flex flex-wrap gap-2">
               {user && current.data?.access === "master" && current.data.demo ? (
                 <Button asChild>
                   <Link to="/app">Open the app</Link>
                 </Button>
               ) : user ? (
-                <Button type="button" disabled={busy} onClick={() => void checkout()}>
-                  {busy ? "Opening Stripe…" : `Continue with ${selected.name}`}
+                <Button type="button" disabled={busy || Boolean(checkout)} onClick={() => void startCheckout()}>
+                  {busy ? "Opening the payment form…" : `Continue with ${selected.name}`}
                 </Button>
               ) : (
                 <Button asChild>

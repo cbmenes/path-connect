@@ -67,6 +67,19 @@ function stripePublishableKey() {
   return key;
 }
 
+/** Publishable key for the platform subscription. Live only when the secret is live. */
+function platformPublishableKey() {
+  const key = envValue("STRIPE_PUBLISHABLE_KEY");
+  if (!key) throw new Error("Stripe is not configured.");
+  const secret = envValue("STRIPE_SECRET_KEY");
+  if (isLiveSecret(secret)) {
+    if (!key.startsWith("pk_live_")) throw new Error("Stripe is not configured.");
+    return key;
+  }
+  if (!key.startsWith("pk_test_")) throw new Error("A Stripe test publishable key is required.");
+  return key;
+}
+
 function safeStripeMessage(err: unknown, fallback: string) {
   const raw = err instanceof Error ? err.message : "";
   if (!raw || /sk_(live|test)_|rk_(live|test)_|pk_(live|test)_|whsec_/i.test(raw)) return fallback;
@@ -296,17 +309,18 @@ export async function createOwnerCheckout(userId: string, plan: SaasPlanCode, in
   `;
   const origin = await checkoutOrigin();
   const session = await stripe.checkout.sessions.create({
+    ui_mode: "embedded_page",
     mode: "subscription",
     customer: customerId,
     client_reference_id: userId,
     line_items: [{ price, quantity: 1 }],
-    success_url: `${origin}/welcome`,
-    cancel_url: `${origin}/choose-plan?checkout=canceled`,
+    return_url: `${origin}/welcome?session_id={CHECKOUT_SESSION_ID}`,
+    redirect_on_completion: "always",
     metadata: { user_id: userId, plan, interval },
     subscription_data: { metadata: { user_id: userId, plan, interval } },
   });
-  if (!session.url) throw new Error("Stripe did not return a Checkout link.");
-  return { url: session.url };
+  if (!session.client_secret) throw new Error("Stripe did not open the payment form.");
+  return { clientSecret: session.client_secret, publishableKey: platformPublishableKey() };
 }
 
 export async function updateOwnerSubscription(userId: string, plan: SaasPlanCode, interval: BillingInterval = "month") {

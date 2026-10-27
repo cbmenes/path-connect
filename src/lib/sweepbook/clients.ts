@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertOffice, assertActivePlan, canChargeClients, getActor, masterUserId } from "./access";
+import { assertOffice, assertActivePlan, getActor, masterUserId } from "./access";
 import {
   listOpenVisitsForClients,
   parseAssignees,
@@ -119,14 +119,12 @@ export const getClient = createServerFn({ method: "GET" })
         where i.client_id = ${id} and i.cleaner_user_id = ${ownerId}
         order by i.created_at desc limit 20
       `;
-      const cards = canChargeClients(actor)
-        ? await sql<CardRow>`
-            select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
-                   holder_name, source, is_default, failing, created_at::text as created_at
-            from payment_cards where client_id = ${id} and cleaner_user_id = ${ownerId}
-            order by is_default desc, created_at desc
-          `
-        : [];
+      const cards = await sql<CardRow>`
+        select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
+               holder_name, source, is_default, failing, created_at::text as created_at
+        from payment_cards where client_id = ${id} and cleaner_user_id = ${ownerId}
+        order by is_default desc, created_at desc
+      `;
       const messages =
         actor.kind === "admin"
           ? await sql<MessageRow>`

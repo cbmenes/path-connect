@@ -1,7 +1,7 @@
 import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
-import { assertCanCharge, assertClient, assertActivePlan, canChargeClients, getActor, isOffice, masterUserId } from "./access";
+import { assertCanCharge, assertOffice, assertClient, assertActivePlan, getActor, isOffice, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
 import { nid, formatDateTime, money } from "./time";
@@ -256,7 +256,6 @@ export const listCardsForClient = createServerFn({ method: "GET" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     if (isOffice(actor)) {
-      if (!canChargeClients(actor)) return [] as CardRow[];
       return sql<CardRow>`
         select id, cleaner_user_id, client_id, brand, last4, exp_month, exp_year,
                holder_name, source, is_default, failing, created_at::text as created_at
@@ -337,7 +336,7 @@ export const addCardAuthenticated = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     if (isOffice(actor)) {
-      assertCanCharge(actor);
+      assertOffice(actor);
       if (!data.clientId) throw new Error("Choose a client.");
       const ownerId = masterUserId(actor);
       const owned = await sql`select id from clients where id = ${data.clientId} and cleaner_user_id = ${ownerId} limit 1`;
@@ -508,7 +507,7 @@ export const beginStripeCardSetup = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const ownerId =
-      isOffice(actor) ? (assertCanCharge(actor), masterUserId(actor)) : actor.kind === "client" ? actor.client.cleaner_user_id : null;
+      isOffice(actor) ? (assertOffice(actor), masterUserId(actor)) : actor.kind === "client" ? actor.client.cleaner_user_id : null;
     const clientId = actor.kind === "client" ? actor.client.id : data.clientId;
     if (!ownerId || (actor.kind === "client" && data.clientId !== actor.client.id)) throw new Error("Not found.");
     if (isOffice(actor)) await assertActivePlan(sql, actor);
@@ -528,7 +527,7 @@ export const finishStripeCardSetup = createServerFn({ method: "POST" })
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
     const ownerId =
-      isOffice(actor) ? (assertCanCharge(actor), masterUserId(actor)) : actor.kind === "client" ? actor.client.cleaner_user_id : null;
+      isOffice(actor) ? (assertOffice(actor), masterUserId(actor)) : actor.kind === "client" ? actor.client.cleaner_user_id : null;
     const clientId = actor.kind === "client" ? actor.client.id : data.clientId;
     if (!ownerId || (actor.kind === "client" && data.clientId !== actor.client.id)) throw new Error("Not found.");
     const lane = await cardChargeLane(sql, ownerId);
@@ -591,7 +590,7 @@ export const createCardLink = createServerFn({ method: "POST" })
   .handler(async ({ context, data: clientId }) => {
     const sql = await getSql();
     const actor = await getActor(sql, context.userId);
-    assertCanCharge(actor);
+    assertOffice(actor);
     const ownerId = masterUserId(actor);
     const owned = await sql`select id, name from clients where id = ${clientId} and cleaner_user_id = ${ownerId} limit 1`;
     if (!owned[0]) throw new Error("Client not found.");
@@ -611,7 +610,7 @@ export const setDefaultCard = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     const owner =
       isOffice(actor)
-        ? (assertCanCharge(actor), masterUserId(actor))
+        ? (assertOffice(actor), masterUserId(actor))
         : actor.kind === "client" && actor.client.id === data.clientId
           ? actor.client.cleaner_user_id
           : null;
@@ -636,7 +635,7 @@ export const removeCard = createServerFn({ method: "POST" })
     const actor = await getActor(sql, context.userId);
     const owner =
       isOffice(actor)
-        ? (assertCanCharge(actor), masterUserId(actor))
+        ? (assertOffice(actor), masterUserId(actor))
         : actor.kind === "client" && actor.client.id === data.clientId
           ? actor.client.cleaner_user_id
           : null;

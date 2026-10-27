@@ -245,7 +245,7 @@ export const resumeSaasPlan = createServerFn({ method: "POST" })
       try {
         const { resumeOwnerRenewal } = await import("./stripe.server");
         await resumeOwnerRenewal(context.userId);
-        return { ok: true as const, code, url: null as string | null };
+        return { ok: true as const, code, checkout: null };
       } catch {
         /* The Stripe subscription is already gone. Checkout can start a new one. */
       }
@@ -253,7 +253,7 @@ export const resumeSaasPlan = createServerFn({ method: "POST" })
     if (!billing.demo && actor.profile.stripe_customer_id) {
       const { createOwnerCheckout } = await import("./stripe.server");
       const checkout = await createOwnerCheckout(context.userId, code, interval);
-      return { ok: true as const, code, url: checkout.url };
+      return { ok: true as const, code, checkout };
     }
     const cents = planPriceCents(code, interval);
     const keptPeriodEnd = billing.demo ? null : actor.profile.current_period_end;
@@ -264,5 +264,5 @@ export const resumeSaasPlan = createServerFn({ method: "POST" })
           current_period_end = ${keptPeriodEnd}
       where user_id = ${context.userId}
     `;
-    return { ok: true as const, code, url: null as string | null };
+    return { ok: true as const, code, checkout: null };
   });

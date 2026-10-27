@@ -48,6 +48,11 @@ export function StripeCardSetup({
           style: { base: { fontSize: "16px", color: "#1A2332", "::placeholder": { color: "#8A8478" } } },
         });
         card.mount(mountRef.current);
+        card.on("loaderror", (event) => {
+          const message = event.error.message;
+          setError(!message || /sk_|rk_|pk_|whsec_/i.test(message) ? "Stripe could not open the card form." : message);
+          setReady(false);
+        });
         cardRef.current = card;
         stripeRef.current = stripe;
         setReady(true);
@@ -94,13 +99,17 @@ export function StripeCardSetup({
   return (
     <form onSubmit={save} className="grid gap-3">
       <p className="text-sm text-muted">
-        Stripe collects the card on this cleaning company's account. CrewWeek stores the brand and last four, not the card number.
+        Stripe collects the card on this page. CrewWeek stores the brand and last four, not the card number.
       </p>
-      <Field label="Cardholder name">
-        <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="cc-name" />
-      </Field>
-      <div ref={mountRef} className="min-h-11 rounded-md border border-border bg-paper px-3 py-3 shadow-soft" />
       {error ? <p className="text-sm text-danger">{error}</p> : null}
+      {!error && !ready ? <p className="text-sm text-muted">Opening the card form…</p> : null}
+      <Field label="Cardholder name">
+        <Input value={name} onChange={(e) => setName(e.target.value)} autoComplete="cc-name" disabled={Boolean(error) && !ready} />
+      </Field>
+      <div
+        ref={mountRef}
+        className={error && !ready ? "hidden" : "min-h-11 rounded-md border border-border bg-paper px-3 py-3 shadow-soft"}
+      />
       <Button type="submit" disabled={!ready || busy}>
         {busy ? "Saving…" : "Save card"}
       </Button>

@@ -4,11 +4,13 @@ import { toast } from "sonner";
 import { resumeSaasPlan, periodStillOpen, planCodeFromCents, paidPeriodEnded } from "@/lib/sweepbook/plan";
 import { formatDate } from "@/lib/sweepbook/time";
 import { isDemoAccountEmail, type Profile } from "@/lib/sweepbook/types";
+import { EmbeddedCheckoutForm } from "@/components/app/embedded-checkout";
 import { Button } from "@/components/ui/button";
 
 export function PlanBanner({ profile }: { profile: Profile }) {
   const qc = useQueryClient();
   const [busy, setBusy] = useState(false);
+  const [checkout, setCheckout] = useState<{ clientSecret: string; publishableKey: string } | null>(null);
   const code =
     profile.plan_code === "office" || profile.plan_code === "crew"
       ? profile.plan_code
@@ -52,8 +54,8 @@ export function PlanBanner({ profile }: { profile: Profile }) {
               setBusy(true);
               try {
                 const resumed = await resumeSaasPlan({ data: {} });
-                if (resumed.url) {
-                  window.location.assign(resumed.url);
+                if (resumed.checkout) {
+                  setCheckout(resumed.checkout);
                   return;
                 }
                 await qc.invalidateQueries({ queryKey: ["actor"] });
@@ -70,6 +72,11 @@ export function PlanBanner({ profile }: { profile: Profile }) {
           </Button>
         ) : null}
       </div>
+      {checkout ? (
+        <div className="mx-auto mt-3 max-w-5xl">
+          <EmbeddedCheckoutForm clientSecret={checkout.clientSecret} publishableKey={checkout.publishableKey} />
+        </div>
+      ) : null}
     </div>
   );
 }

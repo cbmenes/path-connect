@@ -37,6 +37,7 @@ import { brandLabel } from "@/lib/sweepbook/card-utils";
 import { addressPartsFrom, emptyAddress, namesFrom } from "@/lib/sweepbook/people";
 import { formatDate, money } from "@/lib/sweepbook/time";
 import { CardForm } from "@/components/app/card-form";
+import { EmbeddedCheckoutForm } from "@/components/app/embedded-checkout";
 import { CardManager } from "@/components/app/card-manager";
 import { ConfirmDialog } from "@/components/app/confirm-dialog";
 import { PageHeader } from "@/components/app/empty-state";
@@ -656,6 +657,7 @@ function PlanSection() {
   const [draftInterval, setDraftInterval] = useState<BillingInterval>("month");
   const [cancelOpen, setCancelOpen] = useState(false);
   const [busy, setBusy] = useState(false);
+  const [checkout, setCheckout] = useState<{ clientSecret: string; publishableKey: string } | null>(null);
   const [portalBusy, setPortalBusy] = useState(false);
   const [connectBusy, setConnectBusy] = useState(false);
   const [disconnectBusy, setDisconnectBusy] = useState(false);
@@ -888,8 +890,8 @@ function PlanSection() {
               setBusy(true);
               try {
                 const resumed = await resumeSaasPlan({ data: {} });
-                if (resumed.url) {
-                  window.location.assign(resumed.url);
+                if (resumed.checkout) {
+                  setCheckout(resumed.checkout);
                   return;
                 }
                 await refresh();
@@ -903,6 +905,11 @@ function PlanSection() {
           >
             {renewalStops ? "Resume renewal" : "Resume plan"}
           </Button>
+        ) : null}
+        {checkout ? (
+          <div className="basis-full">
+            <EmbeddedCheckoutForm clientSecret={checkout.clientSecret} publishableKey={checkout.publishableKey} />
+          </div>
         ) : null}
         {plan.status === "active" && !plan.periodEnded ? (
           <Button

@@ -123,7 +123,7 @@ function ClientProfile() {
             </div>
           </dl>
         </Card>
-        {canCharge ? (
+        {actor.data?.kind === "cleaner" || actor.data?.kind === "admin" ? (
         <Card>
           <h2 className="font-display text-lg text-navy">Cards on file</h2>
           <p className="mt-1 text-xs text-muted">Demo keeps brand and last four only. A connected company saves the card in Stripe and charges it here.</p>
@@ -156,7 +156,7 @@ function ClientProfile() {
                 <p className="break-all text-xs text-muted">{cardLink}</p>
               </OpenedContent>
             ) : null}
-            {writesLocked ? null : (
+            {canCharge && !writesLocked ? (
             <Dialog open={chargeOpen} onOpenChange={setChargeOpen}>
               <DialogTrigger asChild>
                 <Button>Charge a card</Button>
@@ -185,17 +185,13 @@ function ClientProfile() {
                 />
               </DialogContent>
             </Dialog>
+            ) : null}
+            {canCharge ? null : (
+              <p className="text-sm text-muted">Charging cards is off for this admin login.</p>
             )}
           </div>
         </Card>
-        ) : (
-          <Card>
-            <h2 className="font-display text-lg text-navy">Payments</h2>
-            <p className="mt-2 text-sm text-muted">
-              Paid and unpaid show on visits. Charging cards is off for this admin login.
-            </p>
-          </Card>
-        )}
+        ) : null}
       </div>
 
       <Card>

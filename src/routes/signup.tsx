@@ -2,6 +2,7 @@ import { createFileRoute, Link } from "@tanstack/react-router";
 import { useState } from "react";
 import { GROK_PROVIDERS, authClient, authEnabled, signIn } from "@/lib/auth/client";
 import { completeOnboarding } from "@/lib/sweepbook/bootstrap";
+import { EmbeddedCheckoutForm } from "@/components/app/embedded-checkout";
 import { beginStripeCheckout, type BillingInterval, type SaasPlanCode } from "@/lib/sweepbook/plan";
 import { displayName } from "@/lib/sweepbook/people";
 import { CrewWeekLogo } from "@/components/brand/logo";
@@ -41,6 +42,7 @@ function Signup() {
   const [interval, setInterval] = useState<BillingInterval>(search.interval ?? "month");
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [checkout, setCheckout] = useState<{ clientSecret: string; publishableKey: string } | null>(null);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
@@ -62,7 +64,7 @@ function Signup() {
       storeBearer(token);
       await completeOnboarding({ data: { role: "cleaner", firstName, lastName, businessName: business, plan } });
       const session = await beginStripeCheckout({ data: { code: plan, interval } });
-      window.location.assign(session.url);
+      setCheckout(session);
       return;
     } catch (err) {
       setError(err instanceof Error ? err.message : "Could not create the account.");
@@ -79,6 +81,11 @@ function Signup() {
           <h1 className="mt-6 font-display text-3xl text-navy">Create your account</h1>
           <p className="mt-1 text-sm text-muted">Monthly is $39 or $79. Annual is $390 or $790, two months free. The business owner pays. Cleaners and clients are not billed.</p>
         </div>
+        {checkout ? (
+          <div className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">
+            <EmbeddedCheckoutForm clientSecret={checkout.clientSecret} publishableKey={checkout.publishableKey} />
+          </div>
+        ) : (
         <form onSubmit={onSubmit} className="grid gap-3 rounded-xl bg-paper p-5 shadow-card">
           <fieldset className="grid gap-2">
             <legend className="text-sm font-medium text-ink">Billing</legend>
@@ -141,9 +148,10 @@ function Signup() {
           </Field>
           {error ? <p className="text-sm text-danger">{error}</p> : null}
           <Button type="submit" disabled={busy}>
-            {busy ? "Opening Stripe…" : "Continue to checkout"}
+            {busy ? "Opening the payment form…" : "Continue to checkout"}
           </Button>
         </form>
+        )}
         {authEnabled ? (
           <div className="grid gap-2">
             {GROK_PROVIDERS.map((p) => (
