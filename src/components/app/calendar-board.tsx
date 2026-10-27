@@ -270,6 +270,7 @@ export function MonthGrid({
   named,
   canAdd,
   onEmpty,
+  onOpenDay,
   onJob,
   overlapIndex,
   offByDay,
@@ -281,6 +282,7 @@ export function MonthGrid({
   named: "client" | "service";
   canAdd: boolean;
   onEmpty: (day: Date) => void;
+  onOpenDay: (day: Date) => void;
   onJob: (j: JobWithClient) => void;
   overlapIndex?: Map<string, OverlapNote[]>;
   offByDay?: Map<string, DayOffMark[]>;
@@ -307,9 +309,15 @@ export function MonthGrid({
             <button
               key={d.toISOString()}
               type="button"
-              onClick={() => canAdd && onEmpty(d)}
+              onClick={() => {
+                if (window.matchMedia("(max-width: 767px)").matches) {
+                  onOpenDay(d);
+                  return;
+                }
+                if (canAdd) onEmpty(d);
+              }}
               className={cn(
-                "min-h-24 border-b border-r border-border p-1.5 text-left align-top",
+                "min-h-24 border-b border-r border-border p-1.5 text-left align-top max-md:overflow-hidden",
                 !inMonth && "bg-secondary/40 text-muted",
                 today && "bg-sage-soft",
               )}
@@ -317,14 +325,14 @@ export function MonthGrid({
               <span className="flex items-center justify-between gap-1">
                 <span className={cn("text-xs font-medium", today && "text-navy")}>{partsInChicago(d).day}</span>
                 {list.some((j) => notesFor(overlapIndex, j.id).length) ? (
-                  <span className="inline-flex items-center gap-0.5 text-[8px] font-bold uppercase tracking-wide text-warn">
+                  <span className="hidden items-center gap-0.5 text-[8px] font-bold uppercase tracking-wide text-warn md:inline-flex">
                     <span className="h-1.5 w-1.5 rounded-full bg-warn" aria-hidden />
                     Overlap
                   </span>
                 ) : null}
               </span>
               {offs.length ? (
-                <div className="mt-1 flex flex-wrap gap-0.5">
+                <div className="mt-1 hidden flex-wrap gap-0.5 md:flex">
                   {offs.map((mark) => (
                     <span
                       key={mark.userId}
@@ -338,8 +346,15 @@ export function MonthGrid({
                   ))}
                 </div>
               ) : null}
-              <CrewMarkList marks={marks} />
-              <div className="mt-1 grid gap-0.5">
+              <div className="hidden md:block">
+                <CrewMarkList marks={marks} />
+              </div>
+              <MobileDayMark
+                count={list.length}
+                overlap={list.some((j) => notesFor(overlapIndex, j.id).length)}
+                off={offs.length > 0}
+              />
+              <div className="mt-1 hidden gap-0.5 md:grid">
                 {preferOverlapTiles(list, overlapIndex, 3).map((j) => {
                   const notes = notesFor(overlapIndex, j.id);
                   return (
@@ -486,6 +501,7 @@ export function CalendarBody({
   named,
   canAdd,
   onEmpty,
+  onOpenDay,
   onJob,
   showOverlap = false,
   overlapForUserId,
@@ -500,6 +516,7 @@ export function CalendarBody({
   named: "client" | "service";
   canAdd: boolean;
   onEmpty: (dt: Date) => void;
+  onOpenDay: (day: Date) => void;
   onJob: (j: JobWithClient) => void;
   showOverlap?: boolean;
   overlapForUserId?: string;
@@ -519,6 +536,7 @@ export function CalendarBody({
         named={named}
         canAdd={canAdd}
         onEmpty={onEmpty}
+        onOpenDay={onOpenDay}
         onJob={onJob}
         overlapIndex={overlapIndex}
         offByDay={offByDay}
@@ -556,6 +574,26 @@ export function CalendarBody({
         />
       </div>
     </>
+  );
+}
+
+function MobileDayMark({ count, overlap, off }: { count: number; overlap: boolean; off: boolean }) {
+  if (!count && !off) return null;
+  return (
+    <span className="mt-1 flex max-w-full flex-col items-start gap-0.5 overflow-hidden md:hidden">
+      {count > 0 ? (
+        <span
+          className={cn(
+            "grid h-4 min-w-4 place-items-center rounded-full px-1 text-[10px] font-semibold leading-4 text-paper",
+            overlap ? "bg-warn" : "bg-navy",
+          )}
+        >
+          {count > 9 ? "9+" : count}
+          <span className="sr-only">{count === 1 ? " appointment" : " appointments"}</span>
+        </span>
+      ) : null}
+      {off ? <span className="max-w-full truncate text-[10px] font-semibold uppercase tracking-wide text-warn">Off</span> : null}
+    </span>
   );
 }
 

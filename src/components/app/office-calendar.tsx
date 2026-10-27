@@ -252,6 +252,7 @@ export function OfficeCalendar({
           if (!isOffice) return;
           setAddStart(toDatetimeLocalValue(dt));
         }}
+        onOpenDay={(day) => setView("day", day)}
         onJob={(j) => setSelectedId(j.id)}
       />
 

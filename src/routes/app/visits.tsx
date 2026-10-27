@@ -61,9 +61,10 @@ function VisitsPage() {
     refetchOnMount: "always",
   });
 
-  function setView(next: CalView) {
+  function setView(next: CalView, day?: Date) {
     setMode(next);
     writeCalView(next, "client");
+    if (day) setAnchor(startOfChicagoDay(day));
   }
 
   function shift(dir: number) {
@@ -102,6 +103,7 @@ function VisitsPage() {
         named="service"
         canAdd={false}
         onEmpty={() => undefined}
+        onOpenDay={(day) => setView("day", day)}
         onJob={setSelected}
       />
 

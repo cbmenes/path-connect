@@ -295,6 +295,7 @@ function TeamMemberSchedulePage() {
         named="client"
         canAdd={false}
         onEmpty={() => undefined}
+        onOpenDay={(day) => setView("day", day)}
         onJob={(j) => setSelectedId(j.id)}
         marksByDay={marksByDay}
       />
