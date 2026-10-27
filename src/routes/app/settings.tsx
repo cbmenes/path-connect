@@ -602,7 +602,14 @@ function AdminPlanNote() {
 function ClientCardsScroll() {
   useEffect(() => {
     if (window.location.hash !== "#client-cards") return;
-    document.getElementById("client-cards")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    const scroll = () => document.getElementById("client-cards")?.scrollIntoView({ block: "start" });
+    scroll();
+    const soon = window.setTimeout(scroll, 0);
+    const later = window.setTimeout(scroll, 300);
+    return () => {
+      window.clearTimeout(soon);
+      window.clearTimeout(later);
+    };
   }, []);
   return null;
 }
