@@ -60,11 +60,25 @@ export function stripeSecretKey() {
   return key;
 }
 
+function connectedCardsAreLive() {
+  return isLiveSecret(envValue("STRIPE_SECRET_KEY"));
+}
+
+/** Platform publishable key for connected card setup. Live when the secret is live; test otherwise. */
 function stripePublishableKey() {
   const key = envValue("STRIPE_PUBLISHABLE_KEY");
   if (!key) throw new Error("Stripe is not configured.");
+  if (connectedCardsAreLive()) {
+    if (!key.startsWith("pk_live_")) throw new Error("Stripe is not configured.");
+    return key;
+  }
   if (!key.startsWith("pk_test_")) throw new Error("A Stripe test publishable key is required.");
   return key;
+}
+
+function assertConnectedCardMode(livemode: boolean) {
+  if (livemode === connectedCardsAreLive()) return;
+  throw new Error(livemode ? "A Stripe test card setup is required." : "Stripe is not configured.");
 }
 
 /** Publishable key for the platform subscription. Live only when the secret is live. */
@@ -695,7 +709,7 @@ export async function beginConnectedCardSetup(input: {
         },
         { stripeAccount: input.accountId },
       );
-      if (customer.livemode) throw new Error("A Stripe test card setup is required.");
+      assertConnectedCardMode(customer.livemode);
       customerId = customer.id;
     }
     const setup = await stripe.setupIntents.create(
@@ -706,7 +720,8 @@ export async function beginConnectedCardSetup(input: {
       },
       { stripeAccount: input.accountId },
     );
-    if (setup.livemode || !setup.client_secret) throw new Error("A Stripe test card setup is required.");
+    assertConnectedCardMode(setup.livemode);
+    if (!setup.client_secret) throw new Error("Stripe could not start card setup.");
     return { clientSecret: setup.client_secret, customerId, publishableKey, accountId: input.accountId };
   } catch (err) {
     throw new Error(safeStripeMessage(err, "Stripe could not start card setup."));
@@ -723,7 +738,7 @@ export async function readConnectedSetupCard(accountId: string, setupIntentId: s
       { expand: ["payment_method"] },
       { stripeAccount: accountId },
     );
-    if (setup.livemode) throw new Error("A Stripe test card setup is required.");
+    assertConnectedCardMode(setup.livemode);
     if (setup.status !== "succeeded") throw new Error("Stripe has not saved this card.");
     const pm = setup.payment_method;
     if (!pm || typeof pm === "string" || !pm.id.startsWith("pm_") || !pm.card?.last4) {
