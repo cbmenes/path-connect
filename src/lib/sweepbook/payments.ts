@@ -134,7 +134,7 @@ async function chargeSavedStripeCard(
   }
 
   const { chargeConnectedSavedCard } = await import("./stripe.server");
-  let charged: { id: string; status: string; amount: number };
+  let charged: { id: string; status: string; amount: number; livemode: boolean };
   try {
     charged = await chargeConnectedSavedCard({
       accountId: args.accountId,
@@ -170,7 +170,7 @@ async function chargeSavedStripeCard(
     accountId: args.accountId,
     paymentIntentId: charged.id,
     amountCents: args.amountCents,
-    livemode: false,
+    livemode: charged.livemode,
     status: charged.status,
     brand: card.brand,
     last4: card.last4,

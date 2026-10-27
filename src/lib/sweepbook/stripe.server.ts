@@ -81,6 +81,11 @@ function assertConnectedCardMode(livemode: boolean) {
   throw new Error(livemode ? "A Stripe test card setup is required." : "Stripe is not configured.");
 }
 
+function assertConnectedChargeMode(livemode: boolean) {
+  if (livemode === connectedCardsAreLive()) return;
+  throw new Error(livemode ? "A Stripe test charge is required." : "Stripe is not configured.");
+}
+
 /** Publishable key for the platform subscription. Live only when the secret is live. */
 function platformPublishableKey() {
   const key = envValue("STRIPE_PUBLISHABLE_KEY");
@@ -685,7 +690,7 @@ export async function createConnectedChargeCheckout(input: {
   } catch (err) {
     throw new Error(safeStripeMessage(err, "Stripe could not start the charge."));
   }
-  if (session.livemode) throw new Error("A Stripe test charge is required.");
+  assertConnectedChargeMode(session.livemode);
   if (!session.url || !session.id) throw new Error("Stripe did not return a Checkout link.");
   return { url: session.url, sessionId: session.id };
 }
@@ -785,8 +790,8 @@ export async function chargeConnectedSavedCard(input: {
       },
       { stripeAccount: input.accountId },
     );
-    if (intent.livemode) throw new Error("A Stripe test charge is required.");
-    return { id: intent.id, status: intent.status, amount: intent.amount };
+    assertConnectedChargeMode(intent.livemode);
+    return { id: intent.id, status: intent.status, amount: intent.amount, livemode: intent.livemode };
   } catch (err) {
     throw new Error(safeStripeMessage(err, "Stripe could not charge this card."));
   }
@@ -808,7 +813,7 @@ export async function retrieveConnectedChargeSession(accountId: string, sessionI
 async function settleSavedCardEvent(paymentIntentId: string, invoiceId: string, accountId: string) {
   const stripe = stripeClient();
   const intent = await stripe.paymentIntents.retrieve(paymentIntentId, {}, { stripeAccount: accountId });
-  if (intent.livemode || intent.status !== "succeeded") return;
+  if (intent.livemode !== connectedCardsAreLive() || intent.status !== "succeeded") return;
   if (intent.metadata?.invoice_id !== invoiceId || intent.metadata.purpose !== "client_charge") return;
   const charge = intent.latest_charge;
   const card =
@@ -847,6 +852,16 @@ function ownerSubscriptionEvent(event: Stripe.Event) {
   return session.mode === "subscription";
 }
 
+function clientChargeEvent(event: Stripe.Event) {
+  if (event.type === "payment_intent.succeeded") {
+    const intent = event.data.object as Stripe.PaymentIntent;
+    return intent.metadata?.purpose === "client_charge";
+  }
+  if (event.type !== "checkout.session.completed") return false;
+  const session = event.data.object as Stripe.Checkout.Session;
+  return session.mode === "payment" && session.metadata?.purpose === "client_charge";
+}
+
 export async function handleStripeWebhook(raw: Buffer, signature: string | null) {
   if (!signature) return { status: 400, body: { error: "Missing Stripe-Signature" } };
   let stripe: Stripe;
@@ -864,7 +879,7 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
   } catch {
     return { status: 400, body: { error: "Invalid signature" } };
   }
-  if (event.livemode && !ownerSubscriptionEvent(event)) {
+  if (event.livemode && !ownerSubscriptionEvent(event) && !clientChargeEvent(event)) {
     return { status: 200, body: { received: true, ignored: true } };
   }
   try {

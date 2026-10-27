@@ -32,6 +32,11 @@ function receiptNo() {
   return `SB-${Math.floor(100000 + Math.random() * 900000)}`;
 }
 
+function chargesAreLive() {
+  const key = (process.env.STRIPE_SECRET_KEY || "").trim();
+  return key.startsWith("sk_live_") || key.startsWith("rk_live_");
+}
+
 function cardFromSession(session: ConnectedChargeSession) {
   const pi = session.payment_intent;
   if (!pi || typeof pi === "string") {
@@ -43,7 +48,7 @@ function cardFromSession(session: ConnectedChargeSession) {
 }
 
 export async function applyConnectedCharge(session: ConnectedChargeSession, accountId: string) {
-  if (!session.id.startsWith("cs_") || session.livemode) return { paid: false as const };
+  if (!session.id.startsWith("cs_") || session.livemode !== chargesAreLive()) return { paid: false as const };
   if (session.metadata?.purpose !== "client_charge" || !session.metadata.invoice_id) {
     return { paid: false as const };
   }
@@ -159,7 +164,7 @@ export async function applySavedCardPayment(input: {
   brand: string;
   last4: string;
 }) {
-  if (input.livemode || input.status !== "succeeded" || !input.paymentIntentId.startsWith("pi_")) {
+  if (input.livemode !== chargesAreLive() || input.status !== "succeeded" || !input.paymentIntentId.startsWith("pi_")) {
     return { paid: false as const };
   }
   const sql = await getSql();
