@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Link, useRouterState } from "@tanstack/react-router";
 import { useQuery } from "@tanstack/react-query";
 import {
@@ -11,6 +12,7 @@ import {
   Home,
   Inbox,
   LogOut,
+  Menu,
   MessageSquare,
   Receipt,
   Settings,
@@ -32,6 +34,10 @@ type Item = { to: string; label: string; icon: typeof Home; match?: string; badg
 export function AppShell({ actor, children }: { actor: Actor; children: React.ReactNode }) {
   const user = useCurrentUser();
   const pathname = useRouterState({ select: (s) => s.location.pathname });
+  const [menuOpen, setMenuOpen] = useState(false);
+  useEffect(() => {
+    setMenuOpen(false);
+  }, [pathname]);
   const badges = useQuery({
     queryKey: ["badges"],
     queryFn: () => getNavBadges(),
@@ -99,7 +105,24 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
           : user?.displayName || "Account";
 
   const roleLabel = isMaster ? "Cleaner" : isAdmin ? "Admin" : isTeam ? "Team cleaner" : "Client portal";
-  const cols = Math.min(5, Math.max(3, nav.length));
+  const mobileItems: Item[] = isOffice
+    ? [
+        ...nav,
+        { to: "/app/sheet", label: "Day sheet", icon: ClipboardList },
+        { to: "/app/requests", label: "Booking Form / Requests", icon: Inbox, badge: pendingCleans },
+        { to: "/app/team", label: "Team", icon: UserRound },
+        { to: "/app/time-off", label: "Time off", icon: CalendarOff, badge: pendingTimeOff },
+        { to: "/app/checklists", label: "Checklists", icon: ClipboardCheck },
+        { to: "/app/team-pay", label: "Team pay", icon: Wallet },
+        ...(isMaster ? [{ to: "/app/data", label: "Data", icon: FileSpreadsheet }] : []),
+        { to: "/app/settings", label: "Settings", icon: Settings },
+        { to: "/app/notifications", label: "Notifications", icon: Bell, badge: unreadNotes },
+      ]
+    : [
+        ...nav,
+        { to: "/app/settings", label: "Settings", icon: Settings },
+        { to: "/app/notifications", label: "Notifications", icon: Bell, badge: unreadNotes },
+      ];
 
   return (
     <div className="min-h-dvh bg-bg text-ink md:grid md:grid-cols-[16rem_1fr]">
@@ -152,88 +175,63 @@ export function AppShell({ actor, children }: { actor: Actor; children: React.Re
         </button>
       </aside>
 
-      <div className="flex min-h-dvh flex-col pb-20 md:pb-0">
-        <header className="flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 print:hidden">
+      <div className="flex min-h-dvh flex-col pb-[env(safe-area-inset-bottom)] md:pb-0">
+        <header className="relative z-50 flex h-14 items-center justify-between gap-2 border-b border-border bg-bg px-4 print:hidden md:z-auto">
           <div className="md:hidden">
             <CrewWeekLogo to="/app" />
           </div>
           <p className="hidden truncate text-sm text-muted md:block">{name}</p>
           <div className="ml-auto flex items-center gap-1">
-            {isOffice ? (
-              <>
-                <Link
-                  to="/app/sheet"
-                  className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                  aria-label="Day sheet"
-                >
-                  <ClipboardList className="size-5" />
-                </Link>
-                <Link
-                  to="/app/requests"
-                  className="relative grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                  aria-label="Booking Form / Requests"
-                >
-                  <Inbox className="size-5" />
-                  {pendingCleans > 0 ? <CountBadge value={pendingCleans} /> : null}
-                </Link>
-                <Link
-                  to="/app/team"
-                  className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                  aria-label="Team"
-                >
-                  <UserRound className="size-5" />
-                </Link>
-                <Link
-                  to="/app/time-off"
-                  className="relative grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                  aria-label="Time off"
-                >
-                  <CalendarOff className="size-5" />
-                  {pendingTimeOff > 0 ? <CountBadge value={pendingTimeOff} /> : null}
-                </Link>
-                {isMaster ? (
-                  <Link
-                    to="/app/data"
-                    className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-                    aria-label="Data"
-                  >
-                    <FileSpreadsheet className="size-5" />
-                  </Link>
-                ) : null}
-              </>
-            ) : null}
-            <Link
-              to="/app/settings"
+            <button
+              type="button"
               className="grid size-11 place-items-center rounded-md text-navy hover:bg-secondary md:hidden"
-              aria-label="Settings"
+              aria-label="Menu"
+              aria-expanded={menuOpen}
+              aria-controls="app-mobile-menu"
+              onClick={() => setMenuOpen((open) => !open)}
             >
-              <Settings className="size-5" />
-            </Link>
+              <Menu className="size-5" />
+            </button>
             <Link
               to="/app/notifications"
-              className="relative grid size-11 place-items-center rounded-md text-navy hover:bg-secondary"
+              className="relative hidden size-11 place-items-center rounded-md text-navy hover:bg-secondary md:grid"
               aria-label="Notifications"
             >
               <Bell className="size-5" />
               {unreadNotes > 0 ? <CountBadge value={unreadNotes} /> : null}
             </Link>
-            <button type="button" className="text-sm text-muted md:hidden" onClick={() => void signOut("/")}>
-              Sign out
-            </button>
           </div>
+          {menuOpen ? (
+            <nav
+              id="app-mobile-menu"
+              className="absolute inset-x-0 top-full z-40 max-h-[calc(100dvh-3.5rem)] overflow-y-auto border-b border-border bg-paper py-2 shadow-card md:hidden"
+            >
+              {mobileItems.map((item) => (
+                <NavLink key={item.to} item={item} pathname={pathname} onNavigate={() => setMenuOpen(false)} />
+              ))}
+              <button
+                type="button"
+                className="flex min-h-11 w-full items-center gap-2 border-t border-border px-3 text-sm text-muted hover:bg-secondary hover:text-ink"
+                onClick={() => void signOut("/")}
+              >
+                <LogOut className="size-4" />
+                Sign out
+              </button>
+            </nav>
+          ) : null}
         </header>
+        {menuOpen ? (
+          <button
+            type="button"
+            className="fixed inset-0 z-[45] bg-ink/20 md:hidden"
+            aria-label="Close menu"
+            onClick={() => setMenuOpen(false)}
+          />
+        ) : null}
         {actor.kind === "cleaner" ? <PlanBanner profile={actor.profile} /> : null}
         <div className="mx-auto w-full max-w-5xl flex-1 px-4 py-6 print:max-w-none print:px-2 print:py-0">{children}</div>
       </div>
 
-      <nav
-        className="fixed inset-x-0 bottom-0 z-30 grid border-t border-border bg-paper pb-[env(safe-area-inset-bottom)] print:hidden md:hidden"
-        style={{ gridTemplateColumns: `repeat(${cols}, minmax(0, 1fr))` }}
-      >
-        {nav.map((item) => (
-          <NavLink key={item.to} item={item} pathname={pathname} compact />
-        ))}
-      </nav>
       <InstallHint />
     </div>
   );
@@ -253,11 +251,13 @@ function NavLink({
   pathname,
   dark,
   compact,
+  onNavigate,
 }: {
   item: Item;
   pathname: string;
   dark?: boolean;
   compact?: boolean;
+  onNavigate?: () => void;
 }) {
   const active =
     item.to === "/app" ? pathname === "/app" : pathname === item.to || pathname.startsWith(`${item.to}/`);
@@ -267,6 +267,7 @@ function NavLink({
     return (
       <Link
         to={item.to}
+        onClick={onNavigate}
         className={cn(
           "relative flex min-h-14 flex-col items-center justify-center gap-0.5 text-[11px]",
           active ? "text-navy" : "text-muted",
@@ -283,6 +284,7 @@ function NavLink({
   return (
     <Link
       to={item.to}
+      onClick={onNavigate}
       className={cn(
         "relative flex min-h-11 items-center gap-2 rounded-md px-3 text-sm",
         dark

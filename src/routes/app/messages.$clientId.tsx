@@ -55,7 +55,7 @@ function ThreadPage() {
         <div ref={bottom} />
       </div>
       <form
-        className="sticky bottom-20 mt-4 grid gap-2 bg-bg py-2 md:bottom-0"
+        className="sticky bottom-0 mt-4 grid gap-2 bg-bg py-2"
         onSubmit={async (e) => {
           e.preventDefault();
           if (!threadId || q.error || !q.data) {

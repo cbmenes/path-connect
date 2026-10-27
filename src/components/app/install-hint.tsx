@@ -12,7 +12,7 @@ export function InstallHint() {
   }, []);
   if (!show) return null;
   return (
-    <div className="fixed inset-x-3 bottom-[4.75rem] z-40 rounded-lg border border-border bg-paper p-3 shadow-card print:hidden md:bottom-4">
+    <div className="fixed inset-x-3 bottom-4 z-40 rounded-lg border border-border bg-paper p-3 shadow-card print:hidden">
       <div className="flex items-start gap-3">
         <div className="grid size-9 shrink-0 place-items-center rounded-md bg-sage-soft text-navy">
           <Share className="size-4" />

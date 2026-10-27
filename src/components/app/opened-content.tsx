@@ -27,8 +27,7 @@ export function scrollOpenedIntoView(el: HTMLElement) {
     node = node.parentElement;
   }
   const rect = el.getBoundingClientRect();
-  const bottomInset = window.innerWidth < 768 ? 88 : 0;
-  const limit = window.innerHeight - bottomInset - 8;
+  const limit = window.innerHeight - 8;
   const hidden = rect.top < HEADER_PX + gap || rect.bottom > limit || rect.top > limit;
   if (!hidden) return;
   window.scrollTo({
