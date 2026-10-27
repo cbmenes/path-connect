@@ -41,6 +41,8 @@ function ClientProfile() {
   const q = useQuery({ queryKey: ["client", id], queryFn: () => getClient({ data: id }) });
   const canCharge = actorCanCharge(actor.data);
   const writesLocked = actorWritesLocked(actor.data);
+  const chargeMode = useClientChargeMode();
+  const stripeNotConnected = chargeMode.data?.mode === "demo" || chargeMode.data?.mode === "blocked";
   const qc = useQueryClient();
   const navigate = useNavigate();
   const [editing, setEditing] = useState(false);
@@ -126,7 +128,20 @@ function ClientProfile() {
         {actor.data?.kind === "cleaner" || actor.data?.kind === "admin" ? (
         <Card>
           <h2 className="font-display text-lg text-navy">Cards on file</h2>
-          <p className="mt-1 text-xs text-muted">Demo keeps brand and last four only. A connected company saves the card in Stripe and charges it here.</p>
+          {stripeNotConnected ? (
+            <p className="mt-1 text-sm text-muted">
+              Stripe is not set up yet. You cannot add or charge cards until you link your account to collect payments.{" "}
+              <Link
+                to="/app/settings"
+                search={{ tab: "plan" }}
+                hash="client-cards"
+                className="text-navy underline underline-offset-2"
+              >
+                Click here to set it up
+              </Link>
+              .
+            </p>
+          ) : null}
           <div className="mt-3">
             <CardManager
               clientId={client.id}

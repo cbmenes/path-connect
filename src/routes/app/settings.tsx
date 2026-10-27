@@ -599,6 +599,14 @@ function AdminPlanNote() {
   );
 }
 
+function ClientCardsScroll() {
+  useEffect(() => {
+    if (window.location.hash !== "#client-cards") return;
+    document.getElementById("client-cards")?.scrollIntoView({ behavior: "smooth", block: "start" });
+  }, []);
+  return null;
+}
+
 function invoiceStatusLabel(status: string) {
   if (status === "paid") return "Paid";
   if (status === "open") return "Open";
@@ -795,8 +803,16 @@ function PlanSection() {
         ) : null}
       </Card>
       <BillingHistory />
+      {plan.demo && !plan.showConnect ? (
+        <Card id="client-cards" className="scroll-mt-6">
+          <ClientCardsScroll />
+          <p className="text-xs uppercase tracking-[0.14em] text-sage">Client cards</p>
+          <p className="mt-2 text-sm text-ink">Demo accounts are not charged.</p>
+        </Card>
+      ) : null}
       {plan.showConnect ? (
-        <Card>
+        <Card id="client-cards" className="scroll-mt-6">
+          <ClientCardsScroll />
           <p className="text-xs uppercase tracking-[0.14em] text-sage">Client cards</p>
           {plan.connectStatus === "ready" ? (
             <>
