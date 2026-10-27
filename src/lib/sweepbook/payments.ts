@@ -4,7 +4,7 @@ import { authMiddleware } from "@/lib/auth/middleware";
 import { assertCanCharge, assertOffice, assertClient, assertActivePlan, getActor, isOffice, masterUserId } from "./access";
 import { ensureDemoSeed } from "./seed";
 import { detectBrand, luhnOk } from "./card-utils";
-import { nid, formatDateTime, money } from "./time";
+import { nid, formatDateTime, money, startOfChicagoDay } from "./time";
 import { insertNotification } from "./notifications";
 import { isDemoAccountEmail, type CardRow, type InvoiceWithClient, type JobRow } from "./types";
 
@@ -95,6 +95,7 @@ async function chargeSavedStripeCard(
   if (!customerId) return { ok: false as const, needsCard: true as const, reason: NEEDS_CARD };
 
   let invoiceId = args.invoiceId;
+  let createdForCharge = false;
   if (!invoiceId && args.jobId && args.kind === "visit") {
     const found = await sql<{ id: string; status: string }>`
       select id, status from invoices
@@ -104,34 +105,7 @@ async function chargeSavedStripeCard(
     if (found[0]?.status === "paid") throw new Error("Already paid.");
     invoiceId = found[0]?.id;
   }
-  if (invoiceId) {
-    const updated = await sql<{ id: string }>`
-      update invoices set
-        amount_cents = ${args.amountCents},
-        description = ${args.description},
-        status = 'unpaid',
-        method = ${null},
-        paid_at = ${null},
-        failure_reason = ${null},
-        receipt_number = ${null},
-        stripe_checkout_session_id = ${null},
-        stripe_payment_intent_id = ${null},
-        stripe_account_id = ${args.accountId}
-      where id = ${invoiceId} and cleaner_user_id = ${args.ownerId} and status <> 'paid'
-      returning id
-    `;
-    if (!updated[0]) throw new Error("Already paid.");
-  } else {
-    invoiceId = nid("inv");
-    await sql`
-      insert into invoices (
-        id, cleaner_user_id, client_id, job_id, amount_cents, description, status, kind, stripe_account_id
-      ) values (
-        ${invoiceId}, ${args.ownerId}, ${args.clientId}, ${args.jobId ?? null},
-        ${args.amountCents}, ${args.description}, ${"unpaid"}, ${args.kind}, ${args.accountId}
-      )
-    `;
-  }
+  if (!invoiceId) invoiceId = nid("inv");
 
   const { chargeConnectedSavedCard } = await import("./stripe.server");
   let charged: { id: string; status: string; amount: number; livemode: boolean };
@@ -146,23 +120,40 @@ async function chargeSavedStripeCard(
     });
   } catch (err) {
     const reason = err instanceof Error ? err.message : "Stripe could not charge this card.";
-    await sql`
-      update invoices set failure_reason = ${reason}, status = 'unpaid'
-      where id = ${invoiceId} and status <> 'paid'
-    `;
     await sql`update payment_cards set failing = true where id = ${card.id}`;
     return { ok: false as const, needsCard: false as const, reason };
   }
-  await sql`
-    update invoices set stripe_payment_intent_id = ${charged.id}, stripe_account_id = ${args.accountId}
-    where id = ${invoiceId}
-  `;
   if (charged.status !== "succeeded" || charged.amount !== args.amountCents) {
     return {
       ok: false as const,
       needsCard: false as const,
       reason: "Stripe has not confirmed this charge. The visit was not marked paid.",
     };
+  }
+  const existing = await sql<{ id: string }>`
+    select id from invoices where id = ${invoiceId} and cleaner_user_id = ${args.ownerId} limit 1
+  `;
+  if (!existing[0]) {
+    createdForCharge = true;
+    await sql`
+      insert into invoices (
+        id, cleaner_user_id, client_id, job_id, amount_cents, description, status, kind,
+        stripe_account_id, stripe_payment_intent_id
+      ) values (
+        ${invoiceId}, ${args.ownerId}, ${args.clientId}, ${args.jobId ?? null},
+        ${args.amountCents}, ${args.description}, ${"unpaid"}, ${args.kind},
+        ${args.accountId}, ${charged.id}
+      )
+    `;
+  } else {
+    await sql`
+      update invoices set
+        stripe_payment_intent_id = ${charged.id},
+        stripe_account_id = ${args.accountId},
+        amount_cents = ${args.amountCents},
+        description = ${args.description}
+      where id = ${invoiceId} and cleaner_user_id = ${args.ownerId} and status <> 'paid'
+    `;
   }
   const { applySavedCardPayment } = await import("./client-charge.server");
   const settled = await applySavedCardPayment({
@@ -176,6 +167,9 @@ async function chargeSavedStripeCard(
     last4: card.last4,
   });
   if (!settled.paid) {
+    if (createdForCharge) {
+      await sql`delete from invoices where id = ${invoiceId} and status <> 'paid'`;
+    }
     return {
       ok: false as const,
       needsCard: false as const,
@@ -215,6 +209,24 @@ export async function backfillPaidAt(sql: Awaited<ReturnType<typeof getSql>>) {
   `;
 }
 
+/** Drop unpaid rows that are not a past, finished, still-open cleaning. */
+export async function removeStrayUnpaidInvoices(sql: Awaited<ReturnType<typeof getSql>>, ownerId: string) {
+  const today = startOfChicagoDay(new Date()).toISOString();
+  await sql`
+    delete from invoices i
+    where i.cleaner_user_id = ${ownerId}
+      and i.status in ('unpaid', 'failed')
+      and i.kind <> 'tip'
+      and not exists (
+        select 1 from jobs j
+        where j.id = i.job_id
+          and j.cleaner_user_id = i.cleaner_user_id
+          and j.status = 'completed'
+          and j.start_at < ${today}::timestamptz
+      )
+  `;
+}
+
 export const listInvoices = createServerFn({ method: "GET" })
   .middleware([authMiddleware])
   .handler(async ({ context }) => {
@@ -223,6 +235,7 @@ export const listInvoices = createServerFn({ method: "GET" })
     await backfillPaidAt(sql);
     const actor = await getActor(sql, context.userId);
     if (isOffice(actor)) {
+      await removeStrayUnpaidInvoices(sql, masterUserId(actor));
       return sql.query<InvoiceWithClient>(
         `select ${INVOICE_SELECT}
          from invoices i
@@ -235,6 +248,7 @@ export const listInvoices = createServerFn({ method: "GET" })
       );
     }
     if (actor.kind === "client") {
+      await removeStrayUnpaidInvoices(sql, actor.client.cleaner_user_id);
       return sql.query<InvoiceWithClient>(
         `select ${INVOICE_SELECT}
          from invoices i

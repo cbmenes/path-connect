@@ -8,6 +8,7 @@ import { getMyActor } from "@/lib/sweepbook/bootstrap";
 import {
   chicagoDayKey,
   endOfChicagoMonth,
+  formatDate,
   money,
   startOfChicagoMonth,
   startOfChicagoYear,
@@ -46,6 +47,17 @@ function filterDate(row: InvoiceWithClient) {
 
 function cents(n: number | string | null | undefined) {
   return Number(n || 0);
+}
+
+function isUnpaidAppointment(row: InvoiceWithClient, todayKey: string) {
+  if (row.kind === "tip" || row.status === "paid") return false;
+  if (row.status !== "unpaid" && row.status !== "failed") return false;
+  if (!row.job_id || !row.job_start_at) return false;
+  return chicagoDayKey(row.job_start_at) < todayKey;
+}
+
+function appointmentDate(iso: string) {
+  return formatDate(iso, { weekday: "short", month: "short", day: "numeric", year: "numeric" });
 }
 
 function tipCentsFor(row: InvoiceWithClient, rows: InvoiceWithClient[]) {
@@ -139,7 +151,8 @@ function PaymentsPage() {
   const tipsRange = useDateRange();
   const totalsRange = useDateRange();
 
-  const unpaidAll = rows.filter((r) => r.kind !== "tip" && (r.status === "unpaid" || r.status === "failed"));
+  const todayKey = chicagoDayKey(new Date());
+  const unpaidAll = rows.filter((r) => isUnpaidAppointment(r, todayKey));
   const paidAll = rows.filter((r) => r.kind !== "tip" && r.status === "paid");
   const tipsAll = rows.filter((r) => r.kind === "tip");
 
@@ -152,7 +165,7 @@ function PaymentsPage() {
   const paidTotal = paid.reduce((n, r) => n + cents(r.amount_cents), 0);
   const tipsTotal = tips.reduce((n, r) => n + cents(r.amount_cents), 0);
   const totalsUnpaid = totalsRows
-    .filter((r) => r.kind !== "tip" && (r.status === "unpaid" || r.status === "failed"))
+    .filter((r) => isUnpaidAppointment(r, todayKey))
     .reduce((n, r) => n + cents(r.amount_cents), 0);
   const totalsPaid = totalsRows
     .filter((r) => r.kind !== "tip" && r.status === "paid")
@@ -356,6 +369,9 @@ function PaymentSection({
           <Card key={i.id} className="flex flex-wrap items-center justify-between gap-3 p-4">
             <div>
               <p className="font-medium">{i.client_name}</p>
+              {i.status !== "paid" && i.job_start_at ? (
+                <p className="text-sm text-ink">{appointmentDate(i.job_start_at)}</p>
+              ) : null}
               <p className="text-xs text-muted">{i.description}</p>
               <VisitChargeLine
                 jobStart={i.job_start_at}

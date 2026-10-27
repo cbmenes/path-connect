@@ -89,6 +89,8 @@ export const getDashboard = createServerFn({ method: "GET" })
         [ownerId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
       await backfillPaidAt(sql);
+      const { removeStrayUnpaidInvoices } = await import("./payments");
+      await removeStrayUnpaidInvoices(sql, ownerId);
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
                 i.status, i.method, i.kind, i.paid_at::text as paid_at, i.failure_reason,
@@ -96,10 +98,14 @@ export const getDashboard = createServerFn({ method: "GET" })
                 j.start_at::text as job_start_at
          from invoices i
          join clients c on c.id = i.client_id
-         left join jobs j on j.id = i.job_id
-         where i.cleaner_user_id = $1 and i.status in ('unpaid', 'failed')
-         order by i.created_at desc`,
-        [ownerId],
+         join jobs j on j.id = i.job_id
+         where i.cleaner_user_id = $1
+           and i.status in ('unpaid', 'failed')
+           and i.kind <> 'tip'
+           and j.status = 'completed'
+           and j.start_at < $2::timestamptz
+         order by j.start_at desc`,
+        [ownerId, start.toISOString()],
       );
       const threads = (await loadThreads(sql, actor)).slice(0, 5);
       const unread = await unreadCount(sql, actor);
