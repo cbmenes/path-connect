@@ -2,7 +2,7 @@ import { createServerFn } from "@tanstack/react-start";
 import { getSql } from "@/lib/db";
 import { authMiddleware } from "@/lib/auth/middleware";
 import { JOB_FROM, JOB_SELECT, canChargeClients, getActor, isOffice, masterUserId } from "./access";
-import { backfillPaidAt } from "./payments";
+import { backfillPaidAt, removeStrayUnpaidInvoices } from "./payments";
 import { ensureDemoSeed } from "./seed";
 import { addDaysChicago, startOfChicagoDay, chicagoDate, partsInChicago } from "./time";
 import type { Actor, CardRow, InvoiceWithClient, JobWithClient, ThreadSummary } from "./types";
@@ -89,7 +89,6 @@ export const getDashboard = createServerFn({ method: "GET" })
         [ownerId, start.toISOString(), endWeek.toISOString()],
       ).then((rows) => rows.map(hydrateJob));
       await backfillPaidAt(sql);
-      const { removeStrayUnpaidInvoices } = await import("./payments");
       await removeStrayUnpaidInvoices(sql, ownerId);
       const unpaid = await sql.query<InvoiceWithClient>(
         `select i.id, i.cleaner_user_id, i.client_id, i.job_id, i.amount_cents, i.description,
