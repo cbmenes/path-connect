@@ -53,6 +53,7 @@ import { Route as RequestSlugRouteImport } from './routes/request.$slug'
 import { Route as TeamInviteTokenRouteImport } from './routes/team-invite.$token'
 import { Route as ApiAuthSplatRouteImport } from './routes/api/auth/$'
 import { Route as ApiCronRemindersRouteImport } from './routes/api/cron/reminders'
+import { Route as ApiCronSignupRecoveryRouteImport } from './routes/api/cron/signup-recovery'
 import { Route as ApiSessionRememberRouteImport } from './routes/api/session/remember'
 import { Route as ApiSmsInboundRouteImport } from './routes/api/sms/inbound'
 import { Route as ApiStripeWebhookRouteImport } from './routes/api/stripe/webhook'
@@ -291,6 +292,11 @@ const ApiCronRemindersRoute = ApiCronRemindersRouteImport.update({
   path: '/api/cron/reminders',
   getParentRoute: () => rootRouteImport,
 } as any)
+const ApiCronSignupRecoveryRoute = ApiCronSignupRecoveryRouteImport.update({
+  id: '/api/cron/signup-recovery',
+  path: '/api/cron/signup-recovery',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ApiSessionRememberRoute = ApiSessionRememberRouteImport.update({
   id: '/api/session/remember',
   path: '/api/session/remember',
@@ -422,6 +428,7 @@ export interface FileRoutesByFullPath {
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/cron/signup-recovery': typeof ApiCronSignupRecoveryRoute
   '/api/session/remember': typeof ApiSessionRememberRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
@@ -478,6 +485,7 @@ export interface FileRoutesByTo {
   '/request': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/cron/signup-recovery': typeof ApiCronSignupRecoveryRoute
   '/api/session/remember': typeof ApiSessionRememberRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
@@ -542,6 +550,7 @@ export interface FileRoutesById {
   '/request/': typeof RequestIndexRoute
   '/api/auth/$': typeof ApiAuthSplatRoute
   '/api/cron/reminders': typeof ApiCronRemindersRoute
+  '/api/cron/signup-recovery': typeof ApiCronSignupRecoveryRoute
   '/api/session/remember': typeof ApiSessionRememberRoute
   '/api/sms/inbound': typeof ApiSmsInboundRoute
   '/api/stripe/webhook': typeof ApiStripeWebhookRoute
@@ -607,6 +616,7 @@ export interface FileRouteTypes {
     | '/request/'
     | '/api/auth/$'
     | '/api/cron/reminders'
+    | '/api/cron/signup-recovery'
     | '/api/session/remember'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
@@ -663,6 +673,7 @@ export interface FileRouteTypes {
     | '/request'
     | '/api/auth/$'
     | '/api/cron/reminders'
+    | '/api/cron/signup-recovery'
     | '/api/session/remember'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
@@ -726,6 +737,7 @@ export interface FileRouteTypes {
     | '/request/'
     | '/api/auth/$'
     | '/api/cron/reminders'
+    | '/api/cron/signup-recovery'
     | '/api/session/remember'
     | '/api/sms/inbound'
     | '/api/stripe/webhook'
@@ -769,6 +781,7 @@ export interface RootRouteChildren {
   TeamInviteTokenRoute: typeof TeamInviteTokenRoute
   ApiAuthSplatRoute: typeof ApiAuthSplatRoute
   ApiCronRemindersRoute: typeof ApiCronRemindersRoute
+  ApiCronSignupRecoveryRoute: typeof ApiCronSignupRecoveryRoute
   ApiSessionRememberRoute: typeof ApiSessionRememberRoute
   ApiSmsInboundRoute: typeof ApiSmsInboundRoute
   ApiStripeWebhookRoute: typeof ApiStripeWebhookRoute
@@ -1084,6 +1097,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ApiCronRemindersRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/api/cron/signup-recovery': {
+      id: '/api/cron/signup-recovery'
+      path: '/api/cron/signup-recovery'
+      fullPath: '/api/cron/signup-recovery'
+      preLoaderRoute: typeof ApiCronSignupRecoveryRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/api/session/remember': {
       id: '/api/session/remember'
       path: '/api/session/remember'
@@ -1364,6 +1384,7 @@ const rootRouteChildren: RootRouteChildren = {
   TeamInviteTokenRoute: TeamInviteTokenRoute,
   ApiAuthSplatRoute: ApiAuthSplatRoute,
   ApiCronRemindersRoute: ApiCronRemindersRoute,
+  ApiCronSignupRecoveryRoute: ApiCronSignupRecoveryRoute,
   ApiSessionRememberRoute: ApiSessionRememberRoute,
   ApiSmsInboundRoute: ApiSmsInboundRoute,
   ApiStripeWebhookRoute: ApiStripeWebhookRoute,

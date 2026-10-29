@@ -316,6 +316,7 @@ export async function createOwnerCheckout(userId: string, plan: SaasPlanCode, in
     });
     customerId = customer.id;
   }
+  await recordSignupRecoveryCustomer({ customerId, email, userId });
   const keepActive = actor.profile.plan_status === "active";
   await sql`
     update profiles
@@ -845,11 +846,47 @@ async function settleConnectedCheckoutEvent(sessionId: string, accountHint: stri
   await applyConnectedCharge(session, accountId);
 }
 
+const SIGNUP_RECOVERY_WAIT_MS = 3 * 60 * 60 * 1000;
+
+/** Remember a platform customer so the recovery cron can email them once, a few hours later. */
+export async function recordSignupRecoveryCustomer(input: {
+  customerId: string;
+  email: string | null | undefined;
+  userId: string | null;
+}) {
+  const email = (input.email || "").trim().toLowerCase();
+  if (!input.customerId.startsWith("cus_") || !email.includes("@") || isDemoEmail(email)) return;
+  const sql = await getSql();
+  const sendAfter = new Date(Date.now() + SIGNUP_RECOVERY_WAIT_MS).toISOString();
+  await sql`
+    insert into signup_recovery_emails (stripe_customer_id, email, user_id, send_after)
+    values (${input.customerId}, ${email}, ${input.userId}, ${sendAfter}::timestamptz)
+    on conflict (stripe_customer_id) do nothing
+  `;
+}
+
+/** Active subscription or any successful charge/invoice on the CrewWeek platform customer. */
+export async function platformCustomerBilling(customerId: string) {
+  const stripe = stripeClient();
+  const subs = await stripe.subscriptions.list({ customer: customerId, status: "all", limit: 20 });
+  const activeSubscription = subs.data.some((sub) => sub.status === "active" || sub.status === "trialing");
+  if (activeSubscription) return { activeSubscription: true, successfulPayment: false };
+  const invoices = await stripe.invoices.list({ customer: customerId, status: "paid", limit: 1 });
+  if (invoices.data.length > 0) return { activeSubscription: false, successfulPayment: true };
+  const intents = await stripe.paymentIntents.list({ customer: customerId, limit: 20 });
+  const successfulPayment = intents.data.some((intent) => intent.status === "succeeded");
+  return { activeSubscription: false, successfulPayment };
+}
+
 function ownerSubscriptionEvent(event: Stripe.Event) {
   if (event.type === "customer.subscription.updated" || event.type === "customer.subscription.deleted") return true;
   if (event.type !== "checkout.session.completed") return false;
   const session = event.data.object as Stripe.Checkout.Session;
   return session.mode === "subscription";
+}
+
+function signupRecoveryEvent(event: Stripe.Event) {
+  return event.type === "customer.created" && !event.account;
 }
 
 function clientChargeEvent(event: Stripe.Event) {
@@ -879,7 +916,7 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
   } catch {
     return { status: 400, body: { error: "Invalid signature" } };
   }
-  if (event.livemode && !ownerSubscriptionEvent(event) && !clientChargeEvent(event)) {
+  if (event.livemode && !ownerSubscriptionEvent(event) && !clientChargeEvent(event) && !signupRecoveryEvent(event)) {
     return { status: 200, body: { received: true, ignored: true } };
   }
   try {
@@ -894,6 +931,15 @@ export async function handleStripeWebhook(raw: Buffer, signature: string | null)
       const intent = event.data.object as Stripe.PaymentIntent;
       if (intent.metadata?.purpose === "client_charge" && intent.metadata.invoice_id && event.account) {
         await settleSavedCardEvent(intent.id, intent.metadata.invoice_id, event.account);
+      }
+    } else if (event.type === "customer.created" && !event.account) {
+      const customer = event.data.object as Stripe.Customer | Stripe.DeletedCustomer;
+      if (!("deleted" in customer && customer.deleted)) {
+        await recordSignupRecoveryCustomer({
+          customerId: customer.id,
+          email: customer.email,
+          userId: customer.metadata?.user_id || null,
+        });
       }
     } else if (event.type === "customer.subscription.updated") {
       await applySubscription(event.data.object as Stripe.Subscription, null, false);

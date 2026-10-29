@@ -1,5 +1,6 @@
 import { createFileRoute } from "@tanstack/react-router";
 import { processDailyAppointmentReminders } from "@/lib/sweepbook/daily-reminders";
+import { processDueSignupRecovery } from "@/lib/sweepbook/signup-recovery";
 
 function unauthorized() {
   return Response.json({ error: "Unauthorized" }, { status: 401 });
@@ -20,7 +21,14 @@ function authorized(request: Request) {
 async function handle(request: Request) {
   if (!authorized(request)) return unauthorized();
   const result = await processDailyAppointmentReminders();
-  return Response.json(result);
+  let signupRecovery: Awaited<ReturnType<typeof processDueSignupRecovery>> | { error: string } | null = null;
+  try {
+    signupRecovery = await processDueSignupRecovery();
+  } catch (err) {
+    console.error("[signup-recovery]", err instanceof Error ? err.message : "failed");
+    signupRecovery = { error: "Signup recovery did not finish." };
+  }
+  return Response.json({ ...result, signupRecovery });
 }
 
 export const Route = createFileRoute("/api/cron/reminders")({
