@@ -1,6 +1,7 @@
 {
-  "title": "CrewWeek",
-  "description": "Calendar, clients, payments, and messages for cleaning business owners — without the chaos.",
+  "title": "Path Connect",
+  "description": "Draw the current from the amber source and connect every open path.",
+  "type": "x:game",
   "card": "custom",
-  "color": "1B365D"
+  "color": "0E141B"
 }
