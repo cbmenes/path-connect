@@ -40,10 +40,22 @@
   --radius-2xl: 28px;
 
   --shadow-card:
-    0 0 0 1px rgba(27, 54, 93, 0.06),
-    0 1px 2px rgba(26, 35, 50, 0.04),
+    0 0 0 1px rgba(27, 54, 93, 0.06), 0 1px 2px rgba(26, 35, 50, 0.04),
     0 16px 40px -20px rgba(26, 35, 50, 0.18);
   --shadow-soft: 0 1px 2px rgba(26, 35, 50, 0.05), 0 8px 24px -16px rgba(26, 35, 50, 0.16);
+
+  --color-pc-bg: #0e141b;
+  --color-pc-tray: #171f29;
+  --color-pc-tile: #1e2936;
+  --color-pc-edge: #3a4a5e;
+  --color-pc-fg: #e8eef5;
+  --color-pc-muted: #93a1b3;
+  --color-pc-flow: #2ec9a0;
+  --color-pc-start: #e6b325;
+  --color-pc-casing: #0c1218;
+  --color-pc-bore: #d5deea;
+  --color-pc-onflow: #06241c;
+  --color-pc-onstart: #2a1d04;
 }
 
 @layer base {
@@ -95,6 +107,262 @@
 
 .tabular {
   font-variant-numeric: tabular-nums;
+}
+
+/* Path Connect. Colors live on the shell so pipes, wires, and beams share one board. */
+.path-connect {
+  background:
+    radial-gradient(
+      ellipse 70% 36% at 50% -8%,
+      color-mix(in oklab, var(--color-pc-flow) 18%, transparent),
+      transparent 68%
+    ),
+    var(--color-pc-bg);
+  color: var(--color-pc-fg);
+  font-family: var(--font-sans);
+}
+
+.path-connect h1,
+.path-connect h2,
+.path-connect h3 {
+  font-family: var(--font-sans);
+}
+
+.pc-shell {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr);
+  grid-template-areas:
+    "head"
+    "level"
+    "board"
+    "legend"
+    "status"
+    "actions"
+    "style";
+  gap: 14px;
+  width: min(100%, 28rem);
+  margin: 0 auto;
+  padding: 20px 16px 24px;
+}
+
+.pc-head {
+  grid-area: head;
+}
+.pc-level {
+  grid-area: level;
+}
+.pc-board-wrap {
+  grid-area: board;
+}
+.pc-legend {
+  grid-area: legend;
+}
+.pc-status {
+  grid-area: status;
+  min-height: 3rem;
+}
+.pc-actions {
+  grid-area: actions;
+}
+.pc-style-row {
+  grid-area: style;
+}
+
+@media (min-width: 960px) {
+  .pc-shell {
+    width: min(100%, 920px);
+    min-height: 100dvh;
+    align-content: center;
+    grid-template-columns: minmax(280px, 340px) minmax(340px, 460px);
+    grid-template-areas:
+      "head board"
+      "level board"
+      "legend board"
+      "status board"
+      "actions board"
+      "style board";
+    column-gap: 48px;
+    row-gap: 14px;
+    padding: 32px 28px;
+  }
+
+  .pc-board-wrap {
+    align-self: center;
+  }
+}
+
+.path-connect :focus-visible {
+  outline-color: var(--color-pc-flow);
+}
+
+.path-connect[data-style="wires"] {
+  --color-pc-bg: #12110f;
+  --color-pc-tray: #1c1814;
+  --color-pc-tile: #26201a;
+  --color-pc-edge: #524536;
+  --color-pc-flow: #5ad7ff;
+  --color-pc-start: #ffb020;
+  --color-pc-casing: #100e0c;
+  --color-pc-bore: #e0a15c;
+  --color-pc-onflow: #042028;
+}
+
+.path-connect[data-style="beams"] {
+  --color-pc-bg: #07090f;
+  --color-pc-tray: #10131c;
+  --color-pc-tile: #171c28;
+  --color-pc-edge: #313a4e;
+  --color-pc-flow: #f3fff8;
+  --color-pc-start: #ffe08a;
+  --color-pc-casing: #07090f;
+  --color-pc-bore: #9aadc4;
+  --color-pc-onflow: #12151c;
+}
+
+.pc-tray {
+  border-radius: 28px;
+  background: var(--color-pc-tray);
+  padding: 12px;
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-pc-fg) 8%, transparent),
+    0 24px 50px -28px rgb(0 0 0 / 0.7);
+}
+
+.pc-board {
+  position: relative;
+  display: grid;
+  grid-template-columns: repeat(5, minmax(0, 1fr));
+  gap: 6px;
+}
+
+.pc-tile {
+  position: relative;
+  aspect-ratio: 1;
+  overflow: hidden;
+  border-radius: 14px;
+  background: var(--color-pc-tile);
+  color: var(--color-pc-fg);
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.pc-tile:hover:not([aria-disabled="true"]) {
+  background: color-mix(in oklab, var(--color-pc-tile) 72%, var(--color-pc-fg));
+}
+
+.pc-tile:active:not([aria-disabled="true"]) {
+  transform: scale(0.97);
+}
+
+.pc-tile[data-role="start"] {
+  box-shadow: inset 0 0 0 2px var(--color-pc-start);
+}
+
+.pc-tile[data-role="end"] {
+  box-shadow: inset 0 0 0 2px var(--color-pc-flow);
+}
+
+.pc-tile[data-live="true"] {
+  background: color-mix(in oklab, var(--color-pc-flow) 18%, var(--color-pc-tile));
+  transition: background 180ms ease;
+  transition-delay: var(--delay, 0ms);
+}
+
+.pc-spin {
+  position: absolute;
+  inset: 0;
+  display: block;
+  transition: transform 180ms cubic-bezier(0.2, 0.75, 0.2, 1);
+}
+
+.pc-spin-off {
+  transition: none;
+}
+
+.pc-bore {
+  transition: stroke 180ms ease;
+  transition-delay: var(--delay, 0ms);
+}
+
+.pc-stream {
+  transition: opacity 180ms ease;
+  transition-delay: var(--delay, 0ms);
+}
+
+.pc-tile[data-live="true"] .pc-stream {
+  animation: pc-stream 0.85s linear infinite;
+}
+
+.path-connect[data-style="beams"] .pc-bore-live {
+  filter: drop-shadow(0 0 4px var(--color-pc-flow));
+}
+
+.pc-mark {
+  pointer-events: none;
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  display: grid;
+  place-items: center;
+}
+
+.pc-bead {
+  position: absolute;
+  left: 0;
+  top: 0;
+  z-index: 3;
+  width: 16px;
+  height: 16px;
+  border-radius: 999px;
+  background: var(--color-pc-fg);
+  box-shadow:
+    0 0 0 5px color-mix(in oklab, var(--color-pc-flow) 55%, transparent),
+    0 0 18px var(--color-pc-flow);
+  pointer-events: none;
+}
+
+.pc-swatch {
+  width: 0.7rem;
+  height: 0.7rem;
+  border-radius: 999px;
+}
+
+.pc-swatch-start {
+  background: var(--color-pc-start);
+}
+
+.pc-swatch-end {
+  background: transparent;
+  box-shadow: inset 0 0 0 2px var(--color-pc-flow);
+}
+
+.pc-styles {
+  display: flex;
+  gap: 4px;
+  border-radius: 999px;
+  background: var(--color-pc-tile);
+  padding: 4px;
+}
+
+.pc-styles button {
+  min-height: 44px;
+  border-radius: 999px;
+  padding: 0 14px;
+  font-size: 0.875rem;
+  font-weight: 600;
+  color: var(--color-pc-muted);
+}
+
+.pc-styles button.is-on {
+  background: var(--color-pc-flow);
+  color: var(--color-pc-onflow);
+}
+
+@keyframes pc-stream {
+  to {
+    stroke-dashoffset: -46;
+  }
 }
 
 @media print {
