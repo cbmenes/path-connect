@@ -1,5 +1,5 @@
 import { LEVELS, boardCells, type Level } from "./levels.ts";
-import { findPath, sameOpenings } from "./logic.ts";
+import { reachTargets, sameOpenings } from "./logic.ts";
 
 /** Shared clock for the daily board. Seconds left when you finish is the score. */
 export const DAILY_SECONDS = 120;
@@ -53,7 +53,7 @@ export function dailyLevel(now: Date): Level {
   }
 
   let guard = 0;
-  while (findPath(boardCells(draft(base, tiles), tiles.map((tile) => tile.initial))) && guard < 80) {
+  while (reachTargets(boardCells(draft(base, tiles), tiles.map((tile) => tile.initial))).complete && guard < 80) {
     const fillers = tiles.filter((tile) => tile.role === "play" && !tile.onRoute);
     const tile = fillers[guard % fillers.length];
     if (!tile) break;
@@ -95,7 +95,7 @@ function draft(base: Level, tiles: Level["tiles"]): Level {
   return {
     ...base,
     name: "Daily challenge",
-    blurb: "Same board for everyone today. Finish before the clock runs out.",
+    blurb: "Same garden for everyone today. Water every plant before the clock runs out.",
     tiles,
   };
 }

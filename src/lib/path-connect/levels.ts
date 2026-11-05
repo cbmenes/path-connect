@@ -1,13 +1,9 @@
 /**
- * Ten hand-authored routes. Each spec is a polyline from source to outlet,
- * plus optional dead-end spurs that turn a tile into a tee. The builder
+ * Ten hand-authored irrigation trees. Each route starts at the spring and
+ * ends at a plant. Routes share a trunk, then split at tees. The builder
  * fills the rest of the 5×5 so those fillers do not link to the route, then
  * turns selected tiles clockwise. A level is solvable because the unturned
- * board connects, and every turned tile can be clicked back.
- *
- * Add a level by appending a spec. `levels.test.ts` rejects a board that
- * starts connected, a solution that does not match its path, or a route
- * that steps on itself.
+ * board reaches every plant, and it starts unsolved.
  */
 
 import {
@@ -21,7 +17,7 @@ import {
   type Kind,
   type Role,
   baseMask,
-  findPath,
+  reachTargets,
   rotateMask,
 } from "./logic.ts";
 
@@ -38,7 +34,7 @@ export interface Level {
   name: string;
   blurb: string;
   tiles: TileModel[];
-  /** Cell indexes of the authored source-to-outlet route, spurs excluded. */
+  /** Cells on the solved paths from the spring to every plant, nearest first. */
   solutionPath: number[];
 }
 
@@ -48,8 +44,8 @@ interface LevelSpec {
   id: number;
   name: string;
   blurb: string;
-  path: readonly Coord[];
-  spurs?: readonly (readonly Coord[])[];
+  /** Each route starts at the spring and ends at one plant. They share a first step. */
+  routes: readonly (readonly Coord[])[];
   /** Extra clockwise quarter-turns, keyed "row,col". Omitted tiles stay solved. */
   scramble: Readonly<Record<string, number>>;
 }
@@ -57,259 +53,106 @@ interface LevelSpec {
 const SPECS: readonly LevelSpec[] = [
   {
     id: 1,
-    name: "First flow",
-    blurb: "Two tiles are turned. Line them up.",
-    path: [
-      [2, 0],
-      [2, 1],
-      [2, 2],
-      [2, 3],
-      [2, 4],
-    ],
+    name: "First sprout",
+    blurb: "One plant. Two tiles are turned.",
+    routes: [[[2, 0], [2, 1], [2, 2], [2, 3], [2, 4]]],
     scramble: { "2,1": 1, "2,2": 1 },
   },
   {
     id: 2,
-    name: "Elbow",
-    blurb: "One bend, then across to the outlet.",
-    path: [
-      [2, 0],
-      [2, 1],
-      [2, 2],
-      [3, 2],
-      [4, 2],
-      [4, 3],
-      [4, 4],
+    name: "Two beds",
+    blurb: "Split the water. Both plants need a drink.",
+    routes: [
+      [[2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
+      [[2, 0], [2, 1], [2, 2], [3, 2], [3, 3]],
     ],
-    scramble: { "2,2": 1, "3,2": 1, "4,2": 1 },
+    scramble: { "2,1": 1, "2,2": 1 },
   },
   {
     id: 3,
-    name: "U-turn",
-    blurb: "Across, down, and back.",
-    path: [
-      [1, 1],
-      [1, 2],
-      [1, 3],
-      [2, 3],
-      [3, 3],
-      [3, 2],
-      [3, 1],
+    name: "Side beds",
+    blurb: "Carry the flow across, then up and down.",
+    routes: [
+      [[2, 0], [2, 1], [2, 2], [2, 3], [1, 3], [1, 4]],
+      [[2, 0], [2, 1], [2, 2], [2, 3], [3, 3], [3, 4]],
     ],
-    scramble: { "1,2": 1, "1,3": 1, "3,2": 1 },
+    scramble: { "2,2": 1, "2,3": 1, "1,3": 1 },
   },
   {
     id: 4,
-    name: "Switchback",
-    blurb: "Follow the S from the source down to the outlet.",
-    path: [
-      [0, 1],
-      [0, 2],
-      [0, 3],
-      [1, 3],
-      [2, 3],
-      [2, 2],
-      [2, 1],
-      [3, 1],
-      [4, 1],
-      [4, 2],
-      [4, 3],
-      [4, 4],
+    name: "Long row",
+    blurb: "The far plant is straight across. The near one drops off the row.",
+    routes: [
+      [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4]],
+      [[1, 0], [1, 1], [1, 2], [2, 2], [3, 2], [3, 3]],
     ],
-    scramble: { "0,2": 1, "0,3": 1, "1,3": 1, "2,3": 1, "2,2": 1, "2,1": 1 },
+    scramble: { "1,1": 1, "1,2": 1, "1,3": 1, "2,2": 1 },
   },
   {
     id: 5,
-    name: "Junction",
-    blurb: "The main line passes through a tee.",
-    path: [
-      [2, 0],
-      [2, 1],
-      [2, 2],
-      [2, 3],
-      [2, 4],
+    name: "Three pots",
+    blurb: "One spring feeds three pots.",
+    routes: [
+      [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4]],
+      [[3, 0], [3, 1], [2, 1], [1, 1], [0, 1]],
+      [[3, 0], [3, 1], [2, 1], [2, 2], [2, 3]],
     ],
-    spurs: [
-      [
-        [2, 2],
-        [3, 2],
-        [4, 2],
-      ],
-    ],
-    scramble: { "2,1": 1, "2,2": 1, "2,3": 1, "3,2": 1 },
+    scramble: { "3,1": 1, "3,2": 1, "2,1": 1, "1,1": 1, "2,2": 1 },
   },
   {
     id: 6,
-    name: "Branch line",
-    blurb: "The tee is where the path turns. A spur runs off it.",
-    path: [
-      [1, 0],
-      [1, 1],
-      [1, 2],
-      [2, 2],
-      [3, 2],
-      [3, 3],
-      [3, 4],
+    name: "Three corners",
+    blurb: "The trunk splits twice. All three corners are thirsty.",
+    routes: [
+      [[0, 2], [1, 2], [2, 2], [2, 3], [2, 4]],
+      [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]],
+      [[0, 2], [1, 2], [1, 1], [1, 0]],
     ],
-    spurs: [
-      [
-        [1, 2],
-        [0, 2],
-      ],
-    ],
-    scramble: { "1,1": 1, "1,2": 1, "2,2": 1, "3,2": 2, "3,3": 1 },
+    scramble: { "1,2": 1, "2,2": 1, "2,3": 1, "3,2": 1, "1,1": 1 },
   },
   {
     id: 7,
-    name: "Long run",
-    blurb: "Four corners. Keep the openings facing.",
-    path: [
-      [0, 0],
-      [0, 1],
-      [0, 2],
-      [0, 3],
-      [0, 4],
-      [1, 4],
-      [2, 4],
-      [2, 3],
-      [2, 2],
-      [2, 1],
-      [2, 0],
-      [3, 0],
-      [4, 0],
-      [4, 1],
-      [4, 2],
-      [4, 3],
-      [4, 4],
+    name: "Terrace",
+    blurb: "Climb the left edge, then reach the two beds on the right.",
+    routes: [
+      [[4, 0], [3, 0], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
+      [[4, 0], [3, 0], [3, 1], [3, 2], [3, 3]],
+      [[4, 0], [3, 0], [2, 0], [1, 0], [0, 0]],
     ],
-    spurs: [
-      [
-        [0, 2],
-        [1, 2],
-      ],
-    ],
-    scramble: {
-      "0,1": 1,
-      "0,3": 1,
-      "0,4": 1,
-      "2,4": 1,
-      "2,2": 1,
-      "2,0": 1,
-      "4,0": 1,
-      "4,2": 1,
-      "1,2": 1,
-    },
+    scramble: { "3,0": 1, "2,0": 1, "2,1": 1, "2,2": 1, "3,1": 1, "1,0": 1 },
   },
   {
     id: 8,
-    name: "Two junctions",
-    blurb: "Two tees sit on the route. Each has a side spur.",
-    path: [
-      [0, 1],
-      [0, 2],
-      [0, 3],
-      [1, 3],
-      [2, 3],
-      [2, 2],
-      [2, 1],
-      [3, 1],
-      [4, 1],
-      [4, 2],
-      [4, 3],
-      [4, 4],
-    ],
-    spurs: [
-      [
-        [0, 3],
-        [0, 4],
-      ],
-      [
-        [2, 1],
-        [2, 0],
-      ],
+    name: "Four plots",
+    blurb: "Four plants. The paths fork above and below the trunk.",
+    routes: [
+      [[4, 2], [3, 2], [2, 2], [2, 3], [2, 4]],
+      [[4, 2], [3, 2], [2, 2], [1, 2], [0, 2]],
+      [[4, 2], [3, 2], [2, 2], [1, 2], [1, 1], [1, 0]],
+      [[4, 2], [3, 2], [2, 2], [2, 3], [3, 3], [3, 4]],
     ],
     scramble: {},
   },
   {
     id: 9,
-    name: "Inward",
-    blurb: "A long loop that finishes inside the grid.",
-    path: [
-      [0, 0],
-      [0, 1],
-      [0, 2],
-      [0, 3],
-      [0, 4],
-      [1, 4],
-      [2, 4],
-      [3, 4],
-      [4, 4],
-      [4, 3],
-      [4, 2],
-      [4, 1],
-      [4, 0],
-      [3, 0],
-      [2, 0],
-      [1, 0],
-      [1, 1],
-      [1, 2],
-      [1, 3],
-      [2, 3],
-      [3, 3],
-      [3, 2],
-    ],
-    spurs: [
-      [
-        [2, 0],
-        [2, 1],
-      ],
-      [
-        [3, 0],
-        [3, 1],
-      ],
+    name: "Hedge",
+    blurb: "Follow the top hedge, then the two drops.",
+    routes: [
+      [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4]],
+      [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1]],
+      [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]],
     ],
     scramble: {},
   },
   {
     id: 10,
-    name: "Full circuit",
-    blurb: "Corners and tees, almost nothing left in place.",
-    path: [
-      [0, 0],
-      [1, 0],
-      [2, 0],
-      [3, 0],
-      [4, 0],
-      [4, 1],
-      [3, 1],
-      [2, 1],
-      [1, 1],
-      [0, 1],
-      [0, 2],
-      [1, 2],
-      [2, 2],
-      [3, 2],
-      [4, 2],
-      [4, 3],
-      [3, 3],
-      [2, 3],
-    ],
-    spurs: [
-      [
-        [3, 3],
-        [3, 4],
-        [4, 4],
-      ],
-      [
-        [1, 2],
-        [1, 3],
-        [1, 4],
-      ],
-      [
-        [0, 2],
-        [0, 3],
-        [0, 4],
-      ],
+    name: "Full garden",
+    blurb: "Four plants, and almost every pipe starts turned.",
+    routes: [
+      [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [2, 3]],
+      [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
+      [[0, 0], [1, 0], [1, 1], [1, 2], [1, 3], [1, 4]],
+      [[0, 0], [1, 0], [2, 0], [2, 1], [3, 1], [4, 1]],
     ],
     scramble: {},
   },
@@ -447,37 +290,55 @@ function cellsOf(tiles: TileModel[], rotation: "solution" | "initial"): Cell[] {
   }));
 }
 
+function spreadOrder(paths: readonly (readonly number[])[]): number[] {
+  const seen = new Set<number>();
+  const order: number[] = [];
+  const longest = Math.max(...paths.map((path) => path.length));
+  for (let step = 0; step < longest; step++) {
+    for (const path of paths) {
+      const cell = path[step];
+      if (cell === undefined || seen.has(cell)) continue;
+      seen.add(cell);
+      order.push(cell);
+    }
+  }
+  return order;
+}
+
 function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
+  if (spec.routes.length === 0) throw new Error(`Level ${spec.id} has no plants`);
+  const source = spec.routes[0]![0]!;
   const masks = new Map<string, number>();
   const route = new Set<string>();
-  spec.path.forEach((coord, index) => {
-    if (route.has(keyOf(coord[0], coord[1]))) {
-      throw new Error(`Level ${spec.id} repeats ${keyOf(coord[0], coord[1])}`);
-    }
-    route.add(keyOf(coord[0], coord[1]));
-    if (index > 0) {
-      assertOrthogonal(spec.path[index - 1]!, coord, `Level ${spec.id} path`);
-      link(masks, spec.path[index - 1]!, coord);
-    }
-  });
+  const targetKeys = new Set<string>();
 
-  for (const spur of spec.spurs ?? []) {
-    if (spur.length < 2) throw new Error(`Level ${spec.id} spur is too short`);
-    if (!route.has(keyOf(spur[0][0], spur[0][1]))) {
-      throw new Error(`Level ${spec.id} spur does not start on the route`);
+  for (const path of spec.routes) {
+    if (path.length < 2) throw new Error(`Level ${spec.id} route is too short`);
+    if (path[0]![0] !== source[0] || path[0]![1] !== source[1]) {
+      throw new Error(`Level ${spec.id} route does not start at the spring`);
     }
-    for (let i = 1; i < spur.length; i++) {
-      assertOrthogonal(spur[i - 1]!, spur[i]!, `Level ${spec.id} spur`);
-      const cellKey = keyOf(spur[i]![0], spur[i]![1]);
-      if (route.has(cellKey)) throw new Error(`Level ${spec.id} spur hits the route at ${cellKey}`);
+    const end = path.at(-1)!;
+    const endKey = keyOf(end[0], end[1]);
+    if (endKey === keyOf(source[0], source[1]) || targetKeys.has(endKey)) {
+      throw new Error(`Level ${spec.id} repeats a plant at ${endKey}`);
+    }
+    targetKeys.add(endKey);
+    for (let index = 1; index < path.length; index++) {
+      const prev = path[index - 1]!;
+      const coord = path[index]!;
+      assertOrthogonal(prev, coord, `Level ${spec.id} route`);
+      const cellKey = keyOf(coord[0], coord[1]);
+      if (targetKeys.has(cellKey) && cellKey !== endKey) {
+        throw new Error(`Level ${spec.id} walks through a plant at ${cellKey}`);
+      }
+      route.add(keyOf(prev[0], prev[1]));
       route.add(cellKey);
-      link(masks, spur[i - 1]!, spur[i]!);
+      link(masks, prev, coord);
     }
   }
 
-  const startKey = keyOf(spec.path[0]![0], spec.path[0]![1]);
-  const endKey = keyOf(spec.path.at(-1)![0], spec.path.at(-1)![1]);
-  const terminals = new Set([startKey, endKey]);
+  const startKey = keyOf(source[0], source[1]);
+  const terminals = new Set([startKey, ...targetKeys]);
   extendStubs(masks, route, terminals);
 
   for (const cellKey of terminals) {
@@ -511,34 +372,32 @@ function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
         ? classify(masks.get(cellKey)!)
         : chooseFiller(forbiddenAt(row, col, masks), row * 5 + col + spec.id * 17);
       if (!onRoute) masks.set(cellKey, shape.mask);
-      const role: Role = cellKey === startKey ? "start" : cellKey === endKey ? "end" : "play";
+      const role: Role = cellKey === startKey ? "start" : targetKeys.has(cellKey) ? "end" : "play";
       const solution = shape.rot;
       const initial = role === "play" ? (solution + (scramble[cellKey] ?? 0)) % 4 : solution;
       tiles.push({ kind: shape.kind, solution, initial, role, onRoute });
     }
   }
 
-  // A scrambled opening can bridge through fillers. Turn fillers until the
-  // starting board is sealed, without touching the solved route.
+  // A scrambled opening can bridge through fillers. Turn fillers until a
+  // plant is still dry, without touching the solved route.
   let guard = 0;
-  while (findPath(cellsOf(tiles, "initial")) && guard < 80) {
+  while (reachTargets(cellsOf(tiles, "initial")).complete && guard < 80) {
     const filler = tiles.filter((tile) => !tile.onRoute);
     const tile = filler[guard % filler.length];
     if (!tile) throw new Error(`Level ${spec.id} has no filler to break a shortcut`);
     tile.initial = (tile.initial + 1) % 4;
     guard++;
   }
-  if (findPath(cellsOf(tiles, "initial"))) {
+  if (reachTargets(cellsOf(tiles, "initial")).complete) {
     throw new Error(`Level ${spec.id} is already solved`);
   }
 
-  const solved = findPath(cellsOf(tiles, "solution"));
-  const solutionPath = spec.path.map(([row, col]) => row * GRID_SIZE + col);
-  if (!solved || solved.join(",") !== solutionPath.join(",")) {
-    throw new Error(
-      `Level ${spec.id} solution path is ${solved?.join("-") ?? "missing"}, expected ${solutionPath.join("-")}`,
-    );
+  const solved = reachTargets(cellsOf(tiles, "solution"));
+  if (!solved.complete || solved.paths.length !== targetKeys.size) {
+    throw new Error(`Level ${spec.id} does not water every plant`);
   }
+  const solutionPath = spreadOrder(solved.paths);
 
   return { id: spec.id, name: spec.name, blurb: spec.blurb, tiles, solutionPath };
 }

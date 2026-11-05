@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { boardCells } from "./levels.ts";
-import { findPath } from "./logic.ts";
+import { reachTargets } from "./logic.ts";
 import { dailyLevel, dateKey, isBetterScore } from "./daily.ts";
 
 describe("daily challenge", () => {
@@ -17,19 +17,17 @@ describe("daily challenge", () => {
       morning.tiles.map((tile) => tile.initial),
       evening.tiles.map((tile) => tile.initial),
     );
-    assert.equal(findPath(boardCells(morning, morning.tiles.map((tile) => tile.initial))), null);
-    const solved = findPath(boardCells(morning, morning.tiles.map((tile) => tile.solution)));
-    assert.ok(solved && solved.length > 1);
-    assert.equal(solved![0], morning.solutionPath[0]);
-    assert.equal(solved!.at(-1), morning.solutionPath.at(-1));
+    assert.equal(reachTargets(boardCells(morning, morning.tiles.map((tile) => tile.initial))).complete, false);
+    const solved = reachTargets(boardCells(morning, morning.tiles.map((tile) => tile.solution)));
+    assert.equal(solved.complete, true);
+    assert.ok(solved.paths.every((path) => path[0] === morning.solutionPath[0]));
   });
 
   it("stays unsolved at the start and solvable across a run of days", () => {
     for (let day = 0; day < 90; day += 1) {
       const board = dailyLevel(new Date(Date.UTC(2026, 0, 1 + day, 12)));
-      assert.equal(findPath(boardCells(board, board.tiles.map((tile) => tile.initial))), null);
-      const solved = findPath(boardCells(board, board.tiles.map((tile) => tile.solution)));
-      assert.ok(solved && solved.length > 1);
+      assert.equal(reachTargets(boardCells(board, board.tiles.map((tile) => tile.initial))).complete, false);
+      assert.equal(reachTargets(boardCells(board, board.tiles.map((tile) => tile.solution))).complete, true);
     }
   });
 

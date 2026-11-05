@@ -3,9 +3,9 @@ import {
   ArrowRight,
   Droplet,
   Lightbulb,
+  Sprout,
   Zap,
   RotateCcw,
-  Target,
   Undo2,
   Volume2,
   VolumeX,
@@ -28,8 +28,8 @@ import {
   GRID_SIZE,
   cellMask,
   findMisrotatedIndex,
-  findPath,
   openingIds,
+  reachTargets,
   rowCol,
 } from "@/lib/path-connect/logic";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
@@ -45,6 +45,7 @@ interface CampaignSnap {
   moves: number;
   phase: Phase;
   flowPath: number[] | null;
+  flowPaths: number[][] | null;
   note: string | null;
 }
 
@@ -62,7 +63,7 @@ const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
 /**
- * Rotate tiles until findPath reaches the outlet, then run the flow.
+ * Rotate tiles until every plant is connected to the spring, then run the flow.
  * Hint and undo are placeholders: they log and explain themselves, and do
  * not change the board yet.
  */
@@ -88,6 +89,7 @@ export function PathConnectGame() {
   const deadlineRef = useRef(0);
   const campaignRef = useRef<CampaignSnap | null>(null);
   const [flowPath, setFlowPath] = useState<number[] | null>(null);
+  const [flowPaths, setFlowPaths] = useState<number[][] | null>(null);
   const [charge, setCharge] = useState<Charge | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [styleId, setStyleId] = useState<StyleId>(DEFAULT_STYLE);
@@ -102,6 +104,10 @@ export function PathConnectGame() {
   conduitRef.current = style.conduit;
   const lastLevel = levelId === LEVELS.length;
   const linked = linkedIndexes(level, spins);
+  const network = reachTargets(boardCells(level, spins));
+  const fed = new Set(network.reached);
+  const plantTotal = level.tiles.filter((tile) => tile.role === "end").length;
+  const plantWord = style.conduit === "trace" ? "node" : "plant";
 
   useEffect(() => {
     setBest(readBest(todayKey));
@@ -124,15 +130,14 @@ export function PathConnectGame() {
   }, [mode, phase]);
 
   useEffect(() => {
-    if (phase !== "flow" || !flowPath || flowPath.length < 2) return;
+    const paths = (flowPaths ?? []).filter((path) => path.length > 1);
+    if (phase !== "flow" || paths.length === 0) return;
     let frame = 0;
     let cancelled = false;
-    const points = measureCenters(boardRef.current);
-    centersRef.current = points;
+    centersRef.current = measureCenters(boardRef.current);
 
     if (prefersReducedMotion()) {
-      const end = points[flowPath[flowPath.length - 1]!];
-      if (end) setCharge({ head: end, trail: [] });
+      setCharge(null);
       setPhase("won");
       playWin(mutedRef.current);
       return;
@@ -140,17 +145,26 @@ export function PathConnectGame() {
 
     const started = performance.now();
     const racing = conduitRef.current === "trace";
-    const span = Math.max(racing ? 420 : 700, (flowPath.length - 1) * (racing ? 120 : 240));
+    const spans = paths.map((path) => path.length - 1);
+    const total = spans.reduce((sum, span) => sum + span, 0);
+    const duration = Math.max(racing ? 520 : 780, total * (racing ? 110 : 200));
     const tick = (now: number) => {
       if (cancelled) return;
-      const t = Math.min(1, (now - started) / span);
+      const t = Math.min(1, (now - started) / duration);
       const eased = t * t * (3 - 2 * t);
-      const dist = eased * (flowPath.length - 1);
-      const step = Math.min(flowPath.length - 2, Math.floor(dist));
-      const along = dist - step;
+      let remain = eased * total;
+      let path = paths[0]!;
+      for (let index = 0; index < paths.length; index++) {
+        const span = spans[index]!;
+        path = paths[index]!;
+        if (remain <= span || index === paths.length - 1) break;
+        remain -= span;
+      }
+      const step = Math.min(path.length - 2, Math.floor(remain));
+      const along = Math.min(1, remain - step);
       const live = centersRef.current;
-      const from = live[flowPath[step]!];
-      const to = live[flowPath[step + 1]!];
+      const from = live[path[step]!];
+      const to = live[path[step + 1]!];
       if (from && to) {
         const head = {
           x: from.x + (to.x - from.x) * along,
@@ -165,6 +179,7 @@ export function PathConnectGame() {
       }
       if (t < 1) frame = requestAnimationFrame(tick);
       else {
+        setCharge(null);
         setPhase("won");
         playWin(mutedRef.current);
       }
@@ -179,19 +194,7 @@ export function PathConnectGame() {
       cancelAnimationFrame(frame);
       observer.disconnect();
     };
-  }, [phase, flowPath]);
-
-  useEffect(() => {
-    if (phase !== "won" || !flowPath || flowPath.length === 0) return;
-    const place = () => {
-      const end = measureCenters(boardRef.current)[flowPath[flowPath.length - 1]!];
-      if (end) setCharge({ head: end, trail: [] });
-    };
-    place();
-    const observer = new ResizeObserver(place);
-    if (boardRef.current) observer.observe(boardRef.current);
-    return () => observer.disconnect();
-  }, [phase, flowPath]);
+  }, [phase, flowPaths]);
 
   function loadBoard(next: Level, nextId?: number) {
     const initial = next.tiles.map((tile) => tile.initial);
@@ -204,6 +207,7 @@ export function PathConnectGame() {
     setMoves(0);
     setPhase("play");
     setFlowPath(null);
+    setFlowPaths(null);
     setCharge(null);
     setNote(null);
     setResult(null);
@@ -234,6 +238,7 @@ export function PathConnectGame() {
         moves: movesRef.current,
         phase: phaseRef.current,
         flowPath,
+        flowPaths,
         note,
       };
       setMode("daily");
@@ -254,6 +259,7 @@ export function PathConnectGame() {
     setMoves(snap.moves);
     setPhase(phaseRef.current);
     setFlowPath(snap.flowPath);
+    setFlowPaths(snap.flowPaths);
     setCharge(null);
     setNote(snap.note);
     setResult(null);
@@ -277,8 +283,8 @@ export function PathConnectGame() {
     setMoves(movesRef.current);
     setNote(null);
     playTurn(mutedRef.current);
-    const path = findPath(boardCells(level, nextSpins));
-    if (!path) return;
+    const network = reachTargets(boardCells(level, nextSpins));
+    if (!network.complete) return;
     if (modeRef.current === "daily") {
       const secondsLeftNow = Math.max(0, Math.ceil((deadlineRef.current - performance.now()) / 1000));
       const score = { secondsLeft: secondsLeftNow, turns: movesRef.current };
@@ -293,7 +299,8 @@ export function PathConnectGame() {
         setIsNewBest(false);
       }
     }
-    setFlowPath(path);
+    setFlowPaths(network.paths);
+    setFlowPath(spreadOrder(network.paths));
     if (prefersReducedMotion()) {
       phaseRef.current = "won";
       setPhase("won");
@@ -338,10 +345,10 @@ export function PathConnectGame() {
       <main className="pc-shell" data-phase={phase} data-level={levelId} data-mode={mode}>
         <header className="pc-head flex items-start justify-between gap-3">
           <div>
-            {styleId === "wires" && <p className="pc-kicker">Neon circuit</p>}
+            {styleId === "wires" && <p className="pc-kicker">Circuit</p>}
             <h1 className="text-2xl font-semibold tracking-tight">Path Connect</h1>
             <p className="mt-1 max-w-xs text-sm text-pc-muted text-pretty">
-              Turn a tile a quarter turn. A link counts only when both openings face each other.
+              Turn a tile a quarter turn. A plant is watered only when the openings face each other all the way from the spring.
             </p>
             <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
               <button
@@ -405,12 +412,16 @@ export function PathConnectGame() {
               </p>
             )}
           </div>
-          <p className="tabular shrink-0 text-sm text-pc-muted">
+          <p className="tabular shrink-0 text-right text-sm text-pc-muted">
+            <span className="block font-medium text-pc-fg">
+              {fed.size}/{plantTotal} {plantTotal === 1 ? plantWord : `${plantWord}s`}
+            </span>
             {moves} {moves === 1 ? "turn" : "turns"}
           </p>
         </section>
 
-        <div className="pc-tray pc-board-wrap">
+        <div className="pc-scene pc-board-wrap">
+          <div className="pc-tray">
           <div
             ref={boardRef}
             className="pc-board"
@@ -422,6 +433,7 @@ export function PathConnectGame() {
               const rotation = ((spin % 4) + 4) % 4;
               const { row, col } = rowCol(index);
               const locked = tile.role !== "play" || phase !== "play";
+              const watered = tile.role === "end" && fed.has(index);
               const order = flowPath ? flowPath.indexOf(index) : -1;
               const openings = openingIds(
                 cellMask({ kind: tile.kind, rotation, role: tile.role }),
@@ -430,7 +442,7 @@ export function PathConnectGame() {
                 tile.role === "start"
                   ? `Source, row ${row + 1}, column ${col + 1}, fixed`
                   : tile.role === "end"
-                    ? `Outlet, row ${row + 1}, column ${col + 1}, fixed`
+                    ? `${watered ? "Watered plant" : "Plant"}, row ${row + 1}, column ${col + 1}, fixed`
                     : `Turn tile, row ${row + 1}, column ${col + 1}`;
               return (
                 <button
@@ -441,6 +453,7 @@ export function PathConnectGame() {
                   data-role={tile.role}
                   data-openings={openings}
                   data-linked={linked.has(index)}
+                  data-fed={watered}
                   data-live={order >= 0}
                   aria-disabled={locked}
                   aria-label={label}
@@ -470,8 +483,12 @@ export function PathConnectGame() {
                     </span>
                   )}
                   {tile.role === "end" && (
-                    <span className="pc-mark text-pc-flow">
-                      <Target className="size-5" strokeWidth={2.25} />
+                    <span className={watered ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
+                      {style.conduit === "trace" ? (
+                        <Zap className="size-4" strokeWidth={2.5} />
+                      ) : (
+                        <Sprout className="size-5" strokeWidth={2.25} />
+                      )}
                     </span>
                   )}
                 </button>
@@ -499,16 +516,17 @@ export function PathConnectGame() {
             )}
             {phase === "won" && <span className="pc-flash" aria-hidden="true" />}
           </div>
+          </div>
         </div>
 
         <div className="pc-legend flex items-center gap-4 text-sm text-pc-muted">
           <span className="inline-flex items-center gap-2">
             <span className="pc-swatch pc-swatch-start" />
-            Source
+            Spring
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="pc-swatch pc-swatch-end" />
-            Outlet
+            {style.conduit === "trace" ? "Nodes" : "Plants"}
           </span>
         </div>
 
@@ -594,6 +612,21 @@ export function PathConnectGame() {
       </main>
     </div>
   );
+}
+
+function spreadOrder(paths: readonly (readonly number[])[]): number[] {
+  const seen = new Set<number>();
+  const order: number[] = [];
+  const longest = Math.max(0, ...paths.map((path) => path.length));
+  for (let step = 0; step < longest; step++) {
+    for (const path of paths) {
+      const cell = path[step];
+      if (cell === undefined || seen.has(cell)) continue;
+      seen.add(cell);
+      order.push(cell);
+    }
+  }
+  return order;
 }
 
 function linkedIndexes(

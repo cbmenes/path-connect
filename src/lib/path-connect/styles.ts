@@ -23,14 +23,14 @@ export const STYLES: readonly ConduitStyle[] = [
     id: "pipes",
     label: "Pipes",
     conduit: "pipe",
-    complete: "Water runs from the source to the outlet.",
+    complete: "Every plant has water.",
     offered: true,
   },
   {
     id: "wires",
     label: "Wires",
     conduit: "trace",
-    complete: "Power runs from the source to the outlet.",
+    complete: "Every node is powered.",
     offered: true,
   },
   {

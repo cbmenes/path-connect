@@ -9,6 +9,7 @@ import {
   cellMask,
   findMisrotatedIndex,
   findPath,
+  reachTargets,
   rotateMask,
   sameOpenings,
   type Cell,
@@ -44,6 +45,24 @@ describe("openings", () => {
     assert.equal(cellMask(blocked[1]!), N | S);
     assert.equal(cellMask(open[1]!), E | W);
   });
+
+  it("waters a plant only when every target is reached", () => {
+    const cells: Cell[] = Array.from({ length: 25 }, () => ({
+      kind: "straight" as const,
+      rotation: 0,
+      role: "play" as const,
+    }));
+    cells[10] = { kind: "cap", rotation: 1, role: "start" };
+    cells[11] = { kind: "tee", rotation: 3, role: "play" };
+    cells[6] = { kind: "cap", rotation: 2, role: "end" };
+    cells[12] = { kind: "cap", rotation: 3, role: "end" };
+    const open = reachTargets(cells);
+    assert.equal(open.complete, true);
+    assert.deepEqual(open.reached, [6, 12]);
+
+    const oneDry = cells.map((cell, index) => (index === 11 ? { ...cell, rotation: 0 } : cell));
+    assert.equal(reachTargets(oneDry).complete, false);
+  });
 });
 
 describe("levels", () => {
@@ -52,21 +71,27 @@ describe("levels", () => {
     for (const level of LEVELS) {
       assert.equal(level.tiles.length, 25, level.name);
       assert.equal(level.tiles.filter((tile) => tile.role === "start").length, 1);
-      assert.equal(level.tiles.filter((tile) => tile.role === "end").length, 1);
-      const solved = findPath(
+      const plants = level.tiles.filter((tile) => tile.role === "end").length;
+      assert.ok(plants >= 1 && plants <= 4, level.name);
+      const solved = reachTargets(
         boardCells(
           level,
           level.tiles.map((tile) => tile.solution),
         ),
       );
-      assert.deepEqual(solved, level.solutionPath, `${level.id} ${level.name} solution`);
-      const initial = findPath(
+      assert.equal(solved.complete, true, `${level.id} ${level.name} solution`);
+      assert.deepEqual(
+        spread(solved.paths),
+        level.solutionPath,
+        `${level.id} ${level.name} solution`,
+      );
+      const initial = reachTargets(
         boardCells(
           level,
           level.tiles.map((tile) => tile.initial),
         ),
       );
-      assert.equal(initial, null, `${level.id} ${level.name} should start unsolved`);
+      assert.equal(initial.complete, false, `${level.id} ${level.name} should start unsolved`);
 
       const scrambled = level.tiles.filter(
         (tile) =>
@@ -83,18 +108,33 @@ describe("levels", () => {
     }
   });
 
-  it("keeps the first three boards short and lightly scrambled", () => {
+  it("keeps the first boards simple and the last ones branched", () => {
+    const plants = LEVELS.map((level) => level.tiles.filter((tile) => tile.role === "end").length);
+    assert.deepEqual(plants, [1, 2, 2, 2, 3, 3, 3, 4, 3, 4]);
     for (const level of LEVELS.slice(0, 3)) {
-      assert.ok(level.solutionPath.length <= 7, level.name);
       const scrambled = level.tiles.filter(
         (tile) => tile.role === "play" && !sameOpenings(tile.kind, tile.initial, tile.solution),
       );
       assert.ok(scrambled.length <= 4, `${level.name} has ${scrambled.length} turned tiles`);
     }
-    assert.equal(
-      LEVELS[4]!.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length >= 1,
-      true,
+    assert.ok(LEVELS[4]!.tiles.some((tile) => tile.onRoute && tile.kind === "tee"));
+    assert.ok(
+      LEVELS[9]!.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length >= 3,
     );
-    assert.ok(LEVELS[9]!.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length >= 3);
   });
 });
+
+function spread(paths: readonly (readonly number[])[]): number[] {
+  const seen = new Set<number>();
+  const order: number[] = [];
+  const longest = Math.max(...paths.map((path) => path.length));
+  for (let step = 0; step < longest; step++) {
+    for (const path of paths) {
+      const cell = path[step];
+      if (cell === undefined || seen.has(cell)) continue;
+      seen.add(cell);
+      order.push(cell);
+    }
+  }
+  return order;
+}

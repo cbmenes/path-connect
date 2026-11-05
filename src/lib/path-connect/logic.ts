@@ -3,9 +3,9 @@
  *
  * Tiles store openings as a 4-bit mask (N=1, E=2, S=4, W=8). Rotation is
  * clockwise quarter-turns of that mask. A link exists only when two
- * orthogonal neighbors both open toward each other. The win check is a
- * breadth-first search from the source; the outlet is reached only by
- * walking those links.
+ * orthogonal neighbors both open toward each other. Search walks those
+ * links from the source. A board is complete only when every target is
+ * reached.
  *
  * Visual styles never belong in here. Renderers read `kind` + `rotation`
  * and draw whatever conduit they want.
@@ -84,25 +84,56 @@ export function rowCol(index: number): { row: number; col: number } {
   return { row: Math.floor(index / GRID_SIZE), col: index % GRID_SIZE };
 }
 
+export interface Reach {
+  /** Target indexes the source can currently water, in board order. */
+  reached: number[];
+  complete: boolean;
+  /** Shortest mutual-opening path to each reached target, source first. */
+  paths: number[][];
+}
+
 /**
- * Shortest mutual-opening path from the source to the outlet.
- * Returns cell indexes, source first, or null when the outlet is sealed off.
+ * Shortest mutual-opening path from the source to the first target.
+ * Returns cell indexes, source first, or null when that target is sealed off.
  */
 export function findPath(cells: readonly Cell[]): number[] | null {
+  const start = sourceIndex(cells);
+  const end = cells.findIndex((cell) => cell.role === "end");
+  if (start < 0 || end < 0) return null;
+  const previous = walkLinks(cells, start, end);
+  return previous.has(end) ? trace(previous, end) : null;
+}
+
+/** Every target is connected only when the source can reach all of them. */
+export function reachTargets(cells: readonly Cell[]): Reach {
+  const start = sourceIndex(cells);
+  const ends = cells.flatMap((cell, index) => (cell.role === "end" ? [index] : []));
+  if (start < 0 || ends.length === 0) return { reached: [], complete: false, paths: [] };
+  const previous = walkLinks(cells, start, null);
+  const reached = ends.filter((end) => previous.has(end));
+  return {
+    reached,
+    complete: reached.length === ends.length,
+    paths: reached.map((end) => trace(previous, end)),
+  };
+}
+
+function sourceIndex(cells: readonly Cell[]): number {
   if (cells.length !== GRID_SIZE * GRID_SIZE) {
     throw new Error(`Expected ${GRID_SIZE * GRID_SIZE} cells, got ${cells.length}`);
   }
-  const start = cells.findIndex((cell) => cell.role === "start");
-  const end = cells.findIndex((cell) => cell.role === "end");
-  if (start < 0 || end < 0) return null;
+  return cells.findIndex((cell) => cell.role === "start");
+}
 
+/** Breadth-first walk across mutual openings. Stops early only when `stopAt` is set. */
+function walkLinks(cells: readonly Cell[], start: number, stopAt: number | null): Map<number, number> {
   const previous = new Map<number, number>();
   previous.set(start, -1);
   const queue = [start];
 
   while (queue.length > 0) {
     const current = queue.shift()!;
-    if (current === end) break;
+    if (stopAt !== null && current === stopAt) break;
     const { row, col } = rowCol(current);
     const mask = cellMask(cells[current]!);
     for (const dir of DIRS) {
@@ -119,7 +150,10 @@ export function findPath(cells: readonly Cell[]): number[] | null {
     }
   }
 
-  if (!previous.has(end)) return null;
+  return previous;
+}
+
+function trace(previous: Map<number, number>, end: number): number[] {
   const path: number[] = [];
   for (let cursor = end; cursor !== -1; cursor = previous.get(cursor)!) {
     path.push(cursor);
