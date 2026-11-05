@@ -24,6 +24,65 @@ const WIDTHS: Record<
   beam: { casing: 0, bore: 4, core: 0, hub: 4, stream: 2 },
 };
 
+const PIPE_ENDS: Record<DirId, [number, number]> = {
+  N: [50, -6],
+  E: [106, 50],
+  S: [50, 106],
+  W: [-6, 50],
+};
+
+const OPPOSITE: Record<DirId, DirId> = { N: "S", E: "W", S: "N", W: "E" };
+
+function along(dir: DirId, fromCenter: number): [number, number] {
+  const [x, y] = PIPE_ENDS[dir];
+  const dx = x - 50;
+  const dy = y - 50;
+  const len = Math.hypot(dx, dy);
+  return [50 + (dx / len) * fromCenter, 50 + (dy / len) * fromCenter];
+}
+
+/** One continuous tube: a straight, a rounded elbow, or arms into a joint. */
+function pipeD(arms: DirId[]): string {
+  if (arms.length === 2 && OPPOSITE[arms[0]!] !== arms[1]) {
+    const [x1, y1] = PIPE_ENDS[arms[0]!];
+    const [x2, y2] = PIPE_ENDS[arms[1]!];
+    const [ix, iy] = along(arms[0]!, 16);
+    const [jx, jy] = along(arms[1]!, 16);
+    return `M ${x1} ${y1} L ${ix} ${iy} Q 50 50 ${jx} ${jy} L ${x2} ${y2}`;
+  }
+  if (arms.length === 2) {
+    const [x1, y1] = PIPE_ENDS[arms[0]!];
+    const [x2, y2] = PIPE_ENDS[arms[1]!];
+    return `M ${x1} ${y1} L ${x2} ${y2}`;
+  }
+  return arms
+    .map((dir) => {
+      const [x, y] = PIPE_ENDS[dir];
+      return `M 50 50 L ${x} ${y}`;
+    })
+    .join(" ");
+}
+
+/** Rounded copper-style pipe. Color comes from the theme tokens. */
+function CozyPipe({ arms, hub }: { arms: DirId[]; hub: "start" | "end" | "plain" }) {
+  const d = pipeD(arms);
+  const joint = arms.length >= 3 && hub !== "end";
+  return (
+    <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
+      <path d={d} fill="none" stroke="var(--color-pc-shade)" strokeWidth={34} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="var(--color-pc-casing)" strokeWidth={28} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} fill="none" stroke="white" strokeOpacity={0.38} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+      {joint && (
+        <>
+          <circle cx={50} cy={50} r={17} fill="var(--color-pc-shade)" />
+          <circle cx={50} cy={50} r={14} fill="var(--color-pc-casing)" />
+          <circle cx={45} cy={45} r={4} fill="white" opacity={0.5} />
+        </>
+      )}
+    </svg>
+  );
+}
+
 export function TileArt({
   kind,
   conduit,
@@ -35,8 +94,9 @@ export function TileArt({
   live: boolean;
   hub: "start" | "end" | "plain";
 }) {
-  const widths = WIDTHS[conduit];
   const arms = openingIds(baseMask(kind));
+  if (conduit === "pipe") return <CozyPipe arms={arms} hub={hub} />;
+  const widths = WIDTHS[conduit];
   const bore = live ? "var(--color-pc-flow)" : "var(--color-pc-bore)";
   const casing = "var(--color-pc-casing)";
   const core = live
@@ -91,20 +151,6 @@ export function TileArt({
             strokeWidth={widths.core}
             strokeLinecap={cap}
             className={live ? "pc-core pc-core-live" : "pc-core"}
-          />
-        ))}
-      {conduit === "pipe" &&
-        arms.map((dir) => (
-          <line
-            key={`ridge-${dir}`}
-            x1={50}
-            y1={50}
-            x2={ends[dir][0]}
-            y2={ends[dir][1]}
-            stroke="var(--color-pc-spark)"
-            strokeWidth={4}
-            strokeLinecap={cap}
-            className="pc-ridge"
           />
         ))}
       {arms.map((dir) => (

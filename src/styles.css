@@ -114,27 +114,28 @@
 
 /* Path Connect. House lights is the opening room. Alarm and fire replace the whole palette. */
 .path-connect {
-  --color-pc-bg: #f3e2cc;
-  --color-pc-wall: #f7ebda;
-  --color-pc-tray: #fff8ee;
-  --color-pc-tile: #fffdf8;
-  --color-pc-edge: #e4d0b4;
-  --color-pc-fg: #2c241c;
-  --color-pc-muted: #6e5c4a;
-  --color-pc-flow: #e07a12;
+  --color-pc-bg: #f6efe4;
+  --color-pc-wall: #fbf6ee;
+  --color-pc-tray: #fbf6ee;
+  --color-pc-tile: #f4eee4;
+  --color-pc-edge: #eadfce;
+  --color-pc-fg: #5c3a24;
+  --color-pc-muted: #8a6a52;
+  --color-pc-flow: #e8a23a;
   --color-pc-start: #f0a202;
-  --color-pc-accent: #c46a12;
-  --color-pc-casing: #8a5a32;
-  --color-pc-bore: #d9c3a4;
-  --color-pc-core: #efe2cf;
-  --color-pc-spark: #fff6d8;
-  --color-pc-onflow: #2a1c08;
-  --color-pc-onstart: #3a2808;
-  --color-pc-lawn: #e7c99a;
-  --color-pc-soil: #d7b88a;
+  --color-pc-accent: #c4844a;
+  --color-pc-casing: #c4844a;
+  --color-pc-shade: #a66b38;
+  --color-pc-bore: #e7d3b4;
+  --color-pc-core: #f6e2c4;
+  --color-pc-spark: #ffd56a;
+  --color-pc-onflow: #3a2808;
+  --color-pc-onstart: #5c3a24;
+  --color-pc-lawn: #f3e6d2;
+  --color-pc-soil: #ead8be;
   background:
-    radial-gradient(ellipse 70% 40% at 50% 100%, #e7c48a 0%, transparent 70%),
-    linear-gradient(180deg, #f8e7cf 0%, var(--color-pc-bg) 42%, #e7d0ae 100%);
+    radial-gradient(ellipse 80% 50% at 80% 100%, #f3d7b0 0%, transparent 55%),
+    linear-gradient(180deg, #fbf6ee 0%, var(--color-pc-bg) 100%);
   color: var(--color-pc-fg);
   font-family: var(--font-sans);
 }
@@ -152,9 +153,8 @@
     "head"
     "level"
     "board"
-    "legend"
-    "status"
-    "actions";
+    "actions"
+    "status";
   gap: 14px;
   width: min(100%, 28rem);
   margin: 0 auto;
@@ -190,9 +190,8 @@
     grid-template-areas:
       "head board"
       "level board"
-      "legend board"
-      "status board"
-      "actions board";
+      "actions board"
+      "status board";
     column-gap: 48px;
     row-gap: 14px;
     padding: 32px 28px;
@@ -208,50 +207,53 @@
 }
 
 .path-connect[data-theme="alarm"] {
-  --color-pc-bg: #0c1828;
-  --color-pc-wall: #16304a;
-  --color-pc-tray: #102438;
-  --color-pc-tile: #1a3550;
-  --color-pc-edge: #2d5274;
-  --color-pc-fg: #e7f4ff;
-  --color-pc-muted: #9bb4c9;
-  --color-pc-flow: #3ec6ff;
+  --color-pc-bg: #e4eef6;
+  --color-pc-wall: #f4f8fc;
+  --color-pc-tray: #f7fbfe;
+  --color-pc-tile: #eef4f8;
+  --color-pc-edge: #d5e3ee;
+  --color-pc-fg: #1d3d56;
+  --color-pc-muted: #5d7d96;
+  --color-pc-flow: #3db7e8;
   --color-pc-start: #7dd3fc;
-  --color-pc-accent: #38bdf8;
-  --color-pc-casing: #7f9bb4;
-  --color-pc-bore: #35597a;
-  --color-pc-core: #8fb4d4;
-  --color-pc-spark: #e7f8ff;
+  --color-pc-accent: #3d7eab;
+  --color-pc-casing: #4f86b0;
+  --color-pc-shade: #35688c;
+  --color-pc-bore: #d5e4ef;
+  --color-pc-core: #e7f4fb;
+  --color-pc-spark: #7ee0ff;
   --color-pc-onflow: #04202c;
-  --color-pc-onstart: #04202c;
-  --color-pc-lawn: #12304a;
-  --color-pc-soil: #0a1626;
+  --color-pc-onstart: #1d3d56;
+  --color-pc-lawn: #d7e6f2;
+  --color-pc-soil: #c9dcea;
   background:
-    radial-gradient(ellipse 80% 46% at 50% 0%, #1d4e78 0%, transparent 60%),
-    linear-gradient(180deg, #10243a 0%, var(--color-pc-bg) 50%, #081018 100%);
+    radial-gradient(ellipse 80% 50% at 80% 100%, #c9dff0 0%, transparent 55%),
+    linear-gradient(180deg, #f7fbfe 0%, var(--color-pc-bg) 100%);
 }
 
 .path-connect[data-theme="fire"] {
-  --color-pc-bg: #f6d2c4;
-  --color-pc-wall: #fbe4da;
-  --color-pc-tray: #fff7f3;
-  --color-pc-tile: #fffdfb;
-  --color-pc-edge: #efc2b4;
-  --color-pc-fg: #3a1612;
-  --color-pc-muted: #8a5348;
-  --color-pc-flow: #e23b2f;
+  --color-pc-bg: #f8e6df;
+  --color-pc-wall: #fff6f2;
+  --color-pc-tray: #fff8f5;
+  --color-pc-tile: #f8eee9;
+  --color-pc-edge: #f0d4cb;
+  --color-pc-fg: #6b2e28;
+  --color-pc-muted: #a56a60;
+  --color-pc-flow: #e07a3a;
   --color-pc-start: #ffb020;
-  --color-pc-accent: #c52822;
-  --color-pc-casing: #8d3b32;
-  --color-pc-bore: #efb2a6;
-  --color-pc-core: #f6ddd4;
-  --color-pc-spark: #fff1ea;
-  --color-pc-onflow: #fff7f4;
-  --color-pc-onstart: #3a2208;
-  --color-pc-lawn: #f0b8a8;
-  --color-pc-soil: #e7a090;
+  --color-pc-accent: #c4544c;
+  --color-pc-casing: #d4655a;
+  --color-pc-shade: #b04a42;
+  --color-pc-bore: #f0d0c8;
+  --color-pc-core: #f8e4dc;
+  --color-pc-spark: #ffb15a;
+  --color-pc-onflow: #3a1612;
+  --color-pc-onstart: #6b2e28;
+  --color-pc-lawn: #f6ddd4;
+  --color-pc-soil: #efc8bc;
   background:
-    linear-gradient(180deg, #f8ddd2 0%, var(--color-pc-bg) 38%, #e7b5a4 100%);
+    radial-gradient(ellipse 80% 50% at 80% 100%, #f3cfc4 0%, transparent 55%),
+    linear-gradient(180deg, #fff6f2 0%, var(--color-pc-bg) 100%);
 }
 
 .path-connect[data-style="beams"] {
@@ -1009,6 +1011,259 @@
   100% {
     transform: scale(1.35);
     opacity: 0;
+  }
+}
+
+.path-connect[data-style="cozy"] .pc-brand {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.path-connect[data-style="cozy"] .pc-brand h1 {
+  margin: 0;
+  font-size: 2rem;
+  font-weight: 700;
+  letter-spacing: -0.04em;
+  line-height: 1;
+  color: var(--color-pc-fg);
+}
+
+.path-connect[data-style="cozy"] .pc-theme-name {
+  margin: 2px 0 0;
+  font-size: 1.25rem;
+  font-weight: 700;
+  color: var(--color-pc-accent);
+}
+
+.path-connect[data-style="cozy"] .pc-mark-icon {
+  width: 42px;
+  height: 38px;
+}
+
+.path-connect[data-style="cozy"] .pc-modes {
+  justify-content: flex-start;
+  margin-top: 12px;
+  background: color-mix(in oklab, white 55%, var(--color-pc-tile));
+  box-shadow: inset 0 1px 0 white, 0 6px 14px -12px rgb(92 58 36 / 0.4);
+}
+
+.path-connect[data-style="cozy"] .pc-meter {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  border-radius: 999px;
+  background: var(--color-pc-tray);
+  padding: 6px 14px 6px 10px;
+  box-shadow:
+    inset 0 1px 0 white,
+    0 8px 18px -14px rgb(92 58 36 / 0.45);
+}
+
+.path-connect[data-style="cozy"] .pc-meter .pc-glyph {
+  width: 22px;
+  height: 26px;
+  flex: none;
+}
+
+.path-connect[data-style="cozy"] .pc-meter-track {
+  position: relative;
+  flex: 1;
+  height: 14px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-pc-edge) 80%, white);
+}
+
+.path-connect[data-style="cozy"] .pc-meter-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(180deg, #ffe08a, var(--color-pc-flow));
+}
+
+.path-connect[data-style="cozy"] .pc-meter-count {
+  font-weight: 700;
+  color: var(--color-pc-fg);
+}
+
+.path-connect[data-style="cozy"] .pc-scene {
+  overflow: visible;
+  padding: 0;
+  background: transparent;
+  box-shadow: none;
+}
+
+.path-connect[data-style="cozy"] .pc-tray {
+  border-radius: 28px;
+  background: var(--color-pc-tray);
+  padding: 14px;
+  box-shadow:
+    inset 0 1px 0 white,
+    0 18px 30px -22px rgb(92 58 36 / 0.35);
+}
+
+.path-connect[data-style="cozy"] .pc-board {
+  gap: 8px;
+  overflow: visible;
+}
+
+.path-connect[data-style="cozy"] .pc-tile,
+.path-connect[data-style="cozy"] .pc-tile[data-live="true"],
+.path-connect[data-style="cozy"] .pc-tile[data-charged="true"],
+.path-connect[data-style="cozy"] .pc-tile[data-role="end"][data-fed="true"],
+.path-connect[data-style="cozy"] .pc-tile[data-role="start"],
+.path-connect[data-style="cozy"] .pc-tile[data-role="end"] {
+  overflow: visible;
+  border-radius: 18px;
+  background: linear-gradient(
+    180deg,
+    color-mix(in oklab, white 72%, var(--color-pc-tile)) 0%,
+    var(--color-pc-tile) 58%,
+    color-mix(in oklab, var(--color-pc-edge) 65%, var(--color-pc-tile)) 100%
+  );
+  box-shadow:
+    inset 0 1px 0 white,
+    0 2px 0 color-mix(in oklab, var(--color-pc-shade) 28%, white),
+    0 8px 14px -10px rgb(92 58 36 / 0.45);
+}
+
+.path-connect[data-style="cozy"] .pc-depth {
+  filter: none;
+  overflow: visible;
+}
+
+.path-connect[data-style="cozy"] .pc-spin {
+  overflow: visible;
+}
+
+.path-connect[data-style="cozy"] .pc-mute {
+  width: 40px;
+  height: 40px;
+  min-height: 40px;
+  border-radius: 999px;
+  background: var(--color-pc-tray);
+  color: var(--color-pc-accent);
+  box-shadow:
+    inset 0 1px 0 white,
+    0 6px 12px -10px rgb(92 58 36 / 0.45);
+}
+
+.path-connect[data-style="cozy"] .pc-mute svg {
+  width: 20px;
+  height: 20px;
+}
+
+.path-connect[data-style="cozy"] .pc-glyph {
+  width: 46px;
+  height: 54px;
+  overflow: visible;
+  filter: none;
+}
+
+.path-connect[data-style="cozy"] .pc-glyph.is-on {
+  filter: drop-shadow(0 0 6px var(--color-pc-spark)) drop-shadow(0 0 14px var(--color-pc-flow));
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-phase="flow"] .pc-tile[data-live="true"],
+.path-connect[data-style="cozy"] .pc-shell[data-phase="won"] .pc-tile[data-live="true"] {
+  transform: none;
+  filter: none;
+  animation: none;
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-phase="flow"] .pc-tray,
+.path-connect[data-style="cozy"] .pc-shell[data-phase="won"] .pc-tray {
+  box-shadow:
+    inset 0 1px 0 white,
+    0 0 0 2px color-mix(in oklab, var(--color-pc-flow) 40%, transparent),
+    0 18px 30px -22px rgb(92 58 36 / 0.35);
+}
+
+.path-connect[data-style="cozy"] .pc-flash {
+  mix-blend-mode: normal;
+  background: radial-gradient(
+    circle at 50% 48%,
+    color-mix(in oklab, var(--color-pc-spark) 70%, transparent) 0%,
+    transparent 60%
+  );
+}
+
+.path-connect[data-style="cozy"] .pc-plant.is-fed {
+  transform: none;
+  animation: none;
+}
+
+.path-connect[data-style="cozy"] .pc-source .pc-mark-icon {
+  width: 28px;
+  height: 26px;
+}
+
+.path-connect[data-style="cozy"] .pc-tip {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 0;
+  border-radius: 18px;
+  background: color-mix(in oklab, white 40%, var(--color-pc-tray));
+  padding: 12px 14px;
+  box-shadow: inset 0 1px 0 white;
+}
+
+.path-connect[data-style="cozy"] .pc-tip .pc-glyph {
+  width: 22px;
+  height: 26px;
+  flex: none;
+}
+
+.path-connect[data-style="cozy"] .pc-actions {
+  gap: 10px;
+}
+
+.path-connect[data-style="cozy"] .pc-actions button {
+  min-height: 52px;
+  justify-content: flex-start;
+  gap: 10px;
+  border: 0;
+  border-radius: 16px;
+  background: var(--color-pc-tray);
+  color: var(--color-pc-accent);
+  font-weight: 700;
+  box-shadow:
+    inset 0 1px 0 white,
+    0 8px 16px -12px rgb(92 58 36 / 0.5);
+}
+
+.path-connect[data-style="cozy"] .pc-actions button svg {
+  color: var(--color-pc-accent);
+}
+
+.path-connect[data-style="cozy"] .pc-corner {
+  display: none;
+}
+
+@media (min-width: 960px) {
+  .path-connect[data-style="cozy"] .pc-actions {
+    grid-template-columns: 1fr;
+  }
+
+  .path-connect[data-style="cozy"] .pc-actions .col-span-3 {
+    grid-column: auto;
+  }
+
+  .path-connect[data-style="cozy"] .pc-corner {
+    display: block;
+    position: fixed;
+    right: 24px;
+    bottom: 12px;
+    z-index: 0;
+    pointer-events: none;
+  }
+
+  .path-connect[data-style="cozy"] .pc-corner-art {
+    width: 140px;
+    height: auto;
   }
 }
 

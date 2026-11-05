@@ -22,7 +22,7 @@ export interface CircuitTheme {
   live: string;
   /** Sentence under the level-complete title. */
   complete: string;
-  conduit: "trace";
+  conduit: "pipe";
 }
 
 export const THEMES: readonly CircuitTheme[] = [
@@ -34,10 +34,10 @@ export const THEMES: readonly CircuitTheme[] = [
     source: "Breaker",
     node: "light",
     nodePlural: "lights",
-    rule: "Turn a tile a quarter turn. A light comes on only when the wires face each other all the way from the breaker.",
-    live: "The circuit is live.",
+    rule: "Turn a tile a quarter turn. A light comes on only when the pipes face each other all the way from the breaker.",
+    live: "The lights are coming on.",
     complete: "Every light is on.",
-    conduit: "trace",
+    conduit: "pipe",
   },
   {
     id: "alarm",
@@ -47,10 +47,10 @@ export const THEMES: readonly CircuitTheme[] = [
     source: "Panel",
     node: "sensor",
     nodePlural: "sensors",
-    rule: "Turn a tile a quarter turn. A sensor arms only when the wires face each other all the way from the panel.",
-    live: "The loop is live.",
+    rule: "Turn a tile a quarter turn. A sensor arms only when the pipes face each other all the way from the panel.",
+    live: "The sensors are arming.",
     complete: "Every sensor is armed.",
-    conduit: "trace",
+    conduit: "pipe",
   },
   {
     id: "fire",
@@ -60,10 +60,10 @@ export const THEMES: readonly CircuitTheme[] = [
     source: "Fire panel",
     node: "detector",
     nodePlural: "detectors",
-    rule: "Turn a tile a quarter turn. A detector arms only when the wires face each other all the way from the fire panel.",
-    live: "The alarm circuit is live.",
+    rule: "Turn a tile a quarter turn. A detector arms only when the pipes face each other all the way from the fire panel.",
+    live: "The detectors are arming.",
     complete: "Every detector is armed.",
-    conduit: "trace",
+    conduit: "pipe",
   },
 ];
 

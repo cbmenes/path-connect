@@ -1,19 +1,5 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import {
-  ArrowRight,
-  Bell,
-  Flame,
-  Lamp,
-  Lightbulb,
-  Shield,
-  Siren,
-  Zap,
-  RotateCcw,
-  Undo2,
-  Volume2,
-  VolumeX,
-  type LucideIcon,
-} from "lucide-react";
+import { ArrowRight, Lightbulb, RotateCcw, Undo2, Volume2, VolumeX } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DAILY_SECONDS,
@@ -66,12 +52,6 @@ interface Charge {
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
-const MARKS: Record<ThemeId, { source: LucideIcon; node: LucideIcon }> = {
-  lights: { source: Zap, node: Lamp },
-  alarm: { source: Shield, node: Bell },
-  fire: { source: Flame, node: Siren },
-};
-
 /**
  * Rotate every tile, including the panel and the nodes, until each node is
  * powered. Hint and undo stay as notes: they do not change the board yet.
@@ -108,7 +88,6 @@ export function PathConnectGame() {
   const boardRef = useRef<HTMLDivElement>(null);
   const centersRef = useRef<Point[]>([]);
   const theme = themeById(level.theme);
-  const marks = MARKS[theme.id];
   const lastLevel = levelId === LEVELS.length;
   const linked = linkedIndexes(level, spins);
   const network = reachTargets(boardCells(level, spins));
@@ -116,6 +95,7 @@ export function PathConnectGame() {
   const charged = new Set(network.paths.flat());
   const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
+  const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
 
   useEffect(() => {
     setBest(readBest(todayKey));
@@ -346,52 +326,21 @@ export function PathConnectGame() {
           : note;
 
   return (
-    <div className="path-connect min-h-dvh" data-style="wires" data-theme={theme.id}>
+    <div className="path-connect min-h-dvh" data-style="cozy" data-theme={theme.id}>
+      <Corner theme={theme.id} />
       <main className="pc-shell" data-phase={phase} data-level={levelId} data-mode={mode}>
-        <header className="pc-head flex items-start justify-between gap-3">
-          <div>
-            <p className="pc-kicker">{theme.kicker}</p>
-            <h1 className="text-2xl font-semibold tracking-tight">Path Connect</h1>
-            <p className="mt-1 max-w-xs text-sm text-pc-muted text-pretty">{theme.rule}</p>
-            <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
-              <button
-                type="button"
-                aria-pressed={mode === "levels"}
-                className={mode === "levels" ? "is-on" : undefined}
-                onClick={() => switchMode("levels")}
-              >
-                Levels
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode === "daily"}
-                className={mode === "daily" ? "is-on" : undefined}
-                onClick={() => switchMode("daily")}
-              >
-                Daily
-              </button>
+        <header className="pc-head">
+          <div className="pc-brand">
+            <ThemeMark theme={theme.id} />
+            <div>
+              <h1>Path Connect</h1>
+              <p className="pc-theme-name">{theme.title}</p>
             </div>
-          </div>
-          <div className="flex items-center gap-2">
-            {mode === "daily" ? (
-              <p
-                className="pc-timer tabular whitespace-nowrap text-sm font-semibold"
-                data-low={secondsLeft <= 15 && phase === "play"}
-                aria-live="polite"
-              >
-                {formatClock(secondsLeft)}
-              </p>
-            ) : (
-              <p className="tabular whitespace-nowrap text-sm font-medium text-pc-fg">
-                {levelId}
-                <span className="text-pc-muted"> / {LEVELS.length}</span>
-              </p>
-            )}
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="border border-pc-edge bg-pc-tile text-pc-fg hover:bg-pc-edge hover:text-pc-fg"
+              className="pc-mute ml-auto border-0 bg-transparent text-pc-accent hover:bg-transparent hover:text-pc-fg"
               aria-label={muted ? "Unmute sound" : "Mute sound"}
               aria-pressed={muted}
               onClick={() => setMuted((value) => !value)}
@@ -399,32 +348,69 @@ export function PathConnectGame() {
               {muted ? <VolumeX /> : <Volume2 />}
             </Button>
           </div>
+          <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
+            <button
+              type="button"
+              aria-pressed={mode === "levels"}
+              className={mode === "levels" ? "is-on" : undefined}
+              onClick={() => switchMode("levels")}
+            >
+              Levels
+            </button>
+            <button
+              type="button"
+              aria-pressed={mode === "daily"}
+              className={mode === "daily" ? "is-on" : undefined}
+              onClick={() => switchMode("daily")}
+            >
+              Daily
+            </button>
+          </div>
         </header>
 
-        <section className="pc-level flex items-end justify-between gap-3">
-          <div>
-            <h2 className="text-lg font-semibold tracking-tight">
-              {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
-            </h2>
-            <p className="text-sm text-pc-muted text-pretty">{level.blurb}</p>
-            {mode === "daily" && (
-              <p className="pc-best mt-1 text-sm text-pc-fg">
-                {best
-                  ? `Best today: ${formatClock(best.secondsLeft)} left · ${best.turns} ${best.turns === 1 ? "turn" : "turns"}`
-                  : "Best today: not set"}
-              </p>
-            )}
-          </div>
-          <p className="tabular shrink-0 text-right text-sm text-pc-muted">
-            <span className="block font-medium text-pc-fg">
-              {fed.size}/{nodeTotal} {nodeWord} connected
+        <section className="pc-level">
+          <div className="pc-meter" aria-label={`${fed.size} of ${nodeTotal} ${nodeWord} connected`}>
+            <NodeGlyph theme={theme.id} on={fed.size > 0} />
+            <span className="pc-meter-track">
+              <span className="pc-meter-fill" style={{ width: `${meter}%` }} />
             </span>
-            {moves} {moves === 1 ? "turn" : "turns"}
-          </p>
+            <span className="pc-meter-count tabular">
+              {fed.size} / {nodeTotal}
+            </span>
+          </div>
+          <div className="mt-3 flex items-end justify-between gap-3">
+            <div>
+              <h2 className="text-lg font-semibold tracking-tight">
+                {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
+              </h2>
+              <p className="text-sm text-pc-muted text-pretty">{level.blurb}</p>
+              {mode === "daily" && (
+                <p className="pc-best mt-1 text-sm text-pc-fg">
+                  {best
+                    ? `Best today: ${formatClock(best.secondsLeft)} left · ${best.turns} ${best.turns === 1 ? "turn" : "turns"}`
+                    : "Best today: not set"}
+                </p>
+              )}
+            </div>
+            <p className="tabular shrink-0 text-right text-sm font-semibold text-pc-accent">
+              {mode === "daily" ? (
+                <span className="pc-timer" data-low={secondsLeft <= 15 && phase === "play"}>
+                  {formatClock(secondsLeft)}
+                </span>
+              ) : (
+                <>
+                  {levelId}
+                  <span className="text-pc-muted"> / {LEVELS.length}</span>
+                </>
+              )}
+              <span className="mt-1 block text-xs font-medium text-pc-muted">
+                {moves} {moves === 1 ? "turn" : "turns"}
+              </span>
+            </p>
+          </div>
         </section>
 
         <div className="pc-scene pc-board-wrap" data-room={theme.id}>
-          <Room theme={theme.id} />
           <div className="pc-tray">
           <div
             ref={boardRef}
@@ -449,7 +435,7 @@ export function PathConnectGame() {
                   ? `Turn ${theme.source}, ${place}`
                   : tile.role === "end"
                     ? `${powered ? "Powered" : "Turn"} ${theme.node}, ${place}`
-                    : `Turn wire, ${place}`;
+                    : `Turn pipe, ${place}`;
               return (
                 <button
                   key={`${level.id}-${index}`}
@@ -481,13 +467,13 @@ export function PathConnectGame() {
                     </span>
                   </span>
                   {tile.role === "start" && (
-                    <span className="pc-mark text-pc-onstart">
-                      <marks.source className="size-4" strokeWidth={2.5} />
+                    <span className="pc-mark pc-source">
+                      <SourceGlyph theme={theme.id} />
                     </span>
                   )}
                   {tile.role === "end" && (
                     <span className={powered ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
-                      <marks.node className="size-5" strokeWidth={2.25} />
+                      <NodeGlyph theme={theme.id} on={powered || order >= 0} />
                     </span>
                   )}
                 </button>
@@ -523,18 +509,9 @@ export function PathConnectGame() {
           </div>
         </div>
 
-        <div className="pc-legend flex items-center gap-4 text-sm text-pc-muted">
-          <span className="inline-flex items-center gap-2">
-            <span className="pc-swatch pc-swatch-start" />
-            {theme.source}
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <span className="pc-swatch pc-swatch-end" />
-            {theme.nodePlural}
-          </span>
-        </div>
-
-        <p className="pc-status text-sm text-pretty" aria-live="polite">
+        <p className="pc-status pc-tip text-sm text-pretty" aria-live="polite">
+          <NodeGlyph theme={theme.id} on={phase === "won" || phase === "flow"} />
+          <span>
           {phase === "won" ? (
             <>
               <span className="block text-base font-semibold tracking-tight text-pc-flow">
@@ -543,8 +520,9 @@ export function PathConnectGame() {
               <span className="text-pc-muted">{status}</span>
             </>
           ) : (
-            <span className="text-pc-muted">{status}</span>
+            <span className="text-pc-muted">{status ?? theme.rule}</span>
           )}
+          </span>
         </p>
 
         <div className="pc-actions grid grid-cols-3 gap-2">
@@ -602,31 +580,107 @@ export function PathConnectGame() {
   );
 }
 
-function Room({ theme }: { theme: ThemeId }) {
-  if (theme === "alarm") {
-    return (
-      <div className="pc-room" aria-hidden="true">
-        <span className="pc-camera" />
-        <span className="pc-keypad" />
-        <span className="pc-led" />
-      </div>
-    );
-  }
-  if (theme === "fire") {
-    return (
-      <div className="pc-room" aria-hidden="true">
-        <span className="pc-exit">Exit</span>
-        <span className="pc-pull" />
-        <span className="pc-stripe" />
-      </div>
-    );
-  }
+function Corner({ theme }: { theme: ThemeId }) {
   return (
-    <div className="pc-room" aria-hidden="true">
-      <span className="pc-window" />
-      <span className="pc-sconce" />
-      <span className="pc-base" />
+    <div className="pc-corner" aria-hidden="true">
+      {theme === "alarm" ? <BuildingArt /> : theme === "fire" ? <SchoolArt /> : <HouseArt />}
     </div>
+  );
+}
+
+function ThemeMark({ theme }: { theme: ThemeId }) {
+  if (theme === "alarm") return <BuildingArt small />;
+  if (theme === "fire") return <SchoolArt small />;
+  return <HouseArt small />;
+}
+
+function SourceGlyph({ theme }: { theme: ThemeId }) {
+  return <ThemeMark theme={theme} />;
+}
+
+function NodeGlyph({ theme, on }: { theme: ThemeId; on: boolean }) {
+  if (theme === "alarm") return <Sensor on={on} />;
+  if (theme === "fire") return <Horn on={on} />;
+  return <Bulb on={on} />;
+}
+
+function Bulb({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 48 58" className={on ? "pc-glyph is-on" : "pc-glyph"}>
+      <path
+        d="M24 3c-10 0-16 8-16 17.2 0 6.2 3.4 10.4 6.4 13.4 1.2 1.2 2 2.8 2 4.6V42h15.2v-3.8c0-1.8.8-3.4 2-4.6 3-3 6.4-7.2 6.4-13.4C40 11 34 3 24 3z"
+        fill={on ? "#ffe14a" : "#f6d48a"}
+        stroke={on ? "#e8a23a" : "var(--color-pc-shade)"}
+        strokeWidth="1.8"
+      />
+      <path
+        d="M24 10c-4.2 4.6-3.2 9 0 13.4 4.2-4.4 5.2-8.8 0-13.4z"
+        fill={on ? "white" : "#fff6df"}
+        opacity={on ? 0.9 : 0.7}
+      />
+      <rect x="16" y="43" width="16" height="4" rx="1.2" fill="var(--color-pc-shade)" />
+      <rect x="17.5" y="48" width="13" height="3" rx="1" fill="var(--color-pc-casing)" />
+      <rect x="19" y="52" width="10" height="2.6" rx="1" fill="var(--color-pc-shade)" />
+    </svg>
+  );
+}
+
+function Sensor({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
+      <rect x="8" y="12" width="32" height="28" rx="8" fill="var(--color-pc-casing)" />
+      <rect x="12" y="16" width="24" height="20" rx="6" fill="#f4f8fb" />
+      <circle cx="24" cy="26" r="6.5" fill={on ? "#7ee0ff" : "#8eafc4"} stroke="var(--color-pc-shade)" strokeWidth="1.4" />
+      {on && <circle cx="21.6" cy="23.6" r="2" fill="white" />}
+    </svg>
+  );
+}
+
+function Horn({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
+      <path d="M8 20h12l14-9v30L20 32H8a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3z" fill="var(--color-pc-casing)" />
+      <circle cx="38" cy="26" r="5" fill={on ? "#ffe14a" : "#f3d2c8"} stroke="var(--color-pc-shade)" strokeWidth="1.4" />
+      <rect x="6" y="22" width="4" height="8" rx="1" fill="var(--color-pc-shade)" />
+    </svg>
+  );
+}
+
+function HouseArt({ small = false }: { small?: boolean }) {
+  return (
+    <svg viewBox="0 0 80 72" className={small ? "pc-mark-icon" : "pc-corner-art"}>
+      <path d="M8 34 40 8l32 26v30a4 4 0 0 1-4 4H12a4 4 0 0 1-4-4V34z" fill="#f4d7b0" />
+      <path d="M4 36 40 4l36 32" fill="none" stroke="#c47a45" strokeWidth="6" strokeLinejoin="round" />
+      <rect x="33" y="40" width="14" height="22" rx="2" fill="#a86a3a" />
+      <rect x="18" y="40" width="10" height="10" rx="1.5" fill="#ffe7a3" />
+      <rect x="52" y="40" width="10" height="10" rx="1.5" fill="#ffe7a3" />
+    </svg>
+  );
+}
+
+function BuildingArt({ small = false }: { small?: boolean }) {
+  return (
+    <svg viewBox="0 0 80 72" className={small ? "pc-mark-icon" : "pc-corner-art"}>
+      <rect x="16" y="16" width="48" height="50" rx="4" fill="#d5e6f4" />
+      <rect x="24" y="24" width="8" height="8" rx="1" fill="#7ec8ea" />
+      <rect x="36" y="24" width="8" height="8" rx="1" fill="#7ec8ea" />
+      <rect x="48" y="24" width="8" height="8" rx="1" fill="#7ec8ea" />
+      <rect x="24" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
+      <rect x="36" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
+      <rect x="48" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
+      <rect x="34" y="50" width="12" height="16" rx="1" fill="#4f86b0" />
+    </svg>
+  );
+}
+
+function SchoolArt({ small = false }: { small?: boolean }) {
+  return (
+    <svg viewBox="0 0 80 72" className={small ? "pc-mark-icon" : "pc-corner-art"}>
+      <path d="M8 36 40 14l32 22v28H8V36z" fill="#f6d2c8" />
+      <path d="M6 38 40 12l34 26" fill="none" stroke="#d4655a" strokeWidth="6" strokeLinejoin="round" />
+      <rect x="34" y="40" width="12" height="20" rx="1" fill="#c4544c" />
+      <circle cx="40" cy="22" r="4" fill="#ffd56a" />
+    </svg>
   );
 }
 

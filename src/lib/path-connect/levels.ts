@@ -59,7 +59,7 @@ const SPECS: readonly LevelSpec[] = [
   {
     id: 1,
     name: "Porch light",
-    blurb: "One light. The fixture and two wires are turned.",
+    blurb: "One light. The fixture and two pipes are turned.",
     theme: "lights",
     routes: [[[2, 0], [2, 1], [2, 2], [2, 3], [2, 4]]],
     scramble: { "2,1": 1, "2,2": 1, "2,4": 3 },
@@ -78,7 +78,7 @@ const SPECS: readonly LevelSpec[] = [
   {
     id: 3,
     name: "Side lights",
-    blurb: "Carry the wire across, then up and down.",
+    blurb: "Carry the pipe across, then up and down.",
     theme: "lights",
     routes: [
       [[2, 0], [2, 1], [2, 2], [2, 3], [1, 3], [1, 4]],
@@ -161,7 +161,7 @@ const SPECS: readonly LevelSpec[] = [
   {
     id: 10,
     name: "Full wing",
-    blurb: "Four detectors, and almost every wire starts turned.",
+    blurb: "Four detectors, and almost every pipe starts turned.",
     theme: "fire",
     routes: [
       [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [2, 3]],
