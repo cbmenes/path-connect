@@ -447,16 +447,18 @@ export function PathConnectGame() {
                   style={{ "--delay": order >= 0 ? `${order * 180}ms` : "0ms" } as CSSProperties}
                   onClick={() => onRotate(index)}
                 >
-                  <span
-                    className={motionOn ? "pc-spin" : "pc-spin pc-spin-off"}
-                    style={{ transform: `rotate(${spin * 90}deg)` }}
-                  >
-                    <TileArt
-                      kind={tile.kind}
-                      conduit={style.conduit}
-                      live={order >= 0}
-                      hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
-                    />
+                  <span className="pc-depth">
+                    <span
+                      className={motionOn ? "pc-spin" : "pc-spin pc-spin-off"}
+                      style={{ transform: `rotate(${spin * 90}deg)` }}
+                    >
+                      <TileArt
+                        kind={tile.kind}
+                        conduit={style.conduit}
+                        live={order >= 0}
+                        hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
+                      />
+                    </span>
                   </span>
                   {tile.role === "start" && (
                     <span className="pc-mark text-pc-onstart">
@@ -495,9 +497,7 @@ export function PathConnectGame() {
                 />
               </>
             )}
-            {style.conduit === "trace" && phase === "won" && (
-              <span className="pc-flash" aria-hidden="true" />
-            )}
+            {phase === "won" && <span className="pc-flash" aria-hidden="true" />}
           </div>
         </div>
 

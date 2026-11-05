@@ -245,21 +245,26 @@
 
 .pc-tray {
   border-radius: 28px;
-  background: var(--color-pc-tray);
+  background:
+    linear-gradient(180deg, color-mix(in oklab, black 16%, var(--color-pc-tray)), var(--color-pc-tray) 42%);
   padding: 12px;
   box-shadow:
-    0 0 0 1px color-mix(in oklab, var(--color-pc-fg) 8%, transparent),
-    0 24px 50px -28px rgb(0 0 0 / 0.7);
+    inset 0 14px 22px rgb(0 0 0 / 0.42),
+    inset 0 1px 0 color-mix(in oklab, var(--color-pc-fg) 10%, transparent),
+    0 1px 0 color-mix(in oklab, var(--color-pc-fg) 12%, transparent),
+    0 22px 40px -24px rgb(0 0 0 / 0.75);
 }
 
 .path-connect[data-style="wires"] .pc-tray {
   border-radius: 18px;
   background:
     linear-gradient(160deg, color-mix(in oklab, var(--color-pc-flow) 10%, transparent), transparent 36%),
-    var(--color-pc-tray);
+    linear-gradient(180deg, color-mix(in oklab, black 22%, var(--color-pc-tray)), var(--color-pc-tray) 48%);
   box-shadow:
+    inset 0 14px 22px rgb(0 0 0 / 0.5),
+    inset 0 1px 0 color-mix(in oklab, var(--color-pc-flow) 28%, transparent),
     0 0 0 1px color-mix(in oklab, var(--color-pc-flow) 45%, transparent),
-    inset 0 0 0 1px color-mix(in oklab, var(--color-pc-accent) 28%, transparent);
+    0 18px 36px -22px rgb(0 0 0 / 0.8);
 }
 
 .path-connect[data-style="wires"] .pc-tile {
@@ -270,49 +275,84 @@
   letter-spacing: -0.03em;
 }
 
-.path-connect[data-style="wires"] .pc-styles button.is-on {
-  box-shadow: 0 0 16px color-mix(in oklab, var(--color-pc-flow) 45%, transparent);
-}
-
 .pc-board {
   position: relative;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 3px;
+  gap: 5px;
 }
 
 .pc-tile {
+  --pc-lip: 0 3px 0 color-mix(in oklab, black 48%, var(--color-pc-bg));
+  --pc-face:
+    inset 0 1px 0 color-mix(in oklab, white 30%, transparent),
+    inset 0 -8px 10px color-mix(in oklab, black 36%, transparent);
   position: relative;
   aspect-ratio: 1;
   overflow: hidden;
   border-radius: 14px;
-  background: var(--color-pc-tile);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--color-pc-fg) 14%, var(--color-pc-tile)),
+      var(--color-pc-tile) 48%,
+      color-mix(in oklab, black 24%, var(--color-pc-tile))
+    );
   color: var(--color-pc-fg);
+  box-shadow: var(--pc-face), var(--pc-lip);
   touch-action: manipulation;
   user-select: none;
   -webkit-tap-highlight-color: transparent;
+  transition:
+    transform 140ms ease,
+    background 180ms ease;
 }
 
 .pc-tile:hover:not([aria-disabled="true"]) {
-  background: color-mix(in oklab, var(--color-pc-tile) 72%, var(--color-pc-fg));
+  transform: translateY(-1px);
+  background:
+    linear-gradient(
+      165deg,
+      color-mix(in oklab, var(--color-pc-fg) 22%, var(--color-pc-tile)),
+      var(--color-pc-tile) 50%
+    );
 }
 
 .pc-tile:active:not([aria-disabled="true"]) {
-  transform: scale(0.97);
+  transform: translateY(2px);
+  box-shadow:
+    inset 0 5px 8px color-mix(in oklab, black 42%, transparent),
+    0 1px 0 color-mix(in oklab, black 40%, var(--color-pc-bg));
 }
 
 .pc-tile[data-role="start"] {
-  box-shadow: inset 0 0 0 2px var(--color-pc-start);
+  box-shadow:
+    inset 0 0 0 2px var(--color-pc-start),
+    var(--pc-face),
+    var(--pc-lip);
 }
 
 .pc-tile[data-role="end"] {
-  box-shadow: inset 0 0 0 2px var(--color-pc-flow);
+  box-shadow:
+    inset 0 0 0 2px var(--color-pc-flow),
+    var(--pc-face),
+    var(--pc-lip);
 }
 
 .pc-tile[data-live="true"] {
   background: color-mix(in oklab, var(--color-pc-flow) 28%, var(--color-pc-tile));
-  transition: background 180ms ease;
   transition-delay: var(--delay, 0ms);
+}
+
+.pc-depth {
+  position: absolute;
+  inset: 0;
+  display: block;
+  filter: drop-shadow(0 3px 0 color-mix(in oklab, black 55%, var(--color-pc-casing)));
+}
+
+.path-connect[data-style="wires"] .pc-depth {
+  filter: drop-shadow(0 2px 0 rgb(0 0 0 / 0.85));
 }
 
 .pc-spin {
@@ -377,8 +417,10 @@
 .path-connect[data-style="wires"] .pc-tile[data-live="true"] {
   background: color-mix(in oklab, var(--color-pc-flow) 46%, #07040c);
   box-shadow:
-    inset 0 0 22px color-mix(in oklab, var(--color-pc-flow) 70%, transparent),
-    0 0 16px color-mix(in oklab, var(--color-pc-flow) 45%, transparent);
+    inset 0 1px 0 color-mix(in oklab, white 35%, transparent),
+    inset 0 0 18px color-mix(in oklab, var(--color-pc-flow) 65%, transparent),
+    0 0 14px color-mix(in oklab, var(--color-pc-flow) 40%, transparent),
+    var(--pc-lip);
 }
 
 .path-connect[data-style="wires"] .pc-tile[data-live="true"] .pc-bore-live,
@@ -409,9 +451,22 @@
   filter: drop-shadow(0 0 3px color-mix(in oklab, var(--color-pc-flow) 70%, transparent));
 }
 
+.pc-shell[data-phase="flow"] .pc-tile[data-live="true"],
+.pc-shell[data-phase="won"] .pc-tile[data-live="true"] {
+  transform: translateY(-2px);
+  animation: pc-path-power 0.7s ease-out both;
+  animation-delay: var(--delay, 0ms);
+}
+
+.pc-shell[data-phase="won"] .pc-tile[data-live="true"] .pc-stream {
+  opacity: 1;
+  animation-duration: 0.32s;
+}
+
 .pc-shell[data-phase="flow"] .pc-tray,
 .pc-shell[data-phase="won"] .pc-tray {
   box-shadow:
+    inset 0 14px 22px rgb(0 0 0 / 0.42),
     0 0 0 1px color-mix(in oklab, var(--color-pc-flow) 55%, transparent),
     0 0 36px -8px color-mix(in oklab, var(--color-pc-flow) 70%, transparent);
 }
@@ -430,6 +485,24 @@
   animation: pc-tray-hit 0.7s ease-out;
 }
 
+.pc-shell[data-phase="flow"] .pc-tile[data-live="true"]::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  z-index: 3;
+  pointer-events: none;
+  background: linear-gradient(
+    105deg,
+    transparent 30%,
+    color-mix(in oklab, var(--color-pc-spark) 75%, var(--color-pc-flow)) 50%,
+    transparent 70%
+  );
+  background-size: 220% 100%;
+  mix-blend-mode: screen;
+  animation: pc-tile-sheen 0.5s ease-out both;
+  animation-delay: var(--delay, 0ms);
+}
+
 .pc-flash {
   position: absolute;
   inset: -6px;
@@ -437,13 +510,13 @@
   border-radius: 28px;
   pointer-events: none;
   background: radial-gradient(
-    circle at 78% 46%,
-    white 0%,
-    color-mix(in oklab, var(--color-pc-flow) 75%, white) 16%,
-    transparent 58%
+    circle at 50% 48%,
+    var(--color-pc-spark) 0%,
+    color-mix(in oklab, var(--color-pc-flow) 70%, var(--color-pc-spark)) 18%,
+    transparent 62%
   );
   mix-blend-mode: screen;
-  animation: pc-power 0.55s ease-out forwards;
+  animation: pc-power 0.7s ease-out forwards;
 }
 
 .pc-mark {
@@ -463,8 +536,13 @@
   width: 18px;
   height: 18px;
   border-radius: 999px;
-  background: var(--color-pc-spark);
+  background: radial-gradient(
+    circle at 35% 30%,
+    var(--color-pc-spark),
+    var(--color-pc-flow) 62%
+  );
   box-shadow:
+    0 2px 0 color-mix(in oklab, black 35%, var(--color-pc-flow)),
     0 0 0 6px color-mix(in oklab, var(--color-pc-flow) 50%, transparent),
     0 0 22px 4px var(--color-pc-flow);
   pointer-events: none;
@@ -515,8 +593,24 @@
   display: flex;
   gap: 4px;
   border-radius: 999px;
-  background: var(--color-pc-tile);
+  background: color-mix(in oklab, black 18%, var(--color-pc-tile));
   padding: 4px;
+  box-shadow:
+    inset 0 2px 5px rgb(0 0 0 / 0.35),
+    0 1px 0 color-mix(in oklab, white 12%, transparent);
+}
+
+.path-connect .pc-actions button,
+.path-connect .pc-head button {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 18%, transparent),
+    0 2px 0 color-mix(in oklab, black 42%, var(--color-pc-bg));
+}
+
+.path-connect .pc-actions button:active,
+.path-connect .pc-head button:active {
+  transform: translateY(1px);
+  box-shadow: inset 0 2px 4px rgb(0 0 0 / 0.35);
 }
 
 .pc-styles button {
@@ -531,6 +625,20 @@
 .pc-styles button.is-on {
   background: var(--color-pc-flow);
   color: var(--color-pc-onflow);
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 40%, transparent),
+    0 2px 0 color-mix(in oklab, black 35%, var(--color-pc-flow));
+}
+
+.path-connect[data-style="wires"] .pc-styles button.is-on {
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 45%, transparent),
+    0 2px 0 color-mix(in oklab, black 40%, var(--color-pc-flow)),
+    0 0 16px color-mix(in oklab, var(--color-pc-flow) 45%, transparent);
+}
+
+.pc-ridge {
+  opacity: 0.55;
 }
 
 .pc-modes {
@@ -598,6 +706,26 @@
   }
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes pc-tile-sheen {
+  from {
+    background-position: 120% 0;
+    opacity: 0.95;
+  }
+  to {
+    background-position: -40% 0;
+    opacity: 0;
+  }
+}
+
+@keyframes pc-path-power {
+  0% {
+    filter: brightness(1.35);
+  }
+  100% {
+    filter: brightness(1);
   }
 }
 

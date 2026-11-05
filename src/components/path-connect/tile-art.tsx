@@ -89,6 +89,20 @@ export function TileArt({
             className={live ? "pc-core pc-core-live" : "pc-core"}
           />
         ))}
+      {conduit === "pipe" &&
+        arms.map((dir) => (
+          <line
+            key={`ridge-${dir}`}
+            x1={50}
+            y1={50}
+            x2={ends[dir][0]}
+            y2={ends[dir][1]}
+            stroke="var(--color-pc-spark)"
+            strokeWidth={4}
+            strokeLinecap={cap}
+            className="pc-ridge"
+          />
+        ))}
       {arms.map((dir) => (
         <line
           key={`stream-${dir}`}
