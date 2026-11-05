@@ -13,6 +13,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { LEVELS, boardCells } from "@/lib/path-connect/levels";
 import {
+  DIRS,
+  GRID_SIZE,
   cellMask,
   findMisrotatedIndex,
   findPath,
@@ -63,7 +65,10 @@ export function PathConnectGame() {
   const boardRef = useRef<HTMLDivElement>(null);
   const centersRef = useRef<Point[]>([]);
   const style = styleById(styleId);
+  const conduitRef = useRef(style.conduit);
+  conduitRef.current = style.conduit;
   const lastLevel = levelId === LEVELS.length;
+  const linked = linkedIndexes(level, spins);
 
   useEffect(() => {
     if (phase !== "flow" || !flowPath || flowPath.length < 2) return;
@@ -81,7 +86,8 @@ export function PathConnectGame() {
     }
 
     const started = performance.now();
-    const span = Math.max(700, (flowPath.length - 1) * 240);
+    const racing = conduitRef.current === "trace";
+    const span = Math.max(racing ? 420 : 700, (flowPath.length - 1) * (racing ? 120 : 240));
     const tick = (now: number) => {
       if (cancelled) return;
       const t = Math.min(1, (now - started) / span);
@@ -99,7 +105,9 @@ export function PathConnectGame() {
         };
         setCharge((prev) => ({
           head,
-          trail: prev ? [prev.head, ...prev.trail].slice(0, 6) : [],
+          trail: prev
+            ? [prev.head, ...prev.trail].slice(0, conduitRef.current === "trace" ? 14 : 6)
+            : [],
         }));
       }
       if (t < 1) frame = requestAnimationFrame(tick);
@@ -269,6 +277,7 @@ export function PathConnectGame() {
                   data-index={index}
                   data-role={tile.role}
                   data-openings={openings}
+                  data-linked={linked.has(index)}
                   data-live={order >= 0}
                   aria-disabled={locked}
                   aria-label={label}
@@ -311,7 +320,7 @@ export function PathConnectGame() {
                     className="pc-bead pc-bead-trail"
                     style={{
                       transform: `translate(${point.x}px, ${point.y}px) translate(-50%, -50%)`,
-                      opacity: Math.max(0.12, 0.55 - index * 0.08),
+                      opacity: Math.max(0.15, 0.85 - index * 0.05),
                     }}
                   />
                 ))}
@@ -322,6 +331,9 @@ export function PathConnectGame() {
                   }}
                 />
               </>
+            )}
+            {style.conduit === "trace" && phase === "won" && (
+              <span className="pc-flash" aria-hidden="true" />
             )}
           </div>
         </div>
@@ -409,6 +421,30 @@ export function PathConnectGame() {
       </main>
     </div>
   );
+}
+
+function linkedIndexes(
+  level: (typeof LEVELS)[number],
+  spins: readonly number[],
+): Set<number> {
+  const cells = boardCells(level, spins);
+  const linked = new Set<number>();
+  cells.forEach((cell, index) => {
+    const mask = cellMask(cell);
+    const { row, col } = rowCol(index);
+    for (const dir of DIRS) {
+      if ((mask & dir.bit) === 0) continue;
+      const nextRow = row + dir.dr;
+      const nextCol = col + dir.dc;
+      if (nextRow < 0 || nextCol < 0 || nextRow >= GRID_SIZE || nextCol >= GRID_SIZE) continue;
+      const neighbor = nextRow * GRID_SIZE + nextCol;
+      const neighborMask = cellMask(cells[neighbor]!);
+      if ((neighborMask & dir.opposite) === 0) continue;
+      linked.add(index);
+      linked.add(neighbor);
+    }
+  });
+  return linked;
 }
 
 function measureCenters(board: HTMLDivElement | null): Point[] {

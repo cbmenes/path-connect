@@ -20,7 +20,7 @@ const WIDTHS: Record<
   { casing: number; bore: number; core: number; hub: number; stream: number }
 > = {
   pipe: { casing: 36, bore: 20, core: 6, hub: 20, stream: 8 },
-  trace: { casing: 24, bore: 14, core: 5, hub: 11, stream: 4 },
+  trace: { casing: 34, bore: 20, core: 8, hub: 16, stream: 7 },
   beam: { casing: 0, bore: 4, core: 0, hub: 4, stream: 2 },
 };
 
@@ -107,12 +107,34 @@ export function TileArt({
             x2={ENDS[dir][0]}
             y2={ENDS[dir][1]}
             stroke="var(--color-pc-spark)"
-            strokeWidth={3}
+            strokeWidth={5}
             strokeLinecap="round"
-            strokeDasharray="2 22"
+            strokeDasharray="4 18"
             className="pc-spark-line"
           />
         ))}
+      {conduit === "trace" &&
+        arms.map((dir) => (
+          <line
+            key={`spark-back-${dir}`}
+            x1={50}
+            y1={50}
+            x2={ENDS[dir][0]}
+            y2={ENDS[dir][1]}
+            stroke="var(--color-pc-flow)"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeDasharray="2 26"
+            className="pc-spark-back"
+          />
+        ))}
+      {conduit === "trace" && live && (
+        <g className="pc-spark-dots" fill="var(--color-pc-spark)">
+          <circle cx={36} cy={40} r={2.2} />
+          <circle cx={64} cy={44} r={1.6} />
+          <circle cx={46} cy={66} r={1.8} />
+        </g>
+      )}
       <Hub
         conduit={conduit}
         hub={hub}
@@ -146,11 +168,11 @@ function Hub({
   const liveClass = live ? "pc-bore pc-bore-live" : "pc-bore";
   if (hub === "start") {
     return (
-      <circle cx={50} cy={50} r={conduit === "pipe" ? 16 : 12} fill="var(--color-pc-start)" />
+      <circle cx={50} cy={50} r={conduit === "pipe" ? 16 : 15} fill="var(--color-pc-start)" />
     );
   }
   if (hub === "end") {
-    const ring = conduit === "pipe" ? 12 : 9;
+    const ring = conduit === "pipe" ? 12 : 12;
     return (
       <>
         <circle cx={50} cy={50} r={ring + 5} fill="var(--color-pc-tile)" />
@@ -160,7 +182,7 @@ function Hub({
           r={ring}
           fill="none"
           stroke="var(--color-pc-flow)"
-          strokeWidth={conduit === "pipe" ? 4.5 : 3.5}
+          strokeWidth={conduit === "pipe" ? 4.5 : 5}
           className="pc-bore"
         />
         <circle cx={50} cy={50} r={ring * 0.38} fill={core} className="pc-core" />
