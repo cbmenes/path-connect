@@ -1,7 +1,7 @@
 {
   "title": "Path Connect",
-  "description": "Turn the tiles and carry the amber current from the breaker until every node lights.",
+  "description": "Turn the cream tiles and carry the amber current from the breaker until every light is on.",
   "type": "x:game",
   "card": "custom",
-  "color": "12151C"
+  "color": "F6EFE4"
 }
