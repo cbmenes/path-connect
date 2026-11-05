@@ -8,7 +8,7 @@ export const Route = createFileRoute("/")({
       { title: "Path Connect" },
       {
         name: "description",
-        content: "Rotate tiles until a path runs from the source to the outlet.",
+        content: "Rotate wire tiles until every node is powered from the panel.",
       },
     ],
   }),

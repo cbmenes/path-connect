@@ -85,7 +85,7 @@ export function rowCol(index: number): { row: number; col: number } {
 }
 
 export interface Reach {
-  /** Target indexes the source can currently water, in board order. */
+  /** Target indexes the source can currently power, in board order. */
   reached: number[];
   complete: boolean;
   /** Shortest mutual-opening path to each reached target, source first. */
@@ -162,7 +162,10 @@ function trace(previous: Map<number, number>, end: number): number[] {
   return path;
 }
 
-/** One tile on the authored route whose openings are not the solution yet. */
+/**
+ * One tile on the authored route whose openings are not the solution yet.
+ * The source and the nodes count: they rotate, and a wrong facing breaks the circuit.
+ */
 export function findMisrotatedIndex(
   cells: readonly {
     kind: Kind;
@@ -173,10 +176,7 @@ export function findMisrotatedIndex(
   }[],
 ): number | null {
   const index = cells.findIndex(
-    (cell) =>
-      cell.onRoute &&
-      cell.role === "play" &&
-      !sameOpenings(cell.kind, cell.rotation, cell.solution),
+    (cell) => cell.onRoute && !sameOpenings(cell.kind, cell.rotation, cell.solution),
   );
   return index < 0 ? null : index;
 }

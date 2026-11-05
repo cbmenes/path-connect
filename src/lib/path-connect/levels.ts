@@ -1,10 +1,13 @@
 /**
- * Ten hand-authored irrigation trees. Each route starts at the spring and
- * ends at a plant. Routes share a trunk, then split at tees. The builder
- * fills the rest of the 5×5 so those fillers do not link to the route, then
- * turns selected tiles clockwise. A level is solvable because the unturned
- * board reaches every plant, and it starts unsolved.
+ * Ten hand-authored wiring trees. Each route starts at the source and ends
+ * at a node. Routes share a trunk, then split at tees. The builder fills the
+ * rest of the 5×5 so those fillers do not link to the route, then turns
+ * selected tiles clockwise. The source and the nodes can be among them.
+ * A level is solvable because the solved board reaches every node, and it
+ * starts unsolved.
  */
+
+import type { ThemeId } from "./styles.ts";
 
 import {
   DIRS,
@@ -33,8 +36,9 @@ export interface Level {
   id: number;
   name: string;
   blurb: string;
+  theme: ThemeId;
   tiles: TileModel[];
-  /** Cells on the solved paths from the spring to every plant, nearest first. */
+  /** Cells on the solved paths from the source to every node, nearest first. */
   solutionPath: number[];
 }
 
@@ -44,7 +48,8 @@ interface LevelSpec {
   id: number;
   name: string;
   blurb: string;
-  /** Each route starts at the spring and ends at one plant. They share a first step. */
+  theme: ThemeId;
+  /** Each route starts at the source and ends at one node. They share a first step. */
   routes: readonly (readonly Coord[])[];
   /** Extra clockwise quarter-turns, keyed "row,col". Omitted tiles stay solved. */
   scramble: Readonly<Record<string, number>>;
@@ -53,25 +58,28 @@ interface LevelSpec {
 const SPECS: readonly LevelSpec[] = [
   {
     id: 1,
-    name: "First sprout",
-    blurb: "One plant. Two tiles are turned.",
+    name: "Porch light",
+    blurb: "One light. The fixture and two wires are turned.",
+    theme: "lights",
     routes: [[[2, 0], [2, 1], [2, 2], [2, 3], [2, 4]]],
-    scramble: { "2,1": 1, "2,2": 1 },
+    scramble: { "2,1": 1, "2,2": 1, "2,4": 3 },
   },
   {
     id: 2,
-    name: "Two beds",
-    blurb: "Split the water. Both plants need a drink.",
+    name: "Two rooms",
+    blurb: "Split the circuit. Both lights need power.",
+    theme: "lights",
     routes: [
       [[2, 0], [2, 1], [2, 2], [1, 2], [1, 3]],
       [[2, 0], [2, 1], [2, 2], [3, 2], [3, 3]],
     ],
-    scramble: { "2,1": 1, "2,2": 1 },
+    scramble: { "2,1": 1, "2,2": 1, "1,3": 3, "3,3": 3 },
   },
   {
     id: 3,
-    name: "Side beds",
-    blurb: "Carry the flow across, then up and down.",
+    name: "Side lights",
+    blurb: "Carry the wire across, then up and down.",
+    theme: "lights",
     routes: [
       [[2, 0], [2, 1], [2, 2], [2, 3], [1, 3], [1, 4]],
       [[2, 0], [2, 1], [2, 2], [2, 3], [3, 3], [3, 4]],
@@ -80,51 +88,56 @@ const SPECS: readonly LevelSpec[] = [
   },
   {
     id: 4,
-    name: "Long row",
-    blurb: "The far plant is straight across. The near one drops off the row.",
+    name: "Long hall",
+    blurb: "The far light is straight across. The near one drops off the hall.",
+    theme: "lights",
     routes: [
       [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4]],
       [[1, 0], [1, 1], [1, 2], [2, 2], [3, 2], [3, 3]],
     ],
-    scramble: { "1,1": 1, "1,2": 1, "1,3": 1, "2,2": 1 },
+    scramble: { "1,0": 3, "1,1": 1, "1,2": 1, "1,3": 1, "2,2": 1 },
   },
   {
     id: 5,
-    name: "Three pots",
-    blurb: "One spring feeds three pots.",
+    name: "Three sensors",
+    blurb: "One panel feeds three sensors.",
+    theme: "alarm",
     routes: [
       [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4]],
       [[3, 0], [3, 1], [2, 1], [1, 1], [0, 1]],
       [[3, 0], [3, 1], [2, 1], [2, 2], [2, 3]],
     ],
-    scramble: { "3,1": 1, "3,2": 1, "2,1": 1, "1,1": 1, "2,2": 1 },
+    scramble: { "3,0": 3, "3,1": 1, "3,2": 1, "2,1": 1, "1,1": 1, "2,2": 1 },
   },
   {
     id: 6,
-    name: "Three corners",
-    blurb: "The trunk splits twice. All three corners are thirsty.",
+    name: "Three doors",
+    blurb: "The trunk splits twice. Arm all three sensors.",
+    theme: "alarm",
     routes: [
       [[0, 2], [1, 2], [2, 2], [2, 3], [2, 4]],
       [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]],
       [[0, 2], [1, 2], [1, 1], [1, 0]],
     ],
-    scramble: { "1,2": 1, "2,2": 1, "2,3": 1, "3,2": 1, "1,1": 1 },
+    scramble: { "0,2": 3, "1,2": 1, "2,2": 1, "2,3": 1, "3,2": 1, "1,1": 1 },
   },
   {
     id: 7,
-    name: "Terrace",
-    blurb: "Climb the left edge, then reach the two beds on the right.",
+    name: "Stairwell",
+    blurb: "Climb the left edge, then reach the two sensors on the right.",
+    theme: "alarm",
     routes: [
       [[4, 0], [3, 0], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
       [[4, 0], [3, 0], [3, 1], [3, 2], [3, 3]],
       [[4, 0], [3, 0], [2, 0], [1, 0], [0, 0]],
     ],
-    scramble: { "3,0": 1, "2,0": 1, "2,1": 1, "2,2": 1, "3,1": 1, "1,0": 1 },
+    scramble: { "4,0": 3, "3,0": 1, "2,0": 1, "2,1": 1, "2,2": 1, "3,1": 1, "1,0": 1 },
   },
   {
     id: 8,
-    name: "Four plots",
-    blurb: "Four plants. The paths fork above and below the trunk.",
+    name: "Four devices",
+    blurb: "Four detectors. The paths fork above and below the trunk.",
+    theme: "fire",
     routes: [
       [[4, 2], [3, 2], [2, 2], [2, 3], [2, 4]],
       [[4, 2], [3, 2], [2, 2], [1, 2], [0, 2]],
@@ -135,8 +148,9 @@ const SPECS: readonly LevelSpec[] = [
   },
   {
     id: 9,
-    name: "Hedge",
-    blurb: "Follow the top hedge, then the two drops.",
+    name: "Corridor",
+    blurb: "Follow the top corridor, then the two drops.",
+    theme: "fire",
     routes: [
       [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4]],
       [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1]],
@@ -146,8 +160,9 @@ const SPECS: readonly LevelSpec[] = [
   },
   {
     id: 10,
-    name: "Full garden",
-    blurb: "Four plants, and almost every pipe starts turned.",
+    name: "Full wing",
+    blurb: "Four detectors, and almost every wire starts turned.",
+    theme: "fire",
     routes: [
       [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [2, 3]],
       [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
@@ -274,7 +289,11 @@ function autoScramble(onRoute: Map<string, Kind>, terminals: Set<string>, salt: 
   let n = 0;
   const keys = [...onRoute.keys()].sort();
   for (const cellKey of keys) {
-    if (terminals.has(cellKey)) continue;
+    if (terminals.has(cellKey)) {
+      // One clockwise tap returns a cap to the solved opening.
+      scramble[cellKey] = 3;
+      continue;
+    }
     const raw = ((n + salt) % 3) + 1;
     scramble[cellKey] = normalizeScramble(onRoute.get(cellKey)!, raw);
     n++;
@@ -306,7 +325,7 @@ function spreadOrder(paths: readonly (readonly number[])[]): number[] {
 }
 
 function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
-  if (spec.routes.length === 0) throw new Error(`Level ${spec.id} has no plants`);
+  if (spec.routes.length === 0) throw new Error(`Level ${spec.id} has no nodes`);
   const source = spec.routes[0]![0]!;
   const masks = new Map<string, number>();
   const route = new Set<string>();
@@ -315,12 +334,12 @@ function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
   for (const path of spec.routes) {
     if (path.length < 2) throw new Error(`Level ${spec.id} route is too short`);
     if (path[0]![0] !== source[0] || path[0]![1] !== source[1]) {
-      throw new Error(`Level ${spec.id} route does not start at the spring`);
+      throw new Error(`Level ${spec.id} route does not start at the source`);
     }
     const end = path.at(-1)!;
     const endKey = keyOf(end[0], end[1]);
     if (endKey === keyOf(source[0], source[1]) || targetKeys.has(endKey)) {
-      throw new Error(`Level ${spec.id} repeats a plant at ${endKey}`);
+      throw new Error(`Level ${spec.id} repeats a node at ${endKey}`);
     }
     targetKeys.add(endKey);
     for (let index = 1; index < path.length; index++) {
@@ -329,7 +348,7 @@ function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
       assertOrthogonal(prev, coord, `Level ${spec.id} route`);
       const cellKey = keyOf(coord[0], coord[1]);
       if (targetKeys.has(cellKey) && cellKey !== endKey) {
-        throw new Error(`Level ${spec.id} walks through a plant at ${cellKey}`);
+        throw new Error(`Level ${spec.id} walks through a node at ${cellKey}`);
       }
       route.add(keyOf(prev[0], prev[1]));
       route.add(cellKey);
@@ -374,13 +393,13 @@ function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
       if (!onRoute) masks.set(cellKey, shape.mask);
       const role: Role = cellKey === startKey ? "start" : targetKeys.has(cellKey) ? "end" : "play";
       const solution = shape.rot;
-      const initial = role === "play" ? (solution + (scramble[cellKey] ?? 0)) % 4 : solution;
+      const initial = (solution + (scramble[cellKey] ?? 0)) % 4;
       tiles.push({ kind: shape.kind, solution, initial, role, onRoute });
     }
   }
 
   // A scrambled opening can bridge through fillers. Turn fillers until a
-  // plant is still dry, without touching the solved route.
+  // node is still dark, without touching the solved route.
   let guard = 0;
   while (reachTargets(cellsOf(tiles, "initial")).complete && guard < 80) {
     const filler = tiles.filter((tile) => !tile.onRoute);
@@ -395,11 +414,18 @@ function buildLevel(spec: LevelSpec, scrambleAll: boolean): Level {
 
   const solved = reachTargets(cellsOf(tiles, "solution"));
   if (!solved.complete || solved.paths.length !== targetKeys.size) {
-    throw new Error(`Level ${spec.id} does not water every plant`);
+    throw new Error(`Level ${spec.id} does not power every node`);
   }
   const solutionPath = spreadOrder(solved.paths);
 
-  return { id: spec.id, name: spec.name, blurb: spec.blurb, tiles, solutionPath };
+  return {
+    id: spec.id,
+    name: spec.name,
+    blurb: spec.blurb,
+    theme: spec.theme,
+    tiles,
+    solutionPath,
+  };
 }
 
 const FULL_SCRAMBLE = new Set([8, 9, 10]);

@@ -46,7 +46,6 @@ export function dailyLevel(now: Date): Level {
   const tiles = base.tiles.map((tile) => ({ ...tile }));
 
   for (const tile of tiles) {
-    if (tile.role !== "play") continue;
     let offset = 1 + Math.floor(rand() * 3);
     if (sameOpenings(tile.kind, tile.solution, tile.solution + offset)) offset = 1;
     tile.initial = (tile.solution + offset) % 4;
@@ -95,7 +94,7 @@ function draft(base: Level, tiles: Level["tiles"]): Level {
   return {
     ...base,
     name: "Daily challenge",
-    blurb: "Same garden for everyone today. Water every plant before the clock runs out.",
+    blurb: "Same circuit for everyone today. Power every node before the clock runs out.",
     tiles,
   };
 }

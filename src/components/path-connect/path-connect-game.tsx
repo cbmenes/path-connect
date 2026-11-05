@@ -1,14 +1,18 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
-  Droplet,
+  Bell,
+  Flame,
+  Lamp,
   Lightbulb,
-  Sprout,
+  Shield,
+  Siren,
   Zap,
   RotateCcw,
   Undo2,
   Volume2,
   VolumeX,
+  type LucideIcon,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -33,7 +37,7 @@ import {
   rowCol,
 } from "@/lib/path-connect/logic";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
-import { DEFAULT_STYLE, STYLES, styleById, type StyleId } from "@/lib/path-connect/styles";
+import { DEFAULT_THEME, THEMES, themeById, type ThemeId } from "@/lib/path-connect/styles";
 import { TileArt } from "@/components/path-connect/tile-art";
 
 type Phase = "play" | "flow" | "won" | "expired";
@@ -62,10 +66,15 @@ interface Charge {
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
+const MARKS: Record<ThemeId, { source: LucideIcon; node: LucideIcon }> = {
+  lights: { source: Zap, node: Lamp },
+  alarm: { source: Shield, node: Bell },
+  fire: { source: Flame, node: Siren },
+};
+
 /**
- * Rotate tiles until every plant is connected to the spring, then run the flow.
- * Hint and undo are placeholders: they log and explain themselves, and do
- * not change the board yet.
+ * Rotate every tile, including the panel and the nodes, until each node is
+ * powered. Hint and undo stay as notes: they do not change the board yet.
  */
 export function PathConnectGame() {
   const [mode, setMode] = useState<PlayMode>("levels");
@@ -92,22 +101,26 @@ export function PathConnectGame() {
   const [flowPaths, setFlowPaths] = useState<number[][] | null>(null);
   const [charge, setCharge] = useState<Charge | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [styleId, setStyleId] = useState<StyleId>(DEFAULT_STYLE);
+  const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME);
   const [motionOn, setMotionOn] = useState(true);
   const [muted, setMuted] = useState(false);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const boardRef = useRef<HTMLDivElement>(null);
   const centersRef = useRef<Point[]>([]);
-  const style = styleById(styleId);
-  const conduitRef = useRef(style.conduit);
-  conduitRef.current = style.conduit;
+  const theme = themeById(themeId);
+  const marks = MARKS[theme.id];
   const lastLevel = levelId === LEVELS.length;
   const linked = linkedIndexes(level, spins);
   const network = reachTargets(boardCells(level, spins));
   const fed = new Set(network.reached);
-  const plantTotal = level.tiles.filter((tile) => tile.role === "end").length;
-  const plantWord = style.conduit === "trace" ? "node" : "plant";
+  const charged = new Set(network.paths.flat());
+  const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
+  const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
+
+  useEffect(() => {
+    setThemeId(level.theme);
+  }, [level.id, level.theme, mode]);
 
   useEffect(() => {
     setBest(readBest(todayKey));
@@ -144,10 +157,9 @@ export function PathConnectGame() {
     }
 
     const started = performance.now();
-    const racing = conduitRef.current === "trace";
     const spans = paths.map((path) => path.length - 1);
     const total = spans.reduce((sum, span) => sum + span, 0);
-    const duration = Math.max(racing ? 520 : 780, total * (racing ? 110 : 200));
+    const duration = Math.max(640, total * 90);
     const tick = (now: number) => {
       if (cancelled) return;
       const t = Math.min(1, (now - started) / duration);
@@ -173,7 +185,7 @@ export function PathConnectGame() {
         setCharge((prev) => ({
           head,
           trail: prev
-            ? [prev.head, ...prev.trail].slice(0, conduitRef.current === "trace" ? 14 : 6)
+            ? [prev.head, ...prev.trail].slice(0, 22)
             : [],
         }));
       }
@@ -270,7 +282,7 @@ export function PathConnectGame() {
     const tile = level.tiles[index];
     // phaseRef updates in the same click, so a second tap cannot undo a win
     // before React re-renders. spinsRef does the same for quick quarter-turns.
-    if (!tile || phaseRef.current !== "play" || tile.role !== "play") return;
+    if (!tile || phaseRef.current !== "play") return;
     if (modeRef.current === "daily" && performance.now() >= deadlineRef.current) {
       phaseRef.current = "expired";
       setPhase("expired");
@@ -333,23 +345,19 @@ export function PathConnectGame() {
       : phase === "won"
         ? mode === "daily" && result
           ? `${isNewBest ? "New best. " : ""}Finished with ${formatClock(result.secondsLeft)} left in ${result.turns} ${result.turns === 1 ? "turn" : "turns"}.`
-          : `${lastLevel ? "That was the last board. " : ""}${style.complete}`
+          : `${lastLevel ? "That was the last board. " : ""}${theme.complete}`
         : phase === "flow"
-          ? style.conduit === "trace"
-            ? "The circuit is live."
-            : "Connected. Watch it run."
+          ? theme.live
           : note;
 
   return (
-    <div className="path-connect min-h-dvh" data-style={styleId}>
+    <div className="path-connect min-h-dvh" data-style="wires" data-theme={theme.id}>
       <main className="pc-shell" data-phase={phase} data-level={levelId} data-mode={mode}>
         <header className="pc-head flex items-start justify-between gap-3">
           <div>
-            {styleId === "wires" && <p className="pc-kicker">Circuit</p>}
+            <p className="pc-kicker">{theme.kicker}</p>
             <h1 className="text-2xl font-semibold tracking-tight">Path Connect</h1>
-            <p className="mt-1 max-w-xs text-sm text-pc-muted text-pretty">
-              Turn a tile a quarter turn. A plant is watered only when the openings face each other all the way from the spring.
-            </p>
+            <p className="mt-1 max-w-xs text-sm text-pc-muted text-pretty">{theme.rule}</p>
             <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
               <button
                 type="button"
@@ -414,7 +422,7 @@ export function PathConnectGame() {
           </div>
           <p className="tabular shrink-0 text-right text-sm text-pc-muted">
             <span className="block font-medium text-pc-fg">
-              {fed.size}/{plantTotal} {plantTotal === 1 ? plantWord : `${plantWord}s`}
+              {fed.size}/{nodeTotal} {nodeWord} connected
             </span>
             {moves} {moves === 1 ? "turn" : "turns"}
           </p>
@@ -432,18 +440,20 @@ export function PathConnectGame() {
               const spin = spins[index] ?? tile.initial;
               const rotation = ((spin % 4) + 4) % 4;
               const { row, col } = rowCol(index);
-              const locked = tile.role !== "play" || phase !== "play";
-              const watered = tile.role === "end" && fed.has(index);
+              const locked = phase !== "play";
+              const powered = tile.role === "end" && fed.has(index);
+              const hot = charged.has(index);
               const order = flowPath ? flowPath.indexOf(index) : -1;
               const openings = openingIds(
                 cellMask({ kind: tile.kind, rotation, role: tile.role }),
               ).join("");
+              const place = `row ${row + 1}, column ${col + 1}`;
               const label =
                 tile.role === "start"
-                  ? `Source, row ${row + 1}, column ${col + 1}, fixed`
+                  ? `Turn ${theme.source}, ${place}`
                   : tile.role === "end"
-                    ? `${watered ? "Watered plant" : "Plant"}, row ${row + 1}, column ${col + 1}, fixed`
-                    : `Turn tile, row ${row + 1}, column ${col + 1}`;
+                    ? `${powered ? "Powered" : "Turn"} ${theme.node}, ${place}`
+                    : `Turn wire, ${place}`;
               return (
                 <button
                   key={`${level.id}-${index}`}
@@ -453,7 +463,8 @@ export function PathConnectGame() {
                   data-role={tile.role}
                   data-openings={openings}
                   data-linked={linked.has(index)}
-                  data-fed={watered}
+                  data-charged={hot}
+                  data-fed={powered}
                   data-live={order >= 0}
                   aria-disabled={locked}
                   aria-label={label}
@@ -467,28 +478,20 @@ export function PathConnectGame() {
                     >
                       <TileArt
                         kind={tile.kind}
-                        conduit={style.conduit}
-                        live={order >= 0}
+                        conduit={theme.conduit}
+                        live={order >= 0 || hot}
                         hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
                       />
                     </span>
                   </span>
                   {tile.role === "start" && (
                     <span className="pc-mark text-pc-onstart">
-                      {style.conduit === "trace" ? (
-                        <Zap className="size-4" strokeWidth={2.5} />
-                      ) : (
-                        <Droplet className="size-4" strokeWidth={2.5} />
-                      )}
+                      <marks.source className="size-4" strokeWidth={2.5} />
                     </span>
                   )}
                   {tile.role === "end" && (
-                    <span className={watered ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
-                      {style.conduit === "trace" ? (
-                        <Zap className="size-4" strokeWidth={2.5} />
-                      ) : (
-                        <Sprout className="size-5" strokeWidth={2.25} />
-                      )}
+                    <span className={powered ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
+                      <marks.node className="size-5" strokeWidth={2.25} />
                     </span>
                   )}
                 </button>
@@ -522,11 +525,11 @@ export function PathConnectGame() {
         <div className="pc-legend flex items-center gap-4 text-sm text-pc-muted">
           <span className="inline-flex items-center gap-2">
             <span className="pc-swatch pc-swatch-start" />
-            Spring
+            {theme.source}
           </span>
           <span className="inline-flex items-center gap-2">
             <span className="pc-swatch pc-swatch-end" />
-            {style.conduit === "trace" ? "Nodes" : "Plants"}
+            {theme.nodePlural}
           </span>
         </div>
 
@@ -594,15 +597,16 @@ export function PathConnectGame() {
         </div>
 
         <div className="pc-style-row flex items-center justify-between gap-3">
-          <p className="text-xs font-medium uppercase tracking-widest text-pc-muted">Style</p>
-          <div className="pc-styles" role="group" aria-label="Visual style">
-            {STYLES.filter((item) => item.offered).map((item) => (
+          <p className="text-xs font-medium uppercase tracking-widest text-pc-muted">System</p>
+          <div className="pc-styles" role="group" aria-label="Electrical system">
+            {THEMES.map((item) => (
               <button
                 key={item.id}
                 type="button"
-                aria-pressed={item.id === styleId}
-                className={item.id === styleId ? "is-on" : undefined}
-                onClick={() => setStyleId(item.id)}
+                aria-pressed={item.id === themeId}
+                aria-label={item.title}
+                className={item.id === themeId ? "is-on" : undefined}
+                onClick={() => setThemeId(item.id)}
               >
                 {item.label}
               </button>

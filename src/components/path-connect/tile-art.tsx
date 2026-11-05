@@ -20,7 +20,7 @@ const WIDTHS: Record<
   { casing: number; bore: number; core: number; hub: number; stream: number }
 > = {
   pipe: { casing: 36, bore: 20, core: 6, hub: 20, stream: 8 },
-  trace: { casing: 28, bore: 16, core: 6, hub: 11, stream: 5 },
+  trace: { casing: 40, bore: 24, core: 9, hub: 14, stream: 8 },
   beam: { casing: 0, bore: 4, core: 0, hub: 4, stream: 2 },
 };
 
@@ -39,7 +39,11 @@ export function TileArt({
   const arms = openingIds(baseMask(kind));
   const bore = live ? "var(--color-pc-flow)" : "var(--color-pc-bore)";
   const casing = "var(--color-pc-casing)";
-  const core = live ? "var(--color-pc-spark)" : "var(--color-pc-core)";
+  const core = live
+    ? "var(--color-pc-spark)"
+    : conduit === "trace"
+      ? "var(--color-pc-casing)"
+      : "var(--color-pc-core)";
   const liveClass = live ? "pc-bore pc-bore-live" : "pc-bore";
   const cap = conduit === "trace" ? "butt" : "round";
   const ends: Record<DirId, [number, number]> =
@@ -126,7 +130,7 @@ export function TileArt({
             x2={ends[dir][0]}
             y2={ends[dir][1]}
             stroke="var(--color-pc-spark)"
-            strokeWidth={5}
+            strokeWidth={7}
             strokeLinecap={cap}
             strokeDasharray="4 18"
             className="pc-spark-line"

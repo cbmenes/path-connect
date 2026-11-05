@@ -46,7 +46,7 @@ describe("openings", () => {
     assert.equal(cellMask(open[1]!), E | W);
   });
 
-  it("waters a plant only when every target is reached", () => {
+  it("powers a node only when every target is reached", () => {
     const cells: Cell[] = Array.from({ length: 25 }, () => ({
       kind: "straight" as const,
       rotation: 0,
@@ -94,10 +94,7 @@ describe("levels", () => {
       assert.equal(initial.complete, false, `${level.id} ${level.name} should start unsolved`);
 
       const scrambled = level.tiles.filter(
-        (tile) =>
-          tile.onRoute &&
-          tile.role === "play" &&
-          !sameOpenings(tile.kind, tile.initial, tile.solution),
+        (tile) => tile.onRoute && !sameOpenings(tile.kind, tile.initial, tile.solution),
       );
       assert.ok(scrambled.length >= 2, `${level.name} scrambles ${scrambled.length}`);
 
@@ -121,6 +118,25 @@ describe("levels", () => {
     assert.ok(
       LEVELS[9]!.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length >= 3,
     );
+  });
+
+  it("groups the boards into three electrical systems", () => {
+    assert.deepEqual(
+      LEVELS.map((level) => level.theme),
+      ["lights", "lights", "lights", "lights", "alarm", "alarm", "alarm", "fire", "fire", "fire"],
+    );
+  });
+
+  it("drops the circuit when the source or a node is turned", () => {
+    const level = LEVELS[0]!;
+    const solved = level.tiles.map((tile) => tile.solution);
+    assert.equal(reachTargets(boardCells(level, solved)).complete, true);
+    const source = level.tiles.findIndex((tile) => tile.role === "start");
+    const node = level.tiles.findIndex((tile) => tile.role === "end");
+    const turn = (index: number) => solved.map((spin, i) => (i === index ? spin + 1 : spin));
+    assert.equal(reachTargets(boardCells(level, turn(source))).complete, false);
+    assert.equal(reachTargets(boardCells(level, turn(node))).complete, false);
+    assert.equal(reachTargets(boardCells(level, solved)).complete, true);
   });
 });
 
