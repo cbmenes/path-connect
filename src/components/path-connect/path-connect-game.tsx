@@ -213,6 +213,7 @@ export function PathConnectGame() {
       <main className="pc-shell" data-phase={phase} data-level={levelId}>
         <header className="pc-head flex items-start justify-between gap-3">
           <div>
+            {styleId === "wires" && <p className="pc-kicker">Neon circuit</p>}
             <h1 className="text-2xl font-semibold tracking-tight">Path Connect</h1>
             <p className="mt-1 max-w-xs text-sm text-pc-muted text-pretty">
               Turn a tile a quarter turn. A link counts only when both openings face each other.

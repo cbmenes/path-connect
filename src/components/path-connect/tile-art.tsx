@@ -20,7 +20,7 @@ const WIDTHS: Record<
   { casing: number; bore: number; core: number; hub: number; stream: number }
 > = {
   pipe: { casing: 36, bore: 20, core: 6, hub: 20, stream: 8 },
-  trace: { casing: 34, bore: 20, core: 8, hub: 16, stream: 7 },
+  trace: { casing: 28, bore: 16, core: 6, hub: 11, stream: 5 },
   beam: { casing: 0, bore: 4, core: 0, hub: 4, stream: 2 },
 };
 
@@ -41,6 +41,11 @@ export function TileArt({
   const casing = "var(--color-pc-casing)";
   const core = live ? "var(--color-pc-spark)" : "var(--color-pc-core)";
   const liveClass = live ? "pc-bore pc-bore-live" : "pc-bore";
+  const cap = conduit === "trace" ? "butt" : "round";
+  const ends: Record<DirId, [number, number]> =
+    conduit === "trace"
+      ? { N: [50, 0], E: [100, 50], S: [50, 100], W: [0, 50] }
+      : ENDS;
 
   return (
     <svg viewBox="0 0 100 100" className="h-full w-full" aria-hidden="true">
@@ -50,11 +55,11 @@ export function TileArt({
             key={`case-${dir}`}
             x1={50}
             y1={50}
-            x2={ENDS[dir][0]}
-            y2={ENDS[dir][1]}
+            x2={ends[dir][0]}
+            y2={ends[dir][1]}
             stroke={casing}
             strokeWidth={widths.casing}
-            strokeLinecap="round"
+            strokeLinecap={cap}
           />
         ))}
       {arms.map((dir) => (
@@ -62,11 +67,11 @@ export function TileArt({
           key={`bore-${dir}`}
           x1={50}
           y1={50}
-          x2={ENDS[dir][0]}
-          y2={ENDS[dir][1]}
+          x2={ends[dir][0]}
+          y2={ends[dir][1]}
           stroke={bore}
           strokeWidth={widths.bore}
-          strokeLinecap="round"
+          strokeLinecap={cap}
           className={liveClass}
         />
       ))}
@@ -76,11 +81,11 @@ export function TileArt({
             key={`core-${dir}`}
             x1={50}
             y1={50}
-            x2={ENDS[dir][0]}
-            y2={ENDS[dir][1]}
+            x2={ends[dir][0]}
+            y2={ends[dir][1]}
             stroke={core}
             strokeWidth={widths.core}
-            strokeLinecap="round"
+            strokeLinecap={cap}
             className={live ? "pc-core pc-core-live" : "pc-core"}
           />
         ))}
@@ -89,11 +94,11 @@ export function TileArt({
           key={`stream-${dir}`}
           x1={50}
           y1={50}
-          x2={ENDS[dir][0]}
-          y2={ENDS[dir][1]}
+          x2={ends[dir][0]}
+          y2={ends[dir][1]}
           stroke="var(--color-pc-spark)"
           strokeWidth={widths.stream}
-          strokeLinecap="round"
+          strokeLinecap={cap}
           strokeDasharray={conduit === "trace" ? "6 14" : conduit === "beam" ? "2 14" : "11 16"}
           className="pc-stream"
         />
@@ -104,11 +109,11 @@ export function TileArt({
             key={`spark-${dir}`}
             x1={50}
             y1={50}
-            x2={ENDS[dir][0]}
-            y2={ENDS[dir][1]}
+            x2={ends[dir][0]}
+            y2={ends[dir][1]}
             stroke="var(--color-pc-spark)"
             strokeWidth={5}
-            strokeLinecap="round"
+            strokeLinecap={cap}
             strokeDasharray="4 18"
             className="pc-spark-line"
           />
@@ -119,11 +124,11 @@ export function TileArt({
             key={`spark-back-${dir}`}
             x1={50}
             y1={50}
-            x2={ENDS[dir][0]}
-            y2={ENDS[dir][1]}
+            x2={ends[dir][0]}
+            y2={ends[dir][1]}
             stroke="var(--color-pc-flow)"
             strokeWidth={3}
-            strokeLinecap="round"
+            strokeLinecap={cap}
             strokeDasharray="2 26"
             className="pc-spark-back"
           />
@@ -199,14 +204,31 @@ function Hub({
     );
   }
   if (conduit === "trace") {
+    const pad = radius * 2;
     return (
       <>
-        <circle cx={50} cy={50} r={radius + 3} fill={casing} />
-        <circle cx={50} cy={50} r={radius} fill={bore} className={liveClass} />
-        <circle
-          cx={50}
-          cy={50}
-          r={radius * 0.42}
+        <rect
+          x={50 - radius - 2}
+          y={50 - radius - 2}
+          width={pad + 4}
+          height={pad + 4}
+          rx={3}
+          fill={casing}
+        />
+        <rect
+          x={50 - radius}
+          y={50 - radius}
+          width={pad}
+          height={pad}
+          rx={2}
+          fill={bore}
+          className={liveClass}
+        />
+        <rect
+          x={50 - radius * 0.38}
+          y={50 - radius * 0.38}
+          width={radius * 0.76}
+          height={radius * 0.76}
           fill={core}
           className={live ? "pc-core pc-core-live" : "pc-core"}
         />

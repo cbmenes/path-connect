@@ -30,7 +30,7 @@ export const STYLES: readonly ConduitStyle[] = [
     id: "wires",
     label: "Wires",
     conduit: "trace",
-    complete: "Current runs from the source to the outlet.",
+    complete: "Power runs from the source to the outlet.",
     offered: true,
   },
   {

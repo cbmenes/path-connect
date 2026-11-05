@@ -52,6 +52,7 @@
   --color-pc-muted: #93a1b3;
   --color-pc-flow: #12e3a8;
   --color-pc-start: #ffc53d;
+  --color-pc-accent: #ffc53d;
   --color-pc-casing: #091017;
   --color-pc-bore: #c5d4e4;
   --color-pc-core: #f4fbff;
@@ -198,18 +199,27 @@
 }
 
 .path-connect[data-style="wires"] {
-  --color-pc-bg: #09070d;
-  --color-pc-tray: #120e18;
-  --color-pc-tile: #1a1222;
-  --color-pc-edge: #7a6286;
-  --color-pc-fg: #f7fdff;
-  --color-pc-flow: #67fbff;
-  --color-pc-start: #ffd15a;
-  --color-pc-casing: #050308;
-  --color-pc-bore: #ffc14a;
-  --color-pc-core: #fff6d8;
+  --color-pc-bg: #070612;
+  --color-pc-tray: #100c1c;
+  --color-pc-tile: #161222;
+  --color-pc-edge: #3d3458;
+  --color-pc-fg: #f4fbff;
+  --color-pc-muted: #b7a9c9;
+  --color-pc-flow: #3df6ff;
+  --color-pc-start: #ff4ec8;
+  --color-pc-accent: #ff4ec8;
+  --color-pc-casing: #070510;
+  --color-pc-bore: #ff4ec8;
+  --color-pc-core: #ffd4f4;
   --color-pc-spark: #ffffff;
   --color-pc-onflow: #04181c;
+  --color-pc-onstart: #2a0620;
+  background-color: var(--color-pc-bg);
+  background-image:
+    linear-gradient(color-mix(in oklab, var(--color-pc-flow) 14%, transparent) 1px, transparent 1px),
+    linear-gradient(90deg, color-mix(in oklab, var(--color-pc-accent) 12%, transparent) 1px, transparent 1px);
+  background-size: 56px 56px;
+  background-position: center top;
 }
 
 .path-connect[data-style="beams"] {
@@ -224,6 +234,15 @@
   --color-pc-onflow: #12151c;
 }
 
+.pc-kicker {
+  margin: 0 0 6px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  letter-spacing: 0.18em;
+  text-transform: uppercase;
+  color: var(--color-pc-accent);
+}
+
 .pc-tray {
   border-radius: 28px;
   background: var(--color-pc-tray);
@@ -231,6 +250,28 @@
   box-shadow:
     0 0 0 1px color-mix(in oklab, var(--color-pc-fg) 8%, transparent),
     0 24px 50px -28px rgb(0 0 0 / 0.7);
+}
+
+.path-connect[data-style="wires"] .pc-tray {
+  border-radius: 18px;
+  background:
+    linear-gradient(160deg, color-mix(in oklab, var(--color-pc-flow) 10%, transparent), transparent 36%),
+    var(--color-pc-tray);
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-pc-flow) 45%, transparent),
+    inset 0 0 0 1px color-mix(in oklab, var(--color-pc-accent) 28%, transparent);
+}
+
+.path-connect[data-style="wires"] .pc-tile {
+  border-radius: 8px;
+}
+
+.path-connect[data-style="wires"] h1 {
+  letter-spacing: -0.03em;
+}
+
+.path-connect[data-style="wires"] .pc-styles button.is-on {
+  box-shadow: 0 0 16px color-mix(in oklab, var(--color-pc-flow) 45%, transparent);
 }
 
 .pc-board {
