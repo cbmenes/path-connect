@@ -1,7 +1,7 @@
 {
   "title": "Path Connect",
-  "description": "Draw the current from the amber source and connect every open path.",
+  "description": "Turn the tiles and carry the amber current from the breaker until every node lights.",
   "type": "x:game",
   "card": "custom",
-  "color": "0E141B"
+  "color": "12151C"
 }
