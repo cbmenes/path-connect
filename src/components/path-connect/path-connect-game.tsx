@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
 import {
   ArrowRight,
   Droplet,
@@ -11,7 +11,18 @@ import {
   VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { LEVELS, boardCells } from "@/lib/path-connect/levels";
+import {
+  DAILY_SECONDS,
+  dailyLevel,
+  dateKey,
+  formatClock,
+  formatDailyDate,
+  isBetterScore,
+  readBest,
+  writeBest,
+  type DailyScore,
+} from "@/lib/path-connect/daily";
+import { LEVELS, boardCells, type Level } from "@/lib/path-connect/levels";
 import {
   DIRS,
   GRID_SIZE,
@@ -25,7 +36,17 @@ import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { DEFAULT_STYLE, STYLES, styleById, type StyleId } from "@/lib/path-connect/styles";
 import { TileArt } from "@/components/path-connect/tile-art";
 
-type Phase = "play" | "flow" | "won";
+type Phase = "play" | "flow" | "won" | "expired";
+type PlayMode = "levels" | "daily";
+
+interface CampaignSnap {
+  levelId: number;
+  spins: number[];
+  moves: number;
+  phase: Phase;
+  flowPath: number[] | null;
+  note: string | null;
+}
 
 interface Point {
   x: number;
@@ -46,14 +67,26 @@ const prefersReducedMotion = () =>
  * not change the board yet.
  */
 export function PathConnectGame() {
+  const [mode, setMode] = useState<PlayMode>("levels");
   const [levelId, setLevelId] = useState(1);
-  const level = LEVELS[levelId - 1] ?? LEVELS[0]!;
+  const daily = useMemo(() => dailyLevel(new Date()), []);
+  const todayKey = dateKey(new Date());
+  const level = mode === "daily" ? daily : (LEVELS[levelId - 1] ?? LEVELS[0]!);
   const [spins, setSpins] = useState<number[]>(() => level.tiles.map((tile) => tile.initial));
   const [moves, setMoves] = useState(0);
   const [phase, setPhase] = useState<Phase>("play");
+  const [secondsLeft, setSecondsLeft] = useState(DAILY_SECONDS);
+  const [best, setBest] = useState<DailyScore | null>(null);
+  const [result, setResult] = useState<DailyScore | null>(null);
+  const [isNewBest, setIsNewBest] = useState(false);
   const spinsRef = useRef(spins);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
+  const movesRef = useRef(moves);
+  const modeRef = useRef(mode);
+  modeRef.current = mode;
+  const deadlineRef = useRef(0);
+  const campaignRef = useRef<CampaignSnap | null>(null);
   const [flowPath, setFlowPath] = useState<number[] | null>(null);
   const [charge, setCharge] = useState<Charge | null>(null);
   const [note, setNote] = useState<string | null>(null);
@@ -69,6 +102,26 @@ export function PathConnectGame() {
   conduitRef.current = style.conduit;
   const lastLevel = levelId === LEVELS.length;
   const linked = linkedIndexes(level, spins);
+
+  useEffect(() => {
+    setBest(readBest(todayKey));
+  }, [todayKey]);
+
+  useEffect(() => {
+    if (mode !== "daily" || phase !== "play") return;
+    const tick = () => {
+      if (phaseRef.current !== "play") return;
+      const left = Math.max(0, Math.ceil((deadlineRef.current - performance.now()) / 1000));
+      setSecondsLeft(left);
+      if (left <= 0 && phaseRef.current === "play") {
+        phaseRef.current = "expired";
+        setPhase("expired");
+      }
+    };
+    tick();
+    const id = window.setInterval(tick, 200);
+    return () => window.clearInterval(id);
+  }, [mode, phase]);
 
   useEffect(() => {
     if (phase !== "flow" || !flowPath || flowPath.length < 2) return;
@@ -140,23 +193,71 @@ export function PathConnectGame() {
     return () => observer.disconnect();
   }, [phase, flowPath]);
 
-  function reset(nextId: number) {
-    const next = LEVELS[nextId - 1];
-    if (!next) return;
+  function loadBoard(next: Level, nextId?: number) {
     const initial = next.tiles.map((tile) => tile.initial);
     spinsRef.current = initial;
+    movesRef.current = 0;
     phaseRef.current = "play";
     setMotionOn(false);
-    setLevelId(nextId);
+    if (nextId !== undefined) setLevelId(nextId);
     setSpins(initial);
     setMoves(0);
     setPhase("play");
     setFlowPath(null);
     setCharge(null);
     setNote(null);
+    setResult(null);
+    setIsNewBest(false);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setMotionOn(true));
     });
+  }
+
+  function reset(nextId: number) {
+    const next = LEVELS[nextId - 1];
+    if (!next) return;
+    loadBoard(next, nextId);
+  }
+
+  function startDaily() {
+    deadlineRef.current = performance.now() + DAILY_SECONDS * 1000;
+    setSecondsLeft(DAILY_SECONDS);
+    loadBoard(daily);
+  }
+
+  function switchMode(next: PlayMode) {
+    if (next === mode) return;
+    if (next === "daily") {
+      campaignRef.current = {
+        levelId,
+        spins: spinsRef.current,
+        moves: movesRef.current,
+        phase: phaseRef.current,
+        flowPath,
+        note,
+      };
+      setMode("daily");
+      startDaily();
+      return;
+    }
+    const snap = campaignRef.current;
+    setMode("levels");
+    if (!snap) {
+      reset(levelId);
+      return;
+    }
+    spinsRef.current = snap.spins;
+    movesRef.current = snap.moves;
+    phaseRef.current = snap.phase === "expired" ? "play" : snap.phase;
+    setLevelId(snap.levelId);
+    setSpins(snap.spins);
+    setMoves(snap.moves);
+    setPhase(phaseRef.current);
+    setFlowPath(snap.flowPath);
+    setCharge(null);
+    setNote(snap.note);
+    setResult(null);
+    setIsNewBest(false);
   }
 
   function onRotate(index: number) {
@@ -164,14 +265,34 @@ export function PathConnectGame() {
     // phaseRef updates in the same click, so a second tap cannot undo a win
     // before React re-renders. spinsRef does the same for quick quarter-turns.
     if (!tile || phaseRef.current !== "play" || tile.role !== "play") return;
+    if (modeRef.current === "daily" && performance.now() >= deadlineRef.current) {
+      phaseRef.current = "expired";
+      setPhase("expired");
+      return;
+    }
     const nextSpins = spinsRef.current.map((spin, i) => (i === index ? spin + 1 : spin));
     spinsRef.current = nextSpins;
+    movesRef.current += 1;
     setSpins(nextSpins);
-    setMoves((count) => count + 1);
+    setMoves(movesRef.current);
     setNote(null);
     playTurn(mutedRef.current);
     const path = findPath(boardCells(level, nextSpins));
     if (!path) return;
+    if (modeRef.current === "daily") {
+      const secondsLeftNow = Math.max(0, Math.ceil((deadlineRef.current - performance.now()) / 1000));
+      const score = { secondsLeft: secondsLeftNow, turns: movesRef.current };
+      setSecondsLeft(secondsLeftNow);
+      setResult(score);
+      const stored = readBest(todayKey);
+      if (isBetterScore(score, stored)) {
+        writeBest(todayKey, score);
+        setBest(score);
+        setIsNewBest(true);
+      } else {
+        setIsNewBest(false);
+      }
+    }
     setFlowPath(path);
     if (prefersReducedMotion()) {
       phaseRef.current = "won";
@@ -200,17 +321,21 @@ export function PathConnectGame() {
   }
 
   const status =
-    phase === "won"
-      ? `${lastLevel ? "That was the last board. " : ""}${style.complete}`
-      : phase === "flow"
-        ? style.conduit === "trace"
-          ? "The circuit is live."
-          : "Connected. Watch it run."
-        : note;
+    phase === "expired"
+      ? "Time's up. Retry uses the same board."
+      : phase === "won"
+        ? mode === "daily" && result
+          ? `${isNewBest ? "New best. " : ""}Finished with ${formatClock(result.secondsLeft)} left in ${result.turns} ${result.turns === 1 ? "turn" : "turns"}.`
+          : `${lastLevel ? "That was the last board. " : ""}${style.complete}`
+        : phase === "flow"
+          ? style.conduit === "trace"
+            ? "The circuit is live."
+            : "Connected. Watch it run."
+          : note;
 
   return (
     <div className="path-connect min-h-dvh" data-style={styleId}>
-      <main className="pc-shell" data-phase={phase} data-level={levelId}>
+      <main className="pc-shell" data-phase={phase} data-level={levelId} data-mode={mode}>
         <header className="pc-head flex items-start justify-between gap-3">
           <div>
             {styleId === "wires" && <p className="pc-kicker">Neon circuit</p>}
@@ -218,12 +343,40 @@ export function PathConnectGame() {
             <p className="mt-1 max-w-xs text-sm text-pc-muted text-pretty">
               Turn a tile a quarter turn. A link counts only when both openings face each other.
             </p>
+            <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
+              <button
+                type="button"
+                aria-pressed={mode === "levels"}
+                className={mode === "levels" ? "is-on" : undefined}
+                onClick={() => switchMode("levels")}
+              >
+                Levels
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === "daily"}
+                className={mode === "daily" ? "is-on" : undefined}
+                onClick={() => switchMode("daily")}
+              >
+                Daily
+              </button>
+            </div>
           </div>
           <div className="flex items-center gap-2">
-            <p className="tabular whitespace-nowrap text-sm font-medium text-pc-fg">
-              {levelId}
-              <span className="text-pc-muted"> / {LEVELS.length}</span>
-            </p>
+            {mode === "daily" ? (
+              <p
+                className="pc-timer tabular whitespace-nowrap text-sm font-semibold"
+                data-low={secondsLeft <= 15 && phase === "play"}
+                aria-live="polite"
+              >
+                {formatClock(secondsLeft)}
+              </p>
+            ) : (
+              <p className="tabular whitespace-nowrap text-sm font-medium text-pc-fg">
+                {levelId}
+                <span className="text-pc-muted"> / {LEVELS.length}</span>
+              </p>
+            )}
             <Button
               type="button"
               variant="ghost"
@@ -240,8 +393,17 @@ export function PathConnectGame() {
 
         <section className="pc-level flex items-end justify-between gap-3">
           <div>
-            <h2 className="text-lg font-semibold tracking-tight">{level.name}</h2>
+            <h2 className="text-lg font-semibold tracking-tight">
+              {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
+            </h2>
             <p className="text-sm text-pc-muted text-pretty">{level.blurb}</p>
+            {mode === "daily" && (
+              <p className="pc-best mt-1 text-sm text-pc-fg">
+                {best
+                  ? `Best today: ${formatClock(best.secondsLeft)} left · ${best.turns} ${best.turns === 1 ? "turn" : "turns"}`
+                  : "Best today: not set"}
+              </p>
+            )}
           </div>
           <p className="tabular shrink-0 text-sm text-pc-muted">
             {moves} {moves === 1 ? "turn" : "turns"}
@@ -354,7 +516,7 @@ export function PathConnectGame() {
           {phase === "won" ? (
             <>
               <span className="block text-base font-semibold tracking-tight text-pc-flow">
-                Level complete
+                {mode === "daily" ? "Challenge complete" : "Level complete"}
               </span>
               <span className="text-pc-muted">{status}</span>
             </>
@@ -368,7 +530,7 @@ export function PathConnectGame() {
             type="button"
             variant="outline"
             className="border-pc-edge bg-pc-tile px-2 text-pc-fg hover:bg-pc-edge hover:text-pc-fg"
-            onClick={() => reset(levelId)}
+            onClick={() => (mode === "daily" ? startDaily() : reset(levelId))}
           >
             <RotateCcw />
             Restart
@@ -391,13 +553,23 @@ export function PathConnectGame() {
             <Undo2 />
             Undo
           </Button>
-          {phase === "won" && (
+          {phase === "won" && mode === "levels" && (
             <Button
               type="button"
               className="col-span-3 bg-pc-flow text-pc-onflow hover:bg-pc-flow/90"
               onClick={() => reset(lastLevel ? 1 : levelId + 1)}
             >
               {lastLevel ? "Play again" : "Next level"}
+              <ArrowRight />
+            </Button>
+          )}
+          {(phase === "won" || phase === "expired") && mode === "daily" && (
+            <Button
+              type="button"
+              className="col-span-3 bg-pc-flow text-pc-onflow hover:bg-pc-flow/90"
+              onClick={startDaily}
+            >
+              {phase === "expired" ? "Retry" : "Try again"}
               <ArrowRight />
             </Button>
           )}

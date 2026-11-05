@@ -533,6 +533,19 @@
   color: var(--color-pc-onflow);
 }
 
+.pc-modes {
+  width: fit-content;
+  margin-top: 12px;
+}
+
+.pc-timer {
+  color: var(--color-pc-flow);
+}
+
+.pc-timer[data-low="true"] {
+  color: var(--color-pc-accent);
+}
+
 @keyframes pc-stream {
   to {
     stroke-dashoffset: -46;
