@@ -50,11 +50,13 @@
   --color-pc-edge: #3a4a5e;
   --color-pc-fg: #e8eef5;
   --color-pc-muted: #93a1b3;
-  --color-pc-flow: #2ec9a0;
-  --color-pc-start: #e6b325;
-  --color-pc-casing: #0c1218;
-  --color-pc-bore: #d5deea;
-  --color-pc-onflow: #06241c;
+  --color-pc-flow: #12e3a8;
+  --color-pc-start: #ffc53d;
+  --color-pc-casing: #091017;
+  --color-pc-bore: #c5d4e4;
+  --color-pc-core: #f4fbff;
+  --color-pc-spark: #ffffff;
+  --color-pc-onflow: #04241b;
   --color-pc-onstart: #2a1d04;
 }
 
@@ -196,15 +198,18 @@
 }
 
 .path-connect[data-style="wires"] {
-  --color-pc-bg: #12110f;
-  --color-pc-tray: #1c1814;
-  --color-pc-tile: #26201a;
-  --color-pc-edge: #524536;
-  --color-pc-flow: #5ad7ff;
-  --color-pc-start: #ffb020;
-  --color-pc-casing: #100e0c;
-  --color-pc-bore: #e0a15c;
-  --color-pc-onflow: #042028;
+  --color-pc-bg: #100d14;
+  --color-pc-tray: #1a1422;
+  --color-pc-tile: #261c30;
+  --color-pc-edge: #6a5478;
+  --color-pc-fg: #f3fbff;
+  --color-pc-flow: #3ef6ff;
+  --color-pc-start: #ffc53d;
+  --color-pc-casing: #0c0810;
+  --color-pc-bore: #ffb347;
+  --color-pc-core: #ffe3b0;
+  --color-pc-spark: #ffffff;
+  --color-pc-onflow: #042228;
 }
 
 .path-connect[data-style="beams"] {
@@ -232,7 +237,7 @@
   position: relative;
   display: grid;
   grid-template-columns: repeat(5, minmax(0, 1fr));
-  gap: 6px;
+  gap: 4px;
 }
 
 .pc-tile {
@@ -264,7 +269,7 @@
 }
 
 .pc-tile[data-live="true"] {
-  background: color-mix(in oklab, var(--color-pc-flow) 18%, var(--color-pc-tile));
+  background: color-mix(in oklab, var(--color-pc-flow) 28%, var(--color-pc-tile));
   transition: background 180ms ease;
   transition-delay: var(--delay, 0ms);
 }
@@ -285,17 +290,66 @@
   transition-delay: var(--delay, 0ms);
 }
 
-.pc-stream {
+.pc-core {
+  transition: stroke 180ms ease;
+  transition-delay: var(--delay, 0ms);
+}
+
+.pc-stream,
+.pc-spark-line {
+  opacity: 0;
   transition: opacity 180ms ease;
   transition-delay: var(--delay, 0ms);
 }
 
 .pc-tile[data-live="true"] .pc-stream {
-  animation: pc-stream 0.85s linear infinite;
+  opacity: 0.9;
+  animation: pc-stream 0.7s linear infinite;
 }
 
-.path-connect[data-style="beams"] .pc-bore-live {
-  filter: drop-shadow(0 0 4px var(--color-pc-flow));
+.pc-tile[data-live="true"] .pc-spark-line {
+  opacity: 1;
+  animation: pc-stream 0.28s linear infinite;
+}
+
+.path-connect[data-style="wires"] .pc-tile:not([data-live="true"]) .pc-bore {
+  animation: pc-wire-idle 2.6s ease-in-out infinite;
+}
+
+.path-connect[data-style="wires"] .pc-tile:not([data-live="true"]) .pc-stream {
+  opacity: 0.32;
+  animation: pc-stream 3.2s linear infinite;
+}
+
+.path-connect[data-style="wires"] .pc-tile[data-live="true"] .pc-bore-live,
+.path-connect[data-style="wires"] .pc-tile[data-live="true"] .pc-core-live {
+  animation: pc-wire-surge 0.48s ease-in-out infinite;
+}
+
+.path-connect[data-style="wires"] .pc-tile[data-live="true"] .pc-stream {
+  opacity: 1;
+  animation: pc-stream 0.36s linear infinite;
+}
+
+.path-connect[data-style="pipes"] .pc-tile[data-live="true"] .pc-bore-live {
+  filter: drop-shadow(0 0 3px color-mix(in oklab, var(--color-pc-flow) 70%, transparent));
+}
+
+.pc-shell[data-phase="flow"] .pc-tray,
+.pc-shell[data-phase="won"] .pc-tray {
+  box-shadow:
+    0 0 0 1px color-mix(in oklab, var(--color-pc-flow) 55%, transparent),
+    0 0 36px -8px color-mix(in oklab, var(--color-pc-flow) 70%, transparent);
+}
+
+.pc-shell[data-phase="won"] .pc-tile[data-role="end"]::after {
+  content: "";
+  position: absolute;
+  inset: 16%;
+  border-radius: 999px;
+  border: 2px solid var(--color-pc-flow);
+  animation: pc-ring 0.9s ease-out infinite;
+  pointer-events: none;
 }
 
 .pc-mark {
@@ -312,14 +366,38 @@
   left: 0;
   top: 0;
   z-index: 3;
-  width: 16px;
-  height: 16px;
+  width: 18px;
+  height: 18px;
   border-radius: 999px;
-  background: var(--color-pc-fg);
+  background: var(--color-pc-spark);
   box-shadow:
-    0 0 0 5px color-mix(in oklab, var(--color-pc-flow) 55%, transparent),
-    0 0 18px var(--color-pc-flow);
+    0 0 0 6px color-mix(in oklab, var(--color-pc-flow) 50%, transparent),
+    0 0 22px 4px var(--color-pc-flow);
   pointer-events: none;
+}
+
+.pc-bead-trail {
+  z-index: 2;
+  width: 12px;
+  height: 12px;
+  box-shadow: 0 0 14px 2px var(--color-pc-flow);
+}
+
+.path-connect[data-style="wires"] .pc-bead {
+  width: 12px;
+  height: 12px;
+  background: var(--color-pc-spark);
+  box-shadow:
+    0 0 0 7px color-mix(in oklab, var(--color-pc-flow) 42%, transparent),
+    0 0 18px 4px var(--color-pc-spark),
+    0 0 36px 10px var(--color-pc-flow);
+}
+
+.path-connect[data-style="wires"] .pc-bead-trail {
+  width: 7px;
+  height: 7px;
+  background: var(--color-pc-flow);
+  box-shadow: 0 0 16px 3px var(--color-pc-flow);
 }
 
 .pc-swatch {
@@ -362,6 +440,37 @@
 @keyframes pc-stream {
   to {
     stroke-dashoffset: -46;
+  }
+}
+
+@keyframes pc-wire-idle {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 1px color-mix(in oklab, var(--color-pc-bore) 45%, transparent));
+  }
+  50% {
+    filter: drop-shadow(0 0 4px color-mix(in oklab, var(--color-pc-bore) 85%, transparent));
+  }
+}
+
+@keyframes pc-wire-surge {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 3px var(--color-pc-flow));
+  }
+  50% {
+    filter: drop-shadow(0 0 9px var(--color-pc-flow));
+  }
+}
+
+@keyframes pc-ring {
+  0% {
+    transform: scale(0.72);
+    opacity: 0.9;
+  }
+  100% {
+    transform: scale(1.35);
+    opacity: 0;
   }
 }
 

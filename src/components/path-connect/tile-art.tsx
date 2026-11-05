@@ -15,10 +15,13 @@ const ENDS: Record<DirId, [number, number]> = {
   W: [1, 50],
 };
 
-const WIDTHS: Record<Conduit, { casing: number; bore: number; hub: number }> = {
-  pipe: { casing: 30, bore: 14, hub: 16 },
-  trace: { casing: 0, bore: 6, hub: 5 },
-  beam: { casing: 0, bore: 4, hub: 4 },
+const WIDTHS: Record<
+  Conduit,
+  { casing: number; bore: number; core: number; hub: number; stream: number }
+> = {
+  pipe: { casing: 36, bore: 20, core: 6, hub: 20, stream: 8 },
+  trace: { casing: 24, bore: 14, core: 5, hub: 11, stream: 4 },
+  beam: { casing: 0, bore: 4, core: 0, hub: 4, stream: 2 },
 };
 
 export function TileArt({
@@ -36,6 +39,7 @@ export function TileArt({
   const arms = openingIds(baseMask(kind));
   const bore = live ? "var(--color-pc-flow)" : "var(--color-pc-bore)";
   const casing = "var(--color-pc-casing)";
+  const core = live ? "var(--color-pc-spark)" : "var(--color-pc-core)";
   const liveClass = live ? "pc-bore pc-bore-live" : "pc-bore";
 
   return (
@@ -66,6 +70,20 @@ export function TileArt({
           className={liveClass}
         />
       ))}
+      {widths.core > 0 &&
+        arms.map((dir) => (
+          <line
+            key={`core-${dir}`}
+            x1={50}
+            y1={50}
+            x2={ENDS[dir][0]}
+            y2={ENDS[dir][1]}
+            stroke={core}
+            strokeWidth={widths.core}
+            strokeLinecap="round"
+            className={live ? "pc-core pc-core-live" : "pc-core"}
+          />
+        ))}
       {arms.map((dir) => (
         <line
           key={`stream-${dir}`}
@@ -73,19 +91,34 @@ export function TileArt({
           y1={50}
           x2={ENDS[dir][0]}
           y2={ENDS[dir][1]}
-          stroke="var(--color-pc-fg)"
-          strokeWidth={Math.max(2, widths.bore * 0.35)}
+          stroke="var(--color-pc-spark)"
+          strokeWidth={widths.stream}
           strokeLinecap="round"
-          strokeDasharray={conduit === "beam" ? "2 14" : "7 16"}
+          strokeDasharray={conduit === "trace" ? "6 14" : conduit === "beam" ? "2 14" : "11 16"}
           className="pc-stream"
-          opacity={live ? 0.75 : 0}
         />
       ))}
+      {conduit === "trace" &&
+        arms.map((dir) => (
+          <line
+            key={`spark-${dir}`}
+            x1={50}
+            y1={50}
+            x2={ENDS[dir][0]}
+            y2={ENDS[dir][1]}
+            stroke="var(--color-pc-spark)"
+            strokeWidth={3}
+            strokeLinecap="round"
+            strokeDasharray="2 22"
+            className="pc-spark-line"
+          />
+        ))}
       <Hub
         conduit={conduit}
         hub={hub}
         bore={bore}
         casing={casing}
+        core={core}
         radius={widths.hub}
         live={live}
       />
@@ -98,6 +131,7 @@ function Hub({
   hub,
   bore,
   casing,
+  core,
   radius,
   live,
 }: {
@@ -105,25 +139,31 @@ function Hub({
   hub: "start" | "end" | "plain";
   bore: string;
   casing: string;
+  core: string;
   radius: number;
   live: boolean;
 }) {
+  const liveClass = live ? "pc-bore pc-bore-live" : "pc-bore";
   if (hub === "start") {
-    return <circle cx={50} cy={50} r={conduit === "pipe" ? 15 : 8} fill="var(--color-pc-start)" />;
+    return (
+      <circle cx={50} cy={50} r={conduit === "pipe" ? 16 : 12} fill="var(--color-pc-start)" />
+    );
   }
   if (hub === "end") {
+    const ring = conduit === "pipe" ? 12 : 9;
     return (
       <>
-        <circle cx={50} cy={50} r={conduit === "pipe" ? 16 : 9} fill="var(--color-pc-tile)" />
+        <circle cx={50} cy={50} r={ring + 5} fill="var(--color-pc-tile)" />
         <circle
           cx={50}
           cy={50}
-          r={conduit === "pipe" ? 11 : 6.5}
+          r={ring}
           fill="none"
           stroke="var(--color-pc-flow)"
-          strokeWidth={conduit === "pipe" ? 4 : 2}
+          strokeWidth={conduit === "pipe" ? 4.5 : 3.5}
           className="pc-bore"
         />
+        <circle cx={50} cy={50} r={ring * 0.38} fill={core} className="pc-core" />
       </>
     );
   }
@@ -131,23 +171,25 @@ function Hub({
     return (
       <>
         <circle cx={50} cy={50} r={radius} fill={casing} />
+        <circle cx={50} cy={50} r={radius * 0.52} fill={bore} className={liveClass} />
+        <circle cx={50} cy={50} r={radius * 0.18} fill={core} className="pc-core" />
+      </>
+    );
+  }
+  if (conduit === "trace") {
+    return (
+      <>
+        <circle cx={50} cy={50} r={radius + 3} fill={casing} />
+        <circle cx={50} cy={50} r={radius} fill={bore} className={liveClass} />
         <circle
           cx={50}
           cy={50}
-          r={radius * 0.48}
-          fill={bore}
-          className={live ? "pc-bore pc-bore-live" : "pc-bore"}
+          r={radius * 0.42}
+          fill={core}
+          className={live ? "pc-core pc-core-live" : "pc-core"}
         />
       </>
     );
   }
-  return (
-    <circle
-      cx={50}
-      cy={50}
-      r={radius}
-      fill={bore}
-      className={live ? "pc-bore pc-bore-live" : "pc-bore"}
-    />
-  );
+  return <circle cx={50} cy={50} r={radius} fill={bore} className={liveClass} />;
 }

@@ -1,7 +1,8 @@
 /**
  * Conduit styles. The board, the path search, and the levels do not import
  * this file. Swap `DEFAULT_STYLE` or pass another id into the renderer to
- * draw pipes, circuit traces, or beams from the same tile model.
+ * draw pipes or circuit traces from the same tile model. Beams remains
+ * in the type so a later style can turn it back on, but it is not offered.
  */
 export type StyleId = "pipes" | "wires" | "beams";
 
@@ -13,6 +14,8 @@ export interface ConduitStyle {
   conduit: Conduit;
   /** Sentence under the level-complete title. */
   complete: string;
+  /** Shown in the style switch. Beams stays in the model but is not offered. */
+  offered: boolean;
 }
 
 export const STYLES: readonly ConduitStyle[] = [
@@ -21,18 +24,21 @@ export const STYLES: readonly ConduitStyle[] = [
     label: "Pipes",
     conduit: "pipe",
     complete: "Water runs from the source to the outlet.",
+    offered: true,
   },
   {
     id: "wires",
     label: "Wires",
     conduit: "trace",
-    complete: "The circuit is closed.",
+    complete: "Current runs from the source to the outlet.",
+    offered: true,
   },
   {
     id: "beams",
     label: "Beams",
     conduit: "beam",
     complete: "The beam reaches the outlet.",
+    offered: false,
   },
 ];
 

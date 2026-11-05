@@ -3,6 +3,7 @@ import {
   ArrowRight,
   Droplet,
   Lightbulb,
+  Zap,
   RotateCcw,
   Target,
   Undo2,
@@ -29,6 +30,11 @@ interface Point {
   y: number;
 }
 
+interface Charge {
+  head: Point;
+  trail: Point[];
+}
+
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 
@@ -47,7 +53,7 @@ export function PathConnectGame() {
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const [flowPath, setFlowPath] = useState<number[] | null>(null);
-  const [bead, setBead] = useState<Point | null>(null);
+  const [charge, setCharge] = useState<Charge | null>(null);
   const [note, setNote] = useState<string | null>(null);
   const [styleId, setStyleId] = useState<StyleId>(DEFAULT_STYLE);
   const [motionOn, setMotionOn] = useState(true);
@@ -68,7 +74,7 @@ export function PathConnectGame() {
 
     if (prefersReducedMotion()) {
       const end = points[flowPath[flowPath.length - 1]!];
-      if (end) setBead(end);
+      if (end) setCharge({ head: end, trail: [] });
       setPhase("won");
       playWin(mutedRef.current);
       return;
@@ -87,10 +93,14 @@ export function PathConnectGame() {
       const from = live[flowPath[step]!];
       const to = live[flowPath[step + 1]!];
       if (from && to) {
-        setBead({
+        const head = {
           x: from.x + (to.x - from.x) * along,
           y: from.y + (to.y - from.y) * along,
-        });
+        };
+        setCharge((prev) => ({
+          head,
+          trail: prev ? [prev.head, ...prev.trail].slice(0, 6) : [],
+        }));
       }
       if (t < 1) frame = requestAnimationFrame(tick);
       else {
@@ -110,6 +120,18 @@ export function PathConnectGame() {
     };
   }, [phase, flowPath]);
 
+  useEffect(() => {
+    if (phase !== "won" || !flowPath || flowPath.length === 0) return;
+    const place = () => {
+      const end = measureCenters(boardRef.current)[flowPath[flowPath.length - 1]!];
+      if (end) setCharge({ head: end, trail: [] });
+    };
+    place();
+    const observer = new ResizeObserver(place);
+    if (boardRef.current) observer.observe(boardRef.current);
+    return () => observer.disconnect();
+  }, [phase, flowPath]);
+
   function reset(nextId: number) {
     const next = LEVELS[nextId - 1];
     if (!next) return;
@@ -122,7 +144,7 @@ export function PathConnectGame() {
     setMoves(0);
     setPhase("play");
     setFlowPath(null);
-    setBead(null);
+    setCharge(null);
     setNote(null);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setMotionOn(true));
@@ -173,7 +195,9 @@ export function PathConnectGame() {
     phase === "won"
       ? `${lastLevel ? "That was the last board. " : ""}${style.complete}`
       : phase === "flow"
-        ? "Connected. Watch it run."
+        ? style.conduit === "trace"
+          ? "The circuit is live."
+          : "Connected. Watch it run."
         : note;
 
   return (
@@ -264,7 +288,11 @@ export function PathConnectGame() {
                   </span>
                   {tile.role === "start" && (
                     <span className="pc-mark text-pc-onstart">
-                      <Droplet className="size-4" strokeWidth={2.5} />
+                      {style.conduit === "trace" ? (
+                        <Zap className="size-4" strokeWidth={2.5} />
+                      ) : (
+                        <Droplet className="size-4" strokeWidth={2.5} />
+                      )}
                     </span>
                   )}
                   {tile.role === "end" && (
@@ -275,11 +303,25 @@ export function PathConnectGame() {
                 </button>
               );
             })}
-            {bead && phase !== "play" && (
-              <span
-                className="pc-bead"
-                style={{ transform: `translate(${bead.x}px, ${bead.y}px) translate(-50%, -50%)` }}
-              />
+            {charge && phase !== "play" && (
+              <>
+                {charge.trail.map((point, index) => (
+                  <span
+                    key={index}
+                    className="pc-bead pc-bead-trail"
+                    style={{
+                      transform: `translate(${point.x}px, ${point.y}px) translate(-50%, -50%)`,
+                      opacity: Math.max(0.12, 0.55 - index * 0.08),
+                    }}
+                  />
+                ))}
+                <span
+                  className="pc-bead"
+                  style={{
+                    transform: `translate(${charge.head.x}px, ${charge.head.y}px) translate(-50%, -50%)`,
+                  }}
+                />
+              </>
             )}
           </div>
         </div>
@@ -351,7 +393,7 @@ export function PathConnectGame() {
         <div className="pc-style-row flex items-center justify-between gap-3">
           <p className="text-xs font-medium uppercase tracking-widest text-pc-muted">Style</p>
           <div className="pc-styles" role="group" aria-label="Visual style">
-            {STYLES.map((item) => (
+            {STYLES.filter((item) => item.offered).map((item) => (
               <button
                 key={item.id}
                 type="button"
