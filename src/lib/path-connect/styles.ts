@@ -1,7 +1,7 @@
 /**
  * Electrical systems. The board, the path search, and the level geometry do
- * not change between them. A theme only renames the source and the nodes
- * and swaps the current color.
+ * not change between them. Levels 1–3 are house lights, 4–6 are a building
+ * alarm, and 7–10 are a school fire alarm. The player does not pick a theme.
  */
 export type ThemeId = "lights" | "alarm" | "fire";
 

@@ -123,7 +123,7 @@ describe("levels", () => {
   it("groups the boards into three electrical systems", () => {
     assert.deepEqual(
       LEVELS.map((level) => level.theme),
-      ["lights", "lights", "lights", "lights", "alarm", "alarm", "alarm", "fire", "fire", "fire"],
+      ["lights", "lights", "lights", "alarm", "alarm", "alarm", "fire", "fire", "fire", "fire"],
     );
   });
 

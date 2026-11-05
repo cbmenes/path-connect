@@ -112,28 +112,29 @@
   font-variant-numeric: tabular-nums;
 }
 
-/* Path Connect. One dark panel; the system switch only changes the current. */
+/* Path Connect. House lights is the opening room. Alarm and fire replace the whole palette. */
 .path-connect {
-  --color-pc-bg: #12151c;
-  --color-pc-tray: #1a2029;
-  --color-pc-tile: #262d38;
-  --color-pc-edge: #3c4656;
-  --color-pc-fg: #e7eef6;
-  --color-pc-muted: #9aa6b5;
-  --color-pc-flow: #f5c451;
+  --color-pc-bg: #f3e2cc;
+  --color-pc-wall: #f7ebda;
+  --color-pc-tray: #fff8ee;
+  --color-pc-tile: #fffdf8;
+  --color-pc-edge: #e4d0b4;
+  --color-pc-fg: #2c241c;
+  --color-pc-muted: #6e5c4a;
+  --color-pc-flow: #e07a12;
   --color-pc-start: #f0a202;
-  --color-pc-accent: #f0a202;
-  --color-pc-casing: #5c6776;
-  --color-pc-bore: #8b93a1;
-  --color-pc-core: #fff6d8;
+  --color-pc-accent: #c46a12;
+  --color-pc-casing: #8a5a32;
+  --color-pc-bore: #d9c3a4;
+  --color-pc-core: #efe2cf;
   --color-pc-spark: #fff6d8;
-  --color-pc-onflow: #1a1406;
-  --color-pc-onstart: #2a1c04;
-  --color-pc-lawn: #243041;
-  --color-pc-soil: #141922;
+  --color-pc-onflow: #2a1c08;
+  --color-pc-onstart: #3a2808;
+  --color-pc-lawn: #e7c99a;
+  --color-pc-soil: #d7b88a;
   background:
-    radial-gradient(ellipse 80% 50% at 50% 100%, color-mix(in oklab, var(--color-pc-flow) 16%, transparent), transparent 70%),
-    linear-gradient(180deg, #1a212c 0%, var(--color-pc-bg) 46%, #0d1016 100%);
+    radial-gradient(ellipse 70% 40% at 50% 100%, #e7c48a 0%, transparent 70%),
+    linear-gradient(180deg, #f8e7cf 0%, var(--color-pc-bg) 42%, #e7d0ae 100%);
   color: var(--color-pc-fg);
   font-family: var(--font-sans);
 }
@@ -153,8 +154,7 @@
     "board"
     "legend"
     "status"
-    "actions"
-    "style";
+    "actions";
   gap: 14px;
   width: min(100%, 28rem);
   margin: 0 auto;
@@ -180,9 +180,6 @@
 .pc-actions {
   grid-area: actions;
 }
-.pc-style-row {
-  grid-area: style;
-}
 
 @media (min-width: 960px) {
   .pc-shell {
@@ -195,8 +192,7 @@
       "level board"
       "legend board"
       "status board"
-      "actions board"
-      "style board";
+      "actions board";
     column-gap: 48px;
     row-gap: 14px;
     padding: 32px 28px;
@@ -212,25 +208,50 @@
 }
 
 .path-connect[data-theme="alarm"] {
+  --color-pc-bg: #0c1828;
+  --color-pc-wall: #16304a;
+  --color-pc-tray: #102438;
+  --color-pc-tile: #1a3550;
+  --color-pc-edge: #2d5274;
+  --color-pc-fg: #e7f4ff;
+  --color-pc-muted: #9bb4c9;
   --color-pc-flow: #3ec6ff;
   --color-pc-start: #7dd3fc;
   --color-pc-accent: #38bdf8;
-  --color-pc-bore: #67e8f9;
-  --color-pc-core: #e0f7ff;
-  --color-pc-spark: #e0f7ff;
+  --color-pc-casing: #7f9bb4;
+  --color-pc-bore: #35597a;
+  --color-pc-core: #8fb4d4;
+  --color-pc-spark: #e7f8ff;
   --color-pc-onflow: #04202c;
   --color-pc-onstart: #04202c;
+  --color-pc-lawn: #12304a;
+  --color-pc-soil: #0a1626;
+  background:
+    radial-gradient(ellipse 80% 46% at 50% 0%, #1d4e78 0%, transparent 60%),
+    linear-gradient(180deg, #10243a 0%, var(--color-pc-bg) 50%, #081018 100%);
 }
 
 .path-connect[data-theme="fire"] {
-  --color-pc-flow: #ff5a3c;
+  --color-pc-bg: #f6d2c4;
+  --color-pc-wall: #fbe4da;
+  --color-pc-tray: #fff7f3;
+  --color-pc-tile: #fffdfb;
+  --color-pc-edge: #efc2b4;
+  --color-pc-fg: #3a1612;
+  --color-pc-muted: #8a5348;
+  --color-pc-flow: #e23b2f;
   --color-pc-start: #ffb020;
-  --color-pc-accent: #ff5a3c;
-  --color-pc-bore: #ff8a65;
-  --color-pc-core: #ffe7d6;
-  --color-pc-spark: #ffe7d6;
-  --color-pc-onflow: #2a0c08;
-  --color-pc-onstart: #2a1404;
+  --color-pc-accent: #c52822;
+  --color-pc-casing: #8d3b32;
+  --color-pc-bore: #efb2a6;
+  --color-pc-core: #f6ddd4;
+  --color-pc-spark: #fff1ea;
+  --color-pc-onflow: #fff7f4;
+  --color-pc-onstart: #3a2208;
+  --color-pc-lawn: #f0b8a8;
+  --color-pc-soil: #e7a090;
+  background:
+    linear-gradient(180deg, #f8ddd2 0%, var(--color-pc-bg) 38%, #e7b5a4 100%);
 }
 
 .path-connect[data-style="beams"] {
@@ -268,11 +289,20 @@
 
 .path-connect .pc-tray {
   background:
-    linear-gradient(180deg, color-mix(in oklab, white 6%, var(--color-pc-tray)), var(--color-pc-tray));
+    linear-gradient(180deg, color-mix(in oklab, white 55%, var(--color-pc-tray)), var(--color-pc-tray));
   box-shadow:
-    inset 0 10px 16px rgb(0 0 0 / 0.45),
-    inset 0 1px 0 color-mix(in oklab, white 12%, transparent),
-    0 18px 32px -18px rgb(0 0 0 / 0.7);
+    inset 0 1px 0 color-mix(in oklab, white 70%, transparent),
+    inset 0 -10px 16px color-mix(in oklab, var(--color-pc-soil) 40%, transparent),
+    0 14px 24px -16px color-mix(in oklab, var(--color-pc-fg) 35%, transparent);
+}
+
+.path-connect[data-theme="alarm"] .pc-tray {
+  background:
+    linear-gradient(180deg, color-mix(in oklab, white 8%, var(--color-pc-tray)), var(--color-pc-tray));
+  box-shadow:
+    inset 0 12px 18px rgb(0 0 0 / 0.45),
+    inset 0 1px 0 color-mix(in oklab, white 16%, transparent),
+    0 16px 28px -18px rgb(0 0 0 / 0.65);
 }
 
 .path-connect[data-style="wires"] .pc-tray {
@@ -286,20 +316,142 @@
 
 .pc-scene {
   position: relative;
-  padding: 18px 6px 28px;
-}
-
-.pc-scene::before {
-  content: "";
-  position: absolute;
-  z-index: 0;
-  inset: 8px 0 0;
+  overflow: hidden;
+  padding: 46px 16px 40px;
   border-radius: 28px;
   background:
-    linear-gradient(color-mix(in oklab, var(--color-pc-flow) 18%, transparent) 1px, transparent 1px) 0 0 / 22px 22px,
-    linear-gradient(90deg, color-mix(in oklab, var(--color-pc-flow) 18%, transparent) 1px, transparent 1px) 0 0 / 22px 22px;
-  mask-image: radial-gradient(ellipse at 50% 55%, black 20%, transparent 75%);
+    linear-gradient(180deg, color-mix(in oklab, white 35%, var(--color-pc-wall)), var(--color-pc-wall) 40%, color-mix(in oklab, var(--color-pc-soil) 55%, var(--color-pc-wall)));
+  box-shadow:
+    inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
+    0 18px 30px -22px color-mix(in oklab, var(--color-pc-fg) 45%, transparent);
+}
+
+.pc-room {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
   pointer-events: none;
+}
+
+.pc-window {
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  width: 76px;
+  height: 36px;
+  border-radius: 3px;
+  background:
+    linear-gradient(#a86a32, #a86a32) 50% 0 / 3px 100% no-repeat,
+    linear-gradient(#a86a32, #a86a32) 0 50% / 100% 3px no-repeat,
+    linear-gradient(160deg, #fff8dc, #f0c56a 72%);
+  box-shadow:
+    0 0 0 4px #a86a32,
+    0 10px 16px -10px #e09a3a;
+}
+
+.pc-sconce {
+  position: absolute;
+  top: 6px;
+  right: 16px;
+  width: 18px;
+  height: 26px;
+  border-radius: 9px 9px 4px 4px;
+  background: radial-gradient(circle at 50% 68%, #fff6c8, #f0a202 58%, #c46a12);
+  box-shadow:
+    0 0 0 3px #8a5a2a,
+    0 0 22px 4px #f0a202;
+}
+
+.pc-base {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 14px;
+  background: linear-gradient(180deg, #e7c99a, #c9a36e);
+  box-shadow: inset 0 2px 0 #fff3df;
+}
+
+.pc-camera {
+  position: absolute;
+  top: 8px;
+  right: 16px;
+  width: 28px;
+  height: 16px;
+  border-radius: 8px;
+  background: linear-gradient(180deg, #d7e7f5, #8fb0c8);
+  box-shadow: 8px 10px 0 -6px #061018, 0 0 0 2px #061018;
+}
+
+.pc-camera::after {
+  content: "";
+  position: absolute;
+  top: 4px;
+  left: 6px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: radial-gradient(circle at 35% 35%, #e7f8ff, #0b6f92);
+}
+
+.pc-keypad {
+  position: absolute;
+  top: 12px;
+  left: 14px;
+  width: 28px;
+  height: 28px;
+  border-radius: 4px;
+  background:
+    radial-gradient(circle, #3ec6ff 1px, transparent 1.5px) 5px 5px / 9px 9px,
+    #0c2034;
+  box-shadow: 0 0 0 2px #7dd3fc;
+}
+
+.pc-led {
+  position: absolute;
+  top: 14px;
+  left: 50px;
+  width: 8px;
+  height: 8px;
+  border-radius: 999px;
+  background: #3ec6ff;
+  box-shadow: 0 0 10px #3ec6ff;
+}
+
+.pc-exit {
+  position: absolute;
+  top: 8px;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 2px 10px 3px;
+  border-radius: 3px;
+  background: #1f8f4e;
+  color: #f3fff6;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.14em;
+  text-transform: uppercase;
+  box-shadow: 0 0 0 2px #f4f7f2, 0 0 16px #3dce78;
+}
+
+.pc-pull {
+  position: absolute;
+  top: 8px;
+  left: 14px;
+  width: 18px;
+  height: 26px;
+  border-radius: 3px;
+  background: linear-gradient(#ff5a4a, #c52822);
+  box-shadow: 0 0 0 2px #fff7f3, inset 0 8px 0 #fff1ea;
+}
+
+.pc-stripe {
+  position: absolute;
+  right: 0;
+  bottom: 18px;
+  left: 0;
+  height: 8px;
+  background: repeating-linear-gradient(90deg, #e23b2f 0 14px, #f6d2c4 14px 22px);
 }
 
 .pc-scene .pc-tray {
@@ -317,14 +469,16 @@
 .pc-tile[data-fed="true"] .pc-plant,
 .pc-plant.is-fed {
   color: var(--color-pc-flow);
-  transform: scale(1.16);
+  transform: scale(1.2);
+  animation: pc-bulb 0.9s ease-in-out infinite;
 }
 
-.pc-tile[data-role="end"][data-fed="true"] {
-  background: color-mix(in oklab, var(--color-pc-flow) 38%, var(--color-pc-tile));
+.pc-tile[data-role="end"][data-fed="true"],
+.pc-tile[data-charged="true"] {
+  background: color-mix(in oklab, var(--color-pc-flow) 42%, var(--color-pc-tile));
   box-shadow:
     inset 0 0 0 2px var(--color-pc-flow),
-    0 0 18px color-mix(in oklab, var(--color-pc-flow) 65%, transparent),
+    0 0 22px color-mix(in oklab, var(--color-pc-flow) 70%, transparent),
     var(--pc-face),
     var(--pc-lip);
 }
@@ -577,18 +731,27 @@
 
 .pc-flash {
   position: absolute;
-  inset: -6px;
+  inset: -8px;
   z-index: 5;
   border-radius: 28px;
   pointer-events: none;
   background: radial-gradient(
     circle at 50% 48%,
     var(--color-pc-spark) 0%,
-    color-mix(in oklab, var(--color-pc-flow) 70%, var(--color-pc-spark)) 18%,
-    transparent 62%
+    color-mix(in oklab, var(--color-pc-flow) 75%, var(--color-pc-spark)) 22%,
+    transparent 68%
   );
   mix-blend-mode: screen;
-  animation: pc-power 0.7s ease-out forwards;
+  animation: pc-power 0.85s ease-out forwards;
+}
+
+.pc-flash-late {
+  animation-delay: 0.18s;
+  opacity: 0;
+}
+
+.pc-shell[data-phase="won"] .pc-scene {
+  animation: pc-room-hit 0.7s ease-out;
 }
 
 .pc-mark {
@@ -776,10 +939,32 @@
 
 @keyframes pc-power {
   0% {
-    opacity: 0.95;
+    opacity: 0;
+  }
+  18% {
+    opacity: 1;
   }
   100% {
     opacity: 0;
+  }
+}
+
+@keyframes pc-bulb {
+  0%,
+  100% {
+    filter: drop-shadow(0 0 4px var(--color-pc-flow));
+  }
+  50% {
+    filter: drop-shadow(0 0 12px var(--color-pc-flow));
+  }
+}
+
+@keyframes pc-room-hit {
+  0% {
+    filter: brightness(1.28);
+  }
+  100% {
+    filter: brightness(1);
   }
 }
 

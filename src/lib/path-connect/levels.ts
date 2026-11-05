@@ -88,9 +88,9 @@ const SPECS: readonly LevelSpec[] = [
   },
   {
     id: 4,
-    name: "Long hall",
-    blurb: "The far light is straight across. The near one drops off the hall.",
-    theme: "lights",
+    name: "Front desk",
+    blurb: "Two sensors. The panel and the run across the lobby start turned.",
+    theme: "alarm",
     routes: [
       [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4]],
       [[1, 0], [1, 1], [1, 2], [2, 2], [3, 2], [3, 3]],
@@ -123,9 +123,9 @@ const SPECS: readonly LevelSpec[] = [
   },
   {
     id: 7,
-    name: "Stairwell",
-    blurb: "Climb the left edge, then reach the two sensors on the right.",
-    theme: "alarm",
+    name: "West stairs",
+    blurb: "Climb the stairwell, then reach the detectors on the right.",
+    theme: "fire",
     routes: [
       [[4, 0], [3, 0], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
       [[4, 0], [3, 0], [3, 1], [3, 2], [3, 3]],

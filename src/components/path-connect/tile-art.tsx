@@ -124,6 +124,21 @@ export function TileArt({
       {conduit === "trace" &&
         arms.map((dir) => (
           <line
+            key={`ridge-${dir}`}
+            x1={50}
+            y1={50}
+            x2={ends[dir][0]}
+            y2={ends[dir][1]}
+            stroke="white"
+            strokeOpacity={live ? 0.75 : 0.35}
+            strokeWidth={4}
+            strokeLinecap={cap}
+            className="pc-ridge"
+          />
+        ))}
+      {conduit === "trace" &&
+        arms.map((dir) => (
+          <line
             key={`spark-${dir}`}
             x1={50}
             y1={50}

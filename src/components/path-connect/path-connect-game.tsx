@@ -37,7 +37,7 @@ import {
   rowCol,
 } from "@/lib/path-connect/logic";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
-import { DEFAULT_THEME, THEMES, themeById, type ThemeId } from "@/lib/path-connect/styles";
+import { themeById, type ThemeId } from "@/lib/path-connect/styles";
 import { TileArt } from "@/components/path-connect/tile-art";
 
 type Phase = "play" | "flow" | "won" | "expired";
@@ -101,14 +101,13 @@ export function PathConnectGame() {
   const [flowPaths, setFlowPaths] = useState<number[][] | null>(null);
   const [charge, setCharge] = useState<Charge | null>(null);
   const [note, setNote] = useState<string | null>(null);
-  const [themeId, setThemeId] = useState<ThemeId>(DEFAULT_THEME);
   const [motionOn, setMotionOn] = useState(true);
   const [muted, setMuted] = useState(false);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const boardRef = useRef<HTMLDivElement>(null);
   const centersRef = useRef<Point[]>([]);
-  const theme = themeById(themeId);
+  const theme = themeById(level.theme);
   const marks = MARKS[theme.id];
   const lastLevel = levelId === LEVELS.length;
   const linked = linkedIndexes(level, spins);
@@ -117,10 +116,6 @@ export function PathConnectGame() {
   const charged = new Set(network.paths.flat());
   const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
-
-  useEffect(() => {
-    setThemeId(level.theme);
-  }, [level.id, level.theme, mode]);
 
   useEffect(() => {
     setBest(readBest(todayKey));
@@ -428,7 +423,8 @@ export function PathConnectGame() {
           </p>
         </section>
 
-        <div className="pc-scene pc-board-wrap">
+        <div className="pc-scene pc-board-wrap" data-room={theme.id}>
+          <Room theme={theme.id} />
           <div className="pc-tray">
           <div
             ref={boardRef}
@@ -517,7 +513,12 @@ export function PathConnectGame() {
                 />
               </>
             )}
-            {phase === "won" && <span className="pc-flash" aria-hidden="true" />}
+            {phase === "won" && (
+              <>
+                <span className="pc-flash" aria-hidden="true" />
+                <span className="pc-flash pc-flash-late" aria-hidden="true" />
+              </>
+            )}
           </div>
           </div>
         </div>
@@ -596,24 +597,35 @@ export function PathConnectGame() {
           )}
         </div>
 
-        <div className="pc-style-row flex items-center justify-between gap-3">
-          <p className="text-xs font-medium uppercase tracking-widest text-pc-muted">System</p>
-          <div className="pc-styles" role="group" aria-label="Electrical system">
-            {THEMES.map((item) => (
-              <button
-                key={item.id}
-                type="button"
-                aria-pressed={item.id === themeId}
-                aria-label={item.title}
-                className={item.id === themeId ? "is-on" : undefined}
-                onClick={() => setThemeId(item.id)}
-              >
-                {item.label}
-              </button>
-            ))}
-          </div>
-        </div>
       </main>
+    </div>
+  );
+}
+
+function Room({ theme }: { theme: ThemeId }) {
+  if (theme === "alarm") {
+    return (
+      <div className="pc-room" aria-hidden="true">
+        <span className="pc-camera" />
+        <span className="pc-keypad" />
+        <span className="pc-led" />
+      </div>
+    );
+  }
+  if (theme === "fire") {
+    return (
+      <div className="pc-room" aria-hidden="true">
+        <span className="pc-exit">Exit</span>
+        <span className="pc-pull" />
+        <span className="pc-stripe" />
+      </div>
+    );
+  }
+  return (
+    <div className="pc-room" aria-hidden="true">
+      <span className="pc-window" />
+      <span className="pc-sconce" />
+      <span className="pc-base" />
     </div>
   );
 }
