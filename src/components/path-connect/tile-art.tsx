@@ -1,4 +1,3 @@
-import { useId } from "react";
 import { baseMask, openingIds, type DirId, type Kind } from "@/lib/path-connect/logic";
 import type { Conduit } from "@/lib/path-connect/styles";
 
@@ -26,35 +25,35 @@ const WIDTHS: Record<
 };
 
 /**
- * Pipe width in tile units. Every opening is a straight run through the
- * middle of an edge, extended across the gap so the neighbor's flat end
- * overlaps it. A corner is a quarter-circle whose tangents are perpendicular
- * to those edges, so the joint stays centered after the bend.
+ * Cozy conduit, in tile units. Every arm runs straight through the middle of
+ * its edge and continues `PIPE_STUB` into the gap, so a neighbor's flat end
+ * lands on the same line. Corners bend near the center with a tight radius;
+ * both tangents are perpendicular to the edges, so openings never shift.
  */
-const PIPE_WIDTH = 26;
-const PIPE_RADIUS = PIPE_WIDTH / 2;
-/** How far a butt end crosses into the neighboring tile, in tile units. */
+const PIPE_WIDTH = 24;
 const PIPE_STUB = 12;
-/** Highlight stops just past the edge so neighboring bands do not stack. */
-const SHEEN_STUB = 6;
+const BEND_RADIUS = 22;
+/** Collar sits just inside each opening, like a fitting on real conduit. */
+const COLLAR_FROM = 1.5;
+const COLLAR_TO = 6.5;
+
 /**
- * Smooth tube, dark side first. `t` is a signed fraction of the radius
- * (negative faces away from the light). Each band stays inside the stroke.
+ * Layers of the tube, darkest first. `shift` moves a layer toward the light,
+ * as a fraction of the pipe width; every layer stays inside the outer rim.
  */
-const TUBE: { t: number; mix: number; shade: boolean; span: number; opacity: number }[] = [
-  { t: -0.58, mix: 58, shade: true, span: 0.4, opacity: 0.62 },
-  { t: -0.2, mix: 18, shade: true, span: 0.46, opacity: 0.4 },
-  { t: 0.14, mix: 22, shade: false, span: 0.42, opacity: 0.38 },
-  { t: 0.4, mix: 70, shade: false, span: 0.3, opacity: 0.76 },
-  { t: 0.62, mix: 100, shade: false, span: 0.13, opacity: 0.94 },
+const LAYERS: { width: number; shift: number; ink: "shade" | "light"; mix: number; opacity?: number }[] = [
+  { width: 1, shift: 0, ink: "shade", mix: 66 },
+  { width: 0.8, shift: 0.07, ink: "shade", mix: 26 },
+  { width: 0.44, shift: 0.15, ink: "light", mix: 26, opacity: 0.9 },
+  { width: 0.14, shift: 0.24, ink: "light", mix: 92, opacity: 0.95 },
 ];
 
 type Pt = [number, number];
 
-/** Screen-space light, swung back into this tile's unrotated drawing. */
+/** Screen-space light from the upper left, swung back into this tile's unrotated drawing. */
 function localLight(rotation: number): Pt {
-  let x = -0.4;
-  let y = -0.92;
+  let x = -Math.SQRT1_2;
+  let y = -Math.SQRT1_2;
   const turns = ((rotation % 4) + 4) % 4;
   for (let i = 0; i < turns; i++) {
     const nextX = y;
@@ -65,88 +64,69 @@ function localLight(rotation: number): Pt {
   return [x, y];
 }
 
-function pushLine(pts: Pt[], from: Pt, to: Pt, steps: number, skipStart: boolean) {
-  for (let i = skipStart ? 1 : 0; i <= steps; i++) {
+function segment(from: Pt, to: Pt, steps: number): Pt[] {
+  const pts: Pt[] = [];
+  for (let i = 0; i <= steps; i++) {
     const t = i / steps;
     pts.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t]);
   }
+  return pts;
+}
+
+/** North arm into a tight bend, then out the east edge. */
+function elbow(): Pt[] {
+  const r = BEND_RADIUS;
+  const pts = segment([50, -PIPE_STUB], [50, 50 - r], 6);
+  for (let i = 1; i < 24; i++) {
+    const angle = Math.PI - (Math.PI / 2) * (i / 24);
+    pts.push([50 + r + r * Math.cos(angle), 50 - r + r * Math.sin(angle)]);
+  }
+  return pts.concat(segment([50 + r, 50], [100 + PIPE_STUB, 50], 6));
+}
+
+interface Run {
+  pts: Pt[];
+  /** Round the start of the run, for a pipe that stops in the middle of the tile. */
+  roundStart?: boolean;
+  /** Light layers begin this far along, so a tee branch does not paint over the bar's highlight. */
+  lightFrom?: number;
+}
+
+/** Base shapes, drawn at rotation 0. Straight is vertical, corner is NE, tee is NES, cap points north. */
+function runs(arms: DirId[]): Run[] {
+  const has = (dir: DirId) => arms.includes(dir);
+  if (has("N") && has("E") && !has("S")) return [{ pts: elbow() }];
+  const out: Run[] = [];
+  if (has("N") && has("S")) out.push({ pts: segment([50, -PIPE_STUB], [50, 100 + PIPE_STUB], 12) });
+  else if (has("N")) out.push({ pts: segment([50, 50], [50, -PIPE_STUB], 8), roundStart: true });
+  if (has("E")) out.push({ pts: segment([50, 50], [100 + PIPE_STUB, 50], 8), lightFrom: PIPE_WIDTH / 2 });
+  return out;
 }
 
 /**
- * Base shapes only. The board rotates the SVG, which matches the rules.
- * Straight is vertical, corner is north-east, tee is a vertical with an
- * east branch, cap points north.
+ * Pushes each point toward the light by the component of the light across the
+ * pipe. Through a bend the band glides smoothly from one side to the other, and
+ * two neighboring tiles agree on where it sits.
  */
-function centerlines(arms: DirId[]): Pt[][] {
-  const has = (dir: DirId) => arms.includes(dir);
-  const north: Pt = [50, -PIPE_STUB];
-  const south: Pt = [50, 100 + PIPE_STUB];
-  const east: Pt = [100 + PIPE_STUB, 50];
-  const edgeN: Pt = [50, 0];
-  const edgeE: Pt = [100, 50];
-  const lines: Pt[][] = [];
-
-  if (has("N") && has("S") && !has("E") && !has("W")) {
-    const pts: Pt[] = [];
-    pushLine(pts, north, south, 8, false);
-    lines.push(pts);
-    return lines;
-  }
-
-  if (has("N") && has("E") && !has("S") && !has("W")) {
-    const pts: Pt[] = [];
-    pushLine(pts, north, edgeN, 3, false);
-    for (let i = 1; i <= 16; i++) {
-      const angle = Math.PI - (Math.PI / 2) * (i / 16);
-      pts.push([100 + 50 * Math.cos(angle), 50 * Math.sin(angle)]);
-    }
-    pushLine(pts, edgeE, east, 3, true);
-    lines.push(pts);
-    return lines;
-  }
-
-  if (has("N") && has("S")) {
-    const pts: Pt[] = [];
-    pushLine(pts, north, south, 8, false);
-    lines.push(pts);
-  } else if (has("N")) {
-    const pts: Pt[] = [];
-    pushLine(pts, [50, 50], north, 6, false);
-    lines.push(pts);
-  }
-  if (has("E") && !(has("N") && has("E") && !has("S") && !has("W"))) {
-    const pts: Pt[] = [];
-    pushLine(pts, [50, 50], east, 6, false);
-    lines.push(pts);
-  }
-  return lines;
-}
-
-function trimSheen(pts: Pt[]): Pt[] {
-  return pts.filter(
-    ([x, y]) => x >= -SHEEN_STUB && x <= 100 + SHEEN_STUB && y >= -SHEEN_STUB && y <= 100 + SHEEN_STUB,
-  );
-}
-
-function offsetAlong(pts: Pt[], light: Pt, dist: number): Pt[] {
-  const out: Pt[] = [];
-  for (let i = 0; i < pts.length; i++) {
+function shifted(pts: Pt[], light: Pt, dist: number): Pt[] {
+  return pts.map((pt, i) => {
     const prev = pts[Math.max(0, i - 1)]!;
     const next = pts[Math.min(pts.length - 1, i + 1)]!;
-    let tx = next[0] - prev[0];
-    let ty = next[1] - prev[1];
+    const tx = next[0] - prev[0];
+    const ty = next[1] - prev[1];
     const len = Math.hypot(tx, ty) || 1;
-    tx /= len;
-    ty /= len;
-    const left: Pt = [-ty, tx];
-    const right: Pt = [ty, -tx];
-    const facing =
-      left[0] * light[0] + left[1] * light[1] >= right[0] * light[0] + right[1] * light[1]
-        ? left
-        : right;
-    out.push([pts[i]![0] + facing[0] * dist, pts[i]![1] + facing[1] * dist]);
-  }
-  return out;
+    const nx = -ty / len;
+    const ny = tx / len;
+    const k = (dist * (nx * light[0] + ny * light[1])) / Math.SQRT1_2;
+    const clamped = Math.max(-dist, Math.min(dist, k));
+    return [pt[0] + nx * clamped, pt[1] + ny * clamped];
+  });
+}
+
+function trimStart(pts: Pt[], from: number): Pt[] {
+  if (!from) return pts;
+  const origin = pts[0]!;
+  return pts.filter((pt) => Math.hypot(pt[0] - origin[0], pt[1] - origin[1]) >= from);
 }
 
 function linePath(pts: Pt[]): string {
@@ -155,37 +135,19 @@ function linePath(pts: Pt[]): string {
     .join(" ");
 }
 
-/** Filled north-east-south tee. Butts stay centered on the three edge midpoints. */
-function teeOutline(): string {
-  const r = PIPE_RADIUS;
-  const f = PIPE_RADIUS;
-  const stub = PIPE_STUB;
-  const left = 50 - r;
-  const right = 50 + r;
-  const top = 50 - r;
-  const bottom = 50 + r;
-  return [
-    `M ${left} ${-stub}`,
-    `L ${right} ${-stub}`,
-    `L ${right} ${top + f}`,
-    `A ${f} ${f} 0 0 1 ${right - f} ${top}`,
-    `L ${100 + stub} ${top}`,
-    `L ${100 + stub} ${bottom}`,
-    `L ${right - f} ${bottom}`,
-    `A ${f} ${f} 0 0 0 ${right} ${bottom - f}`,
-    `L ${right} ${100 + stub}`,
-    `L ${left} ${100 + stub}`,
-    "Z",
-  ].join(" ");
+function layerColor(layer: (typeof LAYERS)[number]): string {
+  const ink = layer.ink === "shade" ? "var(--color-pc-shade)" : "var(--color-pc-pipe-light)";
+  return `color-mix(in oklab, ${ink} ${layer.mix}%, var(--color-pc-casing))`;
 }
 
-function cornerOutline(): string {
-  return `M 50 ${-PIPE_STUB} L 50 0 A 50 50 0 0 0 100 50 L ${100 + PIPE_STUB} 50`;
-}
-
-function tubeColor(stop: (typeof TUBE)[number]): string {
-  const ink = stop.shade ? "var(--color-pc-shade)" : "var(--color-pc-pipe-light)";
-  return `color-mix(in oklab, ${ink} ${stop.mix}%, var(--color-pc-casing))`;
+/** Short fittings just inside each opening. */
+function collars(arms: DirId[]): Pt[][] {
+  const at: Record<string, [Pt, Pt]> = {
+    N: [[50, COLLAR_FROM], [50, COLLAR_TO]],
+    E: [[100 - COLLAR_FROM, 50], [100 - COLLAR_TO, 50]],
+    S: [[50, 100 - COLLAR_FROM], [50, 100 - COLLAR_TO]],
+  };
+  return arms.filter((dir) => at[dir]).map((dir) => segment(at[dir]![0], at[dir]![1], 2));
 }
 
 function CozyPipe({
@@ -197,70 +159,84 @@ function CozyPipe({
   rotation: number;
   live: boolean;
 }) {
-  const uid = useId().replace(/:/g, "");
   if (arms.length === 0) return null;
-  const has = (dir: DirId) => arms.includes(dir);
-  const corner = has("N") && has("E") && !has("S") && !has("W");
-  const tee = has("N") && has("E") && has("S") && !has("W");
-  const straight = has("N") && has("S") && !has("E") && !has("W");
   const light = localLight(rotation);
-  const lines = centerlines(arms);
-  const sheenLines = lines.map(trimSheen).filter((line) => line.length > 1);
-  const cap = { fill: "none", strokeLinecap: "butt", strokeLinejoin: "round" } as const;
-  const sheen = { fill: "none", strokeLinecap: "round", strokeLinejoin: "round" } as const;
-  const body =
-    corner ? cornerOutline() : straight || arms.length === 1 ? linePath(lines[0] ?? []) : "";
-  const capEnd = arms.length === 1;
-  const bands = TUBE.flatMap((stop) =>
-    sheenLines.map((line) => ({
-      d: linePath(offsetAlong(line, light, stop.t * PIPE_RADIUS * 0.7)),
-      width: stop.span * PIPE_WIDTH,
-      color: tubeColor(stop),
-      opacity: stop.opacity,
-    })),
-  );
+  const pieces = runs(arms);
+  const butt = { fill: "none", strokeLinecap: "butt", strokeLinejoin: "round" } as const;
+  const strokes: { key: string; d: string; width: number; color: string; opacity: number }[] = [];
+  const dots: { key: string; x: number; y: number; r: number; color: string; opacity: number }[] = [];
+
+  LAYERS.forEach((layer, li) => {
+    const width = layer.width * PIPE_WIDTH;
+    const dist = layer.shift * PIPE_WIDTH;
+    const color = layerColor(layer);
+    const opacity = layer.opacity ?? 1;
+    const isLight = layer.ink === "light";
+    pieces.forEach((run, ri) => {
+      const pts = isLight ? trimStart(run.pts, run.lightFrom ?? 0) : run.pts;
+      if (pts.length < 2) return;
+      const line = shifted(pts, light, dist);
+      strokes.push({ key: `l${li}-r${ri}`, d: linePath(line), width, color, opacity });
+      if (run.roundStart) {
+        dots.push({ key: `d${li}-r${ri}`, x: line[0]![0], y: line[0]![1], r: width / 2, color, opacity });
+      }
+    });
+  });
+
+  const fittings = collars(arms);
 
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
-      <defs>
-        <mask id={`${uid}-mask`}>
-          {tee ? (
-            <path d={teeOutline()} fill="white" />
-          ) : (
-            <path d={body} stroke="white" strokeWidth={PIPE_WIDTH} {...cap} />
-          )}
-          {capEnd && <circle cx="50" cy="50" r={PIPE_RADIUS} fill="white" />}
-        </mask>
-      </defs>
-      {tee ? (
-        <path d={teeOutline()} fill="var(--color-pc-casing)" />
-      ) : (
-        <path d={body} stroke="var(--color-pc-casing)" strokeWidth={PIPE_WIDTH} {...cap} />
-      )}
-      {capEnd && <circle cx="50" cy="50" r={PIPE_RADIUS} fill="var(--color-pc-casing)" />}
-      <g mask={`url(#${uid}-mask)`}>
-        {bands.map((band, index) => (
+      {LAYERS.map((_, li) => (
+        <g key={`layer-${li}`}>
+          {dots
+            .filter((dot) => dot.key.startsWith(`d${li}-`))
+            .map((dot) => (
+              <circle key={dot.key} cx={dot.x} cy={dot.y} r={dot.r} fill={dot.color} fillOpacity={dot.opacity} />
+            ))}
+          {strokes
+            .filter((stroke) => stroke.key.startsWith(`l${li}-`))
+            .map((stroke) => (
+              <path
+                key={stroke.key}
+                d={stroke.d}
+                stroke={stroke.color}
+                strokeOpacity={stroke.opacity}
+                strokeWidth={stroke.width}
+                {...butt}
+              />
+            ))}
+        </g>
+      ))}
+      {fittings.map((pts, fi) => (
+        <g key={`collar-${fi}`}>
+          <path d={linePath(pts)} stroke={layerColor(LAYERS[0]!)} strokeWidth={PIPE_WIDTH + 3} {...butt} />
           <path
-            key={`tube-${index}`}
-            d={band.d}
-            stroke={band.color}
-            strokeOpacity={band.opacity}
-            strokeWidth={band.width}
-            {...sheen}
+            d={linePath(shifted(pts, light, PIPE_WIDTH * 0.07))}
+            stroke={layerColor(LAYERS[1]!)}
+            strokeWidth={PIPE_WIDTH * 0.86}
+            {...butt}
+          />
+          <path
+            d={linePath(shifted(pts, light, PIPE_WIDTH * 0.2))}
+            stroke={layerColor(LAYERS[2]!)}
+            strokeOpacity="0.9"
+            strokeWidth={PIPE_WIDTH * 0.36}
+            {...butt}
+          />
+        </g>
+      ))}
+      {live &&
+        pieces.map((run, ri) => (
+          <path
+            key={`live-${ri}`}
+            d={linePath(shifted(run.pts, light, PIPE_WIDTH * 0.15))}
+            stroke="var(--color-pc-spark)"
+            strokeOpacity="0.55"
+            strokeWidth={PIPE_WIDTH * 0.3}
+            {...butt}
           />
         ))}
-        {live &&
-          lines.map((pts, index) => (
-            <path
-              key={`core-${index}`}
-              d={linePath(pts)}
-              stroke="var(--color-pc-spark)"
-              strokeOpacity="0.72"
-              strokeWidth="4"
-              {...sheen}
-            />
-          ))}
-      </g>
     </svg>
   );
 }
