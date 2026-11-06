@@ -31,12 +31,16 @@ const WIDTHS: Record<
  * overlaps it. A corner is a quarter-circle whose tangents are perpendicular
  * to those edges, so the joint stays centered after the bend.
  */
-const PIPE_WIDTH = 36;
+const PIPE_WIDTH = 48;
 const PIPE_RADIUS = PIPE_WIDTH / 2;
 /** How far a butt end crosses into the neighboring tile, in tile units. */
 const PIPE_STUB = 12;
 /** Highlight stops just past the edge so the two stripes meet without stacking. */
 const SHEEN_STUB = 6;
+/** Light band sits toward the top of the pipe and stays inside the stroke. */
+const SHEEN_OFFSET = 12;
+const SHEEN_LIGHT = 8;
+const SHEEN_SHADE = 12;
 
 type Pt = [number, number];
 
@@ -198,23 +202,23 @@ function cornerSheen(light: Pt, dist: number): string {
 function teeSheens(light: Pt): { d: string; width: number; shade: boolean }[] {
   const north = facingNormal(0, 1, light);
   const east = facingNormal(1, 0, light);
-  const x = 50 + north[0] * 8;
-  const y = 50 + east[1] * 7;
-  const shadeX = 50 - north[0] * 8;
+  const x = 50 + north[0] * SHEEN_OFFSET;
+  const y = 50 + east[1] * SHEEN_OFFSET;
+  const shadeX = 50 - north[0] * SHEEN_OFFSET;
   return [
     {
       d: `M ${shadeX.toFixed(2)} ${-SHEEN_STUB} L ${shadeX.toFixed(2)} ${100 + SHEEN_STUB}`,
-      width: 11,
+      width: SHEEN_SHADE,
       shade: true,
     },
     {
       d: `M ${x.toFixed(2)} ${-SHEEN_STUB} L ${x.toFixed(2)} ${100 + SHEEN_STUB}`,
-      width: 5,
+      width: SHEEN_LIGHT,
       shade: false,
     },
     {
       d: `M 50 50 Q 76 ${y.toFixed(2)} ${100 + SHEEN_STUB} ${y.toFixed(2)}`,
-      width: 4,
+      width: 6,
       shade: false,
     },
   ];
@@ -245,17 +249,17 @@ function CozyPipe({
     ? teeSheens(light)
     : [
         ...(corner
-          ? [{ d: cornerSheen([-light[0], -light[1]], 8), width: 11, shade: true }]
+          ? [{ d: cornerSheen([-light[0], -light[1]], SHEEN_OFFSET), width: SHEEN_SHADE, shade: true }]
           : lines.map((pts) => ({
-              d: linePath(offsetAlong(pts, [-light[0], -light[1]], 8)),
-              width: 11,
+              d: linePath(offsetAlong(pts, [-light[0], -light[1]], SHEEN_OFFSET)),
+              width: SHEEN_SHADE,
               shade: true,
             }))),
         ...(corner
-          ? [{ d: cornerSheen(light, 8), width: 5, shade: false }]
+          ? [{ d: cornerSheen(light, SHEEN_OFFSET), width: SHEEN_LIGHT, shade: false }]
           : lines.map((pts) => ({
-              d: linePath(offsetAlong(pts, light, 8)),
-              width: 5,
+              d: linePath(offsetAlong(pts, light, SHEEN_OFFSET)),
+              width: SHEEN_LIGHT,
               shade: false,
             }))),
       ];
