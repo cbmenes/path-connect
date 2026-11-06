@@ -124,14 +124,15 @@
   --color-pc-flow: #e8a23a;
   --color-pc-start: #f0a202;
   --color-pc-accent: #c4844a;
-  --color-pc-casing: #c4844a;
-  --color-pc-shade: #a66b38;
+  --color-pc-casing: #c98448;
+  --color-pc-shade: #8a4e28;
+  --color-pc-pipe-light: #f6d7b0;
   --color-pc-bore: #e7d3b4;
   --color-pc-core: #f6e2c4;
   --color-pc-spark: #ffd56a;
-  --color-pc-glass: #f0b84a;
-  --color-pc-glass-on: #ffe14a;
-  --color-pc-glass-ink: #7a4520;
+  --color-pc-glass: #ffc83d;
+  --color-pc-glass-on: #fff0a0;
+  --color-pc-glass-ink: #5c3014;
   --color-pc-onflow: #3a2808;
   --color-pc-onstart: #5c3a24;
   --color-pc-lawn: #f3e6d2;
@@ -221,7 +222,8 @@
   --color-pc-start: #7dd3fc;
   --color-pc-accent: #3d7eab;
   --color-pc-casing: #4f86b0;
-  --color-pc-shade: #35688c;
+  --color-pc-shade: #24557a;
+  --color-pc-pipe-light: #d7ebf8;
   --color-pc-bore: #d5e4ef;
   --color-pc-core: #e7f4fb;
   --color-pc-spark: #7ee0ff;
@@ -249,7 +251,8 @@
   --color-pc-start: #ffb020;
   --color-pc-accent: #c4544c;
   --color-pc-casing: #d4655a;
-  --color-pc-shade: #b04a42;
+  --color-pc-shade: #8e332c;
+  --color-pc-pipe-light: #f8cfc6;
   --color-pc-bore: #f0d0c8;
   --color-pc-core: #f8e4dc;
   --color-pc-spark: #ffb15a;
@@ -1168,22 +1171,45 @@
   opacity: 1;
 }
 
+.path-connect[data-style="cozy"] .pc-plant::before {
+  content: "";
+  position: absolute;
+  left: 11%;
+  top: 11%;
+  z-index: 1;
+  width: 78%;
+  height: 78%;
+  border-radius: 999px;
+  background: color-mix(in oklab, white 92%, var(--color-pc-tile));
+  box-shadow:
+    inset 0 0 0 3px var(--color-pc-glass-ink),
+    0 2px 0 color-mix(in oklab, var(--color-pc-glass-ink) 40%, transparent);
+}
+
+.path-connect[data-style="cozy"] .pc-plant.is-fed::before {
+  background: color-mix(in oklab, var(--color-pc-glass-on) 78%, white);
+  box-shadow:
+    inset 0 0 0 3px var(--color-pc-glass-ink),
+    0 0 18px 6px var(--color-pc-spark);
+}
+
 .path-connect[data-style="cozy"] .pc-tile .pc-glyph {
-  width: 56px;
-  height: 64px;
+  z-index: 2;
+  width: 70%;
+  height: 80%;
   overflow: visible;
-  filter: drop-shadow(0 2px 0 color-mix(in oklab, var(--color-pc-glass-ink) 55%, transparent));
+  filter: drop-shadow(0 2px 0 color-mix(in oklab, var(--color-pc-glass-ink) 45%, transparent));
 }
 
 .path-connect[data-style="cozy"] .pc-glyph.is-on {
   filter:
-    drop-shadow(0 0 3px white)
-    drop-shadow(0 0 8px var(--color-pc-glass-on))
-    drop-shadow(0 0 16px var(--color-pc-spark));
+    drop-shadow(0 0 4px white)
+    drop-shadow(0 0 10px var(--color-pc-glass-on))
+    drop-shadow(0 0 20px var(--color-pc-spark));
 }
 
 .path-connect[data-style="cozy"] .pc-plant.is-fed .pc-glyph {
-  transform: scale(1.06);
+  transform: scale(1.04);
 }
 
 .path-connect[data-style="cozy"] .pc-shell[data-phase="flow"] .pc-tile[data-live="true"],

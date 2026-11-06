@@ -1,3 +1,4 @@
+import { useId } from "react";
 import { baseMask, openingIds, type DirId, type Kind } from "@/lib/path-connect/logic";
 import type { Conduit } from "@/lib/path-connect/styles";
 
@@ -24,71 +25,126 @@ const WIDTHS: Record<
   beam: { casing: 0, bore: 4, core: 0, hub: 4, stream: 2 },
 };
 
+/**
+ * Stroke width in tile units. The round cap, not the path end, is what reaches
+ * the next tile, so the endpoint sits inside the tile by about half the width.
+ */
+const PIPE_WIDTH = 40;
+
 const PIPE_ENDS: Record<DirId, [number, number]> = {
-  N: [50, -6],
-  E: [106, 50],
-  S: [50, 106],
-  W: [-6, 50],
+  N: [50, -4],
+  E: [104, 50],
+  S: [50, 104],
+  W: [-4, 50],
 };
 
 const OPPOSITE: Record<DirId, DirId> = { N: "S", E: "W", S: "N", W: "E" };
 
-function along(dir: DirId, fromCenter: number): [number, number] {
+function elbowD(a: DirId, b: DirId): string {
+  const [x1, y1] = PIPE_ENDS[a];
+  const [x2, y2] = PIPE_ENDS[b];
+  const cross = (x1 - 50) * (y2 - 50) - (y1 - 50) * (x2 - 50);
+  const sweep = cross > 0 ? 1 : 0;
+  const radius = Math.hypot(x1 - 50, y1 - 50);
+  return `M ${x1} ${y1} A ${radius} ${radius} 0 0 ${sweep} ${x2} ${y2}`;
+}
+
+function armLine(dir: DirId): string {
   const [x, y] = PIPE_ENDS[dir];
-  const dx = x - 50;
-  const dy = y - 50;
-  const len = Math.hypot(dx, dy);
-  return [50 + (dx / len) * fromCenter, 50 + (dy / len) * fromCenter];
+  return `M 50 50 L ${x} ${y}`;
 }
 
-/** One continuous tube: a straight, a rounded elbow, or arms into a joint. */
-function pipeD(arms: DirId[]): string {
-  if (arms.length === 2 && OPPOSITE[arms[0]!] !== arms[1]) {
-    const [x1, y1] = PIPE_ENDS[arms[0]!];
-    const [x2, y2] = PIPE_ENDS[arms[1]!];
-    const [ix, iy] = along(arms[0]!, 24);
-    const [jx, jy] = along(arms[1]!, 24);
-    return `M ${x1} ${y1} L ${ix} ${iy} Q 50 50 ${jx} ${jy} L ${x2} ${y2}`;
-  }
-  if (arms.length === 2) {
-    const [x1, y1] = PIPE_ENDS[arms[0]!];
-    const [x2, y2] = PIPE_ENDS[arms[1]!];
-    return `M ${x1} ${y1} L ${x2} ${y2}`;
-  }
-  return arms
-    .map((dir) => {
-      const [x, y] = PIPE_ENDS[dir];
-      return `M 50 50 L ${x} ${y}`;
-    })
-    .join(" ");
-}
-
-/** Rounded pipe with a dark underside and a highlight along the top. */
+/**
+ * Thick tube. A gradient runs across the stroke so the lit side is pale and
+ * the far side is dark, and a masked highlight stays inside the metal.
+ */
 function CozyPipe({ arms, hub }: { arms: DirId[]; hub: "start" | "end" | "plain" }) {
-  const d = pipeD(arms);
+  const uid = useId().replace(/:/g, "");
+  if (arms.length === 0) return null;
+  const elbow = arms.length === 2 && OPPOSITE[arms[0]!] !== arms[1];
+  const straight = arms.length === 2 && OPPOSITE[arms[0]!] === arms[1];
   const joint = arms.length >= 3 && hub !== "end";
+  const paths: { d: string; grad: string }[] = [];
+
+  if (elbow) {
+    paths.push({ d: elbowD(arms[0]!, arms[1]!), grad: `${uid}-diag` });
+  } else if (straight) {
+    const horizontal = arms[0] === "E" || arms[0] === "W";
+    const [x1, y1] = PIPE_ENDS[arms[0]!];
+    const [x2, y2] = PIPE_ENDS[arms[1]!];
+    paths.push({
+      d: `M ${x1} ${y1} L ${x2} ${y2}`,
+      grad: horizontal ? `${uid}-h` : `${uid}-v`,
+    });
+  } else {
+    for (const dir of arms) {
+      const horizontal = dir === "E" || dir === "W";
+      paths.push({ d: armLine(dir), grad: horizontal ? `${uid}-h` : `${uid}-v` });
+    }
+  }
+
   const cap = { fill: "none", strokeLinecap: "round", strokeLinejoin: "round" } as const;
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
-      <path d={d} {...cap} stroke="var(--color-pc-shade)" strokeWidth={38} transform="translate(0 4)" />
-      <path d={d} {...cap} stroke="var(--color-pc-casing)" strokeWidth={32} />
-      <path
-        d={d}
-        {...cap}
-        stroke="var(--color-pc-shade)"
-        strokeOpacity={0.45}
-        strokeWidth={8}
-        transform="translate(0 7)"
-      />
-      <path d={d} {...cap} stroke="white" strokeOpacity={0.34} strokeWidth={11} transform="translate(0 -5)" />
-      <path d={d} {...cap} stroke="white" strokeOpacity={0.8} strokeWidth={3.5} transform="translate(-1 -8)" />
-      {joint && (
-        <>
-          <circle cx={50} cy={53} r={19} fill="var(--color-pc-shade)" />
-          <circle cx={50} cy={50} r={16} fill="var(--color-pc-casing)" />
-          <circle cx={44} cy={44} r={4.5} fill="white" opacity={0.7} />
-        </>
-      )}
+      <defs>
+        <linearGradient id={`${uid}-h`} gradientUnits="userSpaceOnUse" x1="50" y1="18" x2="50" y2="82">
+          <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
+          <stop offset="0.36" stopColor="var(--color-pc-casing)" />
+          <stop offset="1" stopColor="var(--color-pc-shade)" />
+        </linearGradient>
+        <linearGradient id={`${uid}-v`} gradientUnits="userSpaceOnUse" x1="18" y1="50" x2="82" y2="50">
+          <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
+          <stop offset="0.36" stopColor="var(--color-pc-casing)" />
+          <stop offset="1" stopColor="var(--color-pc-shade)" />
+        </linearGradient>
+        <linearGradient id={`${uid}-diag`} gradientUnits="userSpaceOnUse" x1="16" y1="16" x2="84" y2="84">
+          <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
+          <stop offset="0.42" stopColor="var(--color-pc-casing)" />
+          <stop offset="1" stopColor="var(--color-pc-shade)" />
+        </linearGradient>
+        <radialGradient id={`${uid}-joint`} cx="34%" cy="30%" r="72%">
+          <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
+          <stop offset="0.5" stopColor="var(--color-pc-casing)" />
+          <stop offset="1" stopColor="var(--color-pc-shade)" />
+        </radialGradient>
+        <clipPath id={`${uid}-clip`}>
+          <rect x="-12" y="-12" width="124" height="124" />
+        </clipPath>
+        <mask id={`${uid}-mask`}>
+          {paths.map((path, index) => (
+            <path key={index} d={path.d} stroke="white" strokeWidth={PIPE_WIDTH} {...cap} />
+          ))}
+          {joint && <circle cx="50" cy="50" r={PIPE_WIDTH / 2} fill="white" />}
+        </mask>
+      </defs>
+      <g clipPath={`url(#${uid}-clip)`}>
+        {paths.map((path, index) => (
+          <path
+            key={`shade-${index}`}
+            d={path.d}
+            stroke="var(--color-pc-shade)"
+            strokeWidth={PIPE_WIDTH}
+            transform="translate(1.5 4)"
+            {...cap}
+          />
+        ))}
+        {paths.map((path, index) => (
+          <path key={`body-${index}`} d={path.d} stroke={`url(#${path.grad})`} strokeWidth={PIPE_WIDTH} {...cap} />
+        ))}
+        {joint && <circle cx="50" cy="50" r={PIPE_WIDTH / 2} fill={`url(#${uid}-joint)`} />}
+        <g mask={`url(#${uid}-mask)`}>
+          {paths.map((path, index) => (
+            <path
+              key={`shine-${index}`}
+              d={path.d}
+              stroke="var(--color-pc-pipe-light)"
+              strokeWidth={12}
+              transform="translate(-2 -6)"
+              {...cap}
+            />
+          ))}
+        </g>
+      </g>
     </svg>
   );
 }
