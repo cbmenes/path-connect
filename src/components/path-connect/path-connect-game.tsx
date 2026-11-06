@@ -611,7 +611,7 @@ function Bulb({ on }: { on: boolean }) {
         d="M24 2.5c-10.2 0-16.5 8.2-16.5 17.6 0 6.4 3.5 10.8 6.6 13.8 1.2 1.2 2.1 2.9 2.1 4.8V42h15.6v-3.3c0-1.9.9-3.6 2.1-4.8 3.1-3 6.6-7.4 6.6-13.8C40.5 10.7 34.2 2.5 24 2.5z"
         fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
         stroke="var(--color-pc-glass-ink)"
-        strokeWidth="2.6"
+        strokeWidth="3.2"
       />
       <path
         d="M24 9c-4.4 4.8-3.4 9.4 0 14 4.4-4.6 5.4-9.2 0-14z"
@@ -628,38 +628,34 @@ function Bulb({ on }: { on: boolean }) {
 function Sensor({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <rect x="6" y="10" width="36" height="34" rx="10" fill="var(--color-pc-glass-ink)" />
-      <rect x="9" y="13" width="30" height="28" rx="8" fill="var(--color-pc-glass)" />
-      <circle cx="24" cy="27" r="9" fill="var(--color-pc-glass-ink)" />
-      <circle cx="24" cy="27" r="6.2" fill={on ? "var(--color-pc-glass-on)" : "white"} />
-      {on && <circle cx="21.5" cy="24.6" r="2" fill="white" />}
+      <circle cx="24" cy="28" r="18" fill="white" stroke="var(--color-pc-glass-ink)" strokeWidth="3.2" />
+      <path
+        d="M24 15.5 34 19.5v7.2c0 6.6-4 11.4-10 13.3-6-1.9-10-6.7-10-13.3v-7.2l10-4z"
+        fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
+        stroke="var(--color-pc-glass-ink)"
+        strokeWidth="1.8"
+      />
+      {on && <path d="M24 22.5 26.2 26.5h3.2l-2.6 2.2.9 3.3L24 30.2l-3.7 1.8.9-3.3-2.6-2.2h3.2z" fill="white" />}
     </svg>
   );
 }
 
 function Strobe({ on }: { on: boolean }) {
+  const slots = [17.5, 21.4, 25.3, 29.2, 33.1];
   return (
     <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <rect x="5" y="8" width="38" height="40" rx="8" fill="var(--color-pc-glass-ink)" />
-      <rect x="8" y="11" width="32" height="34" rx="6" fill="var(--color-pc-casing)" />
-      <rect
-        x="13"
-        y="16"
-        width="22"
-        height="18"
-        rx="4"
-        fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
-        stroke="var(--color-pc-glass-ink)"
-        strokeWidth="2"
-      />
-      <path
-        d="M17 21h14M17 25h14M17 29h14"
-        stroke="var(--color-pc-glass-ink)"
-        strokeWidth="1.6"
-        strokeLinecap="round"
-        opacity={on ? 0.28 : 0.75}
-      />
-      <rect x="16" y="38" width="16" height="3.2" rx="1" fill="var(--color-pc-glass-ink)" />
+      <circle cx="24" cy="27" r="19" fill="var(--color-pc-glass-ink)" />
+      <circle cx="24" cy="27" r="15.4" fill={on ? "var(--color-pc-glass-on)" : "white"} />
+      {on ? (
+        <circle cx="24" cy="27" r="6.4" fill="white" />
+      ) : (
+        <>
+          {slots.map((y) => (
+            <rect key={y} x="16.2" y={y} width="15.6" height="2.15" rx="1" fill="var(--color-pc-glass-ink)" />
+          ))}
+          <circle cx="24" cy="38.6" r="1.7" fill="var(--color-pc-casing)" />
+        </>
+      )}
     </svg>
   );
 }

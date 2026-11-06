@@ -31,7 +31,7 @@ const WIDTHS: Record<
  * end overlaps it. Corners turn at the tile center, not on an arc, so the
  * exit stays perpendicular to the edge.
  */
-const PIPE_WIDTH = 32;
+const PIPE_WIDTH = 38;
 
 const PIPE_ENDS: Record<DirId, [number, number]> = {
   N: [50, -8],
@@ -51,53 +51,79 @@ function CozyPipe({ arms, hub }: { arms: DirId[]; hub: "start" | "end" | "plain"
   const uid = useId().replace(/:/g, "");
   if (arms.length === 0) return null;
   const straight = arms.length === 2 && OPPOSITE[arms[0]!] === arms[1];
-  const corner = arms.length === 2 && !straight;
-  const paths: { d: string; grad: string }[] = [];
+  const segments: { d: string; grad: string; horizontal: boolean }[] = [];
 
-  if (straight || corner) {
-    if (straight) {
-      const horizontal = arms[0] === "E" || arms[0] === "W";
-      const [x1, y1] = PIPE_ENDS[arms[0]!];
-      const [x2, y2] = PIPE_ENDS[arms[1]!];
-      paths.push({
-        d: `M ${x1} ${y1} L ${x2} ${y2}`,
-        grad: horizontal ? `${uid}-h` : `${uid}-v`,
-      });
-    } else {
-      for (const dir of arms) {
-        const horizontal = dir === "E" || dir === "W";
-        paths.push({ d: armPath(dir), grad: horizontal ? `${uid}-h` : `${uid}-v` });
-      }
-    }
+  if (straight) {
+    const horizontal = arms[0] === "E" || arms[0] === "W";
+    const [x1, y1] = PIPE_ENDS[arms[0]!];
+    const [x2, y2] = PIPE_ENDS[arms[1]!];
+    segments.push({
+      d: `M ${x1} ${y1} L ${x2} ${y2}`,
+      grad: horizontal ? `${uid}-h` : `${uid}-v`,
+      horizontal,
+    });
   } else {
     for (const dir of arms) {
       const horizontal = dir === "E" || dir === "W";
-      paths.push({ d: armPath(dir), grad: horizontal ? `${uid}-h` : `${uid}-v` });
+      segments.push({
+        d: armPath(dir),
+        grad: horizontal ? `${uid}-h` : `${uid}-v`,
+        horizontal,
+      });
     }
   }
 
-  const showHub = !straight;
+  const showHub = !straight && hub !== "end";
   const cap = { fill: "none", strokeLinecap: "butt", strokeLinejoin: "miter" } as const;
+  const half = PIPE_WIDTH / 2;
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
       <defs>
-        <linearGradient id={`${uid}-h`} gradientUnits="userSpaceOnUse" x1="0" y1={50 - PIPE_WIDTH / 2} x2="0" y2={50 + PIPE_WIDTH / 2}>
+        <linearGradient id={`${uid}-h`} gradientUnits="userSpaceOnUse" x1="0" y1={50 - half} x2="0" y2={50 + half}>
           <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
-          <stop offset="0.42" stopColor="var(--color-pc-casing)" />
+          <stop offset="0.38" stopColor="var(--color-pc-casing)" />
           <stop offset="1" stopColor="var(--color-pc-shade)" />
         </linearGradient>
-        <linearGradient id={`${uid}-v`} gradientUnits="userSpaceOnUse" x1={50 - PIPE_WIDTH / 2} y1="0" x2={50 + PIPE_WIDTH / 2} y2="0">
+        <linearGradient id={`${uid}-v`} gradientUnits="userSpaceOnUse" x1={50 - half} y1="0" x2={50 + half} y2="0">
           <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
-          <stop offset="0.42" stopColor="var(--color-pc-casing)" />
+          <stop offset="0.38" stopColor="var(--color-pc-casing)" />
           <stop offset="1" stopColor="var(--color-pc-shade)" />
         </linearGradient>
+        <mask id={`${uid}-mask`}>
+          {segments.map((segment, index) => (
+            <path key={index} d={segment.d} stroke="white" strokeWidth={PIPE_WIDTH} {...cap} />
+          ))}
+          {showHub && <circle cx="50" cy="50" r={half} fill="white" />}
+        </mask>
       </defs>
-      {showHub && hub !== "end" && (
-        <circle cx="50" cy="50" r={PIPE_WIDTH / 2} fill="var(--color-pc-casing)" />
-      )}
-      {paths.map((path, index) => (
-        <path key={index} d={path.d} stroke={`url(#${path.grad})`} strokeWidth={PIPE_WIDTH} {...cap} />
+      {showHub && <circle cx="50" cy="50" r={half} fill="var(--color-pc-shade)" />}
+      {segments.map((segment, index) => (
+        <path key={index} d={segment.d} stroke={`url(#${segment.grad})`} strokeWidth={PIPE_WIDTH} {...cap} />
       ))}
+      <g mask={`url(#${uid}-mask)`}>
+        {segments.map((segment, index) => (
+          <path
+            key={`shade-${index}`}
+            d={segment.d}
+            stroke="var(--color-pc-shade)"
+            strokeOpacity="0.45"
+            strokeWidth="11"
+            transform={segment.horizontal ? "translate(0 7)" : "translate(7 0)"}
+            {...cap}
+          />
+        ))}
+        {segments.map((segment, index) => (
+          <path
+            key={`light-${index}`}
+            d={segment.d}
+            stroke="white"
+            strokeOpacity="0.42"
+            strokeWidth="5"
+            transform={segment.horizontal ? "translate(0 -5)" : "translate(-5 0)"}
+            {...cap}
+          />
+        ))}
+      </g>
     </svg>
   );
 }
