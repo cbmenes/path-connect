@@ -1248,9 +1248,30 @@
   animation: none;
 }
 
+.path-connect[data-style="cozy"] .pc-source::before {
+  content: "";
+  position: absolute;
+  left: 50%;
+  top: 50%;
+  z-index: 1;
+  width: 68%;
+  height: 68%;
+  transform: translate(-50%, -50%);
+  border-radius: 999px;
+  background:
+    radial-gradient(circle at 35% 30%, white 0%, color-mix(in oklab, white 82%, var(--color-pc-tile)) 42%, var(--color-pc-tile) 100%);
+  box-shadow:
+    inset 0 1px 0 white,
+    0 0 0 3px var(--color-pc-casing),
+    0 3px 0 color-mix(in oklab, var(--color-pc-shade) 40%, transparent);
+}
+
 .path-connect[data-style="cozy"] .pc-source .pc-mark-icon {
-  width: 28px;
-  height: 26px;
+  position: relative;
+  z-index: 2;
+  width: 58%;
+  height: 52%;
+  filter: drop-shadow(0 0 1px var(--color-pc-glass-ink)) drop-shadow(0 1px 0 color-mix(in oklab, var(--color-pc-shade) 55%, transparent));
 }
 
 .path-connect[data-style="cozy"] .pc-tip {
