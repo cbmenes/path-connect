@@ -1,7 +1,7 @@
 import type { CSSProperties, ReactNode } from "react";
 import type { ThemeId } from "@/lib/path-connect/styles";
 
-type Slot = "RT" | "RB" | "LT" | "LB" | "T" | "B";
+type Slot = "RT" | "RB" | "LT" | "LB" | "T" | "T2" | "B" | "B2";
 
 interface Piece {
   id: string;
@@ -28,6 +28,21 @@ function Plant({ pot, rim, leaf, leafDark }: { pot: string; rim: string; leaf: s
       <rect x="20" y="62" width="50" height="10" rx="5" fill={rim} />
       <path d="M24 64.5h40" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
       <path d="M31 76l4 31" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.35" />
+    </svg>
+  );
+}
+
+function Succulent({ pot, rim, leaf, leafDark, shadow }: { pot: string; rim: string; leaf: string; leafDark: string; shadow: string }) {
+  return (
+    <svg viewBox="0 0 64 72">
+      <ellipse cx="32" cy="69" rx="22" ry="3" fill={shadow} />
+      <path d="M32 40c-6-6-16-8-22-6 4 6 12 9 22 6z" fill={leafDark} />
+      <path d="M32 40c6-6 16-8 22-6-4 6-12 9-22 6z" fill={leafDark} />
+      <path d="M32 40c-6-8-8-18-4-26 6 6 7 16 4 26z" fill={leaf} />
+      <path d="M32 40c6-8 8-18 4-26-6 6-7 16-4 26z" fill={leaf} />
+      <path d="M17 40h30l-3 22a6 6 0 0 1-6 5H26a6 6 0 0 1-6-5z" fill={pot} />
+      <rect x="14" y="36" width="36" height="8" rx="4" fill={rim} />
+      <path d="M17 38.5h28" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.65" />
     </svg>
   );
 }
@@ -83,14 +98,14 @@ const LIGHTS: Piece[] = [
     id: "plant",
     width: 90,
     height: 120,
-    fits: ["RB", "LB", "B"],
+    fits: ["RB", "LB", "B", "B2"],
     art: <Plant pot="#f2e6d5" rim="#e8d6bd" leaf="#93b47e" leafDark="#729760" />,
   },
   {
     id: "side-table",
     width: 120,
     height: 100,
-    fits: ["B", "RB"],
+    fits: ["B", "B2", "RB"],
     art: (
       <svg viewBox="0 0 120 100">
         <ellipse cx="60" cy="96" rx="42" ry="4" fill={SHADOW} />
@@ -111,7 +126,7 @@ const LIGHTS: Piece[] = [
     id: "sconce",
     width: 90,
     height: 100,
-    fits: ["RT", "LT", "T"],
+    fits: ["RT", "LT", "T", "T2"],
     art: (
       <svg viewBox="0 0 90 100" overflow="visible">
         <defs>
@@ -148,6 +163,51 @@ const LIGHTS: Piece[] = [
       </svg>
     ),
   },
+  {
+    id: "frame",
+    width: 100,
+    height: 84,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 100 84">
+        <rect x="7" y="8" width="88" height="72" rx="8" fill={SHADOW} />
+        <rect x="3" y="3" width="88" height="72" rx="8" fill="#c99a68" />
+        <path d="M10 6h74" stroke="#e5bf91" strokeWidth="2.4" strokeLinecap="round" />
+        <rect x="11" y="11" width="72" height="56" rx="4" fill="#fbf1e1" />
+        <path d="M11 54c14-14 24-16 36-6 10-10 22-10 36 0v13a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6z" fill="#a9c08f" />
+        <path d="M11 60c18-10 40-10 72 0v1a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6z" fill="#8eab76" />
+        <circle cx="62" cy="28" r="7" fill="#f2c56d" />
+      </svg>
+    ),
+  },
+  {
+    id: "shelf",
+    width: 130,
+    height: 90,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 130 90">
+        <rect x="6" y="52" width="118" height="10" rx="4" fill="#b98452" />
+        <rect x="6" y="48" width="118" height="9" rx="4" fill="#d6a46f" />
+        <path d="M12 50.5h104" stroke="#ecc596" strokeWidth="2" strokeLinecap="round" />
+        <path d="M24 60v12M106 60v12" stroke="#a8784a" strokeWidth="5" strokeLinecap="round" />
+        <rect x="16" y="20" width="10" height="28" rx="2" fill="#c96f4c" />
+        <rect x="27" y="16" width="9" height="32" rx="2" fill="#7f9d6e" />
+        <rect x="37" y="24" width="11" height="24" rx="2" fill="#e2b866" />
+        <path d="M78 30h28l-3 16a4 4 0 0 1-4 3H85a4 4 0 0 1-4-3z" fill="#f2e6d5" />
+        <path d="M92 30c-6-10-16-12-22-10 4 6 12 10 22 10z" fill="#93b47e" />
+        <path d="M92 30c4-12 12-18 22-18-2 8-10 16-22 18z" fill="#729760" />
+        <path d="M82 46c-4 10-6 20-4 30M100 46c4 8 6 18 4 26" stroke="#8aad74" strokeWidth="3" strokeLinecap="round" fill="none" />
+      </svg>
+    ),
+  },
+  {
+    id: "succulent",
+    width: 64,
+    height: 72,
+    fits: ["B", "B2", "RB"],
+    art: <Succulent pot="#e9cfae" rim="#ddbf98" leaf="#9cbc84" leafDark="#7a9e66" shadow={SHADOW} />,
+  },
 ];
 
 const OFFICE: Piece[] = [
@@ -155,7 +215,7 @@ const OFFICE: Piece[] = [
     id: "desk",
     width: 170,
     height: 90,
-    fits: ["B", "RB", "LB"],
+    fits: ["RB", "LB"],
     art: (
       <svg viewBox="0 0 170 90">
         <ellipse cx="86" cy="86" rx="76" ry="4" fill="rgb(29 82 124 / 0.14)" />
@@ -175,7 +235,7 @@ const OFFICE: Piece[] = [
     id: "monitor",
     width: 130,
     height: 120,
-    fits: ["T", "RT"],
+    fits: ["T", "T2", "RT"],
     art: (
       <svg viewBox="0 0 130 120">
         <ellipse cx="65" cy="116" rx="36" ry="4" fill="rgb(29 82 124 / 0.14)" />
@@ -195,7 +255,7 @@ const OFFICE: Piece[] = [
     id: "office-plant",
     width: 90,
     height: 120,
-    fits: ["RB", "LB", "B"],
+    fits: ["RB", "LB", "B", "B2"],
     art: <Plant pot="#f7fafc" rim="#dfe7ee" leaf="#8db58a" leafDark="#6c9a72" />,
   },
   {
@@ -222,7 +282,7 @@ const OFFICE: Piece[] = [
     id: "desk-lamp",
     width: 90,
     height: 110,
-    fits: ["T", "RT", "LT"],
+    fits: ["T", "T2", "RT", "LT"],
     art: (
       <svg viewBox="0 0 90 110" overflow="visible">
         <defs>
@@ -241,6 +301,53 @@ const OFFICE: Piece[] = [
         <path d="M64 48 38 32" stroke="#f2fbff" strokeWidth="4" strokeLinecap="round" />
       </svg>
     ),
+  },
+  {
+    id: "clock",
+    width: 84,
+    height: 84,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 84 84">
+        <circle cx="44" cy="45" r="36" fill="rgb(29 82 124 / 0.12)" />
+        <circle cx="42" cy="42" r="36" fill="#8ea9c2" />
+        <path d="M14 30a30 30 0 0 1 24-22" stroke="#b6cbdd" strokeWidth="3" strokeLinecap="round" fill="none" />
+        <circle cx="42" cy="42" r="29" fill="#f7fafc" />
+        {[0, 90, 180, 270].map((angle) => (
+          <rect key={angle} x="40.5" y="16" width="3" height="7" rx="1.5" fill="#9fb3c6" transform={`rotate(${angle} 42 42)`} />
+        ))}
+        <path d="M42 42V25M42 42l11 7" stroke="#3d5266" strokeWidth="3" strokeLinecap="round" />
+        <circle cx="42" cy="42" r="3" fill="#3db7e8" />
+      </svg>
+    ),
+  },
+  {
+    id: "pinboard",
+    width: 120,
+    height: 86,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 120 86">
+        <rect x="7" y="8" width="108" height="74" rx="8" fill="rgb(29 82 124 / 0.12)" />
+        <rect x="3" y="3" width="108" height="74" rx="8" fill="#c8d5e1" />
+        <path d="M10 6h94" stroke="#e7eef4" strokeWidth="2.4" strokeLinecap="round" />
+        <rect x="10" y="10" width="94" height="60" rx="4" fill="#e8dcc6" />
+        <rect x="18" y="18" width="24" height="22" rx="2" fill="#fff4b8" transform="rotate(-4 30 29)" />
+        <rect x="50" y="16" width="22" height="20" rx="2" fill="#bfe6f7" transform="rotate(3 61 26)" />
+        <rect x="78" y="22" width="18" height="30" rx="2" fill="white" />
+        <rect x="30" y="44" width="30" height="18" rx="2" fill="#d3e9cf" transform="rotate(2 45 53)" />
+        {[[30, 19], [61, 17], [87, 23], [45, 45]].map(([x, y]) => (
+          <circle key={`${x}-${y}`} cx={x} cy={y} r="2.4" fill="#3d7eab" />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "desk-succulent",
+    width: 64,
+    height: 72,
+    fits: ["B", "B2", "RB"],
+    art: <Succulent pot="#f7fafc" rim="#dfe7ee" leaf="#8db58a" leafDark="#6c9a72" shadow="rgb(29 82 124 / 0.14)" />,
   },
 ];
 
@@ -263,7 +370,7 @@ const SCHOOL: Piece[] = [
     id: "blocks",
     width: 130,
     height: 80,
-    fits: ["B", "RB"],
+    fits: ["B", "B2", "RB"],
     noFlip: true,
     art: (
       <svg viewBox="0 0 130 80">
@@ -277,7 +384,7 @@ const SCHOOL: Piece[] = [
     id: "number",
     width: 80,
     height: 90,
-    fits: ["B", "RB"],
+    fits: ["B", "B2", "RB"],
     noFlip: true,
     art: (
       <svg viewBox="0 0 80 90">
@@ -295,7 +402,7 @@ const SCHOOL: Piece[] = [
     id: "poster",
     width: 110,
     height: 110,
-    fits: ["T", "RT"],
+    fits: ["T", "T2", "RT"],
     noFlip: true,
     art: (
       <svg viewBox="0 0 110 110">
@@ -334,7 +441,7 @@ const SCHOOL: Piece[] = [
     id: "pencils",
     width: 70,
     height: 100,
-    fits: ["B", "RB", "LB"],
+    fits: ["B", "B2", "RB", "LB"],
     art: (
       <svg viewBox="0 0 70 100">
         <ellipse cx="35" cy="96" rx="24" ry="4" fill="rgb(163 45 40 / 0.14)" />
@@ -356,10 +463,66 @@ const SCHOOL: Piece[] = [
       </svg>
     ),
   },
+  {
+    id: "letter-c",
+    width: 66,
+    height: 76,
+    fits: ["B", "B2", "RB", "LB"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 66 76">
+        <ellipse cx="33" cy="73" rx="28" ry="3" fill="rgb(163 45 40 / 0.14)" />
+        <Block x={5} letter="C" ink="#7fae6a" />
+      </svg>
+    ),
+  },
+  {
+    id: "abc-poster",
+    width: 130,
+    height: 88,
+    fits: ["T", "T2", "RT", "LT"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 130 88">
+        <rect x="7" y="8" width="118" height="76" rx="8" fill="rgb(163 45 40 / 0.12)" />
+        <rect x="3" y="3" width="118" height="76" rx="8" fill="#f3c9bd" />
+        <path d="M10 6h104" stroke="#fbe2da" strokeWidth="2.4" strokeLinecap="round" />
+        <rect x="10" y="10" width="104" height="62" rx="4" fill="#fff7f0" />
+        {[
+          ["A", 30, "#d9503f"],
+          ["B", 62, "#4a86c4"],
+          ["C", 94, "#7fae6a"],
+        ].map(([letter, x, ink]) => (
+          <text key={String(letter)} x={Number(x)} y="54" textAnchor="middle" fontSize="34" fontWeight="800" fill={String(ink)} fontFamily="inherit">
+            {letter}
+          </text>
+        ))}
+        <path d="M20 62h84" stroke="#f0d4cb" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "number-7",
+    width: 70,
+    height: 84,
+    fits: ["B", "B2", "LB"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 70 84">
+        <ellipse cx="35" cy="80" rx="24" ry="4" fill="rgb(163 45 40 / 0.14)" />
+        <text x="37" y="78" textAnchor="middle" fontSize="80" fontWeight="800" fill="#b8566a" fontFamily="inherit">
+          7
+        </text>
+        <text x="35" y="74" textAnchor="middle" fontSize="80" fontWeight="800" fill="#e89aa8" fontFamily="inherit">
+          7
+        </text>
+      </svg>
+    ),
+  },
 ];
 
 const PIECES: Record<ThemeId, Piece[]> = { lights: LIGHTS, alarm: OFFICE, fire: SCHOOL };
-const SLOTS: Slot[] = ["RB", "RT", "LB", "LT", "T", "B"];
+const SLOTS: Slot[] = ["RB", "RT", "LB", "LT", "T", "T2", "B", "B2"];
 
 function random(seed: number): () => number {
   let state = seed >>> 0;
@@ -383,10 +546,10 @@ function shuffled<T>(items: readonly T[], next: () => number): T[] {
 
 /** Early levels stay sparse; the room fills in and grows a little as the campaign goes on. */
 export function surroundingDensity(level: number): { count: number; scale: number } {
-  if (level >= 15) return { count: 4, scale: 1.28 };
-  if (level >= 8) return { count: 3, scale: 1.2 };
-  if (level >= 4) return { count: level % 2 === 0 ? 2 : 3, scale: 1.12 };
-  return { count: 2, scale: 1.05 };
+  if (level >= 15) return { count: 6, scale: 1.18 };
+  if (level >= 8) return { count: 5, scale: 1.12 };
+  if (level >= 4) return { count: 4, scale: 1.06 };
+  return { count: 3, scale: 1 };
 }
 
 export interface Placement {
