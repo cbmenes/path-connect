@@ -606,19 +606,22 @@ function NodeGlyph({ theme, on }: { theme: ThemeId; on: boolean }) {
 }
 
 function Bulb({ on }: { on: boolean }) {
+  const lead = on ? "#fff6c2" : "var(--color-pc-glass-ink)";
+  const filament = on ? "white" : "var(--color-pc-glass-ink)";
   return (
     <svg viewBox="0 0 48 58" className={on ? "pc-glyph is-on" : "pc-glyph"}>
       <path
         d="M24 2.5c-10.2 0-16.5 8.2-16.5 17.6 0 6.4 3.5 10.8 6.6 13.8 1.2 1.2 2.1 2.9 2.1 4.8V42h15.6v-3.3c0-1.9.9-3.6 2.1-4.8 3.1-3 6.6-7.4 6.6-13.8C40.5 10.7 34.2 2.5 24 2.5z"
         fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
         stroke="var(--color-pc-glass-ink)"
-        strokeWidth="3.2"
+        strokeWidth="2.4"
       />
-      <path
-        d="M24 9c-4.4 4.8-3.4 9.4 0 14 4.4-4.6 5.4-9.2 0-14z"
-        fill="white"
-        opacity={on ? 0.95 : 0.55}
-      />
+      {on && <circle cx="24" cy="22" r="5.2" fill="white" opacity="0.9" />}
+      <path d="M20.4 36.5V21.5M27.6 36.5V21.5" fill="none" stroke={lead} strokeWidth="1.7" strokeLinecap="round" />
+      <circle cx="20.4" cy="21.2" r="1.45" fill={filament} />
+      <circle cx="27.6" cy="21.2" r="1.45" fill={filament} />
+      <path d="M20.4 21.2h7.2" fill="none" stroke={filament} strokeWidth={on ? 1.5 : 1.15} strokeLinecap="round" />
+      <path d="M16 8.5c-2.2 3.2-2.6 7.4-.4 11" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity={on ? 0.75 : 0.45} />
       <rect x="15" y="42.5" width="18" height="4.2" rx="1.2" fill="var(--color-pc-glass-ink)" />
       <rect x="16.5" y="47.4" width="15" height="3.2" rx="1" fill="var(--color-pc-casing)" />
       <rect x="18" y="51.4" width="12" height="3" rx="1" fill="var(--color-pc-glass-ink)" />

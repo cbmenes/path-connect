@@ -117,16 +117,16 @@
   --color-pc-bg: #f6efe4;
   --color-pc-wall: #fbf6ee;
   --color-pc-tray: #fbf6ee;
-  --color-pc-tile: #f4eee4;
-  --color-pc-edge: #eadfce;
+  --color-pc-tile: #f3e7d4;
+  --color-pc-edge: #e2d0b6;
   --color-pc-fg: #5c3a24;
   --color-pc-muted: #8a6a52;
   --color-pc-flow: #e8a23a;
   --color-pc-start: #f0a202;
   --color-pc-accent: #c4844a;
-  --color-pc-casing: #c98448;
-  --color-pc-shade: #7a431f;
-  --color-pc-pipe-light: #f8e0c4;
+  --color-pc-casing: #c17a3a;
+  --color-pc-shade: #6e3d1c;
+  --color-pc-pipe-light: #f3d0a2;
   --color-pc-bore: #e7d3b4;
   --color-pc-core: #f6e2c4;
   --color-pc-spark: #ffd56a;
@@ -1109,10 +1109,11 @@
 
 .path-connect[data-style="cozy"] .pc-tray {
   border-radius: 28px;
-  background: var(--color-pc-tray);
+  background: color-mix(in oklab, var(--color-pc-edge) 62%, var(--color-pc-tray));
   padding: 14px;
   box-shadow:
-    inset 0 1px 0 white,
+    inset 0 2px 8px color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 55%, transparent),
     0 18px 30px -22px rgb(92 58 36 / 0.35);
 }
 
@@ -1128,17 +1129,18 @@
 .path-connect[data-style="cozy"] .pc-tile[data-role="start"],
 .path-connect[data-style="cozy"] .pc-tile[data-role="end"] {
   overflow: visible;
-  border-radius: 18px;
+  border-radius: 16px;
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, white 72%, var(--color-pc-tile)) 0%,
-    var(--color-pc-tile) 58%,
-    color-mix(in oklab, var(--color-pc-edge) 65%, var(--color-pc-tile)) 100%
+    color-mix(in oklab, white 28%, var(--color-pc-tile)) 0%,
+    var(--color-pc-tile) 62%,
+    color-mix(in oklab, var(--color-pc-edge) 70%, var(--color-pc-tile)) 100%
   );
   box-shadow:
-    inset 0 1px 0 white,
-    0 2px 0 color-mix(in oklab, var(--color-pc-shade) 28%, white),
-    0 8px 14px -10px rgb(92 58 36 / 0.45);
+    inset 0 1.5px 0 color-mix(in oklab, white 75%, transparent),
+    inset 0 -5px 8px color-mix(in oklab, var(--color-pc-shade) 14%, transparent),
+    0 1px 0 color-mix(in oklab, var(--color-pc-shade) 18%, white),
+    0 8px 12px -5px color-mix(in oklab, var(--color-pc-shade) 48%, transparent);
 }
 
 .path-connect[data-style="cozy"] .pc-depth {
@@ -1206,6 +1208,11 @@
     drop-shadow(0 0 4px white)
     drop-shadow(0 0 10px var(--color-pc-glass-on))
     drop-shadow(0 0 20px var(--color-pc-spark));
+}
+
+.path-connect[data-theme="lights"][data-style="cozy"] .pc-plant::before,
+.path-connect[data-theme="lights"][data-style="cozy"] .pc-plant.is-fed::before {
+  content: none;
 }
 
 .path-connect[data-style="cozy"] .pc-plant.is-fed .pc-glyph {

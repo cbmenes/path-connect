@@ -31,16 +31,16 @@ const WIDTHS: Record<
  * overlaps it. A corner is a quarter-circle whose tangents are perpendicular
  * to those edges, so the joint stays centered after the bend.
  */
-const PIPE_WIDTH = 48;
+const PIPE_WIDTH = 26;
 const PIPE_RADIUS = PIPE_WIDTH / 2;
 /** How far a butt end crosses into the neighboring tile, in tile units. */
 const PIPE_STUB = 12;
 /** Highlight stops just past the edge so the two stripes meet without stacking. */
 const SHEEN_STUB = 6;
 /** Light band sits toward the top of the pipe and stays inside the stroke. */
-const SHEEN_OFFSET = 12;
-const SHEEN_LIGHT = 8;
-const SHEEN_SHADE = 12;
+const SHEEN_OFFSET = 4;
+const SHEEN_LIGHT = 3;
+const SHEEN_SHADE = 5;
 
 type Pt = [number, number];
 
@@ -218,7 +218,7 @@ function teeSheens(light: Pt): { d: string; width: number; shade: boolean }[] {
     },
     {
       d: `M 50 50 Q 76 ${y.toFixed(2)} ${100 + SHEEN_STUB} ${y.toFixed(2)}`,
-      width: 6,
+      width: 3,
       shade: false,
     },
   ];
@@ -286,7 +286,7 @@ function CozyPipe({
             key={`sheen-${index}`}
             d={stroke.d}
             stroke={stroke.shade ? "var(--color-pc-shade)" : "white"}
-            strokeOpacity={stroke.shade ? 0.55 : 0.5}
+            strokeOpacity={stroke.shade ? 0.7 : 0.72}
             strokeWidth={stroke.width}
             {...sheen}
           />
