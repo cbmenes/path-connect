@@ -461,7 +461,8 @@ export function PathConnectGame() {
                       <TileArt
                         kind={tile.kind}
                         conduit={theme.conduit}
-                        live={order >= 0 || hot}
+                        live={order >= 0}
+                        rotation={rotation}
                         hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
                       />
                     </span>

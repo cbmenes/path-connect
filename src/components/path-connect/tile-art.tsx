@@ -26,103 +26,278 @@ const WIDTHS: Record<
 };
 
 /**
- * Pipe width in tile units. Each opening is a straight run through the
- * center of a tile edge, extended across the gap so the neighbor's butt
- * end overlaps it. Corners turn at the tile center, not on an arc, so the
- * exit stays perpendicular to the edge.
+ * Pipe width in tile units. Every opening is a straight run through the
+ * middle of an edge, extended across the gap so the neighbor's flat end
+ * overlaps it. A corner is a quarter-circle whose tangents are perpendicular
+ * to those edges, so the joint stays centered after the bend.
  */
-const PIPE_WIDTH = 38;
+const PIPE_WIDTH = 36;
+const PIPE_RADIUS = PIPE_WIDTH / 2;
+/** How far a butt end crosses into the neighboring tile, in tile units. */
+const PIPE_STUB = 12;
+/** Highlight stops just past the edge so the two stripes meet without stacking. */
+const SHEEN_STUB = 6;
 
-const PIPE_ENDS: Record<DirId, [number, number]> = {
-  N: [50, -8],
-  E: [108, 50],
-  S: [50, 108],
-  W: [-8, 50],
-};
+type Pt = [number, number];
 
-const OPPOSITE: Record<DirId, DirId> = { N: "S", E: "W", S: "N", W: "E" };
-
-function armPath(dir: DirId): string {
-  const [x, y] = PIPE_ENDS[dir];
-  return `M 50 50 L ${x} ${y}`;
+/** Screen-space light, swung back into this tile's unrotated drawing. */
+function localLight(rotation: number): Pt {
+  let x = -0.4;
+  let y = -0.92;
+  const turns = ((rotation % 4) + 4) % 4;
+  for (let i = 0; i < turns; i++) {
+    const nextX = y;
+    const nextY = -x;
+    x = nextX;
+    y = nextY;
+  }
+  return [x, y];
 }
 
-function CozyPipe({ arms, hub }: { arms: DirId[]; hub: "start" | "end" | "plain" }) {
-  const uid = useId().replace(/:/g, "");
-  if (arms.length === 0) return null;
-  const straight = arms.length === 2 && OPPOSITE[arms[0]!] === arms[1];
-  const segments: { d: string; grad: string; horizontal: boolean }[] = [];
+function pushLine(pts: Pt[], from: Pt, to: Pt, steps: number, skipStart: boolean) {
+  for (let i = skipStart ? 1 : 0; i <= steps; i++) {
+    const t = i / steps;
+    pts.push([from[0] + (to[0] - from[0]) * t, from[1] + (to[1] - from[1]) * t]);
+  }
+}
 
-  if (straight) {
-    const horizontal = arms[0] === "E" || arms[0] === "W";
-    const [x1, y1] = PIPE_ENDS[arms[0]!];
-    const [x2, y2] = PIPE_ENDS[arms[1]!];
-    segments.push({
-      d: `M ${x1} ${y1} L ${x2} ${y2}`,
-      grad: horizontal ? `${uid}-h` : `${uid}-v`,
-      horizontal,
-    });
-  } else {
-    for (const dir of arms) {
-      const horizontal = dir === "E" || dir === "W";
-      segments.push({
-        d: armPath(dir),
-        grad: horizontal ? `${uid}-h` : `${uid}-v`,
-        horizontal,
-      });
-    }
+/**
+ * Base shapes only. The board rotates the SVG, which matches the rules.
+ * Straight is vertical, corner is north-east, tee is a vertical with an
+ * east branch, cap points north.
+ */
+function centerlines(arms: DirId[]): Pt[][] {
+  const has = (dir: DirId) => arms.includes(dir);
+  const north: Pt = [50, -PIPE_STUB];
+  const south: Pt = [50, 100 + PIPE_STUB];
+  const east: Pt = [100 + PIPE_STUB, 50];
+  const edgeN: Pt = [50, 0];
+  const edgeE: Pt = [100, 50];
+  const lines: Pt[][] = [];
+
+  if (has("N") && has("S") && !has("E") && !has("W")) {
+    const pts: Pt[] = [];
+    pushLine(pts, north, south, 8, false);
+    lines.push(pts);
+    return lines;
   }
 
-  const showHub = !straight && hub !== "end";
-  const cap = { fill: "none", strokeLinecap: "butt", strokeLinejoin: "miter" } as const;
-  const half = PIPE_WIDTH / 2;
+  if (has("N") && has("E") && !has("S") && !has("W")) {
+    const pts: Pt[] = [];
+    pushLine(pts, north, edgeN, 3, false);
+    for (let i = 1; i <= 10; i++) {
+      const angle = Math.PI - (Math.PI / 2) * (i / 10);
+      pts.push([100 + 50 * Math.cos(angle), 50 * Math.sin(angle)]);
+    }
+    pushLine(pts, edgeE, east, 3, true);
+    lines.push(pts);
+    return lines;
+  }
+
+  if (has("N") && has("S")) {
+    const pts: Pt[] = [];
+    pushLine(pts, north, south, 8, false);
+    lines.push(pts);
+  } else if (has("N")) {
+    const pts: Pt[] = [];
+    pushLine(pts, [50, 50], north, 6, false);
+    lines.push(pts);
+  }
+  if (has("E") && !(has("N") && has("E") && !has("S") && !has("W"))) {
+    const pts: Pt[] = [];
+    pushLine(pts, [50, 50], east, 6, false);
+    lines.push(pts);
+  }
+  return lines;
+}
+
+function trimSheen(pts: Pt[]): Pt[] {
+  return pts.filter(
+    ([x, y]) => x >= -SHEEN_STUB && x <= 100 + SHEEN_STUB && y >= -SHEEN_STUB && y <= 100 + SHEEN_STUB,
+  );
+}
+
+function offsetAlong(pts: Pt[], light: Pt, dist: number): Pt[] {
+  const out: Pt[] = [];
+  for (let i = 0; i < pts.length; i++) {
+    const prev = pts[Math.max(0, i - 1)]!;
+    const next = pts[Math.min(pts.length - 1, i + 1)]!;
+    let tx = next[0] - prev[0];
+    let ty = next[1] - prev[1];
+    const len = Math.hypot(tx, ty) || 1;
+    tx /= len;
+    ty /= len;
+    const left: Pt = [-ty, tx];
+    const right: Pt = [ty, -tx];
+    const facing =
+      left[0] * light[0] + left[1] * light[1] >= right[0] * light[0] + right[1] * light[1]
+        ? left
+        : right;
+    out.push([pts[i]![0] + facing[0] * dist, pts[i]![1] + facing[1] * dist]);
+  }
+  return out;
+}
+
+function linePath(pts: Pt[]): string {
+  return pts
+    .map((pt, index) => `${index === 0 ? "M" : "L"}${pt[0].toFixed(2)} ${pt[1].toFixed(2)}`)
+    .join(" ");
+}
+
+/** Filled north-east-south tee. Butts stay centered on the three edge midpoints. */
+function teeOutline(): string {
+  const r = PIPE_RADIUS;
+  const f = PIPE_RADIUS;
+  const stub = PIPE_STUB;
+  const left = 50 - r;
+  const right = 50 + r;
+  const top = 50 - r;
+  const bottom = 50 + r;
+  return [
+    `M ${left} ${-stub}`,
+    `L ${right} ${-stub}`,
+    `L ${right} ${top + f}`,
+    `A ${f} ${f} 0 0 1 ${right - f} ${top}`,
+    `L ${100 + stub} ${top}`,
+    `L ${100 + stub} ${bottom}`,
+    `L ${right - f} ${bottom}`,
+    `A ${f} ${f} 0 0 0 ${right} ${bottom - f}`,
+    `L ${right} ${100 + stub}`,
+    `L ${left} ${100 + stub}`,
+    "Z",
+  ].join(" ");
+}
+
+function cornerOutline(): string {
+  return `M 50 ${-PIPE_STUB} L 50 0 A 50 50 0 0 0 100 50 L ${100 + PIPE_STUB} 50`;
+}
+
+function facingNormal(tx: number, ty: number, light: Pt): Pt {
+  const len = Math.hypot(tx, ty) || 1;
+  const left: Pt = [-ty / len, tx / len];
+  const right: Pt = [ty / len, -tx / len];
+  const leftDot = left[0] * light[0] + left[1] * light[1];
+  const rightDot = right[0] * light[0] + right[1] * light[1];
+  return leftDot >= rightDot ? left : right;
+}
+
+/** One smooth sheen around a north-east elbow, tangent to both openings. */
+function cornerSheen(light: Pt, dist: number): string {
+  const north = facingNormal(0, 1, light);
+  const east = facingNormal(1, 0, light);
+  const x = 50 + north[0] * dist;
+  const y = 50 + east[1] * dist;
+  return `M ${x.toFixed(2)} ${-SHEEN_STUB} L ${x.toFixed(2)} 0 Q ${x.toFixed(2)} ${y.toFixed(2)} 100 ${y.toFixed(2)} L ${100 + SHEEN_STUB} ${y.toFixed(2)}`;
+}
+
+/**
+ * The bar keeps a straight light side and a straight dark side. The branch
+ * sheen leaves the middle of the joint on a curve, so it does not end in a
+ * square cut where it meets the bar.
+ */
+function teeSheens(light: Pt): { d: string; width: number; shade: boolean }[] {
+  const north = facingNormal(0, 1, light);
+  const east = facingNormal(1, 0, light);
+  const x = 50 + north[0] * 8;
+  const y = 50 + east[1] * 7;
+  const shadeX = 50 - north[0] * 8;
+  return [
+    {
+      d: `M ${shadeX.toFixed(2)} ${-SHEEN_STUB} L ${shadeX.toFixed(2)} ${100 + SHEEN_STUB}`,
+      width: 11,
+      shade: true,
+    },
+    {
+      d: `M ${x.toFixed(2)} ${-SHEEN_STUB} L ${x.toFixed(2)} ${100 + SHEEN_STUB}`,
+      width: 5,
+      shade: false,
+    },
+    {
+      d: `M 50 50 Q 76 ${y.toFixed(2)} ${100 + SHEEN_STUB} ${y.toFixed(2)}`,
+      width: 4,
+      shade: false,
+    },
+  ];
+}
+
+function CozyPipe({
+  arms,
+  rotation,
+  live,
+}: {
+  arms: DirId[];
+  rotation: number;
+  live: boolean;
+}) {
+  const uid = useId().replace(/:/g, "");
+  if (arms.length === 0) return null;
+  const has = (dir: DirId) => arms.includes(dir);
+  const corner = has("N") && has("E") && !has("S") && !has("W");
+  const tee = has("N") && has("E") && has("S") && !has("W");
+  const straight = has("N") && has("S") && !has("E") && !has("W");
+  const light = localLight(rotation);
+  const lines = centerlines(arms).map(trimSheen);
+  const cap = { fill: "none", strokeLinecap: "butt", strokeLinejoin: "round" } as const;
+  const sheen = { fill: "none", strokeLinecap: "round", strokeLinejoin: "round" } as const;
+  const body =
+    corner ? cornerOutline() : straight || arms.length === 1 ? linePath(centerlines(arms)[0] ?? []) : "";
+  const strokes: { d: string; width: number; shade: boolean }[] = tee
+    ? teeSheens(light)
+    : [
+        ...(corner
+          ? [{ d: cornerSheen([-light[0], -light[1]], 8), width: 11, shade: true }]
+          : lines.map((pts) => ({
+              d: linePath(offsetAlong(pts, [-light[0], -light[1]], 8)),
+              width: 11,
+              shade: true,
+            }))),
+        ...(corner
+          ? [{ d: cornerSheen(light, 8), width: 5, shade: false }]
+          : lines.map((pts) => ({
+              d: linePath(offsetAlong(pts, light, 8)),
+              width: 5,
+              shade: false,
+            }))),
+      ];
+
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
       <defs>
-        <linearGradient id={`${uid}-h`} gradientUnits="userSpaceOnUse" x1="0" y1={50 - half} x2="0" y2={50 + half}>
-          <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
-          <stop offset="0.38" stopColor="var(--color-pc-casing)" />
-          <stop offset="1" stopColor="var(--color-pc-shade)" />
-        </linearGradient>
-        <linearGradient id={`${uid}-v`} gradientUnits="userSpaceOnUse" x1={50 - half} y1="0" x2={50 + half} y2="0">
-          <stop offset="0" stopColor="var(--color-pc-pipe-light)" />
-          <stop offset="0.38" stopColor="var(--color-pc-casing)" />
-          <stop offset="1" stopColor="var(--color-pc-shade)" />
-        </linearGradient>
         <mask id={`${uid}-mask`}>
-          {segments.map((segment, index) => (
-            <path key={index} d={segment.d} stroke="white" strokeWidth={PIPE_WIDTH} {...cap} />
-          ))}
-          {showHub && <circle cx="50" cy="50" r={half} fill="white" />}
+          {tee ? (
+            <path d={teeOutline()} fill="white" />
+          ) : (
+            <path d={body} stroke="white" strokeWidth={PIPE_WIDTH} {...cap} />
+          )}
         </mask>
       </defs>
-      {showHub && <circle cx="50" cy="50" r={half} fill="var(--color-pc-shade)" />}
-      {segments.map((segment, index) => (
-        <path key={index} d={segment.d} stroke={`url(#${segment.grad})`} strokeWidth={PIPE_WIDTH} {...cap} />
-      ))}
+      {tee ? (
+        <path d={teeOutline()} fill="var(--color-pc-casing)" />
+      ) : (
+        <path d={body} stroke="var(--color-pc-casing)" strokeWidth={PIPE_WIDTH} {...cap} />
+      )}
       <g mask={`url(#${uid}-mask)`}>
-        {segments.map((segment, index) => (
+        {strokes.map((stroke, index) => (
           <path
-            key={`shade-${index}`}
-            d={segment.d}
-            stroke="var(--color-pc-shade)"
-            strokeOpacity="0.45"
-            strokeWidth="11"
-            transform={segment.horizontal ? "translate(0 7)" : "translate(7 0)"}
-            {...cap}
+            key={`sheen-${index}`}
+            d={stroke.d}
+            stroke={stroke.shade ? "var(--color-pc-shade)" : "white"}
+            strokeOpacity={stroke.shade ? 0.55 : 0.5}
+            strokeWidth={stroke.width}
+            {...sheen}
           />
         ))}
-        {segments.map((segment, index) => (
-          <path
-            key={`light-${index}`}
-            d={segment.d}
-            stroke="white"
-            strokeOpacity="0.42"
-            strokeWidth="5"
-            transform={segment.horizontal ? "translate(0 -5)" : "translate(-5 0)"}
-            {...cap}
-          />
-        ))}
+        {live &&
+          lines.map((pts, index) => (
+            <path
+              key={`core-${index}`}
+              d={linePath(pts)}
+              stroke="var(--color-pc-spark)"
+              strokeOpacity="0.8"
+              strokeWidth="6"
+              {...sheen}
+            />
+          ))}
       </g>
     </svg>
   );
@@ -133,14 +308,17 @@ export function TileArt({
   conduit,
   live,
   hub,
+  rotation = 0,
 }: {
   kind: Kind;
   conduit: Conduit;
   live: boolean;
   hub: "start" | "end" | "plain";
+  /** Clockwise quarter-turns already applied by the board, used only for lighting. */
+  rotation?: number;
 }) {
   const arms = openingIds(baseMask(kind));
-  if (conduit === "pipe") return <CozyPipe arms={arms} hub={hub} />;
+  if (conduit === "pipe") return <CozyPipe arms={arms} rotation={rotation} live={live} />;
   const widths = WIDTHS[conduit];
   const bore = live ? "var(--color-pc-flow)" : "var(--color-pc-bore)";
   const casing = "var(--color-pc-casing)";
