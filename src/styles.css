@@ -1110,16 +1110,22 @@
 .path-connect[data-style="cozy"] .pc-tray {
   overflow: visible;
   border-radius: 32px;
-  background: color-mix(in oklab, var(--color-pc-edge) 52%, var(--color-pc-tile));
+  background: color-mix(in oklab, var(--color-pc-edge) 62%, var(--color-pc-tile));
   padding: 14px;
-  box-shadow:
-    inset 0 2px 0 color-mix(in oklab, white 78%, var(--color-pc-tile)),
-    inset 0 -3px 0 color-mix(in oklab, var(--color-pc-shade) 18%, transparent),
-    inset 0 0 0 7px color-mix(in oklab, white 34%, var(--color-pc-tile)),
-    inset 0 0 0 9px color-mix(in oklab, var(--color-pc-shade) 28%, var(--color-pc-edge)),
-    inset 0 16px 22px color-mix(in oklab, var(--color-pc-shade) 12%, transparent),
-    0 3px 0 color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
-    0 16px 26px -14px color-mix(in oklab, var(--color-pc-shade) 36%, transparent);
+  box-shadow: var(--pc-tray-lip), var(--pc-tray-drop);
+  --pc-tray-lip:
+    inset 0 2px 0 color-mix(in oklab, white 88%, var(--color-pc-tile)),
+    inset 0 -3px 0 color-mix(in oklab, var(--color-pc-shade) 24%, var(--color-pc-edge)),
+    inset 0 0 0 4px color-mix(in oklab, white 52%, var(--color-pc-tile)),
+    inset 0 0 0 8px color-mix(in oklab, white 26%, var(--color-pc-tile)),
+    inset 0 0 0 9px color-mix(in oklab, var(--color-pc-shade) 22%, var(--color-pc-edge)),
+    inset 0 0 0 10px color-mix(in oklab, var(--color-pc-shade) 36%, var(--color-pc-edge)),
+    inset 3px 16px 16px color-mix(in oklab, var(--color-pc-shade) 18%, transparent),
+    inset -2px -6px 12px color-mix(in oklab, white 30%, transparent);
+  --pc-tray-drop:
+    0 0 0 1px color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
+    0 4px 0 color-mix(in oklab, var(--color-pc-shade) 22%, var(--color-pc-edge)),
+    0 24px 34px -16px color-mix(in oklab, var(--color-pc-shade) 44%, transparent);
 }
 
 .path-connect[data-style="cozy"] .pc-board {
@@ -1135,18 +1141,21 @@
 .path-connect[data-style="cozy"] .pc-tile[data-role="end"] {
   overflow: visible;
   border-radius: 16px;
+  --pc-cream: #f4e3c6;
   background: linear-gradient(
-    145deg,
-    color-mix(in oklab, white 6%, var(--color-pc-tile)) 0%,
-    var(--color-pc-tile) 32%,
-    color-mix(in oklab, var(--color-pc-edge) 64%, var(--color-pc-tile)) 100%
+    150deg,
+    color-mix(in oklab, var(--pc-cream) 10%, color-mix(in oklab, white 10%, var(--color-pc-tile))) 0%,
+    color-mix(in oklab, var(--pc-cream) 14%, var(--color-pc-tile)) 34%,
+    color-mix(in oklab, var(--pc-cream) 12%, color-mix(in oklab, var(--color-pc-edge) 70%, var(--color-pc-tile))) 100%
   );
   box-shadow:
-    inset 4px 4px 0 color-mix(in oklab, white 74%, var(--color-pc-tile)),
-    inset -4px -5px 0 color-mix(in oklab, var(--color-pc-shade) 32%, var(--color-pc-tile)),
-    inset -8px -10px 14px color-mix(in oklab, var(--color-pc-shade) 18%, transparent),
-    3px 8px 6px color-mix(in oklab, var(--color-pc-shade) 30%, transparent),
-    6px 14px 16px -3px color-mix(in oklab, var(--color-pc-shade) 34%, transparent);
+    inset 0 3px 0 color-mix(in oklab, white 86%, var(--color-pc-tile)),
+    inset 3px 0 0 color-mix(in oklab, white 60%, var(--color-pc-tile)),
+    inset -3px -5px 0 color-mix(in oklab, var(--color-pc-shade) 30%, var(--color-pc-tile)),
+    inset -8px -10px 14px color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
+    0 2px 0 color-mix(in oklab, var(--color-pc-shade) 30%, var(--color-pc-edge)),
+    2px 9px 8px color-mix(in oklab, var(--color-pc-shade) 32%, transparent),
+    4px 17px 18px -4px color-mix(in oklab, var(--color-pc-shade) 38%, transparent);
 }
 
 .path-connect[data-theme="lights"][data-style="cozy"] .pc-tile,
@@ -1157,9 +1166,9 @@
 .path-connect[data-theme="lights"][data-style="cozy"] .pc-tile[data-role="end"] {
   background: linear-gradient(
     145deg,
-    color-mix(in oklab, var(--color-pc-soil) 42%, var(--color-pc-lawn)) 0%,
-    color-mix(in oklab, var(--color-pc-soil) 64%, var(--color-pc-tile)) 38%,
-    color-mix(in oklab, var(--color-pc-edge) 82%, var(--color-pc-tile)) 100%
+    color-mix(in oklab, var(--pc-cream) 34%, color-mix(in oklab, white 14%, var(--color-pc-lawn))) 0%,
+    color-mix(in oklab, var(--pc-cream) 46%, var(--color-pc-lawn)) 36%,
+    color-mix(in oklab, var(--pc-cream) 30%, color-mix(in oklab, var(--color-pc-edge) 86%, var(--color-pc-soil))) 100%
   );
 }
 
@@ -1249,13 +1258,9 @@
 .path-connect[data-style="cozy"] .pc-shell[data-phase="flow"] .pc-tray,
 .path-connect[data-style="cozy"] .pc-shell[data-phase="won"] .pc-tray {
   box-shadow:
-    inset 0 2px 0 color-mix(in oklab, white 78%, var(--color-pc-tile)),
-    inset 0 -3px 0 color-mix(in oklab, var(--color-pc-shade) 18%, transparent),
-    inset 0 0 0 7px color-mix(in oklab, white 34%, var(--color-pc-tile)),
-    inset 0 0 0 9px color-mix(in oklab, var(--color-pc-shade) 28%, var(--color-pc-edge)),
-    inset 0 16px 22px color-mix(in oklab, var(--color-pc-shade) 12%, transparent),
+    var(--pc-tray-lip),
     0 0 0 2px color-mix(in oklab, var(--color-pc-flow) 40%, transparent),
-    0 16px 26px -14px color-mix(in oklab, var(--color-pc-shade) 36%, transparent);
+    var(--pc-tray-drop);
 }
 
 .path-connect[data-style="cozy"] .pc-flash {
