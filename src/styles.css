@@ -1109,13 +1109,12 @@
 
 .path-connect[data-style="cozy"] .pc-tray {
   border-radius: 28px;
-  background: color-mix(in oklab, var(--color-pc-edge) 74%, var(--color-pc-tile));
+  background: color-mix(in oklab, var(--color-pc-shade) 16%, var(--color-pc-edge));
   padding: 14px;
   box-shadow:
-    inset 0 8px 18px color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
-    inset 0 1px 0 color-mix(in oklab, white 48%, transparent),
-    0 2px 6px color-mix(in oklab, var(--color-pc-shade) 12%, transparent),
-    0 16px 28px -16px color-mix(in oklab, var(--color-pc-shade) 38%, transparent);
+    inset 0 14px 28px color-mix(in oklab, var(--color-pc-shade) 22%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 32%, transparent),
+    0 18px 32px -18px color-mix(in oklab, var(--color-pc-shade) 40%, transparent);
 }
 
 .path-connect[data-style="cozy"] .pc-board {
@@ -1132,18 +1131,17 @@
   overflow: visible;
   border-radius: 16px;
   background: linear-gradient(
-    180deg,
-    color-mix(in oklab, white 34%, var(--color-pc-tile)) 0%,
-    var(--color-pc-tile) 22%,
-    var(--color-pc-tile) 70%,
-    color-mix(in oklab, var(--color-pc-edge) 42%, var(--color-pc-tile)) 100%
+    148deg,
+    color-mix(in oklab, white 14%, var(--color-pc-tile)) 0%,
+    var(--color-pc-tile) 42%,
+    color-mix(in oklab, var(--color-pc-edge) 34%, var(--color-pc-tile)) 100%
   );
   box-shadow:
-    inset 0 2px 0 color-mix(in oklab, white 92%, transparent),
-    inset 0 -4px 8px color-mix(in oklab, var(--color-pc-shade) 14%, transparent),
-    0 2px 2px color-mix(in oklab, var(--color-pc-shade) 18%, transparent),
-    0 8px 12px -2px color-mix(in oklab, var(--color-pc-shade) 42%, transparent),
-    0 14px 18px -10px color-mix(in oklab, var(--color-pc-shade) 28%, transparent);
+    inset 2px 2px 0 color-mix(in oklab, white 58%, var(--color-pc-tile)),
+    inset -3px -4px 6px color-mix(in oklab, var(--color-pc-shade) 22%, transparent),
+    1px 5px 4px color-mix(in oklab, var(--color-pc-shade) 26%, transparent),
+    3px 10px 12px -2px color-mix(in oklab, var(--color-pc-shade) 40%, transparent),
+    5px 16px 20px -8px color-mix(in oklab, var(--color-pc-shade) 34%, transparent);
 }
 
 .path-connect[data-style="cozy"] .pc-depth {
