@@ -46,8 +46,8 @@ function pipeD(arms: DirId[]): string {
   if (arms.length === 2 && OPPOSITE[arms[0]!] !== arms[1]) {
     const [x1, y1] = PIPE_ENDS[arms[0]!];
     const [x2, y2] = PIPE_ENDS[arms[1]!];
-    const [ix, iy] = along(arms[0]!, 16);
-    const [jx, jy] = along(arms[1]!, 16);
+    const [ix, iy] = along(arms[0]!, 24);
+    const [jx, jy] = along(arms[1]!, 24);
     return `M ${x1} ${y1} L ${ix} ${iy} Q 50 50 ${jx} ${jy} L ${x2} ${y2}`;
   }
   if (arms.length === 2) {
@@ -63,20 +63,30 @@ function pipeD(arms: DirId[]): string {
     .join(" ");
 }
 
-/** Rounded copper-style pipe. Color comes from the theme tokens. */
+/** Rounded pipe with a dark underside and a highlight along the top. */
 function CozyPipe({ arms, hub }: { arms: DirId[]; hub: "start" | "end" | "plain" }) {
   const d = pipeD(arms);
   const joint = arms.length >= 3 && hub !== "end";
+  const cap = { fill: "none", strokeLinecap: "round", strokeLinejoin: "round" } as const;
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
-      <path d={d} fill="none" stroke="var(--color-pc-shade)" strokeWidth={34} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={d} fill="none" stroke="var(--color-pc-casing)" strokeWidth={28} strokeLinecap="round" strokeLinejoin="round" />
-      <path d={d} fill="none" stroke="white" strokeOpacity={0.38} strokeWidth={6} strokeLinecap="round" strokeLinejoin="round" />
+      <path d={d} {...cap} stroke="var(--color-pc-shade)" strokeWidth={38} transform="translate(0 4)" />
+      <path d={d} {...cap} stroke="var(--color-pc-casing)" strokeWidth={32} />
+      <path
+        d={d}
+        {...cap}
+        stroke="var(--color-pc-shade)"
+        strokeOpacity={0.45}
+        strokeWidth={8}
+        transform="translate(0 7)"
+      />
+      <path d={d} {...cap} stroke="white" strokeOpacity={0.34} strokeWidth={11} transform="translate(0 -5)" />
+      <path d={d} {...cap} stroke="white" strokeOpacity={0.8} strokeWidth={3.5} transform="translate(-1 -8)" />
       {joint && (
         <>
-          <circle cx={50} cy={50} r={17} fill="var(--color-pc-shade)" />
-          <circle cx={50} cy={50} r={14} fill="var(--color-pc-casing)" />
-          <circle cx={45} cy={45} r={4} fill="white" opacity={0.5} />
+          <circle cx={50} cy={53} r={19} fill="var(--color-pc-shade)" />
+          <circle cx={50} cy={50} r={16} fill="var(--color-pc-casing)" />
+          <circle cx={44} cy={44} r={4.5} fill="white" opacity={0.7} />
         </>
       )}
     </svg>

@@ -600,7 +600,7 @@ function SourceGlyph({ theme }: { theme: ThemeId }) {
 
 function NodeGlyph({ theme, on }: { theme: ThemeId; on: boolean }) {
   if (theme === "alarm") return <Sensor on={on} />;
-  if (theme === "fire") return <Horn on={on} />;
+  if (theme === "fire") return <Strobe on={on} />;
   return <Bulb on={on} />;
 }
 
@@ -608,19 +608,19 @@ function Bulb({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 48 58" className={on ? "pc-glyph is-on" : "pc-glyph"}>
       <path
-        d="M24 3c-10 0-16 8-16 17.2 0 6.2 3.4 10.4 6.4 13.4 1.2 1.2 2 2.8 2 4.6V42h15.2v-3.8c0-1.8.8-3.4 2-4.6 3-3 6.4-7.2 6.4-13.4C40 11 34 3 24 3z"
-        fill={on ? "#ffe14a" : "#f6d48a"}
-        stroke={on ? "#e8a23a" : "var(--color-pc-shade)"}
-        strokeWidth="1.8"
+        d="M24 2.5c-10.2 0-16.5 8.2-16.5 17.6 0 6.4 3.5 10.8 6.6 13.8 1.2 1.2 2.1 2.9 2.1 4.8V42h15.6v-3.3c0-1.9.9-3.6 2.1-4.8 3.1-3 6.6-7.4 6.6-13.8C40.5 10.7 34.2 2.5 24 2.5z"
+        fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
+        stroke="var(--color-pc-glass-ink)"
+        strokeWidth="2.6"
       />
       <path
-        d="M24 10c-4.2 4.6-3.2 9 0 13.4 4.2-4.4 5.2-8.8 0-13.4z"
-        fill={on ? "white" : "#fff6df"}
-        opacity={on ? 0.9 : 0.7}
+        d="M24 9c-4.4 4.8-3.4 9.4 0 14 4.4-4.6 5.4-9.2 0-14z"
+        fill="white"
+        opacity={on ? 0.95 : 0.55}
       />
-      <rect x="16" y="43" width="16" height="4" rx="1.2" fill="var(--color-pc-shade)" />
-      <rect x="17.5" y="48" width="13" height="3" rx="1" fill="var(--color-pc-casing)" />
-      <rect x="19" y="52" width="10" height="2.6" rx="1" fill="var(--color-pc-shade)" />
+      <rect x="15" y="42.5" width="18" height="4.2" rx="1.2" fill="var(--color-pc-glass-ink)" />
+      <rect x="16.5" y="47.4" width="15" height="3.2" rx="1" fill="var(--color-pc-casing)" />
+      <rect x="18" y="51.4" width="12" height="3" rx="1" fill="var(--color-pc-glass-ink)" />
     </svg>
   );
 }
@@ -628,20 +628,38 @@ function Bulb({ on }: { on: boolean }) {
 function Sensor({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <rect x="8" y="12" width="32" height="28" rx="8" fill="var(--color-pc-casing)" />
-      <rect x="12" y="16" width="24" height="20" rx="6" fill="#f4f8fb" />
-      <circle cx="24" cy="26" r="6.5" fill={on ? "#7ee0ff" : "#8eafc4"} stroke="var(--color-pc-shade)" strokeWidth="1.4" />
-      {on && <circle cx="21.6" cy="23.6" r="2" fill="white" />}
+      <rect x="6" y="10" width="36" height="34" rx="10" fill="var(--color-pc-glass-ink)" />
+      <rect x="9" y="13" width="30" height="28" rx="8" fill="var(--color-pc-glass)" />
+      <circle cx="24" cy="27" r="9" fill="var(--color-pc-glass-ink)" />
+      <circle cx="24" cy="27" r="6.2" fill={on ? "var(--color-pc-glass-on)" : "white"} />
+      {on && <circle cx="21.5" cy="24.6" r="2" fill="white" />}
     </svg>
   );
 }
 
-function Horn({ on }: { on: boolean }) {
+function Strobe({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <path d="M8 20h12l14-9v30L20 32H8a3 3 0 0 1-3-3v-6a3 3 0 0 1 3-3z" fill="var(--color-pc-casing)" />
-      <circle cx="38" cy="26" r="5" fill={on ? "#ffe14a" : "#f3d2c8"} stroke="var(--color-pc-shade)" strokeWidth="1.4" />
-      <rect x="6" y="22" width="4" height="8" rx="1" fill="var(--color-pc-shade)" />
+      <rect x="5" y="8" width="38" height="40" rx="8" fill="var(--color-pc-glass-ink)" />
+      <rect x="8" y="11" width="32" height="34" rx="6" fill="var(--color-pc-casing)" />
+      <rect
+        x="13"
+        y="16"
+        width="22"
+        height="18"
+        rx="4"
+        fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
+        stroke="var(--color-pc-glass-ink)"
+        strokeWidth="2"
+      />
+      <path
+        d="M17 21h14M17 25h14M17 29h14"
+        stroke="var(--color-pc-glass-ink)"
+        strokeWidth="1.6"
+        strokeLinecap="round"
+        opacity={on ? 0.28 : 0.75}
+      />
+      <rect x="16" y="38" width="16" height="3.2" rx="1" fill="var(--color-pc-glass-ink)" />
     </svg>
   );
 }

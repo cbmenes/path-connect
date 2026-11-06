@@ -129,6 +129,9 @@
   --color-pc-bore: #e7d3b4;
   --color-pc-core: #f6e2c4;
   --color-pc-spark: #ffd56a;
+  --color-pc-glass: #f0b84a;
+  --color-pc-glass-on: #ffe14a;
+  --color-pc-glass-ink: #7a4520;
   --color-pc-onflow: #3a2808;
   --color-pc-onstart: #5c3a24;
   --color-pc-lawn: #f3e6d2;
@@ -222,6 +225,9 @@
   --color-pc-bore: #d5e4ef;
   --color-pc-core: #e7f4fb;
   --color-pc-spark: #7ee0ff;
+  --color-pc-glass: #9ec0d6;
+  --color-pc-glass-on: #d8f7ff;
+  --color-pc-glass-ink: #1d4e70;
   --color-pc-onflow: #04202c;
   --color-pc-onstart: #1d3d56;
   --color-pc-lawn: #d7e6f2;
@@ -247,6 +253,9 @@
   --color-pc-bore: #f0d0c8;
   --color-pc-core: #f8e4dc;
   --color-pc-spark: #ffb15a;
+  --color-pc-glass: #fff6ef;
+  --color-pc-glass-on: #ffe14a;
+  --color-pc-glass-ink: #7a261f;
   --color-pc-onflow: #3a1612;
   --color-pc-onstart: #6b2e28;
   --color-pc-lawn: #f6ddd4;
@@ -1155,15 +1164,26 @@
   height: 20px;
 }
 
-.path-connect[data-style="cozy"] .pc-glyph {
-  width: 46px;
-  height: 54px;
+.path-connect[data-style="cozy"] .pc-tile[data-role="end"]:not([data-fed="true"]) .pc-plant {
+  opacity: 1;
+}
+
+.path-connect[data-style="cozy"] .pc-tile .pc-glyph {
+  width: 56px;
+  height: 64px;
   overflow: visible;
-  filter: none;
+  filter: drop-shadow(0 2px 0 color-mix(in oklab, var(--color-pc-glass-ink) 55%, transparent));
 }
 
 .path-connect[data-style="cozy"] .pc-glyph.is-on {
-  filter: drop-shadow(0 0 6px var(--color-pc-spark)) drop-shadow(0 0 14px var(--color-pc-flow));
+  filter:
+    drop-shadow(0 0 3px white)
+    drop-shadow(0 0 8px var(--color-pc-glass-on))
+    drop-shadow(0 0 16px var(--color-pc-spark));
+}
+
+.path-connect[data-style="cozy"] .pc-plant.is-fed .pc-glyph {
+  transform: scale(1.06);
 }
 
 .path-connect[data-style="cozy"] .pc-shell[data-phase="flow"] .pc-tile[data-live="true"],
