@@ -328,20 +328,52 @@ export function PathConnectGame() {
 
   return (
     <div className="path-connect min-h-dvh" data-style="cozy" data-theme={theme.id}>
-      <Corner theme={theme.id} />
       <main className="pc-shell" data-phase={phase} data-level={levelId} data-mode={mode}>
-        <header className="pc-head">
-          <div className="pc-brand">
+        <h1 className="sr-only">Path Connect · {theme.title}</h1>
+        <header className="pc-top">
+          <div className="pc-where">
             <ThemeMark theme={theme.id} />
-            <div>
-              <h1>Path Connect</h1>
-              <p className="pc-theme-name">{theme.title}</p>
+            <div className="min-w-0">
+              <h2 className="pc-level-name">
+                {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
+              </h2>
+              <p className="pc-level-sub">
+                {mode === "daily" ? (
+                  <span className="pc-best">
+                    {best
+                      ? `Best today: ${formatClock(best.secondsLeft)} left · ${best.turns} ${best.turns === 1 ? "turn" : "turns"}`
+                      : "Best today: not set"}
+                  </span>
+                ) : (
+                  level.blurb
+                )}
+              </p>
+            </div>
+          </div>
+          <div className="pc-top-tools">
+            <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
+              <button
+                type="button"
+                aria-pressed={mode === "levels"}
+                className={mode === "levels" ? "is-on" : undefined}
+                onClick={() => switchMode("levels")}
+              >
+                Levels
+              </button>
+              <button
+                type="button"
+                aria-pressed={mode === "daily"}
+                className={mode === "daily" ? "is-on" : undefined}
+                onClick={() => switchMode("daily")}
+              >
+                Daily
+              </button>
             </div>
             <Button
               type="button"
               variant="ghost"
               size="icon"
-              className="pc-mute ml-auto border-0 bg-transparent text-pc-accent hover:bg-transparent hover:text-pc-fg"
+              className="pc-mute border-0 bg-transparent text-pc-accent hover:bg-transparent hover:text-pc-fg"
               aria-label={muted ? "Unmute sound" : "Mute sound"}
               aria-pressed={muted}
               onClick={() => setMuted((value) => !value)}
@@ -349,68 +381,35 @@ export function PathConnectGame() {
               {muted ? <VolumeX /> : <Volume2 />}
             </Button>
           </div>
-          <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
-            <button
-              type="button"
-              aria-pressed={mode === "levels"}
-              className={mode === "levels" ? "is-on" : undefined}
-              onClick={() => switchMode("levels")}
-            >
-              Levels
-            </button>
-            <button
-              type="button"
-              aria-pressed={mode === "daily"}
-              className={mode === "daily" ? "is-on" : undefined}
-              onClick={() => switchMode("daily")}
-            >
-              Daily
-            </button>
-          </div>
-        </header>
-
-        <section className="pc-level">
-          <div className="pc-meter" aria-label={`${fed.size} of ${nodeTotal} ${nodeWord} connected`}>
-            <NodeGlyph theme={theme.id} on={fed.size > 0} />
-            <span className="pc-meter-track">
-              <span className="pc-meter-fill" style={{ width: `${meter}%` }} />
-            </span>
-            <span className="pc-meter-count tabular">
-              {fed.size} / {nodeTotal}
-            </span>
-          </div>
-          <div className="mt-3 flex items-end justify-between gap-3">
-            <div>
-              <h2 className="text-lg font-semibold tracking-tight">
-                {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
-              </h2>
-              <p className="text-sm text-pc-muted text-pretty">{level.blurb}</p>
-              {mode === "daily" && (
-                <p className="pc-best mt-1 text-sm text-pc-fg">
-                  {best
-                    ? `Best today: ${formatClock(best.secondsLeft)} left · ${best.turns} ${best.turns === 1 ? "turn" : "turns"}`
-                    : "Best today: not set"}
-                </p>
-              )}
+          <div className="pc-hud">
+            <div className="pc-meter" aria-label={`${fed.size} of ${nodeTotal} ${nodeWord} connected`}>
+              <NodeGlyph theme={theme.id} on={fed.size > 0} />
+              <span className="pc-meter-track">
+                <span className="pc-meter-fill" style={{ width: `${meter}%` }} />
+              </span>
+              <span className="pc-meter-count tabular">
+                {fed.size} / {nodeTotal}
+              </span>
             </div>
-            <p className="tabular shrink-0 text-right text-sm font-semibold text-pc-accent">
+            <p className="pc-hud-stats tabular">
               {mode === "daily" ? (
                 <span className="pc-timer" data-low={secondsLeft <= 15 && phase === "play"}>
                   {formatClock(secondsLeft)}
                 </span>
               ) : (
-                <>
-                  {levelId}
+                <span>
+                  Level {levelId}
                   <span className="text-pc-muted"> / {LEVELS.length}</span>
-                </>
+                </span>
               )}
-              <span className="mt-1 block text-xs font-medium text-pc-muted">
+              <span className="text-pc-muted">
                 {moves} {moves === 1 ? "turn" : "turns"}
               </span>
             </p>
           </div>
-        </section>
+        </header>
 
+        <div className="pc-stage">
         <div className="pc-scene pc-board-wrap" data-room={theme.id}>
           <Surroundings
             theme={theme.id}
@@ -516,81 +515,57 @@ export function PathConnectGame() {
           </div>
         </div>
 
-        <p className="pc-status pc-tip text-sm text-pretty" aria-live="polite">
-          <NodeGlyph theme={theme.id} on={phase === "won" || phase === "flow"} />
-          <span>
-          {phase === "won" ? (
-            <>
-              <span className="block text-base font-semibold tracking-tight text-pc-flow">
-                {mode === "daily" ? "Challenge complete" : "Level complete"}
-              </span>
-              <span className="text-pc-muted">{status}</span>
-            </>
-          ) : (
-            <span className="text-pc-muted">{status ?? theme.rule}</span>
-          )}
-          </span>
-        </p>
-
-        <div className="pc-actions grid grid-cols-3 gap-2">
-          <Button
-            type="button"
-            variant="outline"
-            className="border-pc-edge bg-pc-tile px-2 text-pc-fg hover:bg-pc-edge hover:text-pc-fg"
-            onClick={() => (mode === "daily" ? startDaily() : reset(levelId))}
-          >
-            <RotateCcw />
-            Restart
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-pc-edge bg-pc-tile px-2 text-pc-fg hover:bg-pc-edge hover:text-pc-fg"
-            onClick={onHint}
-          >
-            <Lightbulb />
-            Hint
-          </Button>
-          <Button
-            type="button"
-            variant="outline"
-            className="border-pc-edge bg-pc-tile px-2 text-pc-fg hover:bg-pc-edge hover:text-pc-fg"
-            onClick={onUndo}
-          >
-            <Undo2 />
-            Undo
-          </Button>
-          {phase === "won" && mode === "levels" && (
-            <Button
-              type="button"
-              className="col-span-3 bg-pc-flow text-pc-onflow hover:bg-pc-flow/90"
-              onClick={() => reset(lastLevel ? 1 : levelId + 1)}
-            >
-              {lastLevel ? "Play again" : "Next level"}
-              <ArrowRight />
-            </Button>
-          )}
-          {(phase === "won" || phase === "expired") && mode === "daily" && (
-            <Button
-              type="button"
-              className="col-span-3 bg-pc-flow text-pc-onflow hover:bg-pc-flow/90"
-              onClick={startDaily}
-            >
-              {phase === "expired" ? "Retry" : "Try again"}
-              <ArrowRight />
-            </Button>
-          )}
         </div>
 
-      </main>
-    </div>
-  );
-}
+        <footer className="pc-bottom">
+          <p className="pc-status pc-tip text-sm text-pretty" aria-live="polite">
+            <NodeGlyph theme={theme.id} on={phase === "won" || phase === "flow"} />
+            <span>
+              {phase === "won" ? (
+                <>
+                  <span className="font-semibold text-pc-flow">
+                    {mode === "daily" ? "Challenge complete. " : "Level complete. "}
+                  </span>
+                  <span className="text-pc-muted">{status}</span>
+                </>
+              ) : (
+                <span className="text-pc-muted">{status ?? theme.rule}</span>
+              )}
+            </span>
+          </p>
 
-function Corner({ theme }: { theme: ThemeId }) {
-  return (
-    <div className="pc-corner" aria-hidden="true">
-      {theme === "alarm" ? <BuildingArt /> : theme === "fire" ? <SchoolArt /> : <HouseArt />}
+          <div className="pc-actions">
+            <Button
+              type="button"
+              variant="ghost"
+              onClick={() => (mode === "daily" ? startDaily() : reset(levelId))}
+            >
+              <RotateCcw />
+              Restart
+            </Button>
+            <Button type="button" variant="ghost" onClick={onHint}>
+              <Lightbulb />
+              Hint
+            </Button>
+            <Button type="button" variant="ghost" onClick={onUndo}>
+              <Undo2 />
+              Undo
+            </Button>
+            {phase === "won" && mode === "levels" && (
+              <Button type="button" className="pc-next" onClick={() => reset(lastLevel ? 1 : levelId + 1)}>
+                {lastLevel ? "Play again" : "Next level"}
+                <ArrowRight />
+              </Button>
+            )}
+            {(phase === "won" || phase === "expired") && mode === "daily" && (
+              <Button type="button" className="pc-next" onClick={startDaily}>
+                {phase === "expired" ? "Retry" : "Try again"}
+                <ArrowRight />
+              </Button>
+            )}
+          </div>
+        </footer>
+      </main>
     </div>
   );
 }
