@@ -31,21 +31,23 @@ const WIDTHS: Record<
  * overlaps it. A corner is a quarter-circle whose tangents are perpendicular
  * to those edges, so the joint stays centered after the bend.
  */
-const PIPE_WIDTH = 44;
+const PIPE_WIDTH = 26;
 const PIPE_RADIUS = PIPE_WIDTH / 2;
 /** How far a butt end crosses into the neighboring tile, in tile units. */
 const PIPE_STUB = 12;
-/** Highlight stops just past the edge so the two stripes meet without stacking. */
+/** Highlight stops just past the edge so neighboring bands do not stack. */
 const SHEEN_STUB = 6;
-/** Bands stay inside the stroke: offset plus half the width is under the radius. */
-const SHADE_OFFSET = 6;
-const SHADE_WIDTH = 14;
-const EDGE_OFFSET = 13;
-const EDGE_WIDTH = 7;
-const LIGHT_OFFSET = 5;
-const LIGHT_WIDTH = 9;
-const SPEC_OFFSET = 8;
-const SPEC_WIDTH = 3;
+/**
+ * Smooth tube, dark side first. `t` is a signed fraction of the radius
+ * (negative faces away from the light). Each band stays inside the stroke.
+ */
+const TUBE: { t: number; mix: number; shade: boolean; span: number; opacity: number }[] = [
+  { t: -0.58, mix: 58, shade: true, span: 0.4, opacity: 0.62 },
+  { t: -0.2, mix: 18, shade: true, span: 0.46, opacity: 0.4 },
+  { t: 0.14, mix: 22, shade: false, span: 0.42, opacity: 0.38 },
+  { t: 0.4, mix: 70, shade: false, span: 0.3, opacity: 0.76 },
+  { t: 0.62, mix: 100, shade: false, span: 0.13, opacity: 0.94 },
+];
 
 type Pt = [number, number];
 
@@ -94,8 +96,8 @@ function centerlines(arms: DirId[]): Pt[][] {
   if (has("N") && has("E") && !has("S") && !has("W")) {
     const pts: Pt[] = [];
     pushLine(pts, north, edgeN, 3, false);
-    for (let i = 1; i <= 10; i++) {
-      const angle = Math.PI - (Math.PI / 2) * (i / 10);
+    for (let i = 1; i <= 16; i++) {
+      const angle = Math.PI - (Math.PI / 2) * (i / 16);
       pts.push([100 + 50 * Math.cos(angle), 50 * Math.sin(angle)]);
     }
     pushLine(pts, edgeE, east, 3, true);
@@ -181,72 +183,9 @@ function cornerOutline(): string {
   return `M 50 ${-PIPE_STUB} L 50 0 A 50 50 0 0 0 100 50 L ${100 + PIPE_STUB} 50`;
 }
 
-function facingNormal(tx: number, ty: number, light: Pt): Pt {
-  const len = Math.hypot(tx, ty) || 1;
-  const left: Pt = [-ty / len, tx / len];
-  const right: Pt = [ty / len, -tx / len];
-  const leftDot = left[0] * light[0] + left[1] * light[1];
-  const rightDot = right[0] * light[0] + right[1] * light[1];
-  return leftDot >= rightDot ? left : right;
-}
-
-/** One smooth sheen around a north-east elbow, tangent to both openings. */
-function cornerSheen(light: Pt, dist: number): string {
-  const north = facingNormal(0, 1, light);
-  const east = facingNormal(1, 0, light);
-  const x = 50 + north[0] * dist;
-  const y = 50 + east[1] * dist;
-  return `M ${x.toFixed(2)} ${-SHEEN_STUB} L ${x.toFixed(2)} 0 Q ${x.toFixed(2)} ${y.toFixed(2)} 100 ${y.toFixed(2)} L ${100 + SHEEN_STUB} ${y.toFixed(2)}`;
-}
-
-/**
- * The bar keeps a straight light side and a straight dark side. The branch
- * sheen leaves the middle of the joint on a curve, so it does not end in a
- * square cut where it meets the bar.
- */
-type SheenRole = "shade" | "edge" | "light" | "spec";
-
-function teeSheens(light: Pt): { d: string; width: number; role: SheenRole }[] {
-  const north = facingNormal(0, 1, light);
-  const east = facingNormal(1, 0, light);
-  const x = 50 + north[0] * LIGHT_OFFSET;
-  const y = 50 + east[1] * LIGHT_OFFSET;
-  const shadeX = 50 - north[0] * SHADE_OFFSET;
-  const edgeX = 50 - north[0] * EDGE_OFFSET;
-  const specX = 50 + north[0] * SPEC_OFFSET;
-  const specY = 50 + east[1] * SPEC_OFFSET;
-  return [
-    {
-      d: `M ${shadeX.toFixed(2)} ${-SHEEN_STUB} L ${shadeX.toFixed(2)} ${100 + SHEEN_STUB}`,
-      width: SHADE_WIDTH,
-      role: "shade",
-    },
-    {
-      d: `M ${edgeX.toFixed(2)} ${-SHEEN_STUB} L ${edgeX.toFixed(2)} ${100 + SHEEN_STUB}`,
-      width: EDGE_WIDTH,
-      role: "edge",
-    },
-    {
-      d: `M ${x.toFixed(2)} ${-SHEEN_STUB} L ${x.toFixed(2)} ${100 + SHEEN_STUB}`,
-      width: LIGHT_WIDTH,
-      role: "light",
-    },
-    {
-      d: `M ${specX.toFixed(2)} ${-SHEEN_STUB} L ${specX.toFixed(2)} ${100 + SHEEN_STUB}`,
-      width: SPEC_WIDTH,
-      role: "spec",
-    },
-    {
-      d: `M 50 50 Q 74 ${y.toFixed(2)} ${100 + SHEEN_STUB} ${y.toFixed(2)}`,
-      width: LIGHT_WIDTH,
-      role: "light",
-    },
-    {
-      d: `M 50 50 Q 82 ${specY.toFixed(2)} ${100 + SHEEN_STUB} ${specY.toFixed(2)}`,
-      width: SPEC_WIDTH,
-      role: "spec",
-    },
-  ];
+function tubeColor(stop: (typeof TUBE)[number]): string {
+  const ink = stop.shade ? "var(--color-pc-shade)" : "var(--color-pc-pipe-light)";
+  return `color-mix(in oklab, ${ink} ${stop.mix}%, var(--color-pc-casing))`;
 }
 
 function CozyPipe({
@@ -265,30 +204,21 @@ function CozyPipe({
   const tee = has("N") && has("E") && has("S") && !has("W");
   const straight = has("N") && has("S") && !has("E") && !has("W");
   const light = localLight(rotation);
-  const lines = centerlines(arms).map(trimSheen);
+  const lines = centerlines(arms);
+  const sheenLines = lines.map(trimSheen).filter((line) => line.length > 1);
   const cap = { fill: "none", strokeLinecap: "butt", strokeLinejoin: "round" } as const;
   const sheen = { fill: "none", strokeLinecap: "round", strokeLinejoin: "round" } as const;
   const body =
-    corner ? cornerOutline() : straight || arms.length === 1 ? linePath(centerlines(arms)[0] ?? []) : "";
+    corner ? cornerOutline() : straight || arms.length === 1 ? linePath(lines[0] ?? []) : "";
   const capEnd = arms.length === 1;
-  const band = (offset: number, width: number, role: SheenRole, towardLight: boolean) => {
-    const normal: Pt = towardLight ? light : [-light[0], -light[1]];
-    return corner
-      ? [{ d: cornerSheen(normal, offset), width, role }]
-      : lines.map((line) => ({
-          d: linePath(offsetAlong(line, normal, offset)),
-          width,
-          role,
-        }));
-  };
-  const strokes: { d: string; width: number; role: SheenRole }[] = tee
-    ? teeSheens(light)
-    : [
-        ...band(SHADE_OFFSET, SHADE_WIDTH, "shade", false),
-        ...band(EDGE_OFFSET, EDGE_WIDTH, "edge", false),
-        ...band(LIGHT_OFFSET, LIGHT_WIDTH, "light", true),
-        ...band(SPEC_OFFSET, SPEC_WIDTH, "spec", true),
-      ];
+  const bands = TUBE.flatMap((stop) =>
+    sheenLines.map((line) => ({
+      d: linePath(offsetAlong(line, light, stop.t * PIPE_RADIUS * 0.7)),
+      width: stop.span * PIPE_WIDTH,
+      color: tubeColor(stop),
+      opacity: stop.opacity,
+    })),
+  );
 
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
@@ -309,13 +239,13 @@ function CozyPipe({
       )}
       {capEnd && <circle cx="50" cy="50" r={PIPE_RADIUS} fill="var(--color-pc-casing)" />}
       <g mask={`url(#${uid}-mask)`}>
-        {strokes.map((stroke, index) => (
+        {bands.map((band, index) => (
           <path
-            key={`sheen-${index}`}
-            d={stroke.d}
-            stroke={stroke.role === "light" || stroke.role === "spec" ? "var(--color-pc-pipe-light)" : "var(--color-pc-shade)"}
-            strokeOpacity={stroke.role === "shade" ? 0.34 : stroke.role === "edge" ? 0.55 : stroke.role === "spec" ? 1 : 0.88}
-            strokeWidth={stroke.width}
+            key={`tube-${index}`}
+            d={band.d}
+            stroke={band.color}
+            strokeOpacity={band.opacity}
+            strokeWidth={band.width}
             {...sheen}
           />
         ))}
@@ -325,8 +255,8 @@ function CozyPipe({
               key={`core-${index}`}
               d={linePath(pts)}
               stroke="var(--color-pc-spark)"
-              strokeOpacity="0.8"
-              strokeWidth="6"
+              strokeOpacity="0.72"
+              strokeWidth="4"
               {...sheen}
             />
           ))}
