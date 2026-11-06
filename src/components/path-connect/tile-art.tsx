@@ -31,19 +31,21 @@ const WIDTHS: Record<
  * overlaps it. A corner is a quarter-circle whose tangents are perpendicular
  * to those edges, so the joint stays centered after the bend.
  */
-const PIPE_WIDTH = 20;
+const PIPE_WIDTH = 44;
 const PIPE_RADIUS = PIPE_WIDTH / 2;
 /** How far a butt end crosses into the neighboring tile, in tile units. */
 const PIPE_STUB = 12;
 /** Highlight stops just past the edge so the two stripes meet without stacking. */
 const SHEEN_STUB = 6;
 /** Bands stay inside the stroke: offset plus half the width is under the radius. */
-const SHADE_OFFSET = 3;
-const SHADE_WIDTH = 8;
-const LIGHT_OFFSET = 3;
-const LIGHT_WIDTH = 5;
-const SPEC_OFFSET = 5;
-const SPEC_WIDTH = 2;
+const SHADE_OFFSET = 6;
+const SHADE_WIDTH = 14;
+const EDGE_OFFSET = 13;
+const EDGE_WIDTH = 7;
+const LIGHT_OFFSET = 5;
+const LIGHT_WIDTH = 9;
+const SPEC_OFFSET = 8;
+const SPEC_WIDTH = 3;
 
 type Pt = [number, number];
 
@@ -202,44 +204,47 @@ function cornerSheen(light: Pt, dist: number): string {
  * sheen leaves the middle of the joint on a curve, so it does not end in a
  * square cut where it meets the bar.
  */
-function teeSheens(light: Pt): { d: string; width: number; shade: boolean; spec: boolean }[] {
+type SheenRole = "shade" | "edge" | "light" | "spec";
+
+function teeSheens(light: Pt): { d: string; width: number; role: SheenRole }[] {
   const north = facingNormal(0, 1, light);
   const east = facingNormal(1, 0, light);
   const x = 50 + north[0] * LIGHT_OFFSET;
   const y = 50 + east[1] * LIGHT_OFFSET;
   const shadeX = 50 - north[0] * SHADE_OFFSET;
+  const edgeX = 50 - north[0] * EDGE_OFFSET;
   const specX = 50 + north[0] * SPEC_OFFSET;
   const specY = 50 + east[1] * SPEC_OFFSET;
   return [
     {
       d: `M ${shadeX.toFixed(2)} ${-SHEEN_STUB} L ${shadeX.toFixed(2)} ${100 + SHEEN_STUB}`,
       width: SHADE_WIDTH,
-      shade: true,
-      spec: false,
+      role: "shade",
+    },
+    {
+      d: `M ${edgeX.toFixed(2)} ${-SHEEN_STUB} L ${edgeX.toFixed(2)} ${100 + SHEEN_STUB}`,
+      width: EDGE_WIDTH,
+      role: "edge",
     },
     {
       d: `M ${x.toFixed(2)} ${-SHEEN_STUB} L ${x.toFixed(2)} ${100 + SHEEN_STUB}`,
       width: LIGHT_WIDTH,
-      shade: false,
-      spec: false,
+      role: "light",
     },
     {
       d: `M ${specX.toFixed(2)} ${-SHEEN_STUB} L ${specX.toFixed(2)} ${100 + SHEEN_STUB}`,
       width: SPEC_WIDTH,
-      shade: false,
-      spec: true,
+      role: "spec",
     },
     {
-      d: `M 50 50 Q 76 ${y.toFixed(2)} ${100 + SHEEN_STUB} ${y.toFixed(2)}`,
+      d: `M 50 50 Q 74 ${y.toFixed(2)} ${100 + SHEEN_STUB} ${y.toFixed(2)}`,
       width: LIGHT_WIDTH,
-      shade: false,
-      spec: false,
+      role: "light",
     },
     {
-      d: `M 50 50 Q 78 ${specY.toFixed(2)} ${100 + SHEEN_STUB} ${specY.toFixed(2)}`,
+      d: `M 50 50 Q 82 ${specY.toFixed(2)} ${100 + SHEEN_STUB} ${specY.toFixed(2)}`,
       width: SPEC_WIDTH,
-      shade: false,
-      spec: true,
+      role: "spec",
     },
   ];
 }
@@ -266,33 +271,23 @@ function CozyPipe({
   const body =
     corner ? cornerOutline() : straight || arms.length === 1 ? linePath(centerlines(arms)[0] ?? []) : "";
   const capEnd = arms.length === 1;
-  const strokes: { d: string; width: number; shade: boolean; spec: boolean }[] = tee
+  const band = (offset: number, width: number, role: SheenRole, towardLight: boolean) => {
+    const normal: Pt = towardLight ? light : [-light[0], -light[1]];
+    return corner
+      ? [{ d: cornerSheen(normal, offset), width, role }]
+      : lines.map((line) => ({
+          d: linePath(offsetAlong(line, normal, offset)),
+          width,
+          role,
+        }));
+  };
+  const strokes: { d: string; width: number; role: SheenRole }[] = tee
     ? teeSheens(light)
     : [
-        ...(corner
-          ? [{ d: cornerSheen([-light[0], -light[1]], SHADE_OFFSET), width: SHADE_WIDTH, shade: true, spec: false }]
-          : lines.map((pts) => ({
-              d: linePath(offsetAlong(pts, [-light[0], -light[1]], SHADE_OFFSET)),
-              width: SHADE_WIDTH,
-              shade: true,
-              spec: false,
-            }))),
-        ...(corner
-          ? [{ d: cornerSheen(light, LIGHT_OFFSET), width: LIGHT_WIDTH, shade: false, spec: false }]
-          : lines.map((pts) => ({
-              d: linePath(offsetAlong(pts, light, LIGHT_OFFSET)),
-              width: LIGHT_WIDTH,
-              shade: false,
-              spec: false,
-            }))),
-        ...(corner
-          ? [{ d: cornerSheen(light, SPEC_OFFSET), width: SPEC_WIDTH, shade: false, spec: true }]
-          : lines.map((pts) => ({
-              d: linePath(offsetAlong(pts, light, SPEC_OFFSET)),
-              width: SPEC_WIDTH,
-              shade: false,
-              spec: true,
-            }))),
+        ...band(SHADE_OFFSET, SHADE_WIDTH, "shade", false),
+        ...band(EDGE_OFFSET, EDGE_WIDTH, "edge", false),
+        ...band(LIGHT_OFFSET, LIGHT_WIDTH, "light", true),
+        ...band(SPEC_OFFSET, SPEC_WIDTH, "spec", true),
       ];
 
   return (
@@ -318,8 +313,8 @@ function CozyPipe({
           <path
             key={`sheen-${index}`}
             d={stroke.d}
-            stroke={stroke.shade ? "var(--color-pc-shade)" : "var(--color-pc-pipe-light)"}
-            strokeOpacity={stroke.shade ? 0.4 : stroke.spec ? 0.95 : 0.72}
+            stroke={stroke.role === "light" || stroke.role === "spec" ? "var(--color-pc-pipe-light)" : "var(--color-pc-shade)"}
+            strokeOpacity={stroke.role === "shade" ? 0.34 : stroke.role === "edge" ? 0.55 : stroke.role === "spec" ? 1 : 0.88}
             strokeWidth={stroke.width}
             {...sheen}
           />
@@ -331,7 +326,7 @@ function CozyPipe({
               d={linePath(pts)}
               stroke="var(--color-pc-spark)"
               strokeOpacity="0.8"
-              strokeWidth="3.5"
+              strokeWidth="6"
               {...sheen}
             />
           ))}
