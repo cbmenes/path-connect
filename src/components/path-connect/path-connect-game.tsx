@@ -596,7 +596,70 @@ function ThemeMark({ theme }: { theme: ThemeId }) {
 }
 
 function SourceGlyph({ theme }: { theme: ThemeId }) {
-  return <ThemeMark theme={theme} />;
+  if (theme === "alarm") return <PanelSource />;
+  if (theme === "fire") return <SchoolSource />;
+  return <HouseSource />;
+}
+
+function HouseSource() {
+  return (
+    <svg viewBox="0 0 64 60" className="pc-source-icon">
+      <path d="M12 29 32 13.5 52 29v18.5a7 7 0 0 1-7 7H19a7 7 0 0 1-7-7V29z" fill="#f5e4c4" />
+      <path d="M14.5 30.5 32 17" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+      <path d="M13 48.5a6.5 6.5 0 0 0 6 5h26a6.5 6.5 0 0 0 6.2-6V30" fill="none" stroke="#b98e5c" strokeWidth="2.4" strokeLinecap="round" opacity="0.35" />
+      <path d="M8.5 33 32 15 55.5 33" fill="none" stroke="#8a4a20" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.28" />
+      <path d="M8 30.5 32 11.5l24 19" fill="none" stroke="#c4743c" strokeWidth="8.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.6 28.6 32 10.1" fill="none" stroke="#e29a62" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
+      <path d="M17.5 54.5V43.5a5.5 5.5 0 0 1 11 0v11z" fill="#b07a52" />
+      <path d="M19.2 43.4a3.8 3.8 0 0 1 3.8-3.6" fill="none" stroke="#cfa078" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="25.6" cy="48.6" r="1.2" fill="#e6c9a2" />
+      <rect x="35" y="33.5" width="12.5" height="11.5" rx="2.6" fill="#ead6b4" stroke="#c9a97c" strokeWidth="1.2" />
+      <path d="M41.25 34.5v9.5M36 39.25h10.5" stroke="#c9a97c" strokeWidth="1.6" />
+      <rect x="36.2" y="34.7" width="10.1" height="9.1" rx="1.8" fill="none" stroke="#fff6e6" strokeWidth="1" opacity="0.8" />
+    </svg>
+  );
+}
+
+function PanelSource() {
+  return (
+    <svg viewBox="0 0 64 60" className="pc-source-icon">
+      <rect x="10" y="48" width="44" height="9" rx="3.5" fill="#5d7c99" />
+      <path d="M13 49.2h38" stroke="#8ea9c2" strokeWidth="1.3" strokeLinecap="round" />
+      <rect x="12.5" y="6" width="39" height="44" rx="10" fill="#87a3bd" />
+      <path d="M17 7.6h30" stroke="#b6cbdd" strokeWidth="2" strokeLinecap="round" />
+      <path d="M13.3 42V16" stroke="#a7bed3" strokeWidth="1.6" strokeLinecap="round" opacity="0.8" />
+      <rect x="17.5" y="11.5" width="29" height="33" rx="5.5" fill="#9fb7cd" stroke="#6f8daa" strokeWidth="1.3" />
+      <path d="M20 12.8h24" stroke="#c4d5e4" strokeWidth="1.1" strokeLinecap="round" />
+      <rect x="25" y="17" width="14" height="4.4" rx="2.2" fill="#5d7c99" />
+      {[23, 32, 41].map((cx) => (
+        <g key={cx}>
+          <circle cx={cx} cy="28.5" r="3.6" fill="#5d7c99" />
+          <circle cx={cx - 1.1} cy="27.4" r="1" fill="#a9bfd3" />
+        </g>
+      ))}
+      <rect x="22" y="36.2" width="20" height="3.8" rx="1.9" fill="#5d7c99" />
+    </svg>
+  );
+}
+
+function SchoolSource() {
+  return (
+    <svg viewBox="0 0 64 60" className="pc-source-icon">
+      <path d="M10 30.5 32 15l22 15.5v17a7 7 0 0 1-7 7H17a7 7 0 0 1-7-7v-17z" fill="#fbece6" />
+      <path d="M12.5 32 32 18.5" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+      <path d="M11 48.5a6.5 6.5 0 0 0 6 5h30a6.5 6.5 0 0 0 6.2-6V31" fill="none" stroke="#c98d80" strokeWidth="2.4" strokeLinecap="round" opacity="0.35" />
+      <path d="M6.5 34 32 16.5 57.5 34" fill="none" stroke="#8c241e" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.26" />
+      <path d="M6 31.5 32 13l26 18.5" fill="none" stroke="#d9503f" strokeWidth="8.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M6.6 29.6 32 11.6" fill="none" stroke="#f08a78" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
+      <circle cx="32" cy="27" r="4.6" fill="#f7dcd4" stroke="#d9503f" strokeWidth="1.6" />
+      <path d="M32 24.6V27l1.6 1.2" fill="none" stroke="#b33a2e" strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M26.5 54.5V45a5.5 5.5 0 0 1 11 0v9.5z" fill="#c4544c" />
+      <path d="M32 40v14.5" stroke="#a8403a" strokeWidth="1" />
+      {[16.5, 47.5].map((x) => (
+        <rect key={x} x={x - 3.5} y="38" width="7" height="7" rx="1.8" fill="#f3d4cb" stroke="#d99a8c" strokeWidth="1.1" />
+      ))}
+    </svg>
+  );
 }
 
 function NodeGlyph({ theme, on }: { theme: ThemeId; on: boolean }) {
@@ -605,73 +668,104 @@ function NodeGlyph({ theme, on }: { theme: ThemeId; on: boolean }) {
   return <Bulb on={on} />;
 }
 
+const GLASS =
+  "M24 2.5c-10.2 0-16.5 8.2-16.5 17.6 0 6.4 3.5 10.8 6.6 13.8 1.2 1.2 2.1 2.9 2.1 4.8V42h15.6v-3.3c0-1.9.9-3.6 2.1-4.8 3.1-3 6.6-7.4 6.6-13.8C40.5 10.7 34.2 2.5 24 2.5z";
+
 function Bulb({ on }: { on: boolean }) {
-  const lead = on ? "#fff6c2" : "var(--color-pc-glass-ink)";
-  const filament = on ? "white" : "var(--color-pc-glass-ink)";
+  const lead = on ? "#ffc93c" : "#a57d42";
   return (
-    <svg viewBox="0 0 48 58" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <path
-        d="M24 2.5c-10.2 0-16.5 8.2-16.5 17.6 0 6.4 3.5 10.8 6.6 13.8 1.2 1.2 2.1 2.9 2.1 4.8V42h15.6v-3.3c0-1.9.9-3.6 2.1-4.8 3.1-3 6.6-7.4 6.6-13.8C40.5 10.7 34.2 2.5 24 2.5z"
-        fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
-        stroke="var(--color-pc-glass-ink)"
-        strokeWidth="2.4"
-      />
-      <path d="M30 14c6 4 8 12 5 18" fill="none" stroke="var(--color-pc-glass-ink)" strokeWidth="2.2" strokeLinecap="round" opacity="0.18" />
-      {on && <ellipse cx="24" cy="23" rx="8" ry="6.5" fill="white" opacity="0.42" />}
-      <path d="M20.4 36.5V21.5M27.6 36.5V21.5" fill="none" stroke={lead} strokeWidth="1.8" strokeLinecap="round" />
-      <path d="M20.4 21.2h7.2" fill="none" stroke={filament} strokeWidth={on ? 1.7 : 1.25} strokeLinecap="round" />
-      {on ? (
+    <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-bulb is-on" : "pc-glyph pc-bulb"}>
+      <path d={GLASS} fill={on ? "#fff4c4" : "#f6dc9c"} stroke={on ? "#d9a63e" : "#9c6a2c"} strokeWidth="1.8" />
+      {on && (
         <>
-          <circle cx="20.4" cy="21.2" r="2.5" fill="#fff4b0" />
-          <circle cx="27.6" cy="21.2" r="2.5" fill="#fff4b0" />
-          <circle cx="20.4" cy="21.2" r="1.15" fill="white" />
-          <circle cx="27.6" cy="21.2" r="1.15" fill="white" />
-        </>
-      ) : (
-        <>
-          <circle cx="20.4" cy="21.2" r="1.7" fill={filament} />
-          <circle cx="27.6" cy="21.2" r="1.7" fill={filament} />
+          <ellipse cx="24" cy="29" rx="12" ry="11" fill="#fff8d6" opacity="0.9" />
+          <ellipse cx="24" cy="30" rx="6.5" ry="7.5" fill="white" opacity="0.85" />
         </>
       )}
-      <path d="M16 8.5c-2.2 3.2-2.6 7.4-.4 11" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity={on ? 0.8 : 0.5} />
-      <rect x="15" y="42.5" width="18" height="4.2" rx="1.2" fill="var(--color-pc-glass-ink)" />
-      <rect x="16.5" y="47.4" width="15" height="3.2" rx="1" fill="var(--color-pc-casing)" />
-      <rect x="18" y="51.4" width="12" height="3" rx="1" fill="var(--color-pc-glass-ink)" />
+      <path d="M31 9.5c5.2 3.6 7 10.4 4.4 16" fill="none" stroke={on ? "#e8b84e" : "#b98a44"} strokeWidth="2" strokeLinecap="round" opacity="0.3" />
+      <path d="M14.6 9.2c-2.7 3.2-3.3 7.8-1.3 11.6" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity={on ? 0.9 : 0.75} />
+      <path d="M21 40c0-7-2.4-12.2-2-18M27 40c0-7 2.4-12.2 2-18" fill="none" stroke={lead} strokeWidth="1.9" strokeLinecap="round" />
+      <path d="M24 40V27.5" stroke={lead} strokeWidth="1.5" strokeLinecap="round" />
+      <path d="M19 22q5 3.6 10 0" fill="none" stroke={on ? "white" : lead} strokeWidth={on ? 1.5 : 1.1} strokeLinecap="round" />
+      <circle cx="19" cy="22" r={on ? 2.2 : 1.8} fill={on ? "#fff3b0" : lead} />
+      <circle cx="29" cy="22" r={on ? 2.2 : 1.8} fill={on ? "#fff3b0" : lead} />
+      <rect x="20" y="37.4" width="8" height="4" rx="1.5" fill={on ? "#ffe39a" : "#dcc08a"} />
+      <rect x="15.5" y="41.6" width="17" height="3.8" rx="1.4" fill="#cbb37c" />
+      {[45.6, 48.8, 52].map((y) => (
+        <g key={y}>
+          <rect x="15" y={y} width="18" height="3" rx="1.5" fill="#a38c5a" />
+          <path d={`M16.6 ${y + 0.8}h14.8`} stroke="#e2d2a4" strokeWidth="0.9" strokeLinecap="round" />
+        </g>
+      ))}
+      <path d="M18.6 55h10.8l-1.7 3a2 2 0 0 1-1.8 1h-3.8a2 2 0 0 1-1.8-1z" fill="#86703f" />
     </svg>
   );
 }
 
 function Sensor({ on }: { on: boolean }) {
   return (
-    <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <circle cx="24" cy="28" r="18" fill="white" stroke="var(--color-pc-glass-ink)" strokeWidth="3.2" />
+    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
+      <circle cx="28.4" cy="29.2" r="24.6" fill="#9fb2c4" />
+      <circle cx="28" cy="28" r="24.6" fill="#e2e9ef" stroke="#b4c3d1" strokeWidth="1" />
+      <path d="M5.4 28A22.6 22.6 0 0 1 28 5.4" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
+      <circle cx="28" cy="28" r="19.6" fill="#cfdae5" stroke="#aebfcf" strokeWidth="1.2" />
+      <path d="M11.8 36A17.8 17.8 0 0 0 44.2 36" fill="none" stroke="white" strokeWidth="1.3" opacity="0.75" />
+      <g transform="translate(28 29) scale(1.2) translate(-28 -29)">
       <path
-        d="M24 15.5 34 19.5v7.2c0 6.6-4 11.4-10 13.3-6-1.9-10-6.7-10-13.3v-7.2l10-4z"
-        fill={on ? "var(--color-pc-glass-on)" : "var(--color-pc-glass)"}
-        stroke="var(--color-pc-glass-ink)"
-        strokeWidth="1.8"
+        d="M28 15.4c3.4 2.5 7 3.4 11 3.6v8.8c0 7.7-4.5 12.9-11 15.6-6.5-2.7-11-7.9-11-15.6V19c4-.2 7.6-1.1 11-3.6z"
+        fill="#2f5f8c"
+        opacity="0.35"
+        transform="translate(0.8 1.6)"
       />
-      {on && <path d="M24 22.5 26.2 26.5h3.2l-2.6 2.2.9 3.3L24 30.2l-3.7 1.8.9-3.3-2.6-2.2h3.2z" fill="white" />}
+      <path
+        d="M28 15.4c3.4 2.5 7 3.4 11 3.6v8.8c0 7.7-4.5 12.9-11 15.6-6.5-2.7-11-7.9-11-15.6V19c4-.2 7.6-1.1 11-3.6z"
+        fill={on ? "#3d9be6" : "#6a9bcb"}
+      />
+      <path d="M18.6 20.4c3.6-.4 6.6-1.4 9.4-3.2" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
+      <path d="M18.6 21.5v6.3c0 4.6 2 8.2 5.2 10.8" fill="none" stroke="white" strokeWidth="1.3" strokeLinecap="round" opacity="0.35" />
+      <circle cx="28" cy="28.6" r="6" fill={on ? "#2f84cc" : "#5687b8"} />
+      <circle cx="28" cy="28.6" r="3.9" fill={on ? "#bff4ff" : "#b8cfe4"} />
+      <circle cx="26.9" cy="27.4" r="1.3" fill="white" opacity={on ? 1 : 0.8} />
+      </g>
     </svg>
   );
 }
 
+const RIDGES = Array.from({ length: 40 }, (_, index) => {
+  const angle = (index / 40) * Math.PI * 2;
+  const at = (radius: number) =>
+    `${(28 + Math.cos(angle) * radius).toFixed(2)} ${(28 + Math.sin(angle) * radius).toFixed(2)}`;
+  return `M${at(10.6)}L${at(15.4)}`;
+});
+
 function Strobe({ on }: { on: boolean }) {
-  const slots = [17.5, 21.4, 25.3, 29.2, 33.1];
   return (
-    <svg viewBox="0 0 48 56" className={on ? "pc-glyph is-on" : "pc-glyph"}>
-      <circle cx="24" cy="27" r="19" fill="var(--color-pc-glass-ink)" />
-      <circle cx="24" cy="27" r="15.4" fill={on ? "var(--color-pc-glass-on)" : "white"} />
-      {on ? (
-        <circle cx="24" cy="27" r="6.4" fill="white" />
-      ) : (
-        <>
-          {slots.map((y) => (
-            <rect key={y} x="16.2" y={y} width="15.6" height="2.15" rx="1" fill="var(--color-pc-glass-ink)" />
-          ))}
-          <circle cx="24" cy="38.6" r="1.7" fill="var(--color-pc-casing)" />
-        </>
-      )}
+    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
+      {[
+        [28, 4.4],
+        [28, 51.6],
+        [4.4, 28],
+        [51.6, 28],
+      ].map(([cx, cy]) => (
+        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="3.4" fill="#d4473a" />
+      ))}
+      <circle cx="28" cy="28" r="22.6" fill="#e4523f" />
+      <path d="M9.6 20A20 20 0 0 1 34 8.8" fill="none" stroke="#f38b78" strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M46.4 36A20 20 0 0 1 22 47.2" fill="none" stroke="#b5352a" strokeWidth="2.4" strokeLinecap="round" />
+      <circle cx="28" cy="28" r="17.8" fill="#c23e30" />
+      <circle cx="28" cy="28" r="16.6" fill={on ? "#ffe2ad" : "#f8f4f0"} />
+      {RIDGES.map((ridge) => (
+        <path
+          key={ridge}
+          d={ridge}
+          stroke={on ? "#ffb35a" : "#d9d0c7"}
+          strokeWidth="0.8"
+          strokeLinecap="round"
+        />
+      ))}
+      <circle cx="28" cy="28" r="9.4" fill={on ? "#fff7e6" : "white"} stroke={on ? "#ffc070" : "#e2d9d0"} strokeWidth="1" />
+      {on && <circle cx="28" cy="28" r="5.6" fill="white" />}
+      <path d="M17.4 21.5A12.2 12.2 0 0 1 27 14.2" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
     </svg>
   );
 }

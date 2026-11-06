@@ -1202,46 +1202,26 @@
   opacity: 1;
 }
 
-.path-connect[data-style="cozy"] .pc-plant::before {
-  content: "";
-  position: absolute;
-  left: 11%;
-  top: 11%;
-  z-index: 1;
-  width: 78%;
-  height: 78%;
-  border-radius: 999px;
-  background: color-mix(in oklab, white 92%, var(--color-pc-tile));
-  box-shadow:
-    inset 0 0 0 3px var(--color-pc-glass-ink),
-    0 2px 0 color-mix(in oklab, var(--color-pc-glass-ink) 40%, transparent);
-}
-
-.path-connect[data-style="cozy"] .pc-plant.is-fed::before {
-  background: color-mix(in oklab, var(--color-pc-glass-on) 78%, white);
-  box-shadow:
-    inset 0 0 0 3px var(--color-pc-glass-ink),
-    0 0 18px 6px var(--color-pc-spark);
-}
-
 .path-connect[data-style="cozy"] .pc-tile .pc-glyph {
   z-index: 2;
   width: 70%;
   height: 80%;
   overflow: visible;
-  filter: drop-shadow(0 2px 0 color-mix(in oklab, var(--color-pc-glass-ink) 45%, transparent));
-}
-
-.path-connect[data-style="cozy"] .pc-glyph.is-on {
   filter:
-    drop-shadow(0 0 4px white)
-    drop-shadow(0 0 10px var(--color-pc-glass-on))
-    drop-shadow(0 0 20px var(--color-pc-spark));
+    drop-shadow(0 1.5px 0 color-mix(in oklab, var(--color-pc-shade) 26%, transparent))
+    drop-shadow(1px 4px 4px color-mix(in oklab, var(--color-pc-shade) 30%, transparent));
 }
 
-.path-connect[data-theme="lights"][data-style="cozy"] .pc-plant::before,
-.path-connect[data-theme="lights"][data-style="cozy"] .pc-plant.is-fed::before {
-  content: none;
+.path-connect[data-style="cozy"] .pc-tile .pc-badge {
+  width: 76%;
+  height: 76%;
+}
+
+.path-connect[data-style="cozy"] .pc-tile .pc-glyph.is-on {
+  filter:
+    drop-shadow(0 1.5px 0 color-mix(in oklab, var(--color-pc-shade) 22%, transparent))
+    drop-shadow(0 0 6px var(--color-pc-glass-on))
+    drop-shadow(0 0 16px var(--color-pc-spark));
 }
 
 .path-connect[data-style="cozy"] .pc-plant.is-fed .pc-glyph {
@@ -1277,30 +1257,15 @@
   animation: none;
 }
 
-.path-connect[data-style="cozy"] .pc-source::before {
-  content: "";
-  position: absolute;
-  left: 50%;
-  top: 50%;
-  z-index: 1;
-  width: 68%;
-  height: 68%;
-  transform: translate(-50%, -50%);
-  border-radius: 999px;
-  background:
-    radial-gradient(circle at 35% 30%, white 0%, color-mix(in oklab, white 82%, var(--color-pc-tile)) 42%, var(--color-pc-tile) 100%);
-  box-shadow:
-    inset 0 1px 0 white,
-    0 0 0 4px var(--color-pc-casing),
-    0 3px 0 color-mix(in oklab, var(--color-pc-shade) 40%, transparent);
-}
-
-.path-connect[data-style="cozy"] .pc-source .pc-mark-icon {
+.path-connect[data-style="cozy"] .pc-source-icon {
   position: relative;
   z-index: 2;
-  width: 58%;
-  height: 52%;
-  filter: drop-shadow(0 0 1px var(--color-pc-glass-ink)) drop-shadow(0 1px 0 color-mix(in oklab, var(--color-pc-shade) 55%, transparent));
+  width: 84%;
+  height: 80%;
+  overflow: visible;
+  filter:
+    drop-shadow(0 1.5px 0 color-mix(in oklab, var(--color-pc-shade) 28%, transparent))
+    drop-shadow(1px 5px 5px color-mix(in oklab, var(--color-pc-shade) 34%, transparent));
 }
 
 .path-connect[data-style="cozy"] .pc-tip {
