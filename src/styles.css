@@ -1311,6 +1311,101 @@
   display: none;
 }
 
+.path-connect {
+  overflow-x: clip;
+}
+
+.pc-surround {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  pointer-events: none;
+  --m: 1;
+  animation: pc-sur-in 700ms ease-out both;
+}
+
+@keyframes pc-sur-in {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+}
+
+.pc-sur-piece {
+  position: absolute;
+  width: calc(var(--w) * 1px * var(--k) * var(--m));
+  aspect-ratio: var(--w) / var(--h);
+  opacity: 0.92;
+}
+
+.pc-sur-piece svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.pc-sur-piece[data-flip="true"] svg {
+  transform: scaleX(-1);
+}
+
+.pc-sur-piece[data-slot="RT"] {
+  left: calc(100% - 18px);
+  top: calc(4% + var(--o) * 12%);
+}
+
+.pc-sur-piece[data-slot="RB"] {
+  left: calc(100% - 18px);
+  bottom: calc(-3% + var(--o) * 6%);
+}
+
+.pc-sur-piece[data-slot="LT"] {
+  left: -34px;
+  top: calc(8% + var(--o) * 12%);
+}
+
+.pc-sur-piece[data-slot="LB"] {
+  left: -34px;
+  bottom: calc(-2% + var(--o) * 6%);
+}
+
+.pc-sur-piece[data-slot="T"] {
+  bottom: calc(100% - 18px);
+  left: calc(12% + var(--o) * 46%);
+}
+
+.pc-sur-piece[data-slot="B"] {
+  top: calc(100% - 26px);
+  left: calc(8% + var(--o) * 52%);
+}
+
+@media (max-width: 959px) {
+  .pc-surround {
+    --m: 0.55;
+  }
+
+  .pc-sur-piece[data-slot="T"],
+  .pc-sur-piece[data-slot="B"] {
+    display: none;
+  }
+
+  .pc-sur-piece[data-slot="LT"],
+  .pc-sur-piece[data-slot="LB"] {
+    left: -16px;
+  }
+
+  .pc-sur-piece[data-slot="RT"],
+  .pc-sur-piece[data-slot="RB"] {
+    left: calc(100% + 16px - var(--w) * 1px * var(--k) * var(--m));
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-surround {
+    animation: none;
+  }
+}
+
 @media (min-width: 960px) {
   .path-connect[data-style="cozy"] .pc-actions {
     grid-template-columns: 1fr;

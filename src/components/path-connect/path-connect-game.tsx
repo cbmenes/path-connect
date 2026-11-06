@@ -24,6 +24,7 @@ import {
 } from "@/lib/path-connect/logic";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type ThemeId } from "@/lib/path-connect/styles";
+import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
 type Phase = "play" | "flow" | "won" | "expired";
@@ -411,6 +412,11 @@ export function PathConnectGame() {
         </section>
 
         <div className="pc-scene pc-board-wrap" data-room={theme.id}>
+          <Surroundings
+            theme={theme.id}
+            seed={mode === "daily" ? level.id * 31 + Math.floor(Date.now() / 86_400_000) : levelId}
+            level={mode === "daily" ? 8 : levelId}
+          />
           <div className="pc-tray">
           <div
             ref={boardRef}
