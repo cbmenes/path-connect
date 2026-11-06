@@ -616,12 +616,24 @@ function Bulb({ on }: { on: boolean }) {
         stroke="var(--color-pc-glass-ink)"
         strokeWidth="2.4"
       />
-      {on && <circle cx="24" cy="22" r="5.2" fill="white" opacity="0.9" />}
-      <path d="M20.4 36.5V21.5M27.6 36.5V21.5" fill="none" stroke={lead} strokeWidth="1.7" strokeLinecap="round" />
-      <circle cx="20.4" cy="21.2" r="1.45" fill={filament} />
-      <circle cx="27.6" cy="21.2" r="1.45" fill={filament} />
-      <path d="M20.4 21.2h7.2" fill="none" stroke={filament} strokeWidth={on ? 1.5 : 1.15} strokeLinecap="round" />
-      <path d="M16 8.5c-2.2 3.2-2.6 7.4-.4 11" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity={on ? 0.75 : 0.45} />
+      <path d="M30 14c6 4 8 12 5 18" fill="none" stroke="var(--color-pc-glass-ink)" strokeWidth="2.2" strokeLinecap="round" opacity="0.18" />
+      {on && <ellipse cx="24" cy="23" rx="8" ry="6.5" fill="white" opacity="0.42" />}
+      <path d="M20.4 36.5V21.5M27.6 36.5V21.5" fill="none" stroke={lead} strokeWidth="1.8" strokeLinecap="round" />
+      <path d="M20.4 21.2h7.2" fill="none" stroke={filament} strokeWidth={on ? 1.7 : 1.25} strokeLinecap="round" />
+      {on ? (
+        <>
+          <circle cx="20.4" cy="21.2" r="2.5" fill="#fff4b0" />
+          <circle cx="27.6" cy="21.2" r="2.5" fill="#fff4b0" />
+          <circle cx="20.4" cy="21.2" r="1.15" fill="white" />
+          <circle cx="27.6" cy="21.2" r="1.15" fill="white" />
+        </>
+      ) : (
+        <>
+          <circle cx="20.4" cy="21.2" r="1.7" fill={filament} />
+          <circle cx="27.6" cy="21.2" r="1.7" fill={filament} />
+        </>
+      )}
+      <path d="M16 8.5c-2.2 3.2-2.6 7.4-.4 11" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity={on ? 0.8 : 0.5} />
       <rect x="15" y="42.5" width="18" height="4.2" rx="1.2" fill="var(--color-pc-glass-ink)" />
       <rect x="16.5" y="47.4" width="15" height="3.2" rx="1" fill="var(--color-pc-casing)" />
       <rect x="18" y="51.4" width="12" height="3" rx="1" fill="var(--color-pc-glass-ink)" />

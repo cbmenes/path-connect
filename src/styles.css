@@ -1109,12 +1109,13 @@
 
 .path-connect[data-style="cozy"] .pc-tray {
   border-radius: 28px;
-  background: color-mix(in oklab, var(--color-pc-edge) 62%, var(--color-pc-tray));
+  background: color-mix(in oklab, var(--color-pc-edge) 74%, var(--color-pc-tile));
   padding: 14px;
   box-shadow:
-    inset 0 4px 14px color-mix(in oklab, var(--color-pc-shade) 13%, transparent),
-    inset 0 1px 0 color-mix(in oklab, white 42%, transparent),
-    0 18px 30px -22px rgb(92 58 36 / 0.35);
+    inset 0 8px 18px color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
+    inset 0 1px 0 color-mix(in oklab, white 48%, transparent),
+    0 2px 6px color-mix(in oklab, var(--color-pc-shade) 12%, transparent),
+    0 16px 28px -16px color-mix(in oklab, var(--color-pc-shade) 38%, transparent);
 }
 
 .path-connect[data-style="cozy"] .pc-board {
@@ -1132,15 +1133,17 @@
   border-radius: 16px;
   background: linear-gradient(
     180deg,
-    color-mix(in oklab, white 40%, var(--color-pc-tile)) 0%,
-    var(--color-pc-tile) 46%,
-    color-mix(in oklab, var(--color-pc-edge) 48%, var(--color-pc-tile)) 100%
+    color-mix(in oklab, white 34%, var(--color-pc-tile)) 0%,
+    var(--color-pc-tile) 22%,
+    var(--color-pc-tile) 70%,
+    color-mix(in oklab, var(--color-pc-edge) 42%, var(--color-pc-tile)) 100%
   );
   box-shadow:
-    inset 0 2px 0 color-mix(in oklab, white 90%, transparent),
-    inset 0 -3px 6px color-mix(in oklab, var(--color-pc-shade) 10%, transparent),
-    0 1px 2px color-mix(in oklab, var(--color-pc-shade) 16%, transparent),
-    0 6px 9px -1px color-mix(in oklab, var(--color-pc-shade) 34%, transparent);
+    inset 0 2px 0 color-mix(in oklab, white 92%, transparent),
+    inset 0 -4px 8px color-mix(in oklab, var(--color-pc-shade) 14%, transparent),
+    0 2px 2px color-mix(in oklab, var(--color-pc-shade) 18%, transparent),
+    0 8px 12px -2px color-mix(in oklab, var(--color-pc-shade) 42%, transparent),
+    0 14px 18px -10px color-mix(in oklab, var(--color-pc-shade) 28%, transparent);
 }
 
 .path-connect[data-style="cozy"] .pc-depth {
@@ -1262,7 +1265,7 @@
     radial-gradient(circle at 35% 30%, white 0%, color-mix(in oklab, white 82%, var(--color-pc-tile)) 42%, var(--color-pc-tile) 100%);
   box-shadow:
     inset 0 1px 0 white,
-    0 0 0 3px var(--color-pc-casing),
+    0 0 0 4px var(--color-pc-casing),
     0 3px 0 color-mix(in oklab, var(--color-pc-shade) 40%, transparent);
 }
 

@@ -38,9 +38,9 @@ const PIPE_STUB = 12;
 /** Highlight stops just past the edge so the two stripes meet without stacking. */
 const SHEEN_STUB = 6;
 /** Light band sits toward the top of the pipe and stays inside the stroke. */
-const SHEEN_OFFSET = 4;
-const SHEEN_LIGHT = 3;
-const SHEEN_SHADE = 5;
+const SHEEN_OFFSET = 5;
+const SHEEN_LIGHT = 5;
+const SHEEN_SHADE = 6;
 
 type Pt = [number, number];
 
@@ -285,8 +285,8 @@ function CozyPipe({
           <path
             key={`sheen-${index}`}
             d={stroke.d}
-            stroke={stroke.shade ? "var(--color-pc-shade)" : "white"}
-            strokeOpacity={stroke.shade ? 0.7 : 0.72}
+            stroke={stroke.shade ? "var(--color-pc-shade)" : "var(--color-pc-pipe-light)"}
+            strokeOpacity={stroke.shade ? 0.62 : 0.92}
             strokeWidth={stroke.width}
             {...sheen}
           />
