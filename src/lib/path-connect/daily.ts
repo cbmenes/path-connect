@@ -1,5 +1,6 @@
-import { LEVELS, boardCells, type Level } from "./levels.ts";
+import { DAILY_POOL, boardCells, type Level } from "./levels.ts";
 import { reachTargets, sameOpenings } from "./logic.ts";
+import { hashString as hash, mulberry32 } from "./random.ts";
 
 /** Shared clock for the daily board. Seconds left when you finish is the score. */
 export const DAILY_SECONDS = 120;
@@ -41,7 +42,7 @@ export function isBetterScore(next: DailyScore, best: DailyScore | null): boolea
 export function dailyLevel(now: Date): Level {
   const key = dateKey(now);
   const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86_400_000);
-  const base = LEVELS[day % LEVELS.length]!;
+  const base = DAILY_POOL[day % DAILY_POOL.length]!;
   const rand = mulberry32(hash(key));
   const tiles = base.tiles.map((tile) => ({ ...tile }));
 
@@ -95,25 +96,7 @@ function draft(base: Level, tiles: Level["tiles"]): Level {
     ...base,
     name: "Daily challenge",
     blurb: "Same circuit for everyone today. Power every node before the clock runs out.",
+    unlock: undefined,
     tiles,
-  };
-}
-
-function hash(value: string): number {
-  let h = 2166136261;
-  for (let i = 0; i < value.length; i += 1) {
-    h ^= value.charCodeAt(i);
-    h = Math.imul(h, 16777619);
-  }
-  return h >>> 0;
-}
-
-function mulberry32(seed: number): () => number {
-  let state = seed >>> 0;
-  return () => {
-    state = (state + 0x6d2b79f5) >>> 0;
-    let t = Math.imul(state ^ (state >>> 15), state | 1);
-    t ^= t + Math.imul(t ^ (t >>> 7), state | 61);
-    return ((t ^ (t >>> 14)) >>> 0) / 4294967296;
   };
 }

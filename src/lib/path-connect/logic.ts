@@ -7,11 +7,23 @@
  * links from the source. A board is complete only when every target is
  * reached.
  *
+ * Boards are square. The side length comes from the number of cells, so a
+ * 5×5, 6×6, or 7×7 board follows the same rules.
+ *
  * Visual styles never belong in here. Renderers read `kind` + `rotation`
  * and draw whatever conduit they want.
  */
 
+/** Side length of the classic boards. Larger boards pass their own size. */
 export const GRID_SIZE = 5;
+
+export function boardSize(cellCount: number): number {
+  const size = Math.round(Math.sqrt(cellCount));
+  if (size < 2 || size * size !== cellCount) {
+    throw new Error(`Expected a square board, got ${cellCount} cells`);
+  }
+  return size;
+}
 
 export const N = 1;
 export const E = 2;
@@ -76,12 +88,12 @@ export function openingIds(mask: number): DirId[] {
   return DIRS.filter((dir) => mask & dir.bit).map((dir) => dir.id);
 }
 
-export function indexOf(row: number, col: number): number {
-  return row * GRID_SIZE + col;
+export function indexOf(row: number, col: number, size = GRID_SIZE): number {
+  return row * size + col;
 }
 
-export function rowCol(index: number): { row: number; col: number } {
-  return { row: Math.floor(index / GRID_SIZE), col: index % GRID_SIZE };
+export function rowCol(index: number, size = GRID_SIZE): { row: number; col: number } {
+  return { row: Math.floor(index / size), col: index % size };
 }
 
 export interface Reach {
@@ -119,14 +131,13 @@ export function reachTargets(cells: readonly Cell[]): Reach {
 }
 
 function sourceIndex(cells: readonly Cell[]): number {
-  if (cells.length !== GRID_SIZE * GRID_SIZE) {
-    throw new Error(`Expected ${GRID_SIZE * GRID_SIZE} cells, got ${cells.length}`);
-  }
+  boardSize(cells.length);
   return cells.findIndex((cell) => cell.role === "start");
 }
 
 /** Breadth-first walk across mutual openings. Stops early only when `stopAt` is set. */
 function walkLinks(cells: readonly Cell[], start: number, stopAt: number | null): Map<number, number> {
+  const size = boardSize(cells.length);
   const previous = new Map<number, number>();
   previous.set(start, -1);
   const queue = [start];
@@ -134,14 +145,14 @@ function walkLinks(cells: readonly Cell[], start: number, stopAt: number | null)
   while (queue.length > 0) {
     const current = queue.shift()!;
     if (stopAt !== null && current === stopAt) break;
-    const { row, col } = rowCol(current);
+    const { row, col } = rowCol(current, size);
     const mask = cellMask(cells[current]!);
     for (const dir of DIRS) {
       if ((mask & dir.bit) === 0) continue;
       const nr = row + dir.dr;
       const nc = col + dir.dc;
-      if (nr < 0 || nc < 0 || nr >= GRID_SIZE || nc >= GRID_SIZE) continue;
-      const next = indexOf(nr, nc);
+      if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+      const next = indexOf(nr, nc, size);
       if (previous.has(next)) continue;
       const neighbor = cellMask(cells[next]!);
       if ((neighbor & dir.opposite) === 0) continue;

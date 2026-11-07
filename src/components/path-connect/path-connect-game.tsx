@@ -1,5 +1,15 @@
 import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
-import { ArrowRight, Lightbulb, RotateCcw, Undo2, Volume2, VolumeX } from "lucide-react";
+import {
+  ArrowRight,
+  Check,
+  ChevronDown,
+  Lightbulb,
+  Lock,
+  RotateCcw,
+  Undo2,
+  Volume2,
+  VolumeX,
+} from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
   DAILY_SECONDS,
@@ -12,16 +22,16 @@ import {
   writeBest,
   type DailyScore,
 } from "@/lib/path-connect/daily";
-import { LEVELS, boardCells, type Level } from "@/lib/path-connect/levels";
+import { CHAPTERS, LEVELS, boardCells, type Level } from "@/lib/path-connect/levels";
 import {
   DIRS,
-  GRID_SIZE,
   cellMask,
   findMisrotatedIndex,
   openingIds,
   reachTargets,
   rowCol,
 } from "@/lib/path-connect/logic";
+import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
@@ -84,12 +94,18 @@ export function PathConnectGame() {
   const [note, setNote] = useState<string | null>(null);
   const [motionOn, setMotionOn] = useState(true);
   const [muted, setMuted] = useState(false);
+  const [progress, setProgress] = useState<Progress>({ level: 1, unlocked: 1 });
+  const progressRef = useRef(progress);
+  progressRef.current = progress;
+  const [pickerOpen, setPickerOpen] = useState(false);
+  const [nudged, setNudged] = useState<number | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const boardRef = useRef<HTMLDivElement>(null);
   const centersRef = useRef<Point[]>([]);
   const theme = themeById(level.theme);
   const lastLevel = levelId === LEVELS.length;
+  const nextUnlock = lastLevel ? undefined : LEVELS[levelId]?.unlock;
   const linked = linkedIndexes(level, spins);
   const network = reachTargets(boardCells(level, spins));
   const fed = new Set(network.reached);
@@ -101,6 +117,21 @@ export function PathConnectGame() {
   useEffect(() => {
     setBest(readBest(todayKey));
   }, [todayKey]);
+
+  useEffect(() => {
+    const saved = readProgress(LEVELS.length);
+    progressRef.current = saved;
+    setProgress(saved);
+    if (saved.level !== 1) reset(saved.level);
+    // Read once after mount, so the server render and the first client render match.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  useEffect(() => {
+    if (nudged === null) return;
+    const id = window.setTimeout(() => setNudged(null), 360);
+    return () => window.clearTimeout(id);
+  }, [nudged]);
 
   useEffect(() => {
     if (mode !== "daily" || phase !== "play") return;
@@ -209,6 +240,19 @@ export function PathConnectGame() {
     const next = LEVELS[nextId - 1];
     if (!next) return;
     loadBoard(next, nextId);
+    saveProgress({ ...progressRef.current, level: nextId });
+  }
+
+  function saveProgress(next: Progress) {
+    progressRef.current = next;
+    setProgress(next);
+    writeProgress(next);
+  }
+
+  function pickLevel(nextId: number) {
+    setPickerOpen(false);
+    if (nextId > progressRef.current.unlocked) return;
+    reset(nextId);
   }
 
   function startDaily() {
@@ -259,6 +303,11 @@ export function PathConnectGame() {
     // phaseRef updates in the same click, so a second tap cannot undo a win
     // before React re-renders. spinsRef does the same for quick quarter-turns.
     if (!tile || phaseRef.current !== "play") return;
+    if (tile.fixed) {
+      setNudged(index);
+      setNote("Bolted tiles stay put. Turn the tiles around them.");
+      return;
+    }
     if (modeRef.current === "daily" && performance.now() >= deadlineRef.current) {
       phaseRef.current = "expired";
       setPhase("expired");
@@ -286,6 +335,9 @@ export function PathConnectGame() {
       } else {
         setIsNewBest(false);
       }
+    } else {
+      const opened = Math.min(LEVELS.length, Math.max(progressRef.current.unlocked, levelId + 1));
+      saveProgress({ level: levelId, unlocked: opened });
     }
     setFlowPaths(network.paths);
     setFlowPath(spreadOrder(network.paths));
@@ -321,14 +373,20 @@ export function PathConnectGame() {
       : phase === "won"
         ? mode === "daily" && result
           ? `${isNewBest ? "New best. " : ""}Finished with ${formatClock(result.secondsLeft)} left in ${result.turns} ${result.turns === 1 ? "turn" : "turns"}.`
-          : `${lastLevel ? "That was the last board. " : ""}${theme.complete}`
+          : `${lastLevel ? "That was the last board. " : ""}${theme.complete}${nextUnlock ? ` Unlocked next: ${nextUnlock}.` : ""}`
         : phase === "flow"
           ? theme.live
           : note;
 
   return (
     <div className="path-connect min-h-dvh" data-style="cozy" data-theme={theme.id}>
-      <main className="pc-shell" data-phase={phase} data-level={levelId} data-mode={mode}>
+      <main
+        className="pc-shell"
+        data-phase={phase}
+        data-level={levelId}
+        data-mode={mode}
+        data-size={level.size}
+      >
         <h1 className="sr-only">Path Connect · {theme.title}</h1>
         <header className="pc-top">
           <div className="pc-where">
@@ -336,6 +394,9 @@ export function PathConnectGame() {
             <div className="min-w-0">
               <h2 className="pc-level-name">
                 {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
+                {mode === "levels" && level.unlock && (
+                  <span className="pc-new">New: {level.unlock}</span>
+                )}
               </h2>
               <p className="pc-level-sub">
                 {mode === "daily" ? (
@@ -397,16 +458,32 @@ export function PathConnectGame() {
                   {formatClock(secondsLeft)}
                 </span>
               ) : (
-                <span>
+                <button
+                  type="button"
+                  className="pc-level-pick"
+                  aria-haspopup="dialog"
+                  aria-expanded={pickerOpen}
+                  aria-label={`Level ${levelId} of ${LEVELS.length}. Choose a level`}
+                  onClick={() => setPickerOpen((open) => !open)}
+                >
                   Level {levelId}
                   <span className="text-pc-muted"> / {LEVELS.length}</span>
-                </span>
+                  <ChevronDown aria-hidden="true" />
+                </button>
               )}
               <span className="text-pc-muted">
                 {moves} {moves === 1 ? "turn" : "turns"}
               </span>
             </p>
           </div>
+          {pickerOpen && mode === "levels" && (
+            <LevelPicker
+              current={levelId}
+              unlocked={progress.unlocked}
+              onPick={pickLevel}
+              onClose={() => setPickerOpen(false)}
+            />
+          )}
         </header>
 
         <div className="pc-stage">
@@ -421,13 +498,14 @@ export function PathConnectGame() {
             ref={boardRef}
             className="pc-board"
             role="group"
-            aria-label={`Level ${levelId} board`}
+            aria-label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
+            style={{ "--pc-cols": level.size } as CSSProperties}
           >
             {level.tiles.map((tile, index) => {
               const spin = spins[index] ?? tile.initial;
               const rotation = ((spin % 4) + 4) % 4;
-              const { row, col } = rowCol(index);
-              const locked = phase !== "play";
+              const { row, col } = rowCol(index, level.size);
+              const locked = phase !== "play" || tile.fixed;
               const powered = tile.role === "end" && fed.has(index);
               const hot = charged.has(index);
               const order = flowPath ? flowPath.indexOf(index) : -1;
@@ -440,7 +518,9 @@ export function PathConnectGame() {
                   ? `Turn ${theme.source}, ${place}`
                   : tile.role === "end"
                     ? `${powered ? "Powered" : "Turn"} ${theme.node}, ${place}`
-                    : `Turn pipe, ${place}`;
+                    : tile.fixed
+                      ? `Bolted pipe, ${place}`
+                      : `Turn pipe, ${place}`;
               return (
                 <button
                   key={`${level.id}-${index}`}
@@ -453,6 +533,8 @@ export function PathConnectGame() {
                   data-charged={hot}
                   data-fed={powered}
                   data-live={order >= 0}
+                  data-fixed={tile.fixed || undefined}
+                  data-nudge={nudged === index || undefined}
                   aria-disabled={locked}
                   aria-label={label}
                   style={{ "--delay": order >= 0 ? `${order * 180}ms` : "0ms" } as CSSProperties}
@@ -472,6 +554,7 @@ export function PathConnectGame() {
                       />
                     </span>
                   </span>
+                  {tile.fixed && <span className="pc-bolts" aria-hidden="true" />}
                   {tile.role === "start" && (
                     <span className="pc-mark pc-source">
                       <SourceGlyph theme={theme.id} />
@@ -566,6 +649,76 @@ export function PathConnectGame() {
           </div>
         </footer>
       </main>
+    </div>
+  );
+}
+
+function LevelPicker({
+  current,
+  unlocked,
+  onPick,
+  onClose,
+}: {
+  current: number;
+  unlocked: number;
+  onPick: (id: number) => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if ((target as Element).closest?.(".pc-level-pick")) return;
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    panelRef.current?.querySelector<HTMLButtonElement>("[aria-current='true']")?.focus();
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
+  }, [onClose]);
+
+  return (
+    <div ref={panelRef} className="pc-picker" role="dialog" aria-label="Choose a level">
+      {CHAPTERS.map((chapter) => {
+        const open = chapter.from <= unlocked;
+        const ids = Array.from({ length: chapter.to - chapter.from + 1 }, (_, i) => chapter.from + i);
+        return (
+          <section key={chapter.title} className="pc-chapter" data-open={open}>
+            <header>
+              <h3>{chapter.title}</h3>
+              <p>{open ? chapter.note : `Finish level ${chapter.from - 1} to open`}</p>
+            </header>
+            <div className="pc-chapter-levels">
+              {ids.map((id) => {
+                const isOpen = id <= unlocked;
+                const done = id < unlocked;
+                return (
+                  <button
+                    key={id}
+                    type="button"
+                    disabled={!isOpen}
+                    aria-current={id === current}
+                    aria-label={`Level ${id}${done ? ", solved" : isOpen ? "" : ", locked"}`}
+                    data-done={done || undefined}
+                    onClick={() => onPick(id)}
+                  >
+                    {isOpen ? id : <Lock aria-hidden="true" />}
+                    {done && id !== current && <Check aria-hidden="true" className="pc-done" />}
+                  </button>
+                );
+              })}
+            </div>
+          </section>
+        );
+      })}
     </div>
   );
 }
@@ -809,16 +962,17 @@ function linkedIndexes(
   spins: readonly number[],
 ): Set<number> {
   const cells = boardCells(level, spins);
+  const size = level.size;
   const linked = new Set<number>();
   cells.forEach((cell, index) => {
     const mask = cellMask(cell);
-    const { row, col } = rowCol(index);
+    const { row, col } = rowCol(index, size);
     for (const dir of DIRS) {
       if ((mask & dir.bit) === 0) continue;
       const nextRow = row + dir.dr;
       const nextCol = col + dir.dc;
-      if (nextRow < 0 || nextCol < 0 || nextRow >= GRID_SIZE || nextCol >= GRID_SIZE) continue;
-      const neighbor = nextRow * GRID_SIZE + nextCol;
+      if (nextRow < 0 || nextCol < 0 || nextRow >= size || nextCol >= size) continue;
+      const neighbor = nextRow * size + nextCol;
       const neighborMask = cellMask(cells[neighbor]!);
       if ((neighborMask & dir.opposite) === 0) continue;
       linked.add(index);

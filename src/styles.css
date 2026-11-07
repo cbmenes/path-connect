@@ -516,7 +516,7 @@
 .pc-board {
   position: relative;
   display: grid;
-  grid-template-columns: repeat(5, minmax(0, 1fr));
+  grid-template-columns: repeat(var(--pc-cols, 5), minmax(0, 1fr));
   gap: 5px;
 }
 
@@ -1666,6 +1666,232 @@
   .path-connect[data-style="cozy"] .pc-bottom .pc-actions button {
     min-height: 40px;
   }
+}
+
+/* Larger boards: a little more width and tighter gaps keep each tile easy to tap. */
+.path-connect[data-style="cozy"] .pc-shell[data-size="6"] {
+  --pc-board: min(500px, calc(100vw - 44px), max(320px, calc(100dvh - 330px)));
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-size="7"] {
+  --pc-board: min(540px, calc(100vw - 28px), max(340px, calc(100dvh - 320px)));
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-size="6"] .pc-board {
+  gap: 7px;
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-size="7"] .pc-board {
+  gap: 6px;
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-size="7"] .pc-tray {
+  padding: 11px;
+}
+
+.path-connect[data-style="cozy"] .pc-shell[data-size="7"] .pc-tile {
+  border-radius: 13px;
+}
+
+/* Bolted tiles sit a touch lower, with a screw in each corner. */
+.path-connect[data-style="cozy"] .pc-tile[data-fixed] {
+  cursor: default;
+  filter: saturate(0.82) brightness(0.97);
+  box-shadow:
+    inset 0 2px 0 color-mix(in oklab, white 70%, var(--color-pc-tile)),
+    inset -2px -3px 0 color-mix(in oklab, var(--color-pc-shade) 26%, var(--color-pc-tile)),
+    inset 0 0 0 1.5px color-mix(in oklab, var(--color-pc-shade) 22%, transparent),
+    0 1px 0 color-mix(in oklab, var(--color-pc-shade) 30%, var(--color-pc-edge)),
+    1px 4px 6px color-mix(in oklab, var(--color-pc-shade) 26%, transparent);
+}
+
+.path-connect[data-style="cozy"] .pc-tile[data-fixed]:hover,
+.path-connect[data-style="cozy"] .pc-tile[data-fixed]:active {
+  transform: none;
+}
+
+.pc-bolts {
+  --bolt: radial-gradient(
+    circle at 40% 35%,
+    #fbf5ea 0 18%,
+    #b9a58a 30%,
+    #8a7558 62%,
+    transparent 66%
+  );
+  pointer-events: none;
+  position: absolute;
+  inset: 7%;
+  z-index: 3;
+  background:
+    var(--bolt) left top / 13% 13% no-repeat,
+    var(--bolt) right top / 13% 13% no-repeat,
+    var(--bolt) left bottom / 13% 13% no-repeat,
+    var(--bolt) right bottom / 13% 13% no-repeat;
+}
+
+.pc-tile[data-nudge] {
+  animation: pc-nudge 320ms ease;
+}
+
+@keyframes pc-nudge {
+  20% {
+    translate: -2px 0;
+  }
+  45% {
+    translate: 2px 0;
+  }
+  70% {
+    translate: -1px 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .pc-tile[data-nudge] {
+    animation: none;
+  }
+}
+
+.path-connect[data-style="cozy"] .pc-new {
+  display: inline-block;
+  margin-left: 8px;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-pc-flow) 20%, white);
+  padding: 2px 8px;
+  vertical-align: 2px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  letter-spacing: 0.01em;
+  white-space: nowrap;
+  color: color-mix(in oklab, var(--color-pc-flow) 70%, var(--color-pc-fg));
+  box-shadow: inset 0 0 0 1px color-mix(in oklab, var(--color-pc-flow) 35%, transparent);
+}
+
+.path-connect[data-style="cozy"] .pc-top {
+  position: relative;
+}
+
+.path-connect[data-style="cozy"] .pc-level-pick {
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 28px;
+  margin: -4px -6px -2px 0;
+  border-radius: 10px;
+  padding: 2px 6px;
+  font: inherit;
+  color: inherit;
+  white-space: nowrap;
+}
+
+.path-connect[data-style="cozy"] .pc-level-pick:hover,
+.path-connect[data-style="cozy"] .pc-level-pick[aria-expanded="true"] {
+  background: color-mix(in oklab, white 50%, var(--color-pc-tile));
+}
+
+.path-connect[data-style="cozy"] .pc-level-pick svg {
+  width: 15px;
+  height: 15px;
+  color: var(--color-pc-muted);
+  transition: transform 160ms ease;
+}
+
+.path-connect[data-style="cozy"] .pc-level-pick[aria-expanded="true"] svg {
+  transform: rotate(180deg);
+}
+
+.path-connect[data-style="cozy"] .pc-picker {
+  position: absolute;
+  top: calc(100% + 8px);
+  right: 0;
+  z-index: 5;
+  display: grid;
+  gap: 14px;
+  width: min(100%, 420px);
+  max-height: min(70dvh, 560px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-radius: 20px;
+  background: color-mix(in oklab, white 55%, var(--color-pc-tray));
+  padding: 14px;
+  box-shadow:
+    inset 0 1px 0 white,
+    0 0 0 1px color-mix(in oklab, var(--color-pc-shade) 14%, transparent),
+    0 24px 48px -20px color-mix(in oklab, var(--color-pc-shade) 60%, transparent);
+}
+
+.pc-chapter header {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 2px 10px;
+  margin-bottom: 8px;
+}
+
+.pc-chapter h3 {
+  margin: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  color: var(--color-pc-fg);
+}
+
+.pc-chapter p {
+  margin: 0;
+  font-size: 0.75rem;
+  color: var(--color-pc-muted);
+}
+
+.pc-chapter-levels {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(42px, 1fr));
+  gap: 6px;
+}
+
+.pc-chapter-levels button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  height: 42px;
+  border-radius: 12px;
+  background: color-mix(in oklab, white 60%, var(--color-pc-tile));
+  font-size: 0.875rem;
+  font-weight: 700;
+  font-variant-numeric: tabular-nums;
+  color: var(--color-pc-fg);
+  box-shadow:
+    inset 0 1px 0 white,
+    0 2px 0 color-mix(in oklab, var(--color-pc-shade) 18%, transparent);
+}
+
+.pc-chapter-levels button:hover:not(:disabled) {
+  background: white;
+}
+
+.pc-chapter-levels button[aria-current="true"] {
+  background: var(--color-pc-flow);
+  color: var(--color-pc-onflow);
+}
+
+.pc-chapter-levels button:disabled {
+  cursor: not-allowed;
+  background: color-mix(in oklab, var(--color-pc-tile) 70%, transparent);
+  color: var(--color-pc-muted);
+  box-shadow: none;
+}
+
+.pc-chapter-levels button:disabled svg {
+  width: 14px;
+  height: 14px;
+  opacity: 0.6;
+}
+
+.pc-chapter-levels .pc-done {
+  position: absolute;
+  top: 3px;
+  right: 3px;
+  width: 11px;
+  height: 11px;
+  color: var(--color-pc-flow);
 }
 
 @media print {
