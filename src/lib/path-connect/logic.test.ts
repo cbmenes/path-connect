@@ -177,14 +177,27 @@ describe("levels", () => {
       );
       assert.ok(scrambled.length <= 4, `${level.name} has ${scrambled.length} turned tiles`);
     }
-    for (const level of LEVELS.slice(0, 12)) {
-      assert.ok(level.par <= 15, `${level.name} needs ${level.par} taps`);
+    for (const level of LEVELS.slice(0, 4)) {
+      assert.ok(level.par <= 7, `${level.name} needs ${level.par} taps`);
+      assert.ok(nodes(level) <= 2, `${level.name} has ${nodes(level)} lights`);
+    }
+    for (const level of LEVELS.slice(4, 12)) {
+      assert.ok(level.par >= 12 && level.par <= 20, `${level.name} needs ${level.par} taps`);
       assert.ok(nodes(level) <= 4, `${level.name} has ${nodes(level)} lights`);
     }
     assert.deepEqual(
-      LEVELS.slice(0, 9).map(nodes),
-      [1, 2, 2, 1, 2, 1, 2, 3, 3],
+      LEVELS.slice(0, 12).map(nodes),
+      [1, 2, 2, 1, 2, 1, 3, 3, 3, 3, 4, 4],
     );
+    assert.ok(LEVELS[9]!.par >= 16, "level 10 should match the old level 15");
+    for (const level of LEVELS.slice(12, 32)) {
+      const floor = level.unlock ? 16 : level.id <= 14 ? 17 : 19;
+      assert.ok(level.par >= floor, `${level.id} ${level.name} needs ${level.par} taps`);
+    }
+    const reference = LEVELS[38]!;
+    assert.equal(reference.name, "Attic");
+    assert.equal(reference.par, 26);
+    assert.equal(nodes(reference), 4);
 
     const stretches = [
       [1, 12],
@@ -221,12 +234,8 @@ describe("levels", () => {
       ["lights", "lights", "lights", "alarm", "alarm", "alarm", "fire", "fire", "fire", "fire"],
     );
     assert.ok(DAILY_POOL.every((level) => level.size === 5 && level.tiles.every((tile) => !tile.fixed)));
-    for (const [classic, campaign] of [
-      [4, 13],
-      [7, 23],
-      [10, 26],
-    ] as const) {
-      assert.deepEqual(DAILY_POOL[classic - 1]!.tiles, LEVELS[campaign - 1]!.tiles);
+    for (const index of [0, 1, 2]) {
+      assert.deepEqual(DAILY_POOL[index]!.tiles, LEVELS[index]!.tiles);
     }
   });
 
