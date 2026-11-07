@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties } from "react";
+import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
 import {
   ArrowRight,
   Check,
@@ -51,7 +51,7 @@ import { themeById, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
-type Phase = "play" | "flow" | "won";
+type Phase = "play" | "won";
 type PlayMode = "levels" | "daily";
 
 interface CampaignSnap {
@@ -103,7 +103,13 @@ export function PathConnectGame() {
   const campaignRef = useRef<CampaignSnap | null>(null);
   const [flowPath, setFlowPath] = useState<number[] | null>(null);
   const [flowPaths, setFlowPaths] = useState<number[][] | null>(null);
-  const [charge, setCharge] = useState<Charge | null>(null);
+  /**
+   * Id of the latest win effect, or 0 on a fresh board. Its CSS animations run
+   * once, about a second, and rest at their end state, so the board settles
+   * without another render.
+   */
+  const [celebrate, setCelebrate] = useState(0);
+  const celebrateIdRef = useRef(0);
   const [note, setNote] = useState<string | null>(null);
   const [motionOn, setMotionOn] = useState(true);
   const [muted, setMuted] = useState(false);
@@ -120,7 +126,6 @@ export function PathConnectGame() {
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const boardRef = useRef<HTMLDivElement>(null);
-  const centersRef = useRef<Point[]>([]);
   const theme = themeById(level.theme);
   const lastLevel = levelId === LEVELS.length;
   const nextUnlock = lastLevel ? undefined : LEVELS[levelId]?.unlock;
@@ -131,6 +136,8 @@ export function PathConnectGame() {
   const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
+  // The pulse sweeps the whole path in about a third of a second on any board size.
+  const waveStep = flowPath && flowPath.length > 1 ? Math.min(36, 320 / (flowPath.length - 1)) : 0;
   const boardKey = mode === "daily" ? `daily:${todayKey}` : `level:${levelId}`;
   const offer = hintOffer(hintUses[boardKey] ?? 0);
   const hintTile = hint && phase === "play" ? level.tiles[hint.index] : undefined;
@@ -172,71 +179,6 @@ export function PathConnectGame() {
     return () => window.clearInterval(id);
   }, [mode, phase]);
 
-  useEffect(() => {
-    const paths = (flowPaths ?? []).filter((path) => path.length > 1);
-    if (phase !== "flow" || paths.length === 0) return;
-    let frame = 0;
-    let cancelled = false;
-    centersRef.current = measureCenters(boardRef.current);
-
-    if (prefersReducedMotion()) {
-      setCharge(null);
-      setPhase("won");
-      playWin(mutedRef.current);
-      return;
-    }
-
-    const started = performance.now();
-    const spans = paths.map((path) => path.length - 1);
-    const total = spans.reduce((sum, span) => sum + span, 0);
-    const duration = Math.max(640, total * 90);
-    const tick = (now: number) => {
-      if (cancelled) return;
-      const t = Math.min(1, (now - started) / duration);
-      const eased = t * t * (3 - 2 * t);
-      let remain = eased * total;
-      let path = paths[0]!;
-      for (let index = 0; index < paths.length; index++) {
-        const span = spans[index]!;
-        path = paths[index]!;
-        if (remain <= span || index === paths.length - 1) break;
-        remain -= span;
-      }
-      const step = Math.min(path.length - 2, Math.floor(remain));
-      const along = Math.min(1, remain - step);
-      const live = centersRef.current;
-      const from = live[path[step]!];
-      const to = live[path[step + 1]!];
-      if (from && to) {
-        const head = {
-          x: from.x + (to.x - from.x) * along,
-          y: from.y + (to.y - from.y) * along,
-        };
-        setCharge((prev) => ({
-          head,
-          trail: prev
-            ? [prev.head, ...prev.trail].slice(0, 22)
-            : [],
-        }));
-      }
-      if (t < 1) frame = requestAnimationFrame(tick);
-      else {
-        setCharge(null);
-        setPhase("won");
-        playWin(mutedRef.current);
-      }
-    };
-    frame = requestAnimationFrame(tick);
-    const observer = new ResizeObserver(() => {
-      centersRef.current = measureCenters(boardRef.current);
-    });
-    if (boardRef.current) observer.observe(boardRef.current);
-    return () => {
-      cancelled = true;
-      cancelAnimationFrame(frame);
-      observer.disconnect();
-    };
-  }, [phase, flowPaths]);
 
   function loadBoard(next: Level, nextId?: number) {
     const initial = next.tiles.map((tile) => tile.initial);
@@ -250,7 +192,7 @@ export function PathConnectGame() {
     setPhase("play");
     setFlowPath(null);
     setFlowPaths(null);
-    setCharge(null);
+    setCelebrate(0);
     setNote(null);
     setResult(null);
     closeAd();
@@ -327,7 +269,7 @@ export function PathConnectGame() {
     setPhase(phaseRef.current);
     setFlowPath(snap.flowPath);
     setFlowPaths(snap.flowPaths);
-    setCharge(null);
+    setCelebrate(0);
     setNote(snap.note);
     setResult(null);
     closeAd();
@@ -371,14 +313,14 @@ export function PathConnectGame() {
     }
     setFlowPaths(network.paths);
     setFlowPath(spreadOrder(network.paths));
-    if (prefersReducedMotion()) {
-      phaseRef.current = "won";
-      setPhase("won");
-      playWin(mutedRef.current);
-      return;
+    // The board counts as won at once, so Next works while the effect plays.
+    phaseRef.current = "won";
+    setPhase("won");
+    playWin(mutedRef.current);
+    if (!prefersReducedMotion()) {
+      celebrateIdRef.current += 1;
+      setCelebrate(celebrateIdRef.current);
     }
-    phaseRef.current = "flow";
-    setPhase("flow");
   }
 
   function giveHint() {
@@ -441,12 +383,10 @@ export function PathConnectGame() {
           ? dailyCheer(result)
           : "Practice run. Bests count your first finish each day."
         : `${lastLevel ? "That was the last board. " : ""}${theme.complete}${nextUnlock ? ` Unlocked next: ${nextUnlock}.` : ""}`
-      : phase === "flow"
-        ? theme.live
-        : (note ??
-          (mode === "daily" && today
-            ? `You finished today in ${formatClock(today.seconds)} with ${turnsLabel(today.turns)}. Replays are practice.`
-            : null));
+      : (note ??
+        (mode === "daily" && today
+          ? `You finished today in ${formatClock(today.seconds)} with ${turnsLabel(today.turns)}. Replays are practice.`
+          : null));
 
   return (
     <div className="path-connect min-h-dvh" data-style="cozy" data-theme={theme.id}>
@@ -456,6 +396,7 @@ export function PathConnectGame() {
         data-level={levelId}
         data-mode={mode}
         data-size={level.size}
+        data-celebrate={celebrate > 0 || undefined}
       >
         <h1 className="sr-only">Path Connect · {theme.title}</h1>
         <header className="pc-top">
@@ -613,7 +554,12 @@ export function PathConnectGame() {
                       ? `${label}. Hint: ${hintLeft === 1 ? "one turn" : `${hintLeft} turns`}`
                       : label
                   }
-                  style={{ "--delay": order >= 0 ? `${order * 180}ms` : "0ms" } as CSSProperties}
+                  style={
+                    {
+                      "--delay": order >= 0 ? `${order * 180}ms` : "0ms",
+                      "--wave": order >= 0 ? `${Math.round(order * waveStep)}ms` : "0ms",
+                    } as CSSProperties
+                  }
                   onClick={() => onRotate(index)}
                 >
                   <span className="pc-depth">
@@ -650,25 +596,28 @@ export function PathConnectGame() {
                 </button>
               );
             })}
-            {charge && phase !== "play" && (
-              <>
-                {charge.trail.map((point, index) => (
-                  <span
-                    key={index}
-                    className="pc-bead pc-bead-trail"
-                    style={{
-                      transform: `translate(${point.x}px, ${point.y}px) translate(-50%, -50%)`,
-                      opacity: Math.max(0.15, 0.85 - index * 0.05),
-                    }}
-                  />
-                ))}
-                <span
-                  className="pc-bead"
-                  style={{
-                    transform: `translate(${charge.head.x}px, ${charge.head.y}px) translate(-50%, -50%)`,
-                  }}
-                />
-              </>
+            {celebrate > 0 && flowPaths && (
+              <ChargeRun key={celebrate} paths={flowPaths} boardRef={boardRef} />
+            )}
+            {celebrate > 0 && flowPath && (
+              <span className="pc-sparkles" aria-hidden="true">
+                {sparkleCells(flowPath).map((cell) => {
+                  const { row, col } = rowCol(cell, level.size);
+                  return (
+                    <span
+                      key={`${celebrate}-${cell}`}
+                      className="pc-sparkle"
+                      style={
+                        {
+                          left: `${((col + 0.5) / level.size) * 100}%`,
+                          top: `${((row + 0.5) / level.size) * 100}%`,
+                          "--wave": `${Math.round(flowPath.indexOf(cell) * waveStep)}ms`,
+                        } as CSSProperties
+                      }
+                    />
+                  );
+                })}
+              </span>
             )}
             {phase === "won" && (
               <>
@@ -696,7 +645,7 @@ export function PathConnectGame() {
             <DailyResult result={result} stats={stats} />
           )}
           <p className="pc-status pc-tip text-sm text-pretty" aria-live="polite">
-            <NodeGlyph theme={theme.id} on={phase === "won" || phase === "flow"} />
+            <NodeGlyph theme={theme.id} on={phase === "won"} />
             <span>
               {phase === "won" ? (
                 <>
@@ -848,6 +797,101 @@ function RewardedHint({
       </section>
     </div>
   );
+}
+
+/**
+ * The charge bead that runs the finished circuit. It keeps its own state, so
+ * each frame re-renders only the bead and its trail, not the whole board.
+ */
+function ChargeRun({
+  paths: allPaths,
+  boardRef,
+}: {
+  paths: readonly number[][];
+  boardRef: RefObject<HTMLDivElement | null>;
+}) {
+  const [charge, setCharge] = useState<Charge | null>(null);
+
+  useEffect(() => {
+    const paths = allPaths.filter((path) => path.length > 1);
+    if (paths.length === 0) return;
+    let frame = 0;
+    let cancelled = false;
+    let centers = measureCenters(boardRef.current);
+    const started = performance.now();
+    const spans = paths.map((path) => path.length - 1);
+    const total = spans.reduce((sum, span) => sum + span, 0);
+    const duration = Math.min(800, Math.max(450, total * 30));
+    const tick = (now: number) => {
+      if (cancelled) return;
+      const t = Math.min(1, (now - started) / duration);
+      const eased = t * t * (3 - 2 * t);
+      let remain = eased * total;
+      let path = paths[0]!;
+      for (let index = 0; index < paths.length; index++) {
+        const span = spans[index]!;
+        path = paths[index]!;
+        if (remain <= span || index === paths.length - 1) break;
+        remain -= span;
+      }
+      const step = Math.min(path.length - 2, Math.floor(remain));
+      const along = Math.min(1, remain - step);
+      const from = centers[path[step]!];
+      const to = centers[path[step + 1]!];
+      if (from && to) {
+        const head = {
+          x: from.x + (to.x - from.x) * along,
+          y: from.y + (to.y - from.y) * along,
+        };
+        setCharge((prev) => ({
+          head,
+          trail: prev ? [prev.head, ...prev.trail].slice(0, 22) : [],
+        }));
+      }
+      if (t < 1) frame = requestAnimationFrame(tick);
+      else setCharge(null);
+    };
+    frame = requestAnimationFrame(tick);
+    const observer = new ResizeObserver(() => {
+      centers = measureCenters(boardRef.current);
+    });
+    if (boardRef.current) observer.observe(boardRef.current);
+    return () => {
+      cancelled = true;
+      cancelAnimationFrame(frame);
+      observer.disconnect();
+    };
+  }, [allPaths, boardRef]);
+
+  if (!charge) return null;
+  return (
+    <>
+      {charge.trail.map((point, index) => (
+        <span
+          key={index}
+          className="pc-bead pc-bead-trail"
+          style={{
+            transform: `translate(${point.x}px, ${point.y}px) translate(-50%, -50%)`,
+            opacity: Math.max(0.15, 0.85 - index * 0.05),
+          }}
+        />
+      ))}
+      <span
+        className="pc-bead"
+        style={{
+          transform: `translate(${charge.head.x}px, ${charge.head.y}px) translate(-50%, -50%)`,
+        }}
+      />
+    </>
+  );
+}
+
+/** A few evenly spaced path cells for sparkles, so the effect stays light. */
+function sparkleCells(path: readonly number[]): number[] {
+  const count = Math.min(7, path.length);
+  if (count === 0) return [];
+  const step = path.length / count;
+  return Array.from({ length: count }, (_, index) => path[Math.floor(index * step + step / 2)]!);
 }
 
 function turnsLabel(turns: number): string {
