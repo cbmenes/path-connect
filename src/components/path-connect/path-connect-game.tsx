@@ -1,4 +1,12 @@
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type RefObject } from "react";
+import {
+  useEffect,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+  type CSSProperties,
+  type RefObject,
+} from "react";
 import {
   ArrowRight,
   Check,
@@ -69,6 +77,14 @@ interface Point {
   y: number;
 }
 
+interface PlayLayout {
+  trayTop: number;
+  stageHeight: number;
+  footerHeight: number;
+  /** Free space between the board tray and the footer. */
+  room: number;
+}
+
 interface Charge {
   head: Point;
   trail: Point[];
@@ -126,6 +142,9 @@ export function PathConnectGame() {
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const boardRef = useRef<HTMLDivElement>(null);
+  const stageRef = useRef<HTMLDivElement>(null);
+  const footerRef = useRef<HTMLElement>(null);
+  const playLayoutRef = useRef<PlayLayout | null>(null);
   const theme = themeById(level.theme);
   const lastLevel = levelId === LEVELS.length;
   const nextUnlock = lastLevel ? undefined : LEVELS[levelId]?.unlock;
@@ -145,6 +164,47 @@ export function PathConnectGame() {
     hint && hintTile ? turnsToSolve(hintTile.kind, spins[hint.index] ?? hintTile.initial, hintTile.solution) : 0;
 
   useEffect(() => () => adAbortRef.current?.abort(), []);
+
+  // Remember where things sit during play, so a win can hold the board still.
+  useLayoutEffect(() => {
+    if (phase !== "play") return;
+    const stage = stageRef.current;
+    const footer = footerRef.current;
+    const tray = boardRef.current?.parentElement;
+    if (!stage || !footer || !tray) return;
+    stage.style.minHeight = "";
+    stage.style.translate = "";
+    footer.style.marginTop = "";
+    playLayoutRef.current = {
+      trayTop: tray.getBoundingClientRect().top + window.scrollY,
+      stageHeight: stage.getBoundingClientRect().height,
+      footerHeight: footer.getBoundingClientRect().height,
+      room: footer.getBoundingClientRect().top - tray.getBoundingClientRect().bottom - 8,
+    };
+  });
+
+  // When Next or the Daily result makes the footer taller, it grows upward into
+  // the empty space under the board, and the board keeps its place. Whatever
+  // does not fit extends the page downward. A header that rewraps is offset too.
+  useLayoutEffect(() => {
+    const stage = stageRef.current;
+    const footer = footerRef.current;
+    const tray = boardRef.current?.parentElement;
+    const before = playLayoutRef.current;
+    if (phase !== "won" || !stage || !footer || !tray || !before) return;
+    const grow = footer.getBoundingClientRect().height - before.footerHeight;
+    stage.style.minHeight = `${before.stageHeight}px`;
+    footer.style.marginTop = `${-Math.max(0, Math.min(grow, before.room))}px`;
+    const drift = before.trayTop - (tray.getBoundingClientRect().top + window.scrollY);
+    if (Math.abs(drift) >= 0.5) stage.style.translate = `0 ${drift}px`;
+    const release = () => {
+      stage.style.minHeight = "";
+      stage.style.translate = "";
+      footer.style.marginTop = "";
+    };
+    window.addEventListener("resize", release);
+    return () => window.removeEventListener("resize", release);
+  }, [phase, result]);
 
   useEffect(() => {
     const saved = readStats();
@@ -498,7 +558,7 @@ export function PathConnectGame() {
           )}
         </header>
 
-        <div className="pc-stage">
+        <div ref={stageRef} className="pc-stage">
         <div className="pc-scene pc-board-wrap" data-room={theme.id}>
           <Surroundings
             theme={theme.id}
@@ -640,7 +700,7 @@ export function PathConnectGame() {
         )}
         </div>
 
-        <footer className="pc-bottom">
+        <footer ref={footerRef} className="pc-bottom">
           {phase === "won" && mode === "daily" && result && (
             <DailyResult result={result} stats={stats} />
           )}

@@ -2123,8 +2123,8 @@
 
 /*
  * Win effect, one second at most: a glow sweeps the path from the source,
- * each node answers in its theme, and a few sparkles rise. Only opacity and
- * transforms animate, so nothing reflows and phones stay smooth.
+ * each node answers in its theme, and a few sparkles twinkle. Only opacity
+ * animates, so nothing on the board moves, scales, or reflows.
  */
 .path-connect[data-style="cozy"] .pc-shell[data-phase="won"] .pc-tile[data-role="end"]::after {
   content: none;
@@ -2145,14 +2145,6 @@
   );
   opacity: 0;
   animation: pc-win-glow 480ms ease-out var(--wave, 0ms) both;
-}
-
-.path-connect[data-style="cozy"] .pc-shell[data-celebrate] .pc-tile[data-live="true"] .pc-depth {
-  animation: pc-win-lift 480ms ease-out var(--wave, 0ms) both;
-}
-
-.path-connect[data-style="cozy"] .pc-shell[data-celebrate] .pc-tile[data-role="end"] .pc-plant {
-  animation: pc-win-pop 420ms cubic-bezier(0.3, 1.4, 0.5, 1) calc(var(--wave, 0ms) + 80ms) both;
 }
 
 .path-connect[data-style="cozy"] .pc-shell[data-celebrate] .pc-tile[data-role="end"]::after {
@@ -2178,7 +2170,7 @@
 
 /* Building Alarm: one blue pulse ring per sensor. */
 .path-connect[data-theme="alarm"][data-style="cozy"] .pc-shell[data-celebrate] .pc-tile[data-role="end"]::after {
-  inset: 12%;
+  inset: 4%;
   border: 3px solid var(--color-pc-flow);
   box-shadow: 0 0 12px color-mix(in oklab, var(--color-pc-flow) 60%, transparent);
   animation: pc-win-ring 560ms ease-out calc(var(--wave, 0ms) + 60ms) both;
@@ -2211,6 +2203,7 @@
   background: radial-gradient(circle, white 0%, var(--color-pc-spark) 45%, transparent 72%);
   box-shadow: 0 0 8px color-mix(in oklab, var(--color-pc-spark) 70%, transparent);
   opacity: 0;
+  transform: translate(-50%, -50%);
   animation: pc-win-sparkle 560ms ease-out calc(var(--wave, 0ms) + 120ms) both;
 }
 
@@ -2227,27 +2220,6 @@
   }
   100% {
     opacity: 0;
-  }
-}
-
-@keyframes pc-win-lift {
-  40% {
-    translate: 0 -3px;
-  }
-  100% {
-    translate: 0 0;
-  }
-}
-
-@keyframes pc-win-pop {
-  0% {
-    scale: 1;
-  }
-  45% {
-    scale: 1.14;
-  }
-  100% {
-    scale: 1;
   }
 }
 
@@ -2274,12 +2246,13 @@
 
 @keyframes pc-win-ring {
   0% {
+    opacity: 0;
+  }
+  30% {
     opacity: 0.95;
-    transform: scale(0.7);
   }
   100% {
     opacity: 0;
-    transform: scale(1.5);
   }
 }
 
@@ -2307,26 +2280,21 @@
 @keyframes pc-win-sparkle {
   0% {
     opacity: 0;
-    transform: translate(-50%, -50%) scale(0.4);
   }
   30% {
     opacity: 0.9;
-    transform: translate(-50%, -80%) scale(1);
   }
   100% {
     opacity: 0;
-    transform: translate(-50%, -260%) scale(0.5);
   }
 }
 
 @keyframes pc-win-status {
   0% {
     opacity: 0.4;
-    transform: translateY(3px);
   }
   100% {
     opacity: 1;
-    transform: none;
   }
 }
 
@@ -2342,50 +2310,11 @@
   }
 }
 
-/* The footer grows smoothly when Next or the Daily result appears, so the board glides instead of jumping. */
-.path-connect[data-style="cozy"] .pc-daily-result {
-  overflow: hidden;
-  animation: pc-reveal 300ms ease-out 150ms both;
-}
 
-@keyframes pc-reveal {
-  from {
-    max-height: 0;
-    margin-bottom: -8px;
-    opacity: 0;
-  }
-  to {
-    max-height: 180px;
-    margin-bottom: 0;
-    opacity: 1;
-  }
-}
 
-@media (max-width: 719px) {
-  .path-connect[data-style="cozy"] .pc-bottom .pc-actions .pc-next {
-    overflow: hidden;
-    animation: pc-next-grow 220ms ease-out both;
-  }
-}
-
-@keyframes pc-next-grow {
-  from {
-    height: 0;
-    min-height: 0;
-    margin-top: -4px;
-    opacity: 0;
-  }
-  to {
-    height: 44px;
-    min-height: 44px;
-    margin-top: 0;
-    opacity: 1;
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .path-connect[data-style="cozy"] .pc-daily-result,
-  .path-connect[data-style="cozy"] .pc-bottom .pc-actions .pc-next {
-    animation: none;
+/* Touch screens keep a tapped tile in its hover lift. Hold it there once the board is won, so it does not drop. */
+@media (hover: none) {
+  .path-connect[data-style="cozy"] .pc-shell[data-phase="won"] .pc-tile:hover {
+    transform: translateY(-1px);
   }
 }
