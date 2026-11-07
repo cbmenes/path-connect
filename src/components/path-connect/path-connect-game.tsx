@@ -6,21 +6,24 @@ import {
   Lightbulb,
   Lock,
   RotateCcw,
+  Timer,
   Undo2,
   Volume2,
   VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
-  DAILY_SECONDS,
+  EMPTY_STATS,
   dailyLevel,
   dateKey,
   formatClock,
   formatDailyDate,
-  isBetterScore,
-  readBest,
-  writeBest,
-  type DailyScore,
+  readStats,
+  recordFinish,
+  untilNextDaily,
+  writeStats,
+  type DailyFinish,
+  type DailyStats,
 } from "@/lib/path-connect/daily";
 import { CHAPTERS, LEVELS, boardCells, type Level } from "@/lib/path-connect/levels";
 import {
@@ -37,7 +40,7 @@ import { themeById, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
-type Phase = "play" | "flow" | "won" | "expired";
+type Phase = "play" | "flow" | "won";
 type PlayMode = "levels" | "daily";
 
 interface CampaignSnap {
@@ -76,17 +79,16 @@ export function PathConnectGame() {
   const [spins, setSpins] = useState<number[]>(() => level.tiles.map((tile) => tile.initial));
   const [moves, setMoves] = useState(0);
   const [phase, setPhase] = useState<Phase>("play");
-  const [secondsLeft, setSecondsLeft] = useState(DAILY_SECONDS);
-  const [best, setBest] = useState<DailyScore | null>(null);
-  const [result, setResult] = useState<DailyScore | null>(null);
-  const [isNewBest, setIsNewBest] = useState(false);
+  const [elapsed, setElapsed] = useState(0);
+  const [stats, setStats] = useState<DailyStats>(EMPTY_STATS);
+  const [result, setResult] = useState<DailyFinish | null>(null);
   const spinsRef = useRef(spins);
   const phaseRef = useRef(phase);
   phaseRef.current = phase;
   const movesRef = useRef(moves);
   const modeRef = useRef(mode);
   modeRef.current = mode;
-  const deadlineRef = useRef(0);
+  const startedRef = useRef(0);
   const campaignRef = useRef<CampaignSnap | null>(null);
   const [flowPath, setFlowPath] = useState<number[] | null>(null);
   const [flowPaths, setFlowPaths] = useState<number[][] | null>(null);
@@ -115,8 +117,9 @@ export function PathConnectGame() {
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
 
   useEffect(() => {
-    setBest(readBest(todayKey));
-  }, [todayKey]);
+    const saved = readStats();
+    setStats(saved);
+  }, []);
 
   useEffect(() => {
     const saved = readProgress(LEVELS.length);
@@ -137,15 +140,10 @@ export function PathConnectGame() {
     if (mode !== "daily" || phase !== "play") return;
     const tick = () => {
       if (phaseRef.current !== "play") return;
-      const left = Math.max(0, Math.ceil((deadlineRef.current - performance.now()) / 1000));
-      setSecondsLeft(left);
-      if (left <= 0 && phaseRef.current === "play") {
-        phaseRef.current = "expired";
-        setPhase("expired");
-      }
+      setElapsed(Math.floor((performance.now() - startedRef.current) / 1000));
     };
     tick();
-    const id = window.setInterval(tick, 200);
+    const id = window.setInterval(tick, 250);
     return () => window.clearInterval(id);
   }, [mode, phase]);
 
@@ -230,7 +228,6 @@ export function PathConnectGame() {
     setCharge(null);
     setNote(null);
     setResult(null);
-    setIsNewBest(false);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setMotionOn(true));
     });
@@ -256,8 +253,8 @@ export function PathConnectGame() {
   }
 
   function startDaily() {
-    deadlineRef.current = performance.now() + DAILY_SECONDS * 1000;
-    setSecondsLeft(DAILY_SECONDS);
+    startedRef.current = performance.now();
+    setElapsed(0);
     loadBoard(daily);
   }
 
@@ -285,7 +282,7 @@ export function PathConnectGame() {
     }
     spinsRef.current = snap.spins;
     movesRef.current = snap.moves;
-    phaseRef.current = snap.phase === "expired" ? "play" : snap.phase;
+    phaseRef.current = snap.phase;
     setLevelId(snap.levelId);
     setSpins(snap.spins);
     setMoves(snap.moves);
@@ -295,7 +292,6 @@ export function PathConnectGame() {
     setCharge(null);
     setNote(snap.note);
     setResult(null);
-    setIsNewBest(false);
   }
 
   function onRotate(index: number) {
@@ -308,11 +304,6 @@ export function PathConnectGame() {
       setNote("Bolted tiles stay put. Turn the tiles around them.");
       return;
     }
-    if (modeRef.current === "daily" && performance.now() >= deadlineRef.current) {
-      phaseRef.current = "expired";
-      setPhase("expired");
-      return;
-    }
     const nextSpins = spinsRef.current.map((spin, i) => (i === index ? spin + 1 : spin));
     spinsRef.current = nextSpins;
     movesRef.current += 1;
@@ -323,18 +314,12 @@ export function PathConnectGame() {
     const network = reachTargets(boardCells(level, nextSpins));
     if (!network.complete) return;
     if (modeRef.current === "daily") {
-      const secondsLeftNow = Math.max(0, Math.ceil((deadlineRef.current - performance.now()) / 1000));
-      const score = { secondsLeft: secondsLeftNow, turns: movesRef.current };
-      setSecondsLeft(secondsLeftNow);
-      setResult(score);
-      const stored = readBest(todayKey);
-      if (isBetterScore(score, stored)) {
-        writeBest(todayKey, score);
-        setBest(score);
-        setIsNewBest(true);
-      } else {
-        setIsNewBest(false);
-      }
+      const seconds = Math.floor((performance.now() - startedRef.current) / 1000);
+      const finish = recordFinish(readStats(), todayKey, { seconds, turns: movesRef.current });
+      if (finish.counted) writeStats(finish.stats);
+      setStats(finish.stats);
+      setElapsed(seconds);
+      setResult(finish);
     } else {
       const opened = Math.min(LEVELS.length, Math.max(progressRef.current.unlocked, levelId + 1));
       saveProgress({ level: levelId, unlocked: opened });
@@ -367,16 +352,20 @@ export function PathConnectGame() {
     setNote("Undo will take back the last turn.");
   }
 
+  const today = stats.days[todayKey];
   const status =
-    phase === "expired"
-      ? "Time's up. Retry uses the same board."
-      : phase === "won"
-        ? mode === "daily" && result
-          ? `${isNewBest ? "New best. " : ""}Finished with ${formatClock(result.secondsLeft)} left in ${result.turns} ${result.turns === 1 ? "turn" : "turns"}.`
-          : `${lastLevel ? "That was the last board. " : ""}${theme.complete}${nextUnlock ? ` Unlocked next: ${nextUnlock}.` : ""}`
-        : phase === "flow"
-          ? theme.live
-          : note;
+    phase === "won"
+      ? mode === "daily" && result
+        ? result.counted
+          ? dailyCheer(result)
+          : "Practice run. Bests count your first finish each day."
+        : `${lastLevel ? "That was the last board. " : ""}${theme.complete}${nextUnlock ? ` Unlocked next: ${nextUnlock}.` : ""}`
+      : phase === "flow"
+        ? theme.live
+        : (note ??
+          (mode === "daily" && today
+            ? `You finished today in ${formatClock(today.seconds)} with ${turnsLabel(today.turns)}. Replays are practice.`
+            : null));
 
   return (
     <div className="path-connect min-h-dvh" data-style="cozy" data-theme={theme.id}>
@@ -401,9 +390,9 @@ export function PathConnectGame() {
               <p className="pc-level-sub">
                 {mode === "daily" ? (
                   <span className="pc-best">
-                    {best
-                      ? `Best today: ${formatClock(best.secondsLeft)} left · ${best.turns} ${best.turns === 1 ? "turn" : "turns"}`
-                      : "Best today: not set"}
+                    {stats.bestSeconds !== null && stats.bestTurns !== null
+                      ? `Best time ${formatClock(stats.bestSeconds)} · Best turns ${stats.bestTurns}`
+                      : "Same board for everyone today."}
                   </span>
                 ) : (
                   level.blurb
@@ -454,8 +443,9 @@ export function PathConnectGame() {
             </div>
             <p className="pc-hud-stats tabular">
               {mode === "daily" ? (
-                <span className="pc-timer" data-low={secondsLeft <= 15 && phase === "play"}>
-                  {formatClock(secondsLeft)}
+                <span className="pc-timer" role="timer" aria-label={`Time ${formatClock(elapsed)}`}>
+                  <Timer aria-hidden="true" />
+                  {formatClock(elapsed)}
                 </span>
               ) : (
                 <button
@@ -601,6 +591,9 @@ export function PathConnectGame() {
         </div>
 
         <footer className="pc-bottom">
+          {phase === "won" && mode === "daily" && result && (
+            <DailyResult result={result} stats={stats} />
+          )}
           <p className="pc-status pc-tip text-sm text-pretty" aria-live="polite">
             <NodeGlyph theme={theme.id} on={phase === "won" || phase === "flow"} />
             <span>
@@ -640,9 +633,9 @@ export function PathConnectGame() {
                 <ArrowRight />
               </Button>
             )}
-            {(phase === "won" || phase === "expired") && mode === "daily" && (
+            {phase === "won" && mode === "daily" && (
               <Button type="button" className="pc-next" onClick={startDaily}>
-                {phase === "expired" ? "Retry" : "Try again"}
+                Practice again
                 <ArrowRight />
               </Button>
             )}
@@ -650,6 +643,55 @@ export function PathConnectGame() {
         </footer>
       </main>
     </div>
+  );
+}
+
+function turnsLabel(turns: number): string {
+  return `${turns} ${turns === 1 ? "turn" : "turns"}`;
+}
+
+function dailyCheer(result: DailyFinish): string {
+  if (result.newBestTime && result.newBestTurns) return "New best time and fewest turns.";
+  if (result.newBestTime) return "New best time.";
+  if (result.newBestTurns) return "New best for fewest turns.";
+  return "Solid run. Come back tomorrow to beat your bests.";
+}
+
+function DailyResult({ result, stats }: { result: DailyFinish; stats: DailyStats }) {
+  const [wait, setWait] = useState(() => untilNextDaily(new Date()));
+  useEffect(() => {
+    const id = window.setInterval(() => setWait(untilNextDaily(new Date())), 30_000);
+    return () => window.clearInterval(id);
+  }, []);
+  const cells = [
+    {
+      label: "Time",
+      value: formatClock(result.run.seconds),
+      isNew: result.newBestTime,
+      best: stats.bestSeconds === null ? null : formatClock(stats.bestSeconds),
+    },
+    {
+      label: "Turns",
+      value: String(result.run.turns),
+      isNew: result.newBestTurns,
+      best: stats.bestTurns === null ? null : String(stats.bestTurns),
+    },
+  ];
+  return (
+    <section className="pc-daily-result" aria-label="Daily result">
+      {cells.map((cell) => (
+        <div key={cell.label} className="pc-daily-stat" data-new={cell.isNew || undefined}>
+          <span className="pc-daily-label">{cell.label}</span>
+          <span className="pc-daily-value tabular">{cell.value}</span>
+          <span className="pc-daily-best">
+            {cell.isNew ? <span className="pc-new">New best</span> : cell.best ? `Best ${cell.best}` : null}
+          </span>
+        </div>
+      ))}
+      <p className="pc-daily-next">
+        Next board in <span className="tabular">{wait}</span>
+      </p>
+    </section>
   );
 }
 

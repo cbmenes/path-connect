@@ -1,20 +1,37 @@
-import { DAILY_POOL, boardCells, type Level } from "./levels.ts";
-import { reachTargets, sameOpenings } from "./logic.ts";
-import { hashString as hash, mulberry32 } from "./random.ts";
+import { generateDaily, type Level } from "./levels.ts";
 
-/** Shared clock for the daily board. Seconds left when you finish is the score. */
-export const DAILY_SECONDS = 120;
-
-export interface DailyScore {
-  secondsLeft: number;
+export interface DailyRun {
+  seconds: number;
   turns: number;
 }
 
-const STORAGE_KEY = "path-connect-daily-best";
+/** Personal bests across every Daily, plus the latest finish for each date. */
+export interface DailyStats {
+  bestSeconds: number | null;
+  bestTurns: number | null;
+  days: Record<string, DailyRun>;
+}
+
+export interface DailyFinish {
+  run: DailyRun;
+  stats: DailyStats;
+  /** False for a replay of a day already finished, which is practice only. */
+  counted: boolean;
+  newBestTime: boolean;
+  newBestTurns: boolean;
+}
+
+const STORAGE_KEY = "path-connect-daily-stats";
+
+export const EMPTY_STATS: DailyStats = { bestSeconds: null, bestTurns: null, days: {} };
 
 /** UTC day, so every player gets the same board on the same calendar date. */
 export function dateKey(now: Date): string {
   return now.toISOString().slice(0, 10);
+}
+
+export function dayNumber(key: string): number {
+  return Math.floor(Date.parse(`${key}T00:00:00Z`) / 86_400_000);
 }
 
 export function formatDailyDate(now: Date): string {
@@ -32,71 +49,73 @@ export function formatClock(totalSeconds: number): string {
   return `${minutes}:${seconds.toString().padStart(2, "0")}`;
 }
 
-/** More time left wins. The same time left prefers fewer turns. */
-export function isBetterScore(next: DailyScore, best: DailyScore | null): boolean {
-  if (!best) return true;
-  if (next.secondsLeft !== best.secondsLeft) return next.secondsLeft > best.secondsLeft;
-  return next.turns < best.turns;
-}
-
 export function dailyLevel(now: Date): Level {
-  const key = dateKey(now);
-  const day = Math.floor(Date.parse(`${key}T00:00:00Z`) / 86_400_000);
-  const base = DAILY_POOL[day % DAILY_POOL.length]!;
-  const rand = mulberry32(hash(key));
-  const tiles = base.tiles.map((tile) => ({ ...tile }));
-
-  for (const tile of tiles) {
-    let offset = 1 + Math.floor(rand() * 3);
-    if (sameOpenings(tile.kind, tile.solution, tile.solution + offset)) offset = 1;
-    tile.initial = (tile.solution + offset) % 4;
-  }
-
-  let guard = 0;
-  while (reachTargets(boardCells(draft(base, tiles), tiles.map((tile) => tile.initial))).complete && guard < 80) {
-    const fillers = tiles.filter((tile) => tile.role === "play" && !tile.onRoute);
-    const tile = fillers[guard % fillers.length];
-    if (!tile) break;
-    tile.initial = (tile.initial + 1) % 4;
-    guard += 1;
-  }
-
-  return draft(base, tiles);
+  return generateDaily(dayNumber(dateKey(now)));
 }
 
-export function readBest(key: string): DailyScore | null {
-  if (typeof localStorage === "undefined") return null;
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (!raw) return null;
-    const parsed = JSON.parse(raw) as Record<string, DailyScore>;
-    const score = parsed[key];
-    if (!score || !Number.isFinite(score.secondsLeft) || !Number.isFinite(score.turns)) return null;
-    return { secondsLeft: score.secondsLeft, turns: score.turns };
-  } catch {
-    return null;
-  }
-}
-
-export function writeBest(key: string, score: DailyScore): void {
-  if (typeof localStorage === "undefined") return;
-  let parsed: Record<string, DailyScore> = {};
-  try {
-    const raw = localStorage.getItem(STORAGE_KEY);
-    if (raw) parsed = JSON.parse(raw) as Record<string, DailyScore>;
-  } catch {
-    parsed = {};
-  }
-  parsed[key] = score;
-  localStorage.setItem(STORAGE_KEY, JSON.stringify(parsed));
-}
-
-function draft(base: Level, tiles: Level["tiles"]): Level {
+/**
+ * Time and turns are separate records, so each one can improve on its own.
+ * Only the first finish of a day counts. A replay already knows the answer.
+ */
+export function recordFinish(stats: DailyStats, key: string, run: DailyRun): DailyFinish {
+  if (stats.days[key]) return { run, stats, counted: false, newBestTime: false, newBestTurns: false };
+  const newBestTime = stats.bestSeconds === null || run.seconds < stats.bestSeconds;
+  const newBestTurns = stats.bestTurns === null || run.turns < stats.bestTurns;
   return {
-    ...base,
-    name: "Daily challenge",
-    blurb: "Same circuit for everyone today. Power every node before the clock runs out.",
-    unlock: undefined,
-    tiles,
+    run,
+    stats: {
+      bestSeconds: newBestTime ? run.seconds : stats.bestSeconds,
+      bestTurns: newBestTurns ? run.turns : stats.bestTurns,
+      days: { ...stats.days, [key]: run },
+    },
+    counted: true,
+    newBestTime,
+    newBestTurns,
   };
+}
+
+/** Whole hours and minutes until the next UTC midnight, such as "5 h 12 m". */
+export function untilNextDaily(now: Date): string {
+  const next = Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1);
+  const minutes = Math.max(1, Math.ceil((next - now.getTime()) / 60_000));
+  const hours = Math.floor(minutes / 60);
+  return hours > 0 ? `${hours} h ${minutes % 60} m` : `${minutes} m`;
+}
+
+function count(value: unknown): number | null {
+  return typeof value === "number" && Number.isFinite(value) && value >= 0 ? Math.floor(value) : null;
+}
+
+export function parseStats(raw: string | null): DailyStats {
+  if (!raw) return EMPTY_STATS;
+  try {
+    const parsed = JSON.parse(raw) as Partial<DailyStats>;
+    const days: Record<string, DailyRun> = {};
+    for (const [key, run] of Object.entries(parsed.days ?? {})) {
+      const seconds = count(run?.seconds);
+      const turns = count(run?.turns);
+      if (seconds !== null && turns !== null) days[key] = { seconds, turns };
+    }
+    return { bestSeconds: count(parsed.bestSeconds), bestTurns: count(parsed.bestTurns), days };
+  } catch {
+    return EMPTY_STATS;
+  }
+}
+
+export function readStats(): DailyStats {
+  if (typeof localStorage === "undefined") return EMPTY_STATS;
+  try {
+    return parseStats(localStorage.getItem(STORAGE_KEY));
+  } catch {
+    return EMPTY_STATS;
+  }
+}
+
+export function writeStats(stats: DailyStats): void {
+  if (typeof localStorage === "undefined") return;
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(stats));
+  } catch {
+    // Storage can be full or blocked. The run still shows its result.
+  }
 }

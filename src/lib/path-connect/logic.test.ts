@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import {
   CHAPTERS,
-  DAILY_POOL,
   LEVELS,
   boardCells,
   estimateSeconds,
@@ -243,20 +242,6 @@ describe("levels", () => {
   it("gives every level its own name", () => {
     const names = LEVELS.map((level) => level.name);
     assert.equal(new Set(names).size, names.length);
-  });
-
-  it("keeps the original ten boards for the daily challenge", () => {
-    assert.equal(DAILY_POOL.length, 10);
-    const plants = DAILY_POOL.map((level) => level.tiles.filter((tile) => tile.role === "end").length);
-    assert.deepEqual(plants, [1, 2, 2, 2, 3, 3, 3, 4, 3, 4]);
-    assert.deepEqual(
-      DAILY_POOL.map((level) => level.theme),
-      ["lights", "lights", "lights", "alarm", "alarm", "alarm", "fire", "fire", "fire", "fire"],
-    );
-    assert.ok(DAILY_POOL.every((level) => level.size === 5 && level.tiles.every((tile) => !tile.fixed)));
-    for (const index of [0, 1, 2]) {
-      assert.deepEqual(DAILY_POOL[index]!.tiles, LEVELS[index]!.tiles);
-    }
   });
 
   it("drops the circuit when the source or a node is turned", () => {

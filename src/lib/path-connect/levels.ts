@@ -104,45 +104,8 @@ const SIDE_LIGHTS: LevelSpec["routes"] = [
   [[2, 0], [2, 1], [2, 2], [2, 3], [1, 3], [1, 4]],
   [[2, 0], [2, 1], [2, 2], [2, 3], [3, 3], [3, 4]],
 ];
-const FRONT_DESK: LevelSpec["routes"] = [
-  [[1, 0], [1, 1], [1, 2], [1, 3], [1, 4]],
-  [[1, 0], [1, 1], [1, 2], [2, 2], [3, 2], [3, 3]],
-];
-const THREE_SENSORS: LevelSpec["routes"] = [
-  [[3, 0], [3, 1], [3, 2], [3, 3], [3, 4]],
-  [[3, 0], [3, 1], [2, 1], [1, 1], [0, 1]],
-  [[3, 0], [3, 1], [2, 1], [2, 2], [2, 3]],
-];
-const THREE_DOORS: LevelSpec["routes"] = [
-  [[0, 2], [1, 2], [2, 2], [2, 3], [2, 4]],
-  [[0, 2], [1, 2], [2, 2], [3, 2], [4, 2]],
-  [[0, 2], [1, 2], [1, 1], [1, 0]],
-];
-const WEST_STAIRS: LevelSpec["routes"] = [
-  [[4, 0], [3, 0], [2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
-  [[4, 0], [3, 0], [3, 1], [3, 2], [3, 3]],
-  [[4, 0], [3, 0], [2, 0], [1, 0], [0, 0]],
-];
-const FOUR_DEVICES: LevelSpec["routes"] = [
-  [[4, 2], [3, 2], [2, 2], [2, 3], [2, 4]],
-  [[4, 2], [3, 2], [2, 2], [1, 2], [0, 2]],
-  [[4, 2], [3, 2], [2, 2], [1, 2], [1, 1], [1, 0]],
-  [[4, 2], [3, 2], [2, 2], [2, 3], [3, 3], [3, 4]],
-];
-const CORRIDOR: LevelSpec["routes"] = [
-  [[0, 0], [0, 1], [0, 2], [1, 2], [2, 2], [2, 3], [2, 4]],
-  [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1]],
-  [[0, 0], [0, 1], [0, 2], [0, 3], [0, 4]],
-];
-const FULL_WING: LevelSpec["routes"] = [
-  [[0, 0], [1, 0], [2, 0], [2, 1], [2, 2], [2, 3]],
-  [[0, 0], [1, 0], [2, 0], [3, 0], [4, 0]],
-  [[0, 0], [1, 0], [1, 1], [1, 2], [1, 3], [1, 4]],
-  [[0, 0], [1, 0], [2, 0], [2, 1], [3, 1], [4, 1]],
-];
-
-/** The ten original boards, with their original numbers and systems. Daily draws from these. */
-const CLASSIC_SPECS: readonly LevelSpec[] = [
+/** The first three boards, kept from the original release. */
+const OPENING_SPECS: readonly LevelSpec[] = [
   {
     id: 1,
     name: "Porch light",
@@ -167,62 +130,6 @@ const CLASSIC_SPECS: readonly LevelSpec[] = [
     routes: SIDE_LIGHTS,
     scramble: { "2,2": 1, "2,3": 1, "1,3": 1 },
   },
-  {
-    id: 4,
-    name: "Front desk",
-    blurb: "Two sensors. The panel and the run across the lobby start turned.",
-    theme: "alarm",
-    routes: FRONT_DESK,
-    scramble: { "1,0": 3, "1,1": 1, "1,2": 1, "1,3": 1, "2,2": 1 },
-  },
-  {
-    id: 5,
-    name: "Three sensors",
-    blurb: "One panel feeds three sensors.",
-    theme: "alarm",
-    routes: THREE_SENSORS,
-    scramble: { "3,0": 3, "3,1": 1, "3,2": 1, "2,1": 1, "1,1": 1, "2,2": 1 },
-  },
-  {
-    id: 6,
-    name: "Three doors",
-    blurb: "The trunk splits twice. Arm all three sensors.",
-    theme: "alarm",
-    routes: THREE_DOORS,
-    scramble: { "0,2": 3, "1,2": 1, "2,2": 1, "2,3": 1, "3,2": 1, "1,1": 1 },
-  },
-  {
-    id: 7,
-    name: "West stairs",
-    blurb: "Climb the stairwell, then reach the detectors on the right.",
-    theme: "fire",
-    routes: WEST_STAIRS,
-    scramble: { "4,0": 3, "3,0": 1, "2,0": 1, "2,1": 1, "2,2": 1, "3,1": 1, "1,0": 1 },
-  },
-  {
-    id: 8,
-    name: "Four devices",
-    blurb: "Four detectors. The paths fork above and below the trunk.",
-    theme: "fire",
-    routes: FOUR_DEVICES,
-    scramble: "all",
-  },
-  {
-    id: 9,
-    name: "Corridor",
-    blurb: "Follow the top corridor, then the two drops.",
-    theme: "fire",
-    routes: CORRIDOR,
-    scramble: "all",
-  },
-  {
-    id: 10,
-    name: "Full wing",
-    blurb: "Four detectors, and almost every pipe starts turned.",
-    theme: "fire",
-    routes: FULL_WING,
-    scramble: "all",
-  },
 ];
 
 /**
@@ -230,9 +137,9 @@ const CLASSIC_SPECS: readonly LevelSpec[] = [
  * starts turned, and the runs, tees, and lights grow toward a four-light finale.
  */
 const HOUSE_SPECS: readonly LevelSpec[] = [
-  CLASSIC_SPECS[0]!,
-  CLASSIC_SPECS[1]!,
-  CLASSIC_SPECS[2]!,
+  OPENING_SPECS[0]!,
+  OPENING_SPECS[1]!,
+  OPENING_SPECS[2]!,
   {
     id: 4,
     seed: 15,
@@ -596,22 +503,29 @@ function growRoutes(plan: Plan, attempt: number): Coord[][] | null {
   });
 }
 
-function generateLevel(id: number, name: string): Level {
-  const plan = planFor(id);
-  const target = targetSeconds(id);
+interface Goal {
+  seconds: number;
+  /** Largest miss from `seconds`, as a share, that ends the search early. */
+  tolerance: number;
+  /** Required taps allowed, inclusive. */
+  par?: readonly [number, number];
+  attempts: number;
+}
+
+function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
   let closest: { level: Level; miss: number } | null = null;
-  for (let attempt = 0; attempt < 400; attempt++) {
+  for (let attempt = 0; attempt < goal.attempts; attempt++) {
     const routes = growRoutes(plan, attempt);
     if (!routes) continue;
     try {
       const level = buildLevel({
-        id,
+        id: plan.id,
         name,
         blurb: "",
         theme: plan.theme,
         size: plan.size,
         unlock: plan.unlock,
-        seed: id * 13 + attempt,
+        seed: plan.id * 13 + attempt,
         routes,
         scramble: { share: plan.share },
         fixed: plan.fixed,
@@ -620,16 +534,52 @@ function generateLevel(id: number, name: string): Level {
       const routeCells = level.tiles.filter((tile) => tile.onRoute).length;
       // Keep boards busy enough to read as a step up, without filling every cell.
       if (routeCells < plan.size * plan.size * 0.45 || routeCells > plan.size * plan.size * 0.8) continue;
+      if (goal.par && (level.par < goal.par[0] || level.par > goal.par[1])) continue;
       const described = { ...level, blurb: describe(plan, tees) };
-      const miss = Math.abs(estimateSeconds(level) - target) / target;
-      if (miss <= 0.025) return described;
+      const miss = Math.abs(estimateSeconds(level) - goal.seconds) / goal.seconds;
+      if (miss <= goal.tolerance) return described;
       if (!closest || miss < closest.miss) closest = { level: described, miss };
     } catch {
       // This tree could not be filled without a stray link. Try the next seed.
     }
   }
   if (closest) return closest.level;
-  throw new Error(`Could not build level ${id}`);
+  throw new Error(`Could not build level ${plan.id}`);
+}
+
+function generateLevel(id: number, name: string): Level {
+  return generateFromPlan(planFor(id), name, {
+    seconds: targetSeconds(id),
+    tolerance: 0.025,
+    attempts: 400,
+  });
+}
+
+/**
+ * Daily matches campaign levels 15–25: a 5×5 board with five devices and no
+ * bolted tiles, held to one target time so no day is a breeze or a wall.
+ */
+export const DAILY_TARGET_SECONDS = 112;
+export const DAILY_PAR: readonly [number, number] = [23, 27];
+const DAILY_THEMES: readonly ThemeId[] = ["lights", "alarm", "fire"];
+
+/** `day` counts UTC days since 1970, so every player gets the same board. */
+export function generateDaily(day: number): Level {
+  const theme = DAILY_THEMES[((day % 3) + 3) % 3]!;
+  return generateFromPlan(
+    {
+      id: 100_000 + day,
+      theme,
+      size: 5,
+      nodes: 5,
+      reach: [2, 4],
+      wiggle: 0.5,
+      share: 1,
+      fixed: 0,
+    },
+    "Daily challenge",
+    { seconds: DAILY_TARGET_SECONDS, tolerance: 0.03, par: DAILY_PAR, attempts: 600 },
+  );
 }
 
 /**
@@ -1024,9 +974,6 @@ export const LEVELS: readonly Level[] = (() => {
     return generateLevel(id, name);
   });
 })();
-
-/** The original ten boards. Daily keeps drawing from these. */
-export const DAILY_POOL: readonly Level[] = CLASSIC_SPECS.map((spec) => buildLevel(spec));
 
 export const CHAPTERS: readonly Chapter[] = [
   { title: "House Lights", from: 1, to: 12, note: "5×5 · learn the basics" },
