@@ -1981,3 +1981,142 @@
   font-size: 0.75rem;
   color: var(--color-pc-muted);
 }
+
+/* Hints: one glowing tile with the taps it still needs. */
+.path-connect[data-style="cozy"] .pc-tile[data-hint] {
+  z-index: 2;
+  outline: 3px solid var(--color-pc-flow);
+  outline-offset: 2px;
+  animation: pc-hint-pulse 1.4s ease-in-out infinite;
+}
+
+@keyframes pc-hint-pulse {
+  50% {
+    outline-color: color-mix(in oklab, var(--color-pc-flow) 35%, transparent);
+    outline-offset: 5px;
+  }
+}
+
+.pc-hint-badge {
+  pointer-events: none;
+  position: absolute;
+  top: -8px;
+  right: -8px;
+  z-index: 4;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  border-radius: 999px;
+  background: var(--color-pc-flow);
+  padding: 2px 7px 2px 5px;
+  font-size: 0.75rem;
+  font-weight: 700;
+  line-height: 1.2;
+  color: var(--color-pc-onflow);
+  box-shadow: 0 3px 8px -3px color-mix(in oklab, var(--color-pc-shade) 70%, transparent);
+}
+
+.pc-hint-badge svg {
+  width: 12px;
+  height: 12px;
+}
+
+.path-connect[data-style="cozy"] .pc-hint-tag {
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-pc-accent) 16%, white);
+  padding: 1px 6px;
+  font-size: 0.6875rem;
+  font-weight: 700;
+  color: var(--color-pc-accent);
+}
+
+.path-connect[data-style="cozy"] .pc-bottom .pc-actions .pc-hint[data-offer="none"] {
+  color: var(--color-pc-muted);
+}
+
+.pc-ad-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 50;
+  display: grid;
+  place-items: center;
+  padding: 20px;
+  background: color-mix(in oklab, var(--color-pc-shade) 38%, transparent);
+  backdrop-filter: blur(2px);
+}
+
+.pc-ad {
+  display: grid;
+  gap: 10px;
+  width: min(100%, 340px);
+  border-radius: 22px;
+  background: color-mix(in oklab, white 70%, var(--color-pc-tile));
+  padding: 20px;
+  text-align: center;
+  color: var(--color-pc-fg);
+  box-shadow:
+    inset 0 1px 0 white,
+    0 24px 48px -24px color-mix(in oklab, var(--color-pc-shade) 80%, transparent);
+}
+
+.pc-ad-title {
+  margin: 0;
+  font-size: 1.0625rem;
+  font-weight: 700;
+}
+
+.pc-ad-body,
+.pc-ad-count {
+  margin: 0;
+  font-size: 0.875rem;
+  line-height: 1.45;
+  color: var(--color-pc-muted);
+}
+
+.pc-ad-meter {
+  height: 8px;
+  overflow: hidden;
+  border-radius: 999px;
+  background: color-mix(in oklab, var(--color-pc-shade) 18%, white);
+}
+
+.pc-ad-meter span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--color-pc-flow);
+  transition: width 200ms linear;
+}
+
+.pc-ad-actions {
+  display: flex;
+  justify-content: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+
+.pc-ad-actions button {
+  min-height: 44px;
+  border-radius: 14px;
+  padding: 0 16px;
+  font-weight: 600;
+}
+
+.pc-ad-actions .pc-ad-watch {
+  background: var(--color-pc-flow);
+  color: var(--color-pc-onflow);
+}
+
+.pc-ad-actions .pc-ad-watch:hover {
+  background: color-mix(in oklab, white 12%, var(--color-pc-flow));
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .path-connect[data-style="cozy"] .pc-tile[data-hint] {
+    animation: none;
+  }
+
+  .pc-ad-meter span {
+    transition: none;
+  }
+}

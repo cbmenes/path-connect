@@ -6,6 +6,7 @@ import {
   Lightbulb,
   Lock,
   RotateCcw,
+  RotateCw,
   Timer,
   Undo2,
   Volume2,
@@ -29,12 +30,13 @@ import { CHAPTERS, LEVELS, boardCells, type Level } from "@/lib/path-connect/lev
 import {
   DIRS,
   cellMask,
-  findMisrotatedIndex,
   openingIds,
   reachTargets,
   rowCol,
 } from "@/lib/path-connect/logic";
+import { hintOffer, pickHint, turnsToSolve, type Hint } from "@/lib/path-connect/hint";
 import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
+import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
@@ -68,7 +70,7 @@ const prefersReducedMotion = () =>
 
 /**
  * Rotate every tile, including the panel and the nodes, until each node is
- * powered. Hint and undo stay as notes: they do not change the board yet.
+ * powered. Hint lights one tile per use. Undo stays a note for now.
  */
 export function PathConnectGame() {
   const [mode, setMode] = useState<PlayMode>("levels");
@@ -101,6 +103,10 @@ export function PathConnectGame() {
   progressRef.current = progress;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nudged, setNudged] = useState<number | null>(null);
+  const [hintUses, setHintUses] = useState<Record<string, number>>({});
+  const [hint, setHint] = useState<Hint | null>(null);
+  const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
+  const adAbortRef = useRef<AbortController | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
   const boardRef = useRef<HTMLDivElement>(null);
@@ -115,6 +121,13 @@ export function PathConnectGame() {
   const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
+  const boardKey = mode === "daily" ? `daily:${todayKey}` : `level:${levelId}`;
+  const offer = hintOffer(hintUses[boardKey] ?? 0);
+  const hintTile = hint && phase === "play" ? level.tiles[hint.index] : undefined;
+  const hintLeft =
+    hint && hintTile ? turnsToSolve(hintTile.kind, spins[hint.index] ?? hintTile.initial, hintTile.solution) : 0;
+
+  useEffect(() => () => adAbortRef.current?.abort(), []);
 
   useEffect(() => {
     const saved = readStats();
@@ -228,6 +241,8 @@ export function PathConnectGame() {
     setCharge(null);
     setNote(null);
     setResult(null);
+    closeAd();
+    setHint(null);
     requestAnimationFrame(() => {
       requestAnimationFrame(() => setMotionOn(true));
     });
@@ -236,6 +251,8 @@ export function PathConnectGame() {
   function reset(nextId: number) {
     const next = LEVELS[nextId - 1];
     if (!next) return;
+    // Restart keeps the hints already used. A new level starts with its free hint.
+    if (nextId !== levelId) setHintUses((uses) => ({ ...uses, [`level:${nextId}`]: 0 }));
     loadBoard(next, nextId);
     saveProgress({ ...progressRef.current, level: nextId });
   }
@@ -292,6 +309,8 @@ export function PathConnectGame() {
     setCharge(null);
     setNote(snap.note);
     setResult(null);
+    closeAd();
+    setHint(null);
   }
 
   function onRotate(index: number) {
@@ -311,8 +330,13 @@ export function PathConnectGame() {
     setMoves(movesRef.current);
     setNote(null);
     playTurn(mutedRef.current);
+    if (hint && hint.index === index && turnsToSolve(tile.kind, nextSpins[index]!, tile.solution) === 0) {
+      setHint(null);
+      setNote("That one is set. Keep going.");
+    }
     const network = reachTargets(boardCells(level, nextSpins));
     if (!network.complete) return;
+    setHint(null);
     if (modeRef.current === "daily") {
       const seconds = Math.floor((performance.now() - startedRef.current) / 1000);
       const finish = recordFinish(readStats(), todayKey, { seconds, turns: movesRef.current });
@@ -336,15 +360,50 @@ export function PathConnectGame() {
     setPhase("flow");
   }
 
+  function giveHint() {
+    const next = pickHint(level, spinsRef.current);
+    if (!next) return;
+    setHintUses((uses) => ({ ...uses, [boardKey]: (uses[boardKey] ?? 0) + 1 }));
+    setHint(next);
+    const tile = level.tiles[next.index]!;
+    const what = (tile.role === "start" ? theme.source : tile.role === "end" ? theme.node : "pipe").toLowerCase();
+    setNote(`Hint: turn the glowing ${what} ${next.turns === 1 ? "once" : `${next.turns} times`}.`);
+  }
+
   function onHint() {
-    const index = findMisrotatedIndex(
-      level.tiles.map((tile, index) => ({
-        ...tile,
-        rotation: (((spins[index] ?? 0) % 4) + 4) % 4,
-      })),
-    );
-    console.log("Hint: will highlight one tile that is not in the correct rotation.", index);
-    setNote("Hint will highlight one tile that is not turned the right way yet.");
+    if (phaseRef.current !== "play" || adStep) return;
+    if (hint) {
+      setNote("Your hint is still glowing on the board.");
+      return;
+    }
+    if (offer === "free") giveHint();
+    else if (offer === "ad") setAdStep("offer");
+    else setNote("No hints left on this board. You've got this.");
+  }
+
+  function closeAd() {
+    adAbortRef.current?.abort();
+    adAbortRef.current = null;
+    setAdStep(null);
+  }
+
+  function declineAd() {
+    const playing = adStep === "playing";
+    closeAd();
+    setNote(playing ? "The ad closed early, so no extra hint." : "No extra hint this time. Keep going.");
+  }
+
+  async function watchAd() {
+    const controller = new AbortController();
+    adAbortRef.current = controller;
+    setAdStep("playing");
+    const outcome = await rewardedAds.show(controller.signal);
+    if (adAbortRef.current !== controller) return;
+    adAbortRef.current = null;
+    setAdStep(null);
+    if (outcome === "rewarded") giveHint();
+    else if (outcome === "unavailable") setNote("No ad is ready right now, so no extra hint.");
+    else setNote("The ad closed early, so no extra hint.");
   }
 
   function onUndo() {
@@ -525,8 +584,13 @@ export function PathConnectGame() {
                   data-live={order >= 0}
                   data-fixed={tile.fixed || undefined}
                   data-nudge={nudged === index || undefined}
+                  data-hint={(hintTile && hint?.index === index && hintLeft > 0) || undefined}
                   aria-disabled={locked}
-                  aria-label={label}
+                  aria-label={
+                    hint?.index === index && hintLeft > 0
+                      ? `${label}. Hint: ${hintLeft === 1 ? "one turn" : `${hintLeft} turns`}`
+                      : label
+                  }
                   style={{ "--delay": order >= 0 ? `${order * 180}ms` : "0ms" } as CSSProperties}
                   onClick={() => onRotate(index)}
                 >
@@ -545,6 +609,12 @@ export function PathConnectGame() {
                     </span>
                   </span>
                   {tile.fixed && <span className="pc-bolts" aria-hidden="true" />}
+                  {hintTile && hint?.index === index && hintLeft > 0 && (
+                    <span className="pc-hint-badge tabular" aria-hidden="true">
+                      <RotateCw />
+                      {hintLeft}
+                    </span>
+                  )}
                   {tile.role === "start" && (
                     <span className="pc-mark pc-source">
                       <SourceGlyph theme={theme.id} />
@@ -588,6 +658,15 @@ export function PathConnectGame() {
           </div>
         </div>
 
+        {adStep && (
+          <RewardedHint
+            step={adStep}
+            seconds={rewardedAds.placeholderSeconds}
+            placeholder={rewardedAds.placeholder}
+            onWatch={watchAd}
+            onDecline={declineAd}
+          />
+        )}
         </div>
 
         <footer className="pc-bottom">
@@ -619,9 +698,25 @@ export function PathConnectGame() {
               <RotateCcw />
               Restart
             </Button>
-            <Button type="button" variant="ghost" onClick={onHint}>
+            <Button
+              type="button"
+              variant="ghost"
+              className="pc-hint"
+              data-offer={offer}
+              aria-label={
+                offer === "free"
+                  ? "Hint, one free"
+                  : offer === "ad"
+                    ? "Hint, watch an ad for one more"
+                    : "Hint, none left"
+              }
+              disabled={phase !== "play"}
+              onClick={onHint}
+            >
               <Lightbulb />
               Hint
+              {offer === "ad" && <span className="pc-hint-tag">Ad</span>}
+              {offer === "none" && <span className="pc-hint-tag">0 left</span>}
             </Button>
             <Button type="button" variant="ghost" onClick={onUndo}>
               <Undo2 />
@@ -642,6 +737,93 @@ export function PathConnectGame() {
           </div>
         </footer>
       </main>
+    </div>
+  );
+}
+
+function RewardedHint({
+  step,
+  seconds,
+  placeholder,
+  onWatch,
+  onDecline,
+}: {
+  step: "offer" | "playing";
+  seconds: number;
+  placeholder: boolean;
+  onWatch: () => void;
+  onDecline: () => void;
+}) {
+  const [left, setLeft] = useState(seconds);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDecline();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDecline]);
+
+  useEffect(() => {
+    if (step !== "playing") return;
+    const started = performance.now();
+    setLeft(seconds);
+    const id = window.setInterval(() => {
+      setLeft(Math.max(0, Math.ceil(seconds - (performance.now() - started) / 1000)));
+    }, 200);
+    return () => window.clearInterval(id);
+  }, [step, seconds]);
+
+  return (
+    <div className="pc-ad-scrim">
+      <section
+        className="pc-ad"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pc-ad-title"
+        aria-describedby="pc-ad-body"
+      >
+        {step === "offer" ? (
+          <>
+            <h3 id="pc-ad-title" className="pc-ad-title">
+              Want one more hint?
+            </h3>
+            <p id="pc-ad-body" className="pc-ad-body">
+              Your free hint is used. Watch a short ad to light up one more tile.
+            </p>
+            <div className="pc-ad-actions">
+              <Button type="button" variant="ghost" onClick={onDecline}>
+                No thanks
+              </Button>
+              <Button autoFocus type="button" className="pc-ad-watch" onClick={onWatch}>
+                Watch ad
+              </Button>
+            </div>
+          </>
+        ) : (
+          <>
+            <h3 id="pc-ad-title" className="pc-ad-title">
+              {placeholder ? "Ad placeholder" : "Ad playing"}
+            </h3>
+            <p id="pc-ad-body" className="pc-ad-body">
+              {placeholder
+                ? "Rewarded ads are not connected yet. Your hint arrives when this finishes."
+                : "Your hint arrives when the ad finishes."}
+            </p>
+            <div className="pc-ad-meter" aria-hidden="true">
+              <span style={{ width: `${((seconds - left) / seconds) * 100}%` }} />
+            </div>
+            <p className="pc-ad-count tabular" aria-live="polite">
+              {left > 0 ? `${left} s left` : "Done"}
+            </p>
+            <div className="pc-ad-actions">
+              <Button autoFocus type="button" variant="ghost" onClick={onDecline}>
+                Close, skip hint
+              </Button>
+            </div>
+          </>
+        )}
+      </section>
     </div>
   );
 }
