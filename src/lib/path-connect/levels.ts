@@ -225,14 +225,9 @@ const CLASSIC_SPECS: readonly LevelSpec[] = [
   },
 ];
 
-function moved(classicId: number, id: number, extra: Partial<LevelSpec> = {}): LevelSpec {
-  const spec = CLASSIC_SPECS[classicId - 1]!;
-  return { ...spec, id, seed: classicId, ...extra };
-}
-
 /**
- * House Lights. Levels 1–4 stay gentle. From level 5 most of the route starts
- * turned, and the runs, tees, and lights grow toward a four-light finale.
+ * House Lights. Levels 1–4 are quick wins. From level 5 most of the route
+ * starts turned, and the runs, tees, and lights grow toward a four-light finale.
  */
 const HOUSE_SPECS: readonly LevelSpec[] = [
   CLASSIC_SPECS[0]!,
@@ -240,15 +235,16 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
   CLASSIC_SPECS[2]!,
   {
     id: 4,
+    seed: 15,
     name: "Hall bend",
     blurb: "The pipe turns two corners on the way to the light.",
     theme: "lights",
     routes: [[[1, 0], [1, 1], [1, 2], [2, 2], [3, 2], [3, 3], [3, 4]]],
-    scramble: { "1,2": 3, "2,2": 1, "3,2": 3, "3,4": 3 },
+    scramble: { share: 0.8 },
   },
   {
     id: 5,
-    seed: 2,
+    seed: 8,
     name: "Kitchen",
     blurb: "A tee near the breaker feeds two lights.",
     theme: "lights",
@@ -256,11 +252,11 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
       [[3, 0], [3, 1], [3, 2], [3, 3]],
       [[3, 0], [3, 1], [2, 1], [1, 1], [1, 2]],
     ],
-    scramble: { share: 1 },
+    scramble: { share: 0.8 },
   },
   {
     id: 6,
-    seed: 1,
+    seed: 250,
     name: "Stair light",
     blurb: "Step the pipe up the stairs, one corner at a time.",
     theme: "lights",
@@ -269,7 +265,7 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
   },
   {
     id: 7,
-    seed: 1,
+    seed: 24,
     name: "Three rooms",
     blurb: "Three lights now. Two tees share the hallway.",
     theme: "lights",
@@ -278,11 +274,11 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
       [[2, 0], [2, 1], [1, 1], [1, 2], [1, 3]],
       [[2, 0], [2, 1], [2, 2], [3, 2], [3, 3]],
     ],
-    scramble: "all",
+    scramble: { share: 0.8 },
   },
   {
     id: 8,
-    seed: 2,
+    seed: 4,
     name: "Upstairs",
     blurb: "One riser feeds three lights on the landing.",
     theme: "lights",
@@ -295,7 +291,7 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
   },
   {
     id: 9,
-    seed: 1,
+    seed: 8,
     name: "Night lights",
     blurb: "Longer runs. Trace each light back to the breaker.",
     theme: "lights",
@@ -304,11 +300,11 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
       [[0, 0], [0, 1], [1, 1], [2, 1], [2, 2], [2, 3]],
       [[0, 0], [0, 1], [1, 1], [2, 1], [3, 1], [4, 1], [4, 2]],
     ],
-    scramble: "all",
+    scramble: { share: 0.8 },
   },
   {
     id: 10,
-    seed: 4,
+    seed: 12,
     name: "Back yard",
     blurb: "Three lights at the ends of three long runs.",
     theme: "lights",
@@ -321,7 +317,7 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
   },
   {
     id: 12,
-    seed: 3,
+    seed: 30,
     name: "Whole house",
     blurb: "Four lights, one in each corner room. Light the whole house.",
     theme: "lights",
@@ -383,6 +379,8 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Atrium",
     "Control room",
     "Lobby annex",
+    "Front lobby",
+    "Security desk",
   ],
   fire: [
     "Art room",
@@ -401,6 +399,9 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Field house",
     "Band room",
     "Front office",
+    "Chemistry lab",
+    "Bus loop",
+    "Bell tower",
   ],
 };
 
@@ -428,29 +429,33 @@ function planFor(id: number): Plan {
     };
   }
   if (id <= 22) {
-    const t = (id - 15) / 7;
+    const t = (id - 13) / 9;
     return {
       id,
       theme: "alarm",
       size: 5,
-      nodes: [4, 4, 4, 4, 5, 4, 5, 5][id - 15]!,
+      nodes: [4, 4, 4, 4, 5, 4, 5, 5, 5, 5][id - 13]!,
       reach: [2, 4],
       wiggle: lerp(0.35, 0.55, t),
       share: lerp(0.8, 1, t),
       fixed: 0,
+      unlock: id === 13 ? "Building Alarm" : undefined,
+      blurb: id === 13 ? "A new system. One panel, four sensors to arm." : undefined,
     };
   }
   if (id <= 32) {
-    const t = (id - 26) / 6;
+    const t = (id - 23) / 9;
     return {
       id,
       theme: "fire",
       size: 5,
-      nodes: [4, 5, 5, 5, 5, 5, 5][id - 26]!,
+      nodes: id === 23 ? 4 : 5,
       reach: [2, 4],
       wiggle: lerp(0.45, 0.6, t),
       share: lerp(0.9, 1, t),
       fixed: 0,
+      unlock: id === 23 ? "School Fire Alarm" : undefined,
+      blurb: id === 23 ? "A new system. One fire panel, four detectors to arm." : undefined,
     };
   }
   if (id <= 36) {
@@ -593,7 +598,7 @@ function growRoutes(plan: Plan, attempt: number): Coord[][] | null {
 
 function generateLevel(id: number, name: string): Level {
   const plan = planFor(id);
-  const [low, high] = parBand(id);
+  const target = targetSeconds(id);
   let closest: { level: Level; miss: number } | null = null;
   for (let attempt = 0; attempt < 400; attempt++) {
     const routes = growRoutes(plan, attempt);
@@ -616,8 +621,8 @@ function generateLevel(id: number, name: string): Level {
       // Keep boards busy enough to read as a step up, without filling every cell.
       if (routeCells < plan.size * plan.size * 0.45 || routeCells > plan.size * plan.size * 0.8) continue;
       const described = { ...level, blurb: describe(plan, tees) };
-      const miss = level.par < low ? low - level.par : level.par > high ? level.par - high : 0;
-      if (miss === 0) return described;
+      const miss = Math.abs(estimateSeconds(level) - target) / target;
+      if (miss <= 0.025) return described;
       if (!closest || miss < closest.miss) closest = { level: described, miss };
     } catch {
       // This tree could not be filled without a stray link. Try the next seed.
@@ -627,16 +632,39 @@ function generateLevel(id: number, name: string): Level {
   throw new Error(`Could not build level ${id}`);
 }
 
-/** Fewest taps a generated level should need. The band climbs a little each level. */
-function parBand(id: number): readonly [number, number] {
-  let low: number;
-  if (id <= 12) return [18, 18];
-  else if (id <= 22) low = Math.round(lerp(18, 22, (id - 15) / 7));
-  else if (id <= 32) low = Math.round(lerp(22, 26, (id - 26) / 6));
-  else if (id <= 36) low = Math.round(lerp(25, 28, (id - 33) / 3));
-  else if (id <= 46) low = Math.round(lerp(24, 33, (id - 37) / 9));
-  else low = Math.round(lerp(32, 46, (id - 47) / 13));
-  return [low, id >= 37 ? low + 4 : low + 3];
+/**
+ * Rough solve time for a typical casual player. A board takes a few seconds
+ * to read, plus a moment per device. Each required tap then costs more time
+ * as devices, board size, and bolted tiles add decisions. This is a planning
+ * model, not measured play data.
+ */
+export function estimateSeconds(level: Level): number {
+  const nodes = level.tiles.filter((tile) => tile.role === "end").length;
+  const bolted = level.tiles.some((tile) => tile.fixed);
+  const perTap = 2.2 + 0.35 * nodes + 0.6 * (level.size - 5) + (bolted ? 0.3 : 0);
+  return Math.round(8 + 1.5 * nodes + level.par * perTap);
+}
+
+/** Levels that open a new system, board size, or bolted tiles start a little easier. */
+const BREATHERS = new Set([13, 23, 33, 37, 47]);
+
+/**
+ * Target solve time per level, tuned for retention:
+ * - 1–4 are quick wins under 45 seconds.
+ * - 5–12 rise from about 45 to 90 seconds.
+ * - 13–25 climb steadily from about 1.3 to 2 minutes.
+ * - 26–40 are clearly harder, about 2 to 3 minutes.
+ * - 41–60 build from 3 to 5 minutes on the largest boards.
+ * Neighboring levels differ by a small step, so there is no wall mid-game.
+ */
+export function targetSeconds(id: number): number {
+  let seconds: number;
+  if (id <= 4) seconds = [17, 28, 31, 40][id - 1]!;
+  else if (id <= 12) seconds = lerp(46, 90, (id - 5) / 7);
+  else if (id <= 25) seconds = lerp(84, 125, (id - 13) / 12);
+  else if (id <= 40) seconds = lerp(130, 175, (id - 26) / 14);
+  else seconds = lerp(180, 300, (id - 41) / 19);
+  return Math.round(BREATHERS.has(id) ? seconds * 0.95 : seconds);
 }
 
 interface Shape {
@@ -963,17 +991,6 @@ function buildLevel(spec: LevelSpec): Level {
   };
 }
 
-const ALARM_OPENERS: readonly LevelSpec[] = [
-  moved(5, 13, { unlock: "Building Alarm", scramble: { share: 1 }, seed: 1 }),
-  moved(6, 14, { scramble: { share: 1 }, seed: 1 }),
-];
-
-const FIRE_OPENERS: readonly LevelSpec[] = [
-  moved(7, 23, { unlock: "School Fire Alarm", scramble: { share: 1 }, seed: 4 }),
-  moved(8, 24, { scramble: { share: 1 }, seed: 1 }),
-  moved(10, 25, { scramble: { share: 1 }, seed: 7 }),
-];
-
 export const LEVEL_COUNT = 60;
 
 /**
@@ -990,10 +1007,7 @@ export const LEVELS: readonly Level[] = (() => {
   for (let id = 33; id <= LEVEL_COUNT; id++) lateTotal[planFor(id).theme]++;
   return Array.from({ length: LEVEL_COUNT }, (_, index) => {
     const id = index + 1;
-    const spec =
-      HOUSE_SPECS.find((item) => item.id === id) ??
-      ALARM_OPENERS.find((item) => item.id === id) ??
-      FIRE_OPENERS.find((item) => item.id === id);
+    const spec = HOUSE_SPECS.find((item) => item.id === id);
     if (spec) return buildLevel(spec);
     const theme = planFor(id).theme;
     const names = NAMES[theme];

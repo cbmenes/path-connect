@@ -1,6 +1,15 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { CHAPTERS, DAILY_POOL, LEVELS, boardCells, tapsToSolve, type Level } from "./levels.ts";
+import {
+  CHAPTERS,
+  DAILY_POOL,
+  LEVELS,
+  boardCells,
+  estimateSeconds,
+  tapsToSolve,
+  targetSeconds,
+  type Level,
+} from "./levels.ts";
 import {
   E,
   N,
@@ -177,28 +186,10 @@ describe("levels", () => {
       );
       assert.ok(scrambled.length <= 4, `${level.name} has ${scrambled.length} turned tiles`);
     }
-    for (const level of LEVELS.slice(0, 4)) {
-      assert.ok(level.par <= 7, `${level.name} needs ${level.par} taps`);
-      assert.ok(nodes(level) <= 2, `${level.name} has ${nodes(level)} lights`);
-    }
-    for (const level of LEVELS.slice(4, 12)) {
-      assert.ok(level.par >= 12 && level.par <= 20, `${level.name} needs ${level.par} taps`);
-      assert.ok(nodes(level) <= 4, `${level.name} has ${nodes(level)} lights`);
-    }
     assert.deepEqual(
       LEVELS.slice(0, 12).map(nodes),
       [1, 2, 2, 1, 2, 1, 3, 3, 3, 3, 4, 4],
     );
-    assert.ok(LEVELS[9]!.par >= 16, "level 10 should match the old level 15");
-    for (const level of LEVELS.slice(12, 32)) {
-      const floor = level.unlock ? 16 : level.id <= 14 ? 17 : 19;
-      assert.ok(level.par >= floor, `${level.id} ${level.name} needs ${level.par} taps`);
-    }
-    const reference = LEVELS[38]!;
-    assert.equal(reference.name, "Attic");
-    assert.equal(reference.par, 26);
-    assert.equal(nodes(reference), 4);
-
     const stretches = [
       [1, 12],
       [13, 22],
@@ -218,6 +209,35 @@ describe("levels", () => {
     }
     assert.ok(pars[4]! > pars[0]! * 2.5);
     assert.ok(Math.max(...LEVELS.slice(46).map(nodes)) >= 7);
+  });
+
+  it("follows the retention curve without walls", () => {
+    const seconds = LEVELS.map(estimateSeconds);
+    const within = (from: number, to: number, low: number, high: number) => {
+      for (let id = from; id <= to; id++) {
+        const value = seconds[id - 1]!;
+        assert.ok(value >= low && value <= high, `level ${id} takes about ${value}s`);
+      }
+    };
+    within(1, 4, 0, 45);
+    within(5, 12, 45, 90);
+    within(13, 25, 60, 180);
+    within(26, 40, 120, 300);
+    within(41, 60, 170, 320);
+
+    for (let id = 6; id <= LEVELS.length; id++) {
+      const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
+      assert.ok(step <= 15, `level ${id} jumps ${step}%`);
+      const floor = LEVELS[id - 1]!.unlock ? -10 : -3;
+      assert.ok(step >= floor, `level ${id} drops ${step}%`);
+    }
+    for (const level of LEVELS.slice(12)) {
+      const target = targetSeconds(level.id);
+      assert.ok(
+        Math.abs(estimateSeconds(level) - target) / target <= 0.05,
+        `level ${level.id} misses its ${target}s target`,
+      );
+    }
   });
 
   it("gives every level its own name", () => {
