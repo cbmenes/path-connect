@@ -34,7 +34,16 @@ import {
   reachTargets,
   rowCol,
 } from "@/lib/path-connect/logic";
-import { hintOffer, pickHint, turnsToSolve, type Hint } from "@/lib/path-connect/hint";
+import {
+  hintOffer,
+  keepUses,
+  pickHint,
+  readHintUses,
+  turnsToSolve,
+  writeHintUses,
+  type Hint,
+  type HintUses,
+} from "@/lib/path-connect/hint";
 import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
@@ -103,7 +112,8 @@ export function PathConnectGame() {
   progressRef.current = progress;
   const [pickerOpen, setPickerOpen] = useState(false);
   const [nudged, setNudged] = useState<number | null>(null);
-  const [hintUses, setHintUses] = useState<Record<string, number>>({});
+  const [hintUses, setHintUses] = useState<HintUses>({});
+  const hintUsesRef = useRef(hintUses);
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
   const adAbortRef = useRef<AbortController | null>(null);
@@ -138,7 +148,9 @@ export function PathConnectGame() {
     const saved = readProgress(LEVELS.length);
     progressRef.current = saved;
     setProgress(saved);
-    if (saved.level !== 1) reset(saved.level);
+    hintUsesRef.current = readHintUses();
+    setHintUses(hintUsesRef.current);
+    if (saved.level !== 1) reset(saved.level, { keepHints: true });
     // Read once after mount, so the server render and the first client render match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -248,11 +260,20 @@ export function PathConnectGame() {
     });
   }
 
-  function reset(nextId: number) {
+  function saveHintUses(next: HintUses, campaignId: number) {
+    const kept = keepUses(next, [`level:${campaignId}`, `daily:${todayKey}`]);
+    hintUsesRef.current = kept;
+    setHintUses(kept);
+    writeHintUses(kept);
+  }
+
+  function reset(nextId: number, { keepHints = false } = {}) {
     const next = LEVELS[nextId - 1];
     if (!next) return;
     // Restart keeps the hints already used. A new level starts with its free hint.
-    if (nextId !== levelId) setHintUses((uses) => ({ ...uses, [`level:${nextId}`]: 0 }));
+    if (nextId !== levelId && !keepHints) {
+      saveHintUses({ ...hintUsesRef.current, [`level:${nextId}`]: 0 }, nextId);
+    }
     loadBoard(next, nextId);
     saveProgress({ ...progressRef.current, level: nextId });
   }
@@ -363,7 +384,8 @@ export function PathConnectGame() {
   function giveHint() {
     const next = pickHint(level, spinsRef.current);
     if (!next) return;
-    setHintUses((uses) => ({ ...uses, [boardKey]: (uses[boardKey] ?? 0) + 1 }));
+    const uses = hintUsesRef.current;
+    saveHintUses({ ...uses, [boardKey]: (uses[boardKey] ?? 0) + 1 }, levelId);
     setHint(next);
     const tile = level.tiles[next.index]!;
     const what = (tile.role === "start" ? theme.source : tile.role === "end" ? theme.node : "pipe").toLowerCase();

@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { dailyLevel } from "./daily.ts";
-import { hintOffer, pickHint } from "./hint.ts";
+import { hintOffer, keepUses, pickHint } from "./hint.ts";
 import { LEVELS, boardCells } from "./levels.ts";
 import { reachTargets, sameOpenings } from "./logic.ts";
 import { placeholderAds } from "./rewarded-ad.ts";
@@ -51,6 +51,14 @@ describe("hints", () => {
       }
       assert.equal(reachTargets(boardCells(level, spins)).complete, false, `level ${level.id}`);
     }
+  });
+
+  it("stores hints only for the boards still in play", () => {
+    const uses = { "level:4": 2, "level:5": 1, "daily:2026-11-06": 1, "daily:2026-11-07": 9, "level:6": 0 };
+    assert.deepEqual(keepUses(uses, ["level:5", "daily:2026-11-07", "level:6"]), {
+      "level:5": 1,
+      "daily:2026-11-07": 2,
+    });
   });
 
   it("has nothing to say about a solved board", () => {
