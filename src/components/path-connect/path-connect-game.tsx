@@ -1295,14 +1295,14 @@ function LevelPicker({
 function ThemeMark({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <FaucetMark />;
   if (theme === "alarm") return <BuildingArt small />;
-  if (theme === "fire") return <SchoolArt small />;
+  if (theme === "fire") return <FireMark />;
   return <HouseArt small />;
 }
 
 function SourceGlyph({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <MainSource />;
   if (theme === "alarm") return <PanelSource />;
-  if (theme === "fire") return <SchoolSource />;
+  if (theme === "fire") return <FirePanelSource />;
   return <HouseSource />;
 }
 
@@ -1347,27 +1347,7 @@ function PanelSource() {
   );
 }
 
-function SchoolSource() {
-  return (
-    <svg viewBox="0 0 64 60" className="pc-source-icon">
-      <path d="M10 30.5 32 15l22 15.5v17a7 7 0 0 1-7 7H17a7 7 0 0 1-7-7v-17z" fill="#fbece6" />
-      <path d="M12.5 32 32 18.5" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
-      <path d="M11 48.5a6.5 6.5 0 0 0 6 5h30a6.5 6.5 0 0 0 6.2-6V31" fill="none" stroke="#c98d80" strokeWidth="2.4" strokeLinecap="round" opacity="0.35" />
-      <path d="M6.5 34 32 16.5 57.5 34" fill="none" stroke="#8c241e" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.26" />
-      <path d="M6 31.5 32 13l26 18.5" fill="none" stroke="#d9503f" strokeWidth="8.4" strokeLinecap="round" strokeLinejoin="round" />
-      <path d="M6.6 29.6 32 11.6" fill="none" stroke="#f08a78" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
-      <circle cx="32" cy="27" r="4.6" fill="#f7dcd4" stroke="#d9503f" strokeWidth="1.6" />
-      <path d="M32 24.6V27l1.6 1.2" fill="none" stroke="#b33a2e" strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M26.5 54.5V45a5.5 5.5 0 0 1 11 0v9.5z" fill="#c4544c" />
-      <path d="M32 40v14.5" stroke="#a8403a" strokeWidth="1" />
-      {[16.5, 47.5].map((x) => (
-        <rect key={x} x={x - 3.5} y="38" width="7" height="7" rx="1.8" fill="#f3d4cb" stroke="#d99a8c" strokeWidth="1.1" />
-      ))}
-    </svg>
-  );
-}
-
-/** `fixture` picks the plumbing fixture for a node: tub, toilet, then sink, in board order. */
+/** `fixture` is the node's place in board order: plumbing cycles tub, toilet, sink; fire alternates detector and bell. */
 function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
@@ -1376,7 +1356,7 @@ function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fi
     return <Sink on={on} />;
   }
   if (theme === "alarm") return <Sensor on={on} />;
-  if (theme === "fire") return <Strobe on={on} />;
+  if (theme === "fire") return fixture % 2 === 0 ? <FireDetector on={on} /> : <FireBell on={on} />;
   return <Bulb on={on} />;
 }
 
@@ -1443,48 +1423,96 @@ function Sensor({ on }: { on: boolean }) {
   );
 }
 
-const RIDGES = Array.from({ length: 40 }, (_, index) => {
-  const angle = (index / 40) * Math.PI * 2;
-  const at = (radius: number) =>
-    `${(28 + Math.cos(angle) * radius).toFixed(2)} ${(28 + Math.sin(angle) * radius).toFixed(2)}`;
-  return `M${at(10.6)}L${at(15.4)}`;
-});
+const FIRE_RED = "#c94a3c";
+const FIRE_RED_DARK = "#9e3328";
+const FIRE_RED_LIGHT = "#ef8f7f";
+const FIRE_IVORY = "#fbf4e6";
+const FIRE_IVORY_SHADE = "#e6d8bf";
+const FIRE_IVORY_EDGE = "#c9b99e";
+const FIRE_GLOW = "#ffe2ad";
 
-function Strobe({ on }: { on: boolean }) {
+/** Cream 1950s alarm panel with a red header, an amber lamp, and a red pull handle. */
+function FirePanelSource() {
   return (
-    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
-      {[
-        [28, 4.4],
-        [28, 51.6],
-        [4.4, 28],
-        [51.6, 28],
-      ].map(([cx, cy]) => (
-        <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r="3.4" fill="#d4473a" />
-      ))}
-      <circle cx="28" cy="28" r="22.6" fill="#e4523f" />
-      <path d="M9.6 20A20 20 0 0 1 34 8.8" fill="none" stroke="#f38b78" strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M46.4 36A20 20 0 0 1 22 47.2" fill="none" stroke="#b5352a" strokeWidth="2.4" strokeLinecap="round" />
-      <circle cx="28" cy="28" r="17.8" fill="#c23e30" />
-      <circle cx="28" cy="28" r="16.6" fill={on ? "#ffe2ad" : "#f8f4f0"} />
-      {RIDGES.map((ridge) => (
-        <path
-          key={ridge}
-          d={ridge}
-          stroke={on ? "#ffb35a" : "#d9d0c7"}
-          strokeWidth="0.8"
-          strokeLinecap="round"
-        />
-      ))}
-      <circle cx="28" cy="28" r="9.4" fill={on ? "#fff7e6" : "white"} stroke={on ? "#ffc070" : "#e2d9d0"} strokeWidth="1" />
-      {on && <circle cx="28" cy="28" r="5.6" fill="white" />}
-      <path d="M17.4 21.5A12.2 12.2 0 0 1 27 14.2" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+    <svg viewBox="0 0 64 60" className="pc-source-icon">
+      <rect x="12" y="8" width="40" height="46" rx="7" fill={FIRE_IVORY} stroke={FIRE_IVORY_EDGE} strokeWidth="1.2" />
+      <path d="M52 15v32a7 7 0 0 1-7 7H19a7 7 0 0 0 5-3h21a4 4 0 0 0 4-4V9a7 7 0 0 1 3 6z" fill={FIRE_IVORY_SHADE} />
+      <path d="M12 15a7 7 0 0 1 7-7h26a7 7 0 0 1 7 7v4H12z" fill={FIRE_RED} />
+      <path d="M17 11h28" stroke={FIRE_RED_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+      <circle cx="32" cy="31" r="6.4" fill={FIRE_RED_DARK} />
+      <circle cx="32" cy="31" r="5" fill="#ffb020" />
+      <circle cx="30.4" cy="29.4" r="1.6" fill="#fff1c9" />
+      <rect x="25" y="42" width="14" height="6" rx="2" fill={FIRE_RED} />
+      <path d="M28 44h8" stroke={FIRE_RED_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M15.5 22v26" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.7" />
     </svg>
   );
 }
 
-/** House lights and plumbing run the same slim copper; the alarm rooms keep their heavier conduit. */
+/** Ivory ceiling detector with a red accent ring and a vented dome. */
+function FireDetector({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
+      <circle cx="28" cy="28" r="23" fill={FIRE_IVORY} stroke={FIRE_IVORY_EDGE} strokeWidth="1.1" />
+      <path d="M48 36A21.6 21.6 0 0 1 14 46.4 23 23 0 0 0 48.6 24c.6 4 .4 8-.6 12z" fill={FIRE_IVORY_SHADE} />
+      <circle cx="28" cy="28" r="17" fill="none" stroke={FIRE_RED} strokeWidth="3" />
+      <circle cx="28" cy="28" r="13" fill={on ? FIRE_GLOW : "#f6ecdb"} />
+      {Array.from({ length: 12 }, (_, i) => (
+        <path
+          key={i}
+          d="M28 16.6v3.6"
+          stroke={on ? "#f3b866" : FIRE_IVORY_EDGE}
+          strokeWidth="1.4"
+          strokeLinecap="round"
+          transform={`rotate(${i * 30} 28 28)`}
+        />
+      ))}
+      <circle cx="28" cy="28" r="6.4" fill={on ? "#fff7e6" : "white"} stroke={on ? "#ffc070" : FIRE_IVORY_EDGE} strokeWidth="1" />
+      <circle cx="36.5" cy="36.5" r="1.9" fill={on ? "#ff7a5a" : FIRE_RED_DARK} />
+      <path d="M11.6 21A17.6 17.6 0 0 1 23 10.8" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.9" />
+    </svg>
+  );
+}
+
+/** Red alarm bell on an ivory wall plate with a brass striker. */
+function FireBell({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
+      <circle cx="28" cy="28" r="23" fill={FIRE_IVORY} stroke={FIRE_IVORY_EDGE} strokeWidth="1.1" />
+      <path d="M48 36A21.6 21.6 0 0 1 14 46.4 23 23 0 0 0 48.6 24c.6 4 .4 8-.6 12z" fill={FIRE_IVORY_SHADE} />
+      {[
+        [28, 8.6],
+        [28, 47.4],
+      ].map(([cx, cy]) => (
+        <circle key={cy} cx={cx} cy={cy} r="1.7" fill={FIRE_IVORY_EDGE} />
+      ))}
+      <circle cx="28" cy="27" r="15.6" fill={FIRE_RED_DARK} />
+      <circle cx="27.4" cy="26.2" r="14.4" fill={FIRE_RED} />
+      <path d="M16.4 22.4A12 12 0 0 1 26 13.4" fill="none" stroke={on ? FIRE_GLOW : FIRE_RED_LIGHT} strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="27.4" cy="26.2" r="3.4" fill="#c9953f" />
+      <circle cx="26.6" cy="25.4" r="1.2" fill="#f0cf86" />
+      <path d="M28 42.6v4" stroke="#9a6c28" strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="28" cy="42.4" r="2.6" fill="#c9953f" />
+      {on && <circle cx="27.4" cy="26.2" r="9" fill="none" stroke={FIRE_GLOW} strokeWidth="1.2" opacity="0.7" />}
+    </svg>
+  );
+}
+
+function FireMark() {
+  return (
+    <svg viewBox="0 0 80 72" className="pc-mark-icon">
+      <circle cx="40" cy="36" r="30" fill={FIRE_IVORY} stroke={FIRE_IVORY_EDGE} strokeWidth="1.6" />
+      <circle cx="40" cy="35" r="20" fill={FIRE_RED_DARK} />
+      <circle cx="39" cy="34" r="18.6" fill={FIRE_RED} />
+      <path d="M25 29a16 16 0 0 1 12-11" fill="none" stroke={FIRE_RED_LIGHT} strokeWidth="3" strokeLinecap="round" />
+      <circle cx="39" cy="34" r="4.4" fill="#c9953f" />
+    </svg>
+  );
+}
+
+/** House lights, plumbing, and the fire alarm run slim conduit; Building Alarm keeps its heavier pipe. */
 function pipeGauge(theme: ThemeId): number {
-  return theme === "lights" || theme === "plumbing" ? 0.7 : 1;
+  return theme === "alarm" ? 1 : 0.7;
 }
 const IVORY = "#fbf6ec";
 const IVORY_SHADE = "#e6dac6";
@@ -1629,17 +1657,6 @@ function BuildingArt({ small = false }: { small?: boolean }) {
       <rect x="36" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
       <rect x="48" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
       <rect x="34" y="50" width="12" height="16" rx="1" fill="#4f86b0" />
-    </svg>
-  );
-}
-
-function SchoolArt({ small = false }: { small?: boolean }) {
-  return (
-    <svg viewBox="0 0 80 72" className={small ? "pc-mark-icon" : "pc-corner-art"}>
-      <path d="M8 36 40 14l32 22v28H8V36z" fill="#f6d2c8" />
-      <path d="M6 38 40 12l34 26" fill="none" stroke="#d4655a" strokeWidth="6" strokeLinejoin="round" />
-      <rect x="34" y="40" width="12" height="20" rx="1" fill="#c4544c" />
-      <circle cx="40" cy="22" r="4" fill="#ffd56a" />
     </svg>
   );
 }

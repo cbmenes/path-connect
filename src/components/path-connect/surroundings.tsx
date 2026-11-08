@@ -351,173 +351,199 @@ const OFFICE: Piece[] = [
   },
 ];
 
-function Block({ x, letter, ink }: { x: number; letter: string; ink: string }) {
-  return (
-    <g transform={`translate(${x} 0)`}>
-      <rect x="0" y="14" width="56" height="56" rx="10" fill="#d9ad7c" />
-      <rect x="0" y="10" width="56" height="54" rx="10" fill="#ecc797" />
-      <path d="M8 13h40" stroke="#f8e2c2" strokeWidth="2.4" strokeLinecap="round" />
-      <rect x="9" y="18" width="38" height="38" rx="7" fill="#f6e3c8" />
-      <text x="28" y="48" textAnchor="middle" fontSize="30" fontWeight="800" fill={ink} fontFamily="inherit">
-        {letter}
-      </text>
-    </g>
-  );
-}
+const RED = "#c94a3c";
+const RED_DARK = "#9e3328";
+const RED_LIGHT = "#ef8f7f";
+const CREAM = "#f6eddc";
+const CREAM_SHADE = "#e2d4bb";
+const CREAM_EDGE = "#c9b99e";
+const FIRE_BRASS = "#c9953f";
+const FIRE_BRASS_LIGHT = "#f0cf86";
+const FIRE_SHADOW = "rgb(84 58 40 / 0.16)";
 
-const SCHOOL: Piece[] = [
+/** A 1950s fire-safety corridor: extinguisher, lantern, alarm panel, sand bucket, hose reel, and a plant. */
+const FIRE: Piece[] = [
   {
-    id: "blocks",
-    width: 130,
-    height: 80,
-    fits: ["B", "B2", "RB"],
-    noFlip: true,
-    art: (
-      <svg viewBox="0 0 130 80">
-        <ellipse cx="65" cy="76" rx="60" ry="4" fill="rgb(163 45 40 / 0.14)" />
-        <Block x={4} letter="A" ink="#d9503f" />
-        <Block x={68} letter="B" ink="#4a86c4" />
-      </svg>
-    ),
-  },
-  {
-    id: "number",
-    width: 80,
-    height: 90,
-    fits: ["B", "B2", "RB"],
-    noFlip: true,
-    art: (
-      <svg viewBox="0 0 80 90">
-        <ellipse cx="40" cy="86" rx="28" ry="4" fill="rgb(163 45 40 / 0.14)" />
-        <text x="42" y="82" textAnchor="middle" fontSize="88" fontWeight="800" fill="#c98f58" fontFamily="inherit">
-          3
-        </text>
-        <text x="40" y="78" textAnchor="middle" fontSize="88" fontWeight="800" fill="#e8bd86" fontFamily="inherit">
-          3
-        </text>
-      </svg>
-    ),
-  },
-  {
-    id: "poster",
-    width: 110,
-    height: 110,
-    fits: ["T", "T2", "RT"],
-    noFlip: true,
-    art: (
-      <svg viewBox="0 0 110 110">
-        <rect x="8" y="10" width="96" height="96" rx="10" fill="rgb(163 45 40 / 0.12)" />
-        <rect x="4" y="4" width="96" height="96" rx="10" fill="#d9a66b" />
-        <path d="M12 7h80" stroke="#efc996" strokeWidth="2.4" strokeLinecap="round" />
-        <rect x="13" y="13" width="78" height="78" rx="5" fill="#fff4e6" />
-        <circle cx="52" cy="52" r="15" fill="#f29a48" />
-        {[0, 45, 90, 135, 180, 225, 270, 315].map((angle) => (
-          <rect key={angle} x="50" y="24" width="4" height="9" rx="2" fill="#f29a48" transform={`rotate(${angle} 52 52)`} />
-        ))}
-        <circle cx="47" cy="47" r="4" fill="#f8bd7c" />
-      </svg>
-    ),
-  },
-  {
-    id: "locker",
-    width: 80,
-    height: 220,
+    id: "extinguisher",
+    width: 64,
+    height: 140,
     fits: ["RB", "LB"],
     art: (
-      <svg viewBox="0 0 80 220">
-        <ellipse cx="40" cy="216" rx="36" ry="4" fill="rgb(163 45 40 / 0.14)" />
-        <rect x="4" y="4" width="72" height="210" rx="8" fill="#e9b4a6" />
-        <path d="M10 7h60" stroke="#f6d4ca" strokeWidth="2.6" strokeLinecap="round" />
-        <rect x="11" y="12" width="58" height="194" rx="5" fill="#efc2b5" />
-        {[24, 32, 40, 48].map((y) => (
-          <rect key={y} x="22" y={y} width="36" height="3.4" rx="1.7" fill="#d79a8b" />
-        ))}
-        <rect x="56" y="98" width="6" height="26" rx="3" fill="#c9877a" />
-        <path d="M14 16v184" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+      <svg viewBox="0 0 64 140">
+        <ellipse cx="32" cy="136" rx="24" ry="4" fill={FIRE_SHADOW} />
+        <path d="M16 40a16 12 0 0 1 32 0v88a6 6 0 0 1-6 6H22a6 6 0 0 1-6-6z" fill={RED} />
+        <path d="M48 40v88a6 6 0 0 1-6 6h-6a6 6 0 0 0 6-6V40c0-6-4-10-9-11.6C42 29 48 33 48 40z" fill={RED_DARK} opacity="0.7" />
+        <path d="M21 42v82" stroke={RED_LIGHT} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+        <rect x="16" y="66" width="32" height="26" rx="2" fill={CREAM} />
+        <path d="M22 74h20M22 80h14M22 86h17" stroke={CREAM_EDGE} strokeWidth="2" strokeLinecap="round" />
+        <rect x="26" y="20" width="12" height="10" rx="2" fill={FIRE_BRASS} />
+        <path d="M28 22h8" stroke={FIRE_BRASS_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M24 16h22l4 3" fill="none" stroke="#5b4a3c" strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M38 24c10 0 14 10 14 24v40" fill="none" stroke="#4a3b30" strokeWidth="4" strokeLinecap="round" />
+        <rect x="48" y="86" width="8" height="12" rx="2" fill="#4a3b30" />
       </svg>
     ),
   },
   {
-    id: "pencils",
-    width: 70,
-    height: 100,
+    id: "lantern",
+    width: 74,
+    height: 120,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 74 120" overflow="visible">
+        <defs>
+          <radialGradient id="pc-sur-fire-lantern">
+            <stop offset="0" stopColor="#ffe2a6" stopOpacity="0.8" />
+            <stop offset="1" stopColor="#ffe2a6" stopOpacity="0" />
+          </radialGradient>
+        </defs>
+        <circle cx="40" cy="66" r="40" fill="url(#pc-sur-fire-lantern)" />
+        <rect x="4" y="22" width="8" height="40" rx="3" fill={FIRE_BRASS} />
+        <path d="M8 34h22c6 0 10 4 10 10" fill="none" stroke={FIRE_BRASS} strokeWidth="4" strokeLinecap="round" />
+        <path d="M26 50h28l-4-8H30z" fill={RED} />
+        <path d="M30 42h20" stroke={RED_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M28 50h24v38a4 4 0 0 1-4 4H32a4 4 0 0 1-4-4z" fill="#fff4d8" stroke={CREAM_EDGE} strokeWidth="1.4" />
+        <path d="M40 50v42M28 70h24" stroke={CREAM_EDGE} strokeWidth="1.2" opacity="0.8" />
+        <ellipse cx="40" cy="72" rx="5" ry="8" fill="#ffd27a" />
+        <path d="M32 54v32" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+        <rect x="26" y="92" width="28" height="6" rx="3" fill={RED} />
+        <path d="M36 98h8l-4 6z" fill={RED_DARK} />
+      </svg>
+    ),
+  },
+  {
+    id: "alarm-panel",
+    width: 96,
+    height: 112,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 96 112">
+        <rect x="10" y="10" width="80" height="98" rx="10" fill={FIRE_SHADOW} />
+        <rect x="6" y="4" width="80" height="98" rx="10" fill={CREAM} />
+        <path d="M86 14v78a10 10 0 0 1-10 10H16a10 10 0 0 0 8-6h52a4 4 0 0 0 4-4V8a10 10 0 0 1 6 6z" fill={CREAM_SHADE} />
+        <path d="M6 14a10 10 0 0 1 10-10h60a10 10 0 0 1 10 10v10H6z" fill={RED} />
+        <path d="M14 8h58" stroke={RED_LIGHT} strokeWidth="2" strokeLinecap="round" />
+        <circle cx="46" cy="46" r="13" fill={RED_DARK} />
+        <circle cx="46" cy="46" r="10.6" fill={RED} />
+        <circle cx="42.5" cy="42.5" r="3.6" fill={RED_LIGHT} />
+        {[22, 38, 54, 70].map((x) => (
+          <circle key={x} cx={x} cy="72" r="3.4" fill={x === 22 ? "#9fb08a" : "#e8dcc6"} stroke={CREAM_EDGE} strokeWidth="1" />
+        ))}
+        <rect x="36" y="82" width="20" height="10" rx="3" fill={RED} />
+        <path d="M40 85h12" stroke={RED_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+        <path d="M12 30v62" stroke="white" strokeWidth="2.4" strokeLinecap="round" opacity="0.6" />
+      </svg>
+    ),
+  },
+  {
+    id: "sand-bucket",
+    width: 74,
+    height: 86,
     fits: ["B", "B2", "RB", "LB"],
     art: (
-      <svg viewBox="0 0 70 100">
-        <ellipse cx="35" cy="96" rx="24" ry="4" fill="rgb(163 45 40 / 0.14)" />
-        {[
-          [18, -10, "#4a86c4"],
-          [30, -3, "#f0b429"],
-          [42, 6, "#d9503f"],
-          [52, 14, "#7fae6a"],
-        ].map(([x, angle, color]) => (
-          <g key={String(color)} transform={`rotate(${angle} ${x} 56)`}>
-            <rect x={Number(x) - 3.5} y="8" width="7" height="50" rx="2" fill={String(color)} />
-            <path d={`M${Number(x) - 3.5} 8l3.5-7 3.5 7z`} fill="#f3d9b5" />
-          </g>
-        ))}
-        <path d="M14 44h42l-4 46a6 6 0 0 1-6 5H24a6 6 0 0 1-6-5z" fill="#f3c9bd" />
-        <rect x="11" y="40" width="48" height="9" rx="4.5" fill="#e9b4a6" />
-        <path d="M14 42.5h40" stroke="#fbe2da" strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M22 54l3 34" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+      <svg viewBox="0 0 74 86">
+        <ellipse cx="37" cy="82" rx="28" ry="4" fill={FIRE_SHADOW} />
+        <path d="M10 26h54l-8 50a6 6 0 0 1-6 5H24a6 6 0 0 1-6-5z" fill={RED} />
+        <path d="M64 26l-8 50a6 6 0 0 1-6 5h-6a6 6 0 0 0 6-5l8-50z" fill={RED_DARK} opacity="0.6" />
+        <path d="M14 46h46l-1.6 12H15.6z" fill={CREAM} />
+        <path d="M19 32l5 40" stroke={RED_LIGHT} strokeWidth="2.4" strokeLinecap="round" opacity="0.7" />
+        <ellipse cx="37" cy="26" rx="27" ry="6" fill="#e9d3a6" />
+        <ellipse cx="37" cy="25" rx="23" ry="4" fill="#f2e1bd" />
+        <path d="M10 26C10 6 64 6 64 26" fill="none" stroke="#7d6a58" strokeWidth="2.4" />
       </svg>
     ),
   },
   {
-    id: "letter-c",
-    width: 66,
-    height: 76,
-    fits: ["B", "B2", "RB", "LB"],
-    noFlip: true,
+    id: "hose-reel",
+    width: 116,
+    height: 116,
+    fits: ["T", "T2", "RT", "LT"],
     art: (
-      <svg viewBox="0 0 66 76">
-        <ellipse cx="33" cy="73" rx="28" ry="3" fill="rgb(163 45 40 / 0.14)" />
-        <Block x={5} letter="C" ink="#7fae6a" />
+      <svg viewBox="0 0 116 116">
+        <circle cx="60" cy="60" r="50" fill={FIRE_SHADOW} />
+        <circle cx="56" cy="56" r="50" fill={RED} />
+        <circle cx="56" cy="56" r="44" fill={RED_DARK} opacity="0.35" />
+        {[40, 33, 26].map((r) => (
+          <circle key={r} cx="56" cy="56" r={r} fill="none" stroke={CREAM} strokeWidth="6" />
+        ))}
+        {[40, 33, 26].map((r) => (
+          <circle key={`s${r}`} cx="56" cy="56" r={r} fill="none" stroke={CREAM_SHADE} strokeWidth="1.4" strokeDasharray="3 5" />
+        ))}
+        <circle cx="56" cy="56" r="14" fill={RED} />
+        <circle cx="56" cy="56" r="5" fill={FIRE_BRASS} />
+        <path d="M20 26A48 48 0 0 1 60 8" fill="none" stroke={RED_LIGHT} strokeWidth="3" strokeLinecap="round" opacity="0.85" />
+        <path d="M94 70l12 6" stroke={FIRE_BRASS} strokeWidth="6" strokeLinecap="round" />
+        <path d="M95 68.5l9 4.5" stroke={FIRE_BRASS_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
       </svg>
     ),
   },
   {
-    id: "abc-poster",
-    width: 130,
-    height: 88,
+    id: "exit-sign",
+    width: 120,
+    height: 60,
     fits: ["T", "T2", "RT", "LT"],
     noFlip: true,
     art: (
-      <svg viewBox="0 0 130 88">
-        <rect x="7" y="8" width="118" height="76" rx="8" fill="rgb(163 45 40 / 0.12)" />
-        <rect x="3" y="3" width="118" height="76" rx="8" fill="#f3c9bd" />
-        <path d="M10 6h104" stroke="#fbe2da" strokeWidth="2.4" strokeLinecap="round" />
-        <rect x="10" y="10" width="104" height="62" rx="4" fill="#fff7f0" />
-        {[
-          ["A", 30, "#d9503f"],
-          ["B", 62, "#4a86c4"],
-          ["C", 94, "#7fae6a"],
-        ].map(([letter, x, ink]) => (
-          <text key={String(letter)} x={Number(x)} y="54" textAnchor="middle" fontSize="34" fontWeight="800" fill={String(ink)} fontFamily="inherit">
-            {letter}
-          </text>
-        ))}
-        <path d="M20 62h84" stroke="#f0d4cb" strokeWidth="2" strokeLinecap="round" />
+      <svg viewBox="0 0 120 60">
+        <rect x="8" y="10" width="108" height="46" rx="8" fill={FIRE_SHADOW} />
+        <rect x="4" y="6" width="108" height="46" rx="8" fill={CREAM} stroke={CREAM_EDGE} strokeWidth="1.4" />
+        <path d="M12 10h92" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+        <text x="50" y="40" textAnchor="middle" fontSize="24" fontWeight="800" letterSpacing="2" fill={RED} fontFamily="inherit">
+          EXIT
+        </text>
+        <path d="M86 29h14m-5-6 6 6-6 6" fill="none" stroke={RED} strokeWidth="3.4" strokeLinecap="round" strokeLinejoin="round" />
       </svg>
     ),
   },
   {
-    id: "number-7",
+    id: "fire-blanket",
     width: 70,
-    height: 84,
-    fits: ["B", "B2", "LB"],
-    noFlip: true,
+    height: 100,
+    fits: ["T", "T2", "RT", "LT"],
     art: (
-      <svg viewBox="0 0 70 84">
-        <ellipse cx="35" cy="80" rx="24" ry="4" fill="rgb(163 45 40 / 0.14)" />
-        <text x="37" y="78" textAnchor="middle" fontSize="80" fontWeight="800" fill="#b8566a" fontFamily="inherit">
-          7
-        </text>
-        <text x="35" y="74" textAnchor="middle" fontSize="80" fontWeight="800" fill="#e89aa8" fontFamily="inherit">
-          7
-        </text>
+      <svg viewBox="0 0 70 100">
+        <rect x="9" y="10" width="56" height="86" rx="8" fill={FIRE_SHADOW} />
+        <rect x="5" y="6" width="56" height="86" rx="8" fill={RED} />
+        <path d="M61 16v66a10 10 0 0 1-10 10H18a8 8 0 0 0 6-4h27a4 4 0 0 0 4-4V10a8 8 0 0 1 6 6z" fill={RED_DARK} opacity="0.6" />
+        <rect x="13" y="24" width="40" height="30" rx="4" fill={CREAM} />
+        <path d="M33 30c-5 6-8 10-8 14a8 8 0 0 0 16 0c0-4-3-8-8-14z" fill={RED} />
+        <path d="M33 38c-2 3-3 5-3 7a3 3 0 0 0 6 0c0-2-1-4-3-7z" fill="#ffd27a" />
+        <rect x="21" y="66" width="24" height="16" rx="3" fill={CREAM_SHADE} />
+        <path d="M27 74h12" stroke={RED} strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M10 12v74" stroke={RED_LIGHT} strokeWidth="2.4" strokeLinecap="round" opacity="0.7" />
       </svg>
     ),
+  },
+  {
+    id: "standpipe",
+    width: 72,
+    height: 96,
+    fits: ["B", "B2", "RB", "LB"],
+    art: (
+      <svg viewBox="0 0 72 96">
+        <ellipse cx="36" cy="92" rx="26" ry="4" fill={FIRE_SHADOW} />
+        <rect x="18" y="80" width="36" height="10" rx="3" fill={RED_DARK} />
+        <path d="M22 36a14 12 0 0 1 28 0v44H22z" fill={RED} />
+        <path d="M26 38v38" stroke={RED_LIGHT} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+        <rect x="18" y="30" width="36" height="8" rx="4" fill={RED_DARK} />
+        <rect x="30" y="14" width="12" height="12" rx="3" fill={RED} />
+        <rect x="28" y="10" width="16" height="6" rx="3" fill={FIRE_BRASS} />
+        {[10, 62].map((x) => (
+          <g key={x}>
+            <rect x={x === 10 ? 8 : 50} y="48" width="14" height="14" rx="4" fill={RED} />
+            <circle cx={x === 10 ? 11 : 61} cy="55" r="5" fill={FIRE_BRASS} />
+            <circle cx={x === 10 ? 10 : 60} cy="54" r="1.8" fill={FIRE_BRASS_LIGHT} />
+          </g>
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "corridor-plant",
+    width: 88,
+    height: 118,
+    fits: ["RB", "LB", "B", "B2"],
+    art: <Plant pot="#e9dcc4" rim="#f6eddc" leaf="#9fb08a" leafDark="#7f9170" />,
   },
 ];
 
@@ -773,7 +799,7 @@ const PLUMBING: Piece[] = [
   },
 ];
 
-const PIECES: Record<ThemeId, Piece[]> = { lights: LIGHTS, alarm: OFFICE, fire: SCHOOL, plumbing: PLUMBING };
+const PIECES: Record<ThemeId, Piece[]> = { lights: LIGHTS, alarm: OFFICE, fire: FIRE, plumbing: PLUMBING };
 const SLOTS: Slot[] = ["RB", "RT", "LB", "LT", "T", "T2", "B", "B2"];
 
 function random(seed: number): () => number {
