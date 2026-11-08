@@ -9,6 +9,7 @@ import {
 } from "react";
 import {
   ArrowRight,
+  Ban,
   Check,
   ChevronDown,
   Lightbulb,
@@ -53,9 +54,10 @@ import {
   type HintUses,
 } from "@/lib/path-connect/hint";
 import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
+import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
-import { themeById, type ThemeId } from "@/lib/path-connect/styles";
+import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
@@ -138,6 +140,7 @@ export function PathConnectGame() {
   const hintUsesRef = useRef(hintUses);
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
+  const [lesson, setLesson] = useState<1 | 2 | null>(null);
   const adAbortRef = useRef<AbortController | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -218,6 +221,7 @@ export function PathConnectGame() {
     hintUsesRef.current = readHintUses();
     setHintUses(hintUsesRef.current);
     if (saved.level !== 1) reset(saved.level, { keepHints: true });
+    if (needsOnboarding()) setLesson(1);
     // Read once after mount, so the server render and the first client render match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -698,6 +702,18 @@ export function PathConnectGame() {
             onDecline={declineAd}
           />
         )}
+
+        {lesson && (
+          <PowerLesson
+            step={lesson}
+            theme={theme}
+            onNext={() => setLesson(2)}
+            onDone={() => {
+              markOnboarded();
+              setLesson(null);
+            }}
+          />
+        )}
         </div>
 
         <footer ref={footerRef} className="pc-bottom">
@@ -768,6 +784,199 @@ export function PathConnectGame() {
           </div>
         </footer>
       </main>
+    </div>
+  );
+}
+
+interface LessonTile {
+  kind: Level["tiles"][number]["kind"];
+  rotation: number;
+  role: "start" | "end" | "play";
+  /** Steps from the source along the lit path, or -1 for a pipe off the path. */
+  order: number;
+}
+
+/**
+ * Three by two: the source feeds a tee, which branches to one node on the
+ * right and, through a corner, to a second node below it. The last tile is
+ * the second node, which step two first points at the back of the first node.
+ */
+const LESSON_TILES: readonly LessonTile[] = [
+  { kind: "cap", rotation: 1, role: "start", order: 0 },
+  { kind: "tee", rotation: 1, role: "play", order: 1 },
+  { kind: "cap", rotation: 3, role: "end", order: 2 },
+  { kind: "corner", rotation: 0, role: "play", order: -1 },
+  { kind: "corner", rotation: 0, role: "play", order: 2 },
+  { kind: "cap", rotation: 3, role: "end", order: 3 },
+];
+const LESSON_STEP_MS = 260;
+const LESSON_TURN_AT = 1700;
+
+function PowerLesson({
+  step,
+  theme,
+  onNext,
+  onDone,
+}: {
+  step: 1 | 2;
+  theme: CircuitTheme;
+  onNext: () => void;
+  onDone: () => void;
+}) {
+  const source = theme.source.toLowerCase();
+  const nodes = theme.nodePlural[0]!.toUpperCase() + theme.nodePlural.slice(1);
+
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onDone();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onDone]);
+
+  return (
+    <div className="pc-ad-scrim">
+      <section
+        className="pc-ad pc-lesson"
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="pc-lesson-title"
+        aria-describedby="pc-lesson-body"
+      >
+        <p className="pc-lesson-step">
+          <span className="sr-only">Step {step} of 2</span>
+          <span className="pc-lesson-dot" data-on={step === 1 || undefined} aria-hidden="true" />
+          <span className="pc-lesson-dot" data-on={step === 2 || undefined} aria-hidden="true" />
+        </p>
+        <LessonBoard key={step} step={step} theme={theme.id} />
+        {step === 1 ? (
+          <>
+            <h3 id="pc-lesson-title" className="pc-ad-title">
+              Power starts at the {source}
+            </h3>
+            <p id="pc-lesson-body" className="pc-ad-body">
+              Each board has one {source}. Power flows out of it and only through pipes whose ends face
+              each other.
+            </p>
+            <p className="pc-lesson-note">
+              <span className="pc-lesson-icon" aria-hidden="true">
+                <SourceGlyph theme={theme.id} />
+              </span>
+              The only power source
+            </p>
+          </>
+        ) : (
+          <>
+            <h3 id="pc-lesson-title" className="pc-ad-title">
+              Branch out to every {theme.node}
+            </h3>
+            <p id="pc-lesson-body" className="pc-ad-body">
+              A {theme.node} is an endpoint. Power stops there and never passes on, so each{" "}
+              {theme.node} needs its own path back to the {source}.
+            </p>
+            <p className="pc-lesson-note">
+              <span className="pc-lesson-icon pc-lesson-stop-icon" aria-hidden="true">
+                <Ban />
+              </span>
+              {nodes} don't pass power on
+            </p>
+          </>
+        )}
+        <div className="pc-ad-actions">
+          {step === 1 ? (
+            <>
+              <Button key="skip" type="button" variant="ghost" onClick={onDone}>
+                Skip
+              </Button>
+              <Button key="next" autoFocus type="button" className="pc-ad-watch" onClick={onNext}>
+                Next
+                <ArrowRight />
+              </Button>
+            </>
+          ) : (
+            <Button key="start" autoFocus type="button" className="pc-ad-watch" onClick={onDone}>
+              Start playing
+              <ArrowRight />
+            </Button>
+          )}
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
+  const [elapsed, setElapsed] = useState(0);
+  const motion = !prefersReducedMotion();
+  const end = step === 1 ? 300 + 4 * LESSON_STEP_MS : LESSON_TURN_AT + 4 * LESSON_STEP_MS;
+
+  useEffect(() => {
+    const started = performance.now();
+    const id = window.setInterval(() => {
+      const now = performance.now() - started;
+      setElapsed(now);
+      if (now >= end) window.clearInterval(id);
+    }, 60);
+    return () => window.clearInterval(id);
+  }, [end]);
+
+  const turns = step === 1 ? 3 : elapsed < LESSON_TURN_AT ? 0 : Math.min(3, 1 + Math.floor((elapsed - LESSON_TURN_AT) / LESSON_STEP_MS));
+  const blocked = step === 2 && turns < 3;
+  const lit = (tile: LessonTile, index: number) => {
+    if (tile.order < 0) return false;
+    if (index === 5 && step === 2) return turns === 3 && elapsed >= LESSON_TURN_AT + 3 * LESSON_STEP_MS;
+    return elapsed >= 300 + tile.order * LESSON_STEP_MS;
+  };
+
+  return (
+    <div className="pc-lesson-board pc-tray" aria-hidden="true">
+      <div className="pc-board" style={{ "--pc-cols": 3 } as CSSProperties}>
+        {LESSON_TILES.map((tile, index) => {
+          const rotation = index === 5 ? (step === 1 ? 3 : turns) : tile.rotation;
+          const on = lit(tile, index);
+          return (
+            <span
+              key={index}
+              className="pc-tile"
+              data-role={tile.role}
+              data-live={on}
+              data-charged={on}
+              data-fed={tile.role === "end" && on}
+              data-spot={(step === 1 && tile.role === "start") || undefined}
+            >
+              <span className="pc-depth">
+                <span
+                  className={motion ? "pc-spin" : "pc-spin pc-spin-off"}
+                  style={{ transform: `rotate(${rotation * 90}deg)` }}
+                >
+                  <TileArt
+                    kind={tile.kind}
+                    conduit="pipe"
+                    live={on}
+                    rotation={rotation}
+                    hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
+                  />
+                </span>
+              </span>
+              {tile.role === "start" && (
+                <span className="pc-mark pc-source">
+                  <SourceGlyph theme={theme} />
+                </span>
+              )}
+              {tile.role === "end" && (
+                <span className={on ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
+                  <NodeGlyph theme={theme} on={on} />
+                </span>
+              )}
+            </span>
+          );
+        })}
+        {blocked && (
+          <span className="pc-lesson-stop">
+            <Ban />
+          </span>
+        )}
+      </div>
     </div>
   );
 }
