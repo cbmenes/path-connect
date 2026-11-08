@@ -32,65 +32,121 @@ function Plant({ pot, rim, leaf, leafDark }: { pot: string; rim: string; leaf: s
   );
 }
 
-function Succulent({ pot, rim, leaf, leafDark, shadow }: { pot: string; rim: string; leaf: string; leafDark: string; shadow: string }) {
+const LR_PINK = "#e9b7a8";
+const LR_PINK_DARK = "#d49c8c";
+const LR_PINK_LIGHT = "#f6d3c8";
+const LR_SAGE = "#a9bd9f";
+const LR_SAGE_DARK = "#869b7d";
+const LR_SAGE_LIGHT = "#cfdcc6";
+const LR_CREAM = "#f5ead8";
+const LR_CREAM_SHADE = "#e3d3ba";
+const LR_LEG = "#b98a5e";
+const LR_BRASS = "#c9953f";
+const LR_BRASS_LIGHT = "#f0cf86";
+const LR_BRONZE = "#b07a3e";
+const LR_BRONZE_DARK = "#7a4f24";
+const LR_BRONZE_LIGHT = "#e8bf86";
+const LR_GLOW = "#ffe6a6";
+
+function TaperedLegs({ left, right, top, length }: { left: number; right: number; top: number; length: number }) {
   return (
-    <svg viewBox="0 0 64 72">
-      <ellipse cx="32" cy="69" rx="22" ry="3" fill={shadow} />
-      <path d="M32 40c-6-6-16-8-22-6 4 6 12 9 22 6z" fill={leafDark} />
-      <path d="M32 40c6-6 16-8 22-6-4 6-12 9-22 6z" fill={leafDark} />
-      <path d="M32 40c-6-8-8-18-4-26 6 6 7 16 4 26z" fill={leaf} />
-      <path d="M32 40c6-8 8-18 4-26-6 6-7 16-4 26z" fill={leaf} />
-      <path d="M17 40h30l-3 22a6 6 0 0 1-6 5H26a6 6 0 0 1-6-5z" fill={pot} />
-      <rect x="14" y="36" width="36" height="8" rx="4" fill={rim} />
-      <path d="M17 38.5h28" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.65" />
-    </svg>
+    <>
+      <path d={`M${left} ${top}h6l-4 ${length}h-3z`} fill={LR_LEG} />
+      <path d={`M${right} ${top}h-6l4 ${length}h3z`} fill={LR_LEG} />
+    </>
   );
 }
 
+/** A bronze wire cage around a warm bulb; `top` is where the cap meets the cord. */
+function CageLight({ cx, top, w, h, glowId }: { cx: number; top: number; w: number; h: number; glowId: string }) {
+  const bottom = top + h;
+  return (
+    <g>
+      <circle cx={cx} cy={top + h * 0.55} r={w * 1.5} fill={`url(#${glowId})`} />
+      <ellipse cx={cx} cy={top + h * 0.56} rx={w * 0.28} ry={h * 0.32} fill="#fff3cc" />
+      <ellipse cx={cx} cy={top + h * 0.58} rx={w * 0.14} ry={h * 0.16} fill="white" opacity="0.9" />
+      {[-0.5, -0.25, 0, 0.25, 0.5].map((t) => (
+        <path
+          key={t}
+          d={`M${cx + t * w * 0.7} ${top + 8}Q${cx + t * w * 1.08} ${top + h * 0.55} ${cx + t * w * 0.72} ${bottom}`}
+          fill="none"
+          stroke={LR_BRONZE_DARK}
+          strokeWidth="2"
+          strokeLinecap="round"
+        />
+      ))}
+      {[0.36, 0.7].map((f) => (
+        <path
+          key={f}
+          d={`M${cx - w * 0.47} ${top + h * f}Q${cx} ${top + h * f + 4} ${cx + w * 0.47} ${top + h * f}`}
+          fill="none"
+          stroke={LR_BRONZE}
+          strokeWidth="1.8"
+          strokeLinecap="round"
+        />
+      ))}
+      <path d={`M${cx - w * 0.38} ${top + 9}Q${cx} ${top - 5} ${cx + w * 0.38} ${top + 9}z`} fill={LR_BRONZE} />
+      <path d={`M${cx - w * 0.22} ${top + 4}q${w * 0.12} -4 ${w * 0.26} -4`} stroke={LR_BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" fill="none" />
+      <rect x={cx - w * 0.4} y={top + 7} width={w * 0.8} height="3.6" rx="1.8" fill={LR_BRONZE_DARK} />
+      <rect x={cx - w * 0.4} y={bottom - 1.5} width={w * 0.8} height="5" rx="2.5" fill={LR_BRONZE} />
+      <rect x={cx - 3} y={top - 7} width="6" height="5" rx="2" fill={LR_BRONZE_DARK} />
+    </g>
+  );
+}
+
+function GlowDefs({ id }: { id: string }) {
+  return (
+    <defs>
+      <radialGradient id={id}>
+        <stop offset="0" stopColor={LR_GLOW} stopOpacity="0.75" />
+        <stop offset="1" stopColor={LR_GLOW} stopOpacity="0" />
+      </radialGradient>
+    </defs>
+  );
+}
+
+/** A clean 1950s living room in soft pastels: pink upholstery, sage accents, cream wood, and bronze caged lights. */
 const LIGHTS: Piece[] = [
   {
-    id: "couch",
+    id: "sofa",
     width: 160,
     height: 120,
     fits: ["RB", "LB"],
     art: (
       <svg viewBox="0 0 160 120">
-        <ellipse cx="86" cy="116" rx="70" ry="4" fill={SHADOW} />
-        <rect x="6" y="14" width="124" height="62" rx="20" fill="#e2cdb2" />
-        <path d="M18 18h100" stroke="#f2e5d3" strokeWidth="3" strokeLinecap="round" />
-        <rect x="4" y="60" width="132" height="40" rx="14" fill="#d6bd9d" />
-        <path d="M14 63h110" stroke="#ead9c2" strokeWidth="2.6" strokeLinecap="round" />
-        <rect x="112" y="40" width="42" height="66" rx="18" fill="#dcc5a8" />
-        <path d="M120 44c8-2 22-2 28 4" stroke="#f0e2cf" strokeWidth="3" strokeLinecap="round" fill="none" />
-        <path d="M150 58v40" stroke="#c4a888" strokeWidth="3" strokeLinecap="round" />
-        <rect x="16" y="100" width="7" height="14" rx="3" fill="#a7774f" />
-        <rect x="140" y="100" width="7" height="14" rx="3" fill="#a7774f" />
+        <ellipse cx="80" cy="116" rx="72" ry="4" fill={SHADOW} />
+        <rect x="14" y="16" width="132" height="58" rx="22" fill={LR_PINK} />
+        <path d="M30 21h100" stroke={LR_PINK_LIGHT} strokeWidth="3" strokeLinecap="round" />
+        <rect x="28" y="34" width="38" height="30" rx="10" fill={LR_SAGE} transform="rotate(-6 47 49)" />
+        <path d="M34 38c8-2 18-3 26-2" stroke={LR_SAGE_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" transform="rotate(-6 47 49)" />
+        <rect x="94" y="34" width="38" height="30" rx="10" fill={LR_SAGE} transform="rotate(6 113 49)" />
+        <path d="M100 38c8-2 18-3 26-2" stroke={LR_SAGE_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" transform="rotate(6 113 49)" />
+        <rect x="10" y="60" width="140" height="36" rx="14" fill={LR_PINK_DARK} />
+        <rect x="12" y="58" width="136" height="20" rx="10" fill={LR_PINK} />
+        <path d="M80 60v16" stroke={LR_PINK_DARK} strokeWidth="2" strokeLinecap="round" />
+        <path d="M22 62h48M90 62h48" stroke={LR_PINK_LIGHT} strokeWidth="2.2" strokeLinecap="round" />
+        <rect x="2" y="44" width="26" height="54" rx="13" fill={LR_PINK} />
+        <rect x="132" y="44" width="26" height="54" rx="13" fill={LR_PINK} />
+        <path d="M8 50c4-3 10-3 14 0M138 50c4-3 10-3 14 0" stroke={LR_PINK_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" />
+        <path d="M154 56v36" stroke={LR_PINK_DARK} strokeWidth="3" strokeLinecap="round" />
+        <TaperedLegs left={16} right={144} top={96} length={18} />
       </svg>
     ),
   },
   {
-    id: "floor-lamp",
+    id: "cage-floor-lamp",
     width: 96,
     height: 230,
     fits: ["RB", "LB"],
     art: (
       <svg viewBox="0 0 96 230" overflow="visible">
-        <defs>
-          <radialGradient id="pc-sur-lamp-glow">
-            <stop offset="0" stopColor="#ffe6a6" stopOpacity="0.85" />
-            <stop offset="1" stopColor="#ffe6a6" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="50" cy="44" r="78" fill="url(#pc-sur-lamp-glow)" />
-        <ellipse cx="50" cy="226" rx="26" ry="4" fill={SHADOW} />
-        <rect x="47" y="58" width="6" height="160" rx="3" fill="#b98a5a" />
-        <path d="M48.6 62v150" stroke="#dcb487" strokeWidth="1.4" strokeLinecap="round" />
-        <ellipse cx="50" cy="219" rx="22" ry="6" fill="#a87a4c" />
-        <path d="M30 216.5h40" stroke="#c99c6c" strokeWidth="2" strokeLinecap="round" />
-        <path d="M28 18h44l12 44H16z" fill="#f7e8c8" />
-        <path d="M31 20 22 58" stroke="white" strokeWidth="3" strokeLinecap="round" opacity="0.7" />
-        <path d="M16 62h68" stroke="#e6cfa4" strokeWidth="3" strokeLinecap="round" />
-        <ellipse cx="50" cy="64" rx="26" ry="4" fill="#ffe9ad" opacity="0.9" />
+        <GlowDefs id="pc-sur-cage-floor" />
+        <ellipse cx="68" cy="226" rx="24" ry="4" fill={SHADOW} />
+        <ellipse cx="68" cy="219" rx="20" ry="6" fill={LR_BRONZE_DARK} />
+        <ellipse cx="68" cy="217" rx="17" ry="4.4" fill={LR_BRONZE} />
+        <path d="M68 216V44c0-16-10-26-26-28-10-1-16 4-16 12v12" fill="none" stroke={LR_BRONZE_DARK} strokeWidth="5" strokeLinecap="round" />
+        <path d="M66.6 210V44c0-12-6-21-18-24" fill="none" stroke={LR_BRONZE_LIGHT} strokeWidth="1.4" strokeLinecap="round" opacity="0.8" />
+        <CageLight cx={26} top={48} w={34} h={46} glowId="pc-sur-cage-floor" />
       </svg>
     ),
   },
@@ -102,46 +158,47 @@ const LIGHTS: Piece[] = [
     art: <Plant pot="#f2e6d5" rim="#e8d6bd" leaf="#93b47e" leafDark="#729760" />,
   },
   {
-    id: "side-table",
+    id: "lamp-table",
     width: 120,
-    height: 100,
-    fits: ["B", "B2", "RB"],
+    height: 110,
+    fits: ["RB", "LB"],
     art: (
-      <svg viewBox="0 0 120 100">
-        <ellipse cx="60" cy="96" rx="42" ry="4" fill={SHADOW} />
-        <rect x="55" y="44" width="10" height="46" rx="4" fill="#b58254" />
-        <ellipse cx="60" cy="91" rx="24" ry="5" fill="#a87448" />
-        <ellipse cx="60" cy="44" rx="52" ry="12" fill="#b98452" />
-        <ellipse cx="60" cy="40" rx="52" ry="12" fill="#d29e68" />
-        <path d="M18 36c14-6 46-8 70-4" stroke="#ebc08e" strokeWidth="2.4" strokeLinecap="round" fill="none" />
-        <rect x="40" y="14" width="18" height="24" rx="5" fill="#f4ebdf" />
-        <path d="M58 20c8 0 8 12 0 12" stroke="#e5d6c2" strokeWidth="3" fill="none" />
-        <path d="M44 18v16" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
-        <rect x="64" y="28" width="30" height="8" rx="2" fill="#c96f4c" />
-        <rect x="66" y="21" width="26" height="7" rx="2" fill="#7f9d6e" />
+      <svg viewBox="0 0 120 110" overflow="visible">
+        <GlowDefs id="pc-sur-sage-lamp" />
+        <ellipse cx="60" cy="106" rx="46" ry="4" fill={SHADOW} />
+        <circle cx="40" cy="34" r="34" fill="url(#pc-sur-sage-lamp)" />
+        <TaperedLegs left={16} right={104} top={84} length={20} />
+        <rect x="12" y="58" width="96" height="28" rx="5" fill={LR_CREAM_SHADE} />
+        <rect x="10" y="52" width="100" height="10" rx="4" fill={LR_CREAM} />
+        <path d="M16 54.5h88" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.7" />
+        <rect x="22" y="65" width="76" height="15" rx="3" fill={LR_CREAM} />
+        <circle cx="60" cy="72.5" r="2.6" fill={LR_BRASS} />
+        <ellipse cx="40" cy="51" rx="11" ry="2.8" fill={LR_BRASS} />
+        <rect x="38.4" y="26" width="3.2" height="25" rx="1.6" fill={LR_BRASS} />
+        <path d="M39.4 28v20" stroke={LR_BRASS_LIGHT} strokeWidth="1" strokeLinecap="round" />
+        <path d="M21 30C21 16 29 8 40 8s19 8 19 22z" fill={LR_SAGE} />
+        <path d="M59 30C59 18 53 10 44 8.4 50 12 53 20 53 30z" fill={LR_SAGE_DARK} opacity="0.5" />
+        <path d="M26 24c1-7 6-12 12-13.4" stroke={LR_SAGE_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" />
+        <ellipse cx="40" cy="30" rx="19" ry="3.2" fill={LR_SAGE_DARK} />
+        <ellipse cx="40" cy="30.6" rx="14" ry="2" fill="#fff1c2" />
+        <circle cx="40" cy="6.6" r="2.2" fill={LR_BRASS} />
+        <rect x="70" y="44" width="30" height="8" rx="2" fill={LR_SAGE_LIGHT} />
+        <rect x="72" y="37" width="26" height="7" rx="2" fill={LR_PINK_LIGHT} />
+        <path d="M74 40.5h22" stroke="white" strokeWidth="1" opacity="0.6" />
       </svg>
     ),
   },
   {
-    id: "sconce",
+    id: "pendants",
     width: 90,
-    height: 100,
+    height: 104,
     fits: ["RT", "LT", "T", "T2"],
     art: (
-      <svg viewBox="0 0 90 100" overflow="visible">
-        <defs>
-          <radialGradient id="pc-sur-sconce-glow">
-            <stop offset="0" stopColor="#ffe3a0" stopOpacity="0.8" />
-            <stop offset="1" stopColor="#ffe3a0" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="45" cy="52" r="62" fill="url(#pc-sur-sconce-glow)" />
-        <rect x="37" y="58" width="16" height="30" rx="6" fill="#c89462" />
-        <path d="M40 62v22" stroke="#e2b98a" strokeWidth="1.6" strokeLinecap="round" />
-        <path d="M45 58V46" stroke="#b07e4e" strokeWidth="4" strokeLinecap="round" />
-        <path d="M28 14h34l8 34H20z" fill="#f8ebcf" />
-        <path d="M30 17 24 44" stroke="white" strokeWidth="2.6" strokeLinecap="round" opacity="0.75" />
-        <ellipse cx="45" cy="49" rx="25" ry="3.6" fill="#ffe7a8" />
+      <svg viewBox="0 0 90 104" overflow="visible">
+        <GlowDefs id="pc-sur-pendant" />
+        <path d="M28 0v40M64 0v26" stroke="#8a6a4a" strokeWidth="1.6" />
+        <CageLight cx={28} top={46} w={30} h={42} glowId="pc-sur-pendant" />
+        <CageLight cx={64} top={32} w={26} h={36} glowId="pc-sur-pendant" />
       </svg>
     ),
   },
@@ -152,61 +209,142 @@ const LIGHTS: Piece[] = [
     fits: ["RB", "LB"],
     art: (
       <svg viewBox="0 0 120 120">
-        <ellipse cx="62" cy="116" rx="50" ry="4" fill={SHADOW} />
-        <rect x="14" y="14" width="86" height="70" rx="26" fill="#d8ab7e" />
-        <path d="M28 20c18-4 42-4 58 0" stroke="#ecc79f" strokeWidth="3" strokeLinecap="round" fill="none" />
-        <rect x="10" y="62" width="96" height="38" rx="14" fill="#c99668" />
-        <rect x="84" y="44" width="30" height="60" rx="14" fill="#d3a275" />
-        <path d="M90 48c6-1 16 0 20 4" stroke="#e8bf93" strokeWidth="2.6" strokeLinecap="round" fill="none" />
-        <rect x="20" y="100" width="7" height="14" rx="3" fill="#8a5e3b" />
-        <rect x="98" y="100" width="7" height="14" rx="3" fill="#8a5e3b" />
+        <ellipse cx="60" cy="116" rx="50" ry="4" fill={SHADOW} />
+        <rect x="16" y="12" width="88" height="64" rx="26" fill={LR_PINK} />
+        <path d="M30 18c18-4 42-4 60 0" stroke={LR_PINK_LIGHT} strokeWidth="3" strokeLinecap="round" fill="none" />
+        <rect x="38" y="30" width="44" height="32" rx="11" fill={LR_SAGE} transform="rotate(-5 60 46)" />
+        <path d="M44 34c10-2 22-3 32-2" stroke={LR_SAGE_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" transform="rotate(-5 60 46)" />
+        <rect x="12" y="62" width="96" height="34" rx="14" fill={LR_PINK_DARK} />
+        <rect x="14" y="60" width="92" height="18" rx="9" fill={LR_PINK} />
+        <path d="M26 63h68" stroke={LR_PINK_LIGHT} strokeWidth="2.2" strokeLinecap="round" />
+        <rect x="2" y="44" width="24" height="54" rx="12" fill={LR_PINK} />
+        <rect x="94" y="44" width="24" height="54" rx="12" fill={LR_PINK} />
+        <path d="M7 50c4-3 10-3 14 0M99 50c4-3 10-3 14 0" stroke={LR_PINK_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" />
+        <path d="M114 56v36" stroke={LR_PINK_DARK} strokeWidth="3" strokeLinecap="round" />
+        <TaperedLegs left={16} right={104} top={96} length={18} />
       </svg>
     ),
   },
   {
-    id: "frame",
+    id: "vase-stand",
     width: 100,
-    height: 84,
+    height: 96,
     fits: ["T", "T2", "RT", "LT"],
     art: (
-      <svg viewBox="0 0 100 84">
-        <rect x="7" y="8" width="88" height="72" rx="8" fill={SHADOW} />
-        <rect x="3" y="3" width="88" height="72" rx="8" fill="#c99a68" />
-        <path d="M10 6h74" stroke="#e5bf91" strokeWidth="2.4" strokeLinecap="round" />
-        <rect x="11" y="11" width="72" height="56" rx="4" fill="#fbf1e1" />
-        <path d="M11 54c14-14 24-16 36-6 10-10 22-10 36 0v13a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6z" fill="#a9c08f" />
-        <path d="M11 60c18-10 40-10 72 0v1a6 6 0 0 1-6 6H17a6 6 0 0 1-6-6z" fill="#8eab76" />
-        <circle cx="62" cy="28" r="7" fill="#f2c56d" />
+      <svg viewBox="0 0 100 96">
+        <ellipse cx="50" cy="92" rx="38" ry="4" fill={SHADOW} />
+        <TaperedLegs left={20} right={80} top={72} length={18} />
+        <rect x="16" y="42" width="68" height="32" rx="5" fill={LR_CREAM_SHADE} />
+        <rect x="14" y="38" width="72" height="8" rx="3.5" fill={LR_CREAM} />
+        <path d="M20 40h60" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+        <rect x="22" y="50" width="56" height="18" rx="3" fill={LR_CREAM} />
+        <circle cx="50" cy="59" r="2.4" fill={LR_BRASS} />
+        <path d="M44 6c-4 6-8 10-14 12M50 4c0 6 1 10 2 14M56 6c4 4 8 8 14 9" stroke="#8aa77a" strokeWidth="1.8" strokeLinecap="round" fill="none" />
+        {[
+          [30, 18],
+          [52, 18],
+          [70, 15],
+          [42, 10],
+        ].map(([x, y]) => (
+          <ellipse key={`${x}-${y}`} cx={x} cy={y} rx="4.4" ry="2.4" fill="#9cbc84" transform={`rotate(-24 ${x} ${y})`} />
+        ))}
+        <path d="M43 18h14c0 3 6 6 6 12s-4 8-6 8H43c-2 0-6-2-6-8s6-9 6-12z" fill="#e8a08e" />
+        {[44, 50, 56].map((x) => (
+          <path key={x} d={`M${x} 21v15`} stroke="#d4836f" strokeWidth="1.4" strokeLinecap="round" />
+        ))}
+        <path d="M41 24c-2 2-2.6 5-2 8" stroke="#f6c7b9" strokeWidth="1.6" strokeLinecap="round" fill="none" />
       </svg>
     ),
   },
   {
-    id: "shelf",
+    id: "sideboard",
     width: 130,
-    height: 90,
+    height: 96,
     fits: ["T", "T2", "RT", "LT"],
     art: (
-      <svg viewBox="0 0 130 90">
-        <rect x="6" y="52" width="118" height="10" rx="4" fill="#b98452" />
-        <rect x="6" y="48" width="118" height="9" rx="4" fill="#d6a46f" />
-        <path d="M12 50.5h104" stroke="#ecc596" strokeWidth="2" strokeLinecap="round" />
-        <path d="M24 60v12M106 60v12" stroke="#a8784a" strokeWidth="5" strokeLinecap="round" />
-        <rect x="16" y="20" width="10" height="28" rx="2" fill="#c96f4c" />
-        <rect x="27" y="16" width="9" height="32" rx="2" fill="#7f9d6e" />
-        <rect x="37" y="24" width="11" height="24" rx="2" fill="#e2b866" />
-        <path d="M78 30h28l-3 16a4 4 0 0 1-4 3H85a4 4 0 0 1-4-3z" fill="#f2e6d5" />
-        <path d="M92 30c-6-10-16-12-22-10 4 6 12 10 22 10z" fill="#93b47e" />
-        <path d="M92 30c4-12 12-18 22-18-2 8-10 16-22 18z" fill="#729760" />
-        <path d="M82 46c-4 10-6 20-4 30M100 46c4 8 6 18 4 26" stroke="#8aad74" strokeWidth="3" strokeLinecap="round" fill="none" />
+      <svg viewBox="0 0 130 96">
+        <ellipse cx="65" cy="92" rx="56" ry="4" fill={SHADOW} />
+        <TaperedLegs left={14} right={116} top={74} length={16} />
+        <rect x="6" y="28" width="118" height="48" rx="6" fill={LR_SAGE} />
+        <path d="M124 34v36a6 6 0 0 1-6 6h-6a6 6 0 0 0 6-6V28a6 6 0 0 1 6 6z" fill={LR_SAGE_DARK} opacity="0.5" />
+        <path d="M12 31h106" stroke={LR_SAGE_LIGHT} strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M65 34v38" stroke={LR_SAGE_DARK} strokeWidth="1.6" />
+        {[16, 24, 32, 40, 48, 82, 90, 98, 106, 114].map((x) => (
+          <path key={x} d={`M${x} 38v30`} stroke={LR_SAGE_DARK} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+        ))}
+        <circle cx="59" cy="53" r="2.6" fill={LR_BRASS} />
+        <circle cx="71" cy="53" r="2.6" fill={LR_BRASS} />
+        <rect x="14" y="20" width="34" height="8" rx="2" fill={LR_CREAM} />
+        <rect x="16" y="13" width="30" height="7" rx="2" fill={LR_PINK_LIGHT} />
+        <path d="M96 28h20l-2.4-12a3 3 0 0 0-3-2.4h-9.2a3 3 0 0 0-3 2.4z" fill={LR_CREAM} />
+        <path d="M106 14c-6-8-14-10-18-8 3 5 10 8 18 8z" fill="#93b47e" />
+        <path d="M106 14c4-9 11-12 16-11-2 6-8 10-16 11z" fill="#729760" />
       </svg>
     ),
   },
   {
-    id: "succulent",
-    width: 64,
-    height: 72,
+    id: "ottoman",
+    width: 84,
+    height: 80,
     fits: ["B", "B2", "RB"],
-    art: <Succulent pot="#e9cfae" rim="#ddbf98" leaf="#9cbc84" leafDark="#7a9e66" shadow={SHADOW} />,
+    art: (
+      <svg viewBox="0 -12 84 80">
+        <ellipse cx="42" cy="64" rx="34" ry="3.6" fill={SHADOW} />
+        <TaperedLegs left={12} right={72} top={46} length={16} />
+        <rect x="6" y="14" width="72" height="36" rx="14" fill={LR_PINK_DARK} />
+        <rect x="6" y="10" width="72" height="28" rx="14" fill={LR_PINK} />
+        <path d="M18 15h48" stroke={LR_PINK_LIGHT} strokeWidth="2.6" strokeLinecap="round" />
+        {[26, 42, 58].map((x) => (
+          <circle key={x} cx={x} cy="25" r="1.8" fill={LR_PINK_DARK} />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "coffee-table",
+    width: 130,
+    height: 94,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -30 130 94">
+        <ellipse cx="65" cy="60" rx="56" ry="4" fill={SHADOW} />
+        <TaperedLegs left={14} right={116} top={34} length={24} />
+        <rect x="8" y="28" width="114" height="10" rx="4" fill={LR_CREAM_SHADE} />
+        <rect x="6" y="24" width="118" height="9" rx="4" fill={LR_CREAM} />
+        <path d="M12 26.4h106" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+        <rect x="22" y="17" width="34" height="7" rx="2" fill={LR_SAGE_LIGHT} />
+        <rect x="25" y="10" width="30" height="7" rx="2" fill={LR_CREAM_SHADE} />
+        <path d="M27 13.5h26" stroke="white" strokeWidth="1" opacity="0.6" />
+        <path d="M88 24h14l-1.6-9a3 3 0 0 0-3-2.4h-4.8a3 3 0 0 0-3 2.4z" fill={LR_CREAM} />
+        <path d="M95 12c-1-5-5-8-9-8 1 4 4 7 9 8zM95 12c1-6 5-9 9-9-1 5-4 8-9 9z" fill="#93b47e" />
+      </svg>
+    ),
+  },
+  {
+    id: "nightstand",
+    width: 96,
+    height: 124,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 96 124" overflow="visible">
+        <GlowDefs id="pc-sur-drum-lamp" />
+        <ellipse cx="48" cy="120" rx="38" ry="4" fill={SHADOW} />
+        <circle cx="48" cy="22" r="32" fill="url(#pc-sur-drum-lamp)" />
+        <TaperedLegs left={16} right={80} top={100} length={18} />
+        <rect x="12" y="52" width="72" height="50" rx="5" fill={LR_PINK_DARK} />
+        <rect x="10" y="48" width="76" height="8" rx="3.5" fill={LR_PINK} />
+        <path d="M16 50h64" stroke={LR_PINK_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+        <rect x="18" y="60" width="60" height="16" rx="3" fill={LR_PINK} />
+        <rect x="18" y="80" width="60" height="16" rx="3" fill={LR_PINK} />
+        <circle cx="48" cy="68" r="2.4" fill={LR_BRASS} />
+        <circle cx="48" cy="88" r="2.4" fill={LR_BRASS} />
+        <ellipse cx="48" cy="47" rx="10" ry="2.6" fill={LR_BRASS} />
+        <rect x="46.4" y="30" width="3.2" height="17" rx="1.6" fill={LR_BRASS} />
+        <path d="M34 6h28l6 26H28z" fill={LR_CREAM} />
+        <path d="M37 9 32 29" stroke="white" strokeWidth="2.4" strokeLinecap="round" opacity="0.75" />
+        <ellipse cx="48" cy="32" rx="20" ry="2.6" fill="#ffe9ad" />
+      </svg>
+    ),
   },
 ];
 

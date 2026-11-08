@@ -1325,7 +1325,7 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire alternates detector and bell. */
+/** `fixture` is the node's place in board order: House Lights cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire alternates detector and bell. */
 function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
@@ -1341,7 +1341,61 @@ function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fi
     return <Telephone on={on} />;
   }
   if (theme === "fire") return fixture % 2 === 0 ? <FireDetector on={on} /> : <FireBell on={on} />;
+  const pick = fixture % 4;
+  if (pick === 1) return <SageLamp on={on} />;
+  if (pick === 3) return <CageLight on={on} />;
   return <Bulb on={on} />;
+}
+
+const SAGE_SHADE = "#a9bd9f";
+const SAGE_SHADE_DARK = "#7f9476";
+const SAGE_SHADE_LIGHT = "#d3dfca";
+
+/** Light sage 1950s dome table lamp on a brass stem. */
+function SageLamp({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-lamp is-on" : "pc-glyph pc-lamp"}>
+      {on && <path d="M9.5 29.6 5 48h38l-4.5-18.4z" fill="#fff1c2" opacity="0.35" />}
+      <ellipse cx="24" cy="55.4" rx="13" ry="3.6" fill={BRASS_DARK} />
+      <ellipse cx="24" cy="54" rx="11" ry="2.8" fill={BRASS} />
+      <path d="M15.6 53.2c2.4-1.2 5.4-1.6 8.4-1.6" fill="none" stroke={BRASS_LIGHT} strokeWidth="1.1" strokeLinecap="round" />
+      <rect x="22.3" y="29" width="3.4" height="24" rx="1.7" fill={BRASS_DARK} />
+      <path d="M23.4 31v20" stroke={BRASS_LIGHT} strokeWidth="1" strokeLinecap="round" />
+      <rect x="20.6" y="40" width="6.8" height="2.6" rx="1.3" fill={BRASS} />
+      <path d="M4.5 29C4.5 15 13 5.4 24 5.4S43.5 15 43.5 29z" fill={SAGE_SHADE} />
+      <path d="M43.5 29C43.5 17 37.6 8.6 29 6.2c5 4 8.4 12 8.4 22.8z" fill={SAGE_SHADE_DARK} opacity="0.45" />
+      <path d="M10 22.6c1.2-7.6 6.4-12.8 12.8-14" fill="none" stroke={SAGE_SHADE_LIGHT} strokeWidth="2.6" strokeLinecap="round" />
+      <ellipse cx="24" cy="29" rx="19.5" ry="3.4" fill={SAGE_SHADE_DARK} />
+      <ellipse cx="24" cy="29.6" rx="15" ry="2.2" fill={on ? "#fff4cc" : "#6c8063"} />
+      <circle cx="24" cy="4.4" r="2.4" fill={BRASS} />
+    </svg>
+  );
+}
+
+/** Bronze caged light: a wire cage around a clear bulb, with a domed cap and a round base. */
+function CageLight({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-lamp is-on" : "pc-glyph pc-lamp"}>
+      <ellipse cx="24" cy="55.6" rx="14.4" ry="3.4" fill={BRONZE_DARK} />
+      <rect x="9.4" y="48.6" width="29.2" height="6.4" rx="3.2" fill={BRONZE} />
+      <path d="M13 50.6h22" stroke={BRONZE_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
+      <ellipse cx="24" cy="32" rx="9.6" ry="12" fill={on ? "#fff4c4" : "#f3e2b8"} opacity={on ? 1 : 0.85} />
+      {on && <ellipse cx="24" cy="33" rx="4.6" ry="6.4" fill="white" opacity="0.9" />}
+      <path d="M21 42c0-5-1.4-8.6-1-12.6M27 42c0-5 1.4-8.6 1-12.6" fill="none" stroke={on ? "#ffc93c" : "#a57d42"} strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M20 29.4q4 2.6 8 0" fill="none" stroke={on ? "#fff3b0" : "#a57d42"} strokeWidth="1.1" strokeLinecap="round" />
+      {[-12, -6, 0, 6, 12].map((dx) => (
+        <path key={dx} d={`M${24 + dx * 0.92} 14.6Q${24 + dx * 1.4} 32 ${24 + dx * 1.04} 48.8`} fill="none" stroke={BRONZE_DARK} strokeWidth="1.7" strokeLinecap="round" />
+      ))}
+      {[24, 38].map((y) => (
+        <path key={y} d={`M10.2 ${y}Q24 ${y + 3.4} 37.8 ${y}`} fill="none" stroke={BRONZE} strokeWidth="1.7" strokeLinecap="round" />
+      ))}
+      <path d="M11.6 15.4Q12.4 5.6 24 5.2q11.6.4 12.4 10.2z" fill={BRONZE} />
+      <path d="M17 11.6c1.2-2.6 3.6-4 6.4-4.2" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+      <rect x="10.6" y="13.6" width="26.8" height="3.4" rx="1.7" fill={BRONZE_DARK} />
+      <rect x="21.6" y="1.6" width="4.8" height="4.4" rx="1.6" fill={BRONZE_DARK} />
+      <path d="M9.8 22c-.8 6-.6 14 .6 21" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+    </svg>
+  );
 }
 
 const GLASS =
