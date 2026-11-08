@@ -1,31 +1,35 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { LEVELS } from "./levels.ts";
-import { PLUMBING, THEMES, lookById, plumbingBlurb, plumbingRoom, themeById } from "./styles.ts";
+import { CHAPTERS, LEVELS } from "./levels.ts";
+import { THEMES, themeById } from "./styles.ts";
 
-test("the three level themes are unchanged and still drive every level", () => {
+test("Plumbing joins the three systems as a fourth level theme", () => {
   assert.deepEqual(
     THEMES.map((theme) => theme.id),
-    ["lights", "alarm", "fire"],
+    ["lights", "alarm", "fire", "plumbing"],
   );
   assert.ok(LEVELS.every((level) => THEMES.some((theme) => theme.id === level.theme)));
 });
 
-test("lookById returns Plumbing only for the plumbing look", () => {
-  assert.equal(lookById("plumbing"), PLUMBING);
-  for (const theme of THEMES) assert.equal(lookById(theme.id as "lights" | "alarm" | "fire"), themeById(theme.id as "lights"));
-});
-
 test("Plumbing speaks about a water main and fixtures", () => {
-  assert.equal(PLUMBING.source, "Water main");
-  assert.equal(PLUMBING.node, "fixture");
-  assert.equal(PLUMBING.nodePlural, "fixtures");
-  assert.equal(PLUMBING.conduit, "pipe");
+  const plumbing = themeById("plumbing");
+  assert.equal(plumbing.source, "Water main");
+  assert.equal(plumbing.node, "fixture");
+  assert.equal(plumbing.nodePlural, "fixtures");
+  assert.equal(plumbing.conduit, "pipe");
 });
 
-test("every level gets a room name, and the blurb counts fixtures", () => {
-  for (const level of LEVELS) assert.ok(plumbingRoom(level.id).length > 0);
-  assert.equal(plumbingRoom(1), plumbingRoom(13));
-  assert.equal(plumbingBlurb(1), "One fixture to fill from the main.");
-  assert.equal(plumbingBlurb(4), "4 fixtures to fill from the main.");
+test("Plumbing unlocks after School Fire Alarm and owns levels 33–42", () => {
+  for (const level of LEVELS.slice(0, 32)) assert.notEqual(level.theme, "plumbing");
+  for (const level of LEVELS.slice(32, 42)) assert.equal(level.theme, "plumbing");
+  assert.equal(LEVELS[32]!.unlock, "Plumbing");
+  assert.match(LEVELS[32]!.blurb, /fixtures/);
+  const late = new Set(LEVELS.slice(42).map((level) => level.theme));
+  assert.deepEqual([...late].sort(), ["alarm", "fire", "lights", "plumbing"]);
+  assert.equal(CHAPTERS.find((chapter) => chapter.from === 33)?.to, 46);
+});
+
+test("every level has its own name", () => {
+  const names = LEVELS.map((level) => level.name);
+  assert.equal(new Set(names).size, names.length);
 });

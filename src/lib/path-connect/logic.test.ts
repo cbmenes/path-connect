@@ -133,7 +133,9 @@ describe("levels", () => {
             ? "alarm"
             : level.id <= 32
               ? "fire"
-              : (["lights", "alarm", "fire"] as const)[(level.id - 33) % 3];
+              : level.id <= 42
+                ? "plumbing"
+                : (["lights", "alarm", "fire", "plumbing"] as const)[(level.id - 43) % 4];
       assert.equal(level.theme, expected, `level ${level.id} theme`);
       const size = level.id <= 32 ? 5 : level.id <= 46 ? 6 : 7;
       assert.equal(level.size, size, `level ${level.id} size`);
@@ -155,7 +157,7 @@ describe("levels", () => {
     assert.deepEqual(unlocks, [
       [13, "Building Alarm"],
       [23, "School Fire Alarm"],
-      [33, "6×6 board"],
+      [33, "Plumbing"],
       [37, "Bolted tiles"],
       [47, "7×7 board"],
     ]);

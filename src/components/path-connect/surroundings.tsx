@@ -1,5 +1,5 @@
 import type { CSSProperties, ReactNode } from "react";
-import type { LookId } from "@/lib/path-connect/styles";
+import type { ThemeId } from "@/lib/path-connect/styles";
 
 type Slot = "RT" | "RB" | "LT" | "LB" | "T" | "T2" | "B" | "B2";
 
@@ -773,7 +773,7 @@ const PLUMBING: Piece[] = [
   },
 ];
 
-const PIECES: Record<LookId, Piece[]> = { lights: LIGHTS, alarm: OFFICE, fire: SCHOOL, plumbing: PLUMBING };
+const PIECES: Record<ThemeId, Piece[]> = { lights: LIGHTS, alarm: OFFICE, fire: SCHOOL, plumbing: PLUMBING };
 const SLOTS: Slot[] = ["RB", "RT", "LB", "LT", "T", "T2", "B", "B2"];
 
 function random(seed: number): () => number {
@@ -810,7 +810,7 @@ export interface Placement {
   offset: number;
 }
 
-export function arrange(theme: LookId, seed: number, count: number): Placement[] {
+export function arrange(theme: ThemeId, seed: number, count: number): Placement[] {
   const next = random(seed * 2654435761);
   const used = new Set<Slot>();
   const placed: Placement[] = [];
@@ -825,7 +825,7 @@ export function arrange(theme: LookId, seed: number, count: number): Placement[]
   return placed;
 }
 
-export function Surroundings({ theme, seed, level }: { theme: LookId; seed: number; level: number }) {
+export function Surroundings({ theme, seed, level }: { theme: ThemeId; seed: number; level: number }) {
   const { count, scale } = surroundingDensity(level);
   const placed = arrange(theme, seed, count);
   return (

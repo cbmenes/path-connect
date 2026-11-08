@@ -136,8 +136,8 @@ function linePath(pts: Pt[]): string {
 }
 
 function layerColor(layer: (typeof LAYERS)[number]): string {
-  const ink = layer.ink === "shade" ? "var(--color-pc-shade)" : "var(--color-pc-pipe-light)";
-  return `color-mix(in oklab, ${ink} ${layer.mix}%, var(--color-pc-casing))`;
+  const ink = layer.ink === "shade" ? "var(--color-pc-pipe-shade, var(--color-pc-shade))" : "var(--color-pc-pipe-light)";
+  return `color-mix(in oklab, ${ink} ${layer.mix}%, var(--color-pc-pipe-casing, var(--color-pc-casing)))`;
 }
 
 /** Short fittings just inside each opening. */

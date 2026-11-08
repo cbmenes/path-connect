@@ -47,7 +47,7 @@ describe("daily challenge", () => {
     for (let day = 1; day < YEAR.length; day++) {
       assert.notEqual(YEAR[day]!.theme, YEAR[day - 1]!.theme);
     }
-    assert.deepEqual(new Set(YEAR.map((board) => board.theme)), new Set(["lights", "alarm", "fire"]));
+    assert.deepEqual(new Set(YEAR.map((board) => board.theme)), new Set(["lights", "alarm", "fire", "plumbing"]));
   });
 
   it("changes the board on the next UTC day", () => {

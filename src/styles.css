@@ -2428,8 +2428,8 @@
 }
 
 /*
- * Plumbing look: sage tiles on a deeper sage tray, copper conduit, ivory 1950s
- * fixtures, and a cream bathroom wall. It applies only while the look is on.
+ * Plumbing: sage tiles on a deeper sage tray, copper conduit, ivory 1950s
+ * fixtures, and a cream bathroom wall.
  */
 .path-connect[data-theme="plumbing"] {
   --color-pc-bg: #eee6d6;
@@ -2525,36 +2525,10 @@
   animation: pc-win-glow 620ms ease-out calc(var(--wave, 0ms) + 60ms) both;
 }
 
-.path-connect[data-style="cozy"] .pc-look[data-on] {
-  background: var(--color-pc-flow);
-  color: var(--color-pc-onflow);
-}
-
-.path-connect[data-style="cozy"] .pc-look[data-on]:hover {
-  background: color-mix(in oklab, white 12%, var(--color-pc-flow));
-  color: var(--color-pc-onflow);
-}
-
-
-/* The Plumbing switch sits in the progress row on phones and after the sound button on wider screens. */
-.path-connect[data-style="cozy"] .pc-top {
-  grid-template-columns: minmax(0, 1fr) auto auto;
-  grid-template-areas:
-    "where tools tools"
-    "hud hud look";
-}
-
-.path-connect[data-style="cozy"] .pc-top .pc-look {
-  grid-area: look;
-}
-
-@media (min-width: 720px) {
-  .path-connect[data-style="cozy"] .pc-top {
-    grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) auto auto;
-    grid-template-areas: "where hud tools look";
-  }
-
-  .path-connect[data-style="cozy"] .pc-top .pc-look {
-    margin-left: -12px;
-  }
+/* House lights and plumbing share one copper: a bright top highlight over darker side shading. */
+.path-connect[data-theme="lights"],
+.path-connect[data-theme="plumbing"] {
+  --color-pc-pipe-casing: #c4793f;
+  --color-pc-pipe-light: #f8cfa2;
+  --color-pc-pipe-shade: #5a4a2c;
 }

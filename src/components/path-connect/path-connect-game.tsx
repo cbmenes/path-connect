@@ -12,7 +12,6 @@ import {
   Ban,
   Check,
   ChevronDown,
-  Droplets,
   Lightbulb,
   Lock,
   RotateCcw,
@@ -58,16 +57,7 @@ import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/p
 import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
-import {
-  THEMES,
-  lookById,
-  plumbingBlurb,
-  plumbingRoom,
-  readLook,
-  writeLook,
-  type CircuitTheme,
-  type LookId,
-} from "@/lib/path-connect/styles";
+import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
@@ -158,12 +148,10 @@ export function PathConnectGame() {
   const stageRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
   const playLayoutRef = useRef<PlayLayout | null>(null);
-  const [plumbing, setPlumbing] = useState(false);
-  const look: LookId = plumbing ? "plumbing" : level.theme;
-  const theme = lookById(look);
+  const theme = themeById(level.theme);
   const lastLevel = levelId === LEVELS.length;
-  const nextUnlock = shownUnlock(lastLevel ? undefined : LEVELS[levelId]?.unlock, plumbing);
-  const levelUnlock = shownUnlock(level.unlock, plumbing);
+  const nextUnlock = lastLevel ? undefined : LEVELS[levelId]?.unlock;
+  const levelUnlock = level.unlock;
   const linked = linkedIndexes(level, spins);
   const network = reachTargets(boardCells(level, spins));
   const fed = new Set(network.reached);
@@ -232,15 +220,7 @@ export function PathConnectGame() {
   useEffect(() => {
     const saved = readStats();
     setStats(saved);
-    setPlumbing(readLook() === "plumbing");
   }, []);
-
-  function toggleLook() {
-    setPlumbing((on) => {
-      writeLook(on ? null : "plumbing");
-      return !on;
-    });
-  }
 
   useEffect(() => {
     const saved = readProgress(LEVELS.length);
@@ -498,9 +478,7 @@ export function PathConnectGame() {
               <h2 className="pc-level-name">
                 {mode === "daily"
                   ? `Daily · ${formatDailyDate(new Date())} UTC`
-                  : plumbing
-                    ? plumbingRoom(levelId)
-                    : level.name}
+                  : level.name}
                 {mode === "levels" && levelUnlock && <span className="pc-new">New: {levelUnlock}</span>}
               </h2>
               <p className="pc-level-sub">
@@ -510,8 +488,6 @@ export function PathConnectGame() {
                       ? `Best time ${formatClock(stats.bestSeconds)} · Best turns ${stats.bestTurns}`
                       : "Same board for everyone today."}
                   </span>
-                ) : plumbing ? (
-                  plumbingBlurb(nodeTotal)
                 ) : (
                   level.blurb
                 )}
@@ -584,19 +560,6 @@ export function PathConnectGame() {
               </span>
             </p>
           </div>
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            className="pc-mute pc-look border-0 bg-transparent text-pc-accent hover:bg-transparent hover:text-pc-fg"
-            aria-label="Plumbing theme"
-            title={plumbing ? "Plumbing theme on" : "Plumbing theme"}
-            aria-pressed={plumbing}
-            data-on={plumbing || undefined}
-            onClick={toggleLook}
-          >
-            <Droplets />
-          </Button>
           {pickerOpen && mode === "levels" && (
             <LevelPicker
               current={levelId}
@@ -681,7 +644,7 @@ export function PathConnectGame() {
                         conduit={theme.conduit}
                         live={order >= 0}
                         rotation={rotation}
-                        gauge={look === "plumbing" ? PLUMBING_GAUGE : 1}
+                        gauge={pipeGauge(theme.id)}
                         hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
                       />
                     </span>
@@ -951,7 +914,7 @@ function PowerLesson({
   );
 }
 
-function LessonBoard({ step, theme }: { step: 1 | 2; theme: LookId }) {
+function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
   const [elapsed, setElapsed] = useState(0);
   const motion = !prefersReducedMotion();
   const end = step === 1 ? 300 + 4 * LESSON_STEP_MS : LESSON_TURN_AT + 4 * LESSON_STEP_MS;
@@ -998,7 +961,7 @@ function LessonBoard({ step, theme }: { step: 1 | 2; theme: LookId }) {
                   <TileArt
                     kind={tile.kind}
                     conduit="pipe"
-                    gauge={theme === "plumbing" ? PLUMBING_GAUGE : 1}
+                    gauge={pipeGauge(theme)}
                     live={on}
                     rotation={rotation}
                     hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
@@ -1329,14 +1292,14 @@ function LevelPicker({
   );
 }
 
-function ThemeMark({ theme }: { theme: LookId }) {
+function ThemeMark({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <FaucetMark />;
   if (theme === "alarm") return <BuildingArt small />;
   if (theme === "fire") return <SchoolArt small />;
   return <HouseArt small />;
 }
 
-function SourceGlyph({ theme }: { theme: LookId }) {
+function SourceGlyph({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <MainSource />;
   if (theme === "alarm") return <PanelSource />;
   if (theme === "fire") return <SchoolSource />;
@@ -1405,7 +1368,7 @@ function SchoolSource() {
 }
 
 /** `fixture` picks the plumbing fixture for a node: tub, toilet, then sink, in board order. */
-function NodeGlyph({ theme, on, fixture = 2 }: { theme: LookId; on: boolean; fixture?: number }) {
+function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
     if (pick === 0) return <Tub on={on} />;
@@ -1519,8 +1482,10 @@ function Strobe({ on }: { on: boolean }) {
   );
 }
 
-/** Plumbing runs slimmer copper than the other rooms. */
-const PLUMBING_GAUGE = 0.7;
+/** House lights and plumbing run the same slim copper; the alarm rooms keep their heavier conduit. */
+function pipeGauge(theme: ThemeId): number {
+  return theme === "lights" || theme === "plumbing" ? 0.7 : 1;
+}
 const IVORY = "#fbf6ec";
 const IVORY_SHADE = "#e6dac6";
 const IVORY_EDGE = "#c9b99e";
@@ -1677,12 +1642,6 @@ function SchoolArt({ small = false }: { small?: boolean }) {
       <circle cx="40" cy="22" r="4" fill="#ffd56a" />
     </svg>
   );
-}
-
-/** Under the Plumbing look a stretch that unlocks another theme is not news; board changes still are. */
-function shownUnlock(unlock: string | undefined, plumbing: boolean): string | undefined {
-  if (!unlock || !plumbing) return unlock;
-  return THEMES.some((theme) => theme.title === unlock) ? undefined : unlock;
 }
 
 function spreadOrder(paths: readonly (readonly number[])[]): number[] {

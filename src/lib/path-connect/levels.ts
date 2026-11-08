@@ -11,8 +11,10 @@
  *   each route starts turned and the boards grow to four lights.
  * - 13–22 Building Alarm on 5×5. Four or five sensors.
  * - 23–32 School Fire Alarm on 5×5. Busier circuits with up to five detectors.
- * - 33–46 rotate the themes on 6×6. Bolted tiles appear from level 37.
- * - 47–60 rotate the themes on 7×7 with more nodes and bolted tiles.
+ * - 33–42 Plumbing on 6×6, the last system to unlock. Bolted tiles appear
+ *   from level 37.
+ * - 43–46 rotate all four themes on 6×6.
+ * - 47–60 rotate all four themes on 7×7 with more nodes and bolted tiles.
  *
  * Hand-built routes reuse the original boards; `seed` and `scramble` pick how
  * many of their tiles start turned. Other levels come from a seeded tree
@@ -310,15 +312,34 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Bus loop",
     "Bell tower",
   ],
+  plumbing: [
+    "Powder room",
+    "Guest bath",
+    "Kitchen sink",
+    "Hall bath",
+    "Laundry nook",
+    "Primary bath",
+    "Butler's pantry",
+    "Mudroom",
+    "Upstairs bath",
+    "Breakfast kitchen",
+    "Garden washroom",
+    "Pink tile bath",
+    "Pool house",
+    "Wash house",
+    "Scullery",
+    "Bath annex",
+  ],
 };
 
 function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
-function rotatingTheme(id: number): ThemeId {
-  const order: readonly ThemeId[] = ["lights", "alarm", "fire"];
-  return order[(id - 33) % 3]!;
+function lateTheme(id: number): ThemeId {
+  if (id <= 42) return "plumbing";
+  const order: readonly ThemeId[] = ["lights", "alarm", "fire", "plumbing"];
+  return order[(id - 43) % 4]!;
 }
 
 /** Difficulty for a generated level. Each knob rises slowly inside its stretch. */
@@ -368,22 +389,22 @@ function planFor(id: number): Plan {
   if (id <= 36) {
     return {
       id,
-      theme: rotatingTheme(id),
+      theme: lateTheme(id),
       size: 6,
       nodes: [4, 5, 5, 5][id - 33]!,
       reach: [3, 5],
       wiggle: 0.5,
       share: 0.9,
       fixed: 0,
-      unlock: id === 33 ? "6×6 board" : undefined,
-      blurb: id === 33 ? "A wider 6×6 board. Same rules, longer runs." : undefined,
+      unlock: id === 33 ? "Plumbing" : undefined,
+      blurb: id === 33 ? "A new system on 6×6. Four fixtures to fill." : undefined,
     };
   }
   if (id <= 46) {
     const t = (id - 37) / 9;
     return {
       id,
-      theme: rotatingTheme(id),
+      theme: lateTheme(id),
       size: 6,
       nodes: Math.round(lerp(4, 6, t)),
       reach: [3, 5],
@@ -397,7 +418,7 @@ function planFor(id: number): Plan {
   const t = (id - 47) / 13;
   return {
     id,
-    theme: rotatingTheme(id),
+    theme: lateTheme(id),
     size: 7,
     nodes: Math.round(lerp(5, 7, t)),
     reach: [3, 6],
@@ -561,11 +582,11 @@ function generateLevel(id: number, name: string): Level {
  */
 export const DAILY_TARGET_SECONDS = 112;
 export const DAILY_PAR: readonly [number, number] = [23, 27];
-const DAILY_THEMES: readonly ThemeId[] = ["lights", "alarm", "fire"];
+const DAILY_THEMES: readonly ThemeId[] = ["lights", "alarm", "fire", "plumbing"];
 
 /** `day` counts UTC days since 1970, so every player gets the same board. */
 export function generateDaily(day: number): Level {
-  const theme = DAILY_THEMES[((day % 3) + 3) % 3]!;
+  const theme = DAILY_THEMES[((day % DAILY_THEMES.length) + DAILY_THEMES.length) % DAILY_THEMES.length]!;
   return generateFromPlan(
     {
       id: 100_000 + day,
@@ -944,17 +965,17 @@ function buildLevel(spec: LevelSpec): Level {
 export const LEVEL_COUNT = 60;
 
 /**
- * Where each theme's names for levels 33 and up begin, so those levels keep
- * their names when the 5×5 stretches change. Earlier levels use the names
- * before that point, then the spare names at the end of the list.
+ * Where each theme's names for levels 33 and up begin, and how many names
+ * after that are held for them, so levels keep their names when other
+ * stretches change. Earlier levels use the names before that point, then the
+ * spare names after the held ones.
  */
-const LATE_NAMES_FROM: Record<ThemeId, number> = { lights: 0, alarm: 7, fire: 6 };
+const LATE_NAMES_FROM: Record<ThemeId, number> = { lights: 0, alarm: 7, fire: 6, plumbing: 0 };
+const LATE_NAMES_HELD: Record<ThemeId, number> = { lights: 10, alarm: 9, fire: 9, plumbing: 16 };
 
 export const LEVELS: readonly Level[] = (() => {
-  const late: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0 };
-  const early: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0 };
-  const lateTotal: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0 };
-  for (let id = 33; id <= LEVEL_COUNT; id++) lateTotal[planFor(id).theme]++;
+  const late: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0, plumbing: 0 };
+  const early: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0, plumbing: 0 };
   return Array.from({ length: LEVEL_COUNT }, (_, index) => {
     const id = index + 1;
     const spec = HOUSE_SPECS.find((item) => item.id === id);
@@ -964,10 +985,11 @@ export const LEVELS: readonly Level[] = (() => {
     const from = LATE_NAMES_FROM[theme];
     let slot: number;
     if (id >= 33) {
+      if (late[theme] >= LATE_NAMES_HELD[theme]) throw new Error(`No held name left for level ${id}`);
       slot = from + late[theme]++;
     } else {
       const n = early[theme]++;
-      slot = n < from ? n : from + lateTotal[theme] + (n - from);
+      slot = n < from ? n : from + LATE_NAMES_HELD[theme] + (n - from);
     }
     const name = names[slot];
     if (!name) throw new Error(`No name left for level ${id}`);
@@ -979,7 +1001,7 @@ export const CHAPTERS: readonly Chapter[] = [
   { title: "House Lights", from: 1, to: 12, note: "5×5 · learn the basics" },
   { title: "Building Alarm", from: 13, to: 22, note: "5×5 · longer runs, more sensors" },
   { title: "School Fire Alarm", from: 23, to: 32, note: "5×5 · busier circuits" },
-  { title: "Wider boards", from: 33, to: 46, note: "6×6 · bolted tiles from level 37" },
+  { title: "Wider boards", from: 33, to: 46, note: "6×6 · Plumbing, bolted tiles from level 37" },
   { title: "Whole building", from: 47, to: LEVEL_COUNT, note: "7×7 · bolted tiles, most devices" },
 ];
 
