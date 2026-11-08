@@ -12,6 +12,7 @@ import {
   Ban,
   Check,
   ChevronDown,
+  Droplets,
   Lightbulb,
   Lock,
   RotateCcw,
@@ -57,7 +58,16 @@ import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/p
 import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
-import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
+import {
+  THEMES,
+  lookById,
+  plumbingBlurb,
+  plumbingRoom,
+  readLook,
+  writeLook,
+  type CircuitTheme,
+  type LookId,
+} from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
@@ -148,14 +158,24 @@ export function PathConnectGame() {
   const stageRef = useRef<HTMLDivElement>(null);
   const footerRef = useRef<HTMLElement>(null);
   const playLayoutRef = useRef<PlayLayout | null>(null);
-  const theme = themeById(level.theme);
+  const [plumbing, setPlumbing] = useState(false);
+  const look: LookId = plumbing ? "plumbing" : level.theme;
+  const theme = lookById(look);
   const lastLevel = levelId === LEVELS.length;
-  const nextUnlock = lastLevel ? undefined : LEVELS[levelId]?.unlock;
+  const nextUnlock = shownUnlock(lastLevel ? undefined : LEVELS[levelId]?.unlock, plumbing);
+  const levelUnlock = shownUnlock(level.unlock, plumbing);
   const linked = linkedIndexes(level, spins);
   const network = reachTargets(boardCells(level, spins));
   const fed = new Set(network.reached);
   const charged = new Set(network.paths.flat());
   const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
+  const fixtureOf = useMemo(() => {
+    const map = new Map<number, number>();
+    level.tiles.forEach((tile, index) => {
+      if (tile.role === "end") map.set(index, map.size);
+    });
+    return map;
+  }, [level]);
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
   // The pulse sweeps the whole path in about a third of a second on any board size.
@@ -212,7 +232,15 @@ export function PathConnectGame() {
   useEffect(() => {
     const saved = readStats();
     setStats(saved);
+    setPlumbing(readLook() === "plumbing");
   }, []);
+
+  function toggleLook() {
+    setPlumbing((on) => {
+      writeLook(on ? null : "plumbing");
+      return !on;
+    });
+  }
 
   useEffect(() => {
     const saved = readProgress(LEVELS.length);
@@ -468,10 +496,12 @@ export function PathConnectGame() {
             <ThemeMark theme={theme.id} />
             <div className="min-w-0">
               <h2 className="pc-level-name">
-                {mode === "daily" ? `Daily · ${formatDailyDate(new Date())} UTC` : level.name}
-                {mode === "levels" && level.unlock && (
-                  <span className="pc-new">New: {level.unlock}</span>
-                )}
+                {mode === "daily"
+                  ? `Daily · ${formatDailyDate(new Date())} UTC`
+                  : plumbing
+                    ? plumbingRoom(levelId)
+                    : level.name}
+                {mode === "levels" && levelUnlock && <span className="pc-new">New: {levelUnlock}</span>}
               </h2>
               <p className="pc-level-sub">
                 {mode === "daily" ? (
@@ -480,6 +510,8 @@ export function PathConnectGame() {
                       ? `Best time ${formatClock(stats.bestSeconds)} · Best turns ${stats.bestTurns}`
                       : "Same board for everyone today."}
                   </span>
+                ) : plumbing ? (
+                  plumbingBlurb(nodeTotal)
                 ) : (
                   level.blurb
                 )}
@@ -552,6 +584,19 @@ export function PathConnectGame() {
               </span>
             </p>
           </div>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            className="pc-mute pc-look border-0 bg-transparent text-pc-accent hover:bg-transparent hover:text-pc-fg"
+            aria-label="Plumbing theme"
+            title={plumbing ? "Plumbing theme on" : "Plumbing theme"}
+            aria-pressed={plumbing}
+            data-on={plumbing || undefined}
+            onClick={toggleLook}
+          >
+            <Droplets />
+          </Button>
           {pickerOpen && mode === "levels" && (
             <LevelPicker
               current={levelId}
@@ -636,6 +681,7 @@ export function PathConnectGame() {
                         conduit={theme.conduit}
                         live={order >= 0}
                         rotation={rotation}
+                        gauge={look === "plumbing" ? PLUMBING_GAUGE : 1}
                         hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
                       />
                     </span>
@@ -654,7 +700,7 @@ export function PathConnectGame() {
                   )}
                   {tile.role === "end" && (
                     <span className={powered ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
-                      <NodeGlyph theme={theme.id} on={powered || order >= 0} />
+                      <NodeGlyph theme={theme.id} on={powered || order >= 0} fixture={fixtureOf.get(index)} />
                     </span>
                   )}
                 </button>
@@ -905,7 +951,7 @@ function PowerLesson({
   );
 }
 
-function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
+function LessonBoard({ step, theme }: { step: 1 | 2; theme: LookId }) {
   const [elapsed, setElapsed] = useState(0);
   const motion = !prefersReducedMotion();
   const end = step === 1 ? 300 + 4 * LESSON_STEP_MS : LESSON_TURN_AT + 4 * LESSON_STEP_MS;
@@ -952,6 +998,7 @@ function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
                   <TileArt
                     kind={tile.kind}
                     conduit="pipe"
+                    gauge={theme === "plumbing" ? PLUMBING_GAUGE : 1}
                     live={on}
                     rotation={rotation}
                     hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
@@ -1282,13 +1329,15 @@ function LevelPicker({
   );
 }
 
-function ThemeMark({ theme }: { theme: ThemeId }) {
+function ThemeMark({ theme }: { theme: LookId }) {
+  if (theme === "plumbing") return <FaucetMark />;
   if (theme === "alarm") return <BuildingArt small />;
   if (theme === "fire") return <SchoolArt small />;
   return <HouseArt small />;
 }
 
-function SourceGlyph({ theme }: { theme: ThemeId }) {
+function SourceGlyph({ theme }: { theme: LookId }) {
+  if (theme === "plumbing") return <MainSource />;
   if (theme === "alarm") return <PanelSource />;
   if (theme === "fire") return <SchoolSource />;
   return <HouseSource />;
@@ -1355,7 +1404,14 @@ function SchoolSource() {
   );
 }
 
-function NodeGlyph({ theme, on }: { theme: ThemeId; on: boolean }) {
+/** `fixture` picks the plumbing fixture for a node: tub, toilet, then sink, in board order. */
+function NodeGlyph({ theme, on, fixture = 2 }: { theme: LookId; on: boolean; fixture?: number }) {
+  if (theme === "plumbing") {
+    const pick = fixture % 3;
+    if (pick === 0) return <Tub on={on} />;
+    if (pick === 1) return <Toilet on={on} />;
+    return <Sink on={on} />;
+  }
   if (theme === "alarm") return <Sensor on={on} />;
   if (theme === "fire") return <Strobe on={on} />;
   return <Bulb on={on} />;
@@ -1463,6 +1519,128 @@ function Strobe({ on }: { on: boolean }) {
   );
 }
 
+/** Plumbing runs slimmer copper than the other rooms. */
+const PLUMBING_GAUGE = 0.7;
+const IVORY = "#fbf6ec";
+const IVORY_SHADE = "#e6dac6";
+const IVORY_EDGE = "#c9b99e";
+const BRASS = "#c9953f";
+const BRASS_DARK = "#9a6c28";
+const BRASS_LIGHT = "#f0cf86";
+const WATER = "#8fd3df";
+
+/** Cream cottage with a terracotta tile roof, a chimney, and a lit round window. */
+function MainSource() {
+  return (
+    <svg viewBox="0 0 64 60" className="pc-source-icon">
+      <rect x="40" y="6" width="8" height="15" rx="1.6" fill="#eadfca" />
+      <rect x="39" y="4.5" width="10" height="3.6" rx="1.4" fill="#d8c9ae" />
+      <path d="M41 9.5v9" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
+      <path d="M13 29 32 14.5 51 29v19a7 7 0 0 1-7 7H20a7 7 0 0 1-7-7V29z" fill="#f4ead6" />
+      <path d="M15.5 30.5 32 18" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.75" />
+      <path d="M14 49a6.5 6.5 0 0 0 6 5.2h24a6.5 6.5 0 0 0 6.2-6V30" fill="none" stroke="#bda57f" strokeWidth="2.4" strokeLinecap="round" opacity="0.35" />
+      <path d="M8.5 33.5 32 15.5 55.5 33.5" fill="none" stroke="#7d3b22" strokeWidth="9" strokeLinecap="round" strokeLinejoin="round" opacity="0.26" />
+      <path d="M8 31 32 12l24 19" fill="none" stroke="#bf5f3c" strokeWidth="9.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M12.6 27.2 32 12M51.4 27.2 32 12" fill="none" stroke="#9f4a2c" strokeWidth="1.1" strokeDasharray="2.2 2.6" opacity="0.75" />
+      <path d="M8.7 29 32 10.6" fill="none" stroke="#e08a64" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
+      <path d="M26 55V45.5a6 6 0 0 1 12 0V55z" fill="#a8754e" />
+      <path d="M28 45.4a4 4 0 0 1 4-3.9" fill="none" stroke="#cc9d74" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="32" cy="33.5" r="5.2" fill="#ffe7a6" stroke="#d6b98a" strokeWidth="1.4" />
+      <circle cx="32" cy="33.5" r="2.8" fill="#fff6d8" />
+      <circle cx="30.6" cy="32.1" r="1" fill="white" />
+    </svg>
+  );
+}
+
+function FaucetMark() {
+  return (
+    <svg viewBox="0 0 80 72" className="pc-mark-icon">
+      <path d="M22 30V22a10 10 0 0 1 10-10h18a8 8 0 0 1 8 8v6" fill="none" stroke={BRASS_DARK} strokeWidth="9" strokeLinecap="round" />
+      <path d="M22 30V22a10 10 0 0 1 10-10h18a8 8 0 0 1 8 8v6" fill="none" stroke={BRASS} strokeWidth="6.5" strokeLinecap="round" />
+      <path d="M24 26v-4a8 8 0 0 1 8-8h16" fill="none" stroke={BRASS_LIGHT} strokeWidth="2" strokeLinecap="round" />
+      <rect x="30" y="4" width="16" height="6" rx="3" fill={BRASS} />
+      <path d="M58 34c0 0-7 9-7 14a7 7 0 0 0 14 0c0-5-7-14-7-14z" fill={WATER} />
+      <path d="M55.5 46a3 3 0 0 0 2.5 3.6" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="10" y="56" width="60" height="8" rx="4" fill="#a8b993" />
+    </svg>
+  );
+}
+
+function Tub({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      {[15, 49].map((x) => (
+        <g key={x}>
+          <path d={`M${x - 3} 42q-2.4 5 -1.4 9.4h4.6q-0.4-3.6 2.2-6.6z`} fill={BRASS_DARK} transform={x > 32 ? `translate(${2 * x} 0) scale(-1 1)` : undefined} />
+          <path d={`M${x - 2.4} 43q-1.6 4 -1 7.2`} fill="none" stroke={BRASS_LIGHT} strokeWidth="1.1" strokeLinecap="round" transform={x > 32 ? `translate(${2 * x} 0) scale(-1 1)` : undefined} />
+        </g>
+      ))}
+      <path d="M7 22h50c0 13-5 23-25 23S7 35 7 22z" fill={IVORY} />
+      <path d="M57 22c0 13-5 23-25 23-9 0-15-2-18.6-5.6C18 42 23 42.6 30 42.6c17 0 23-8 23.4-20.6z" fill={IVORY_SHADE} />
+      <path d="M11 26c1 7 5 12 12 14" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.9" />
+      <rect x="4.5" y="18" width="55" height="6" rx="3" fill="white" stroke={IVORY_EDGE} strokeWidth="1.1" />
+      {on && (
+        <>
+          <rect x="9" y="18.8" width="46" height="2.8" rx="1.4" fill={WATER} />
+          <path d="M16 19.9h9" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
+        </>
+      )}
+      <path d="M12 18.5v-6.5a4 4 0 0 1 4-4h4.5" fill="none" stroke={BRASS_DARK} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M12 18.5v-6.5a4 4 0 0 1 4-4h4.5" fill="none" stroke={BRASS} strokeWidth="2.2" strokeLinecap="round" />
+      <path d="M20.5 8v3" stroke={BRASS} strokeWidth="2.2" strokeLinecap="round" />
+      {[8.6, 15.4].map((x) => (
+        <circle key={x} cx={x} cy="14.5" r="1.9" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.8" />
+      ))}
+      {on && <path d="M20.5 12v5" stroke={WATER} strokeWidth="1.6" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
+function Toilet({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 56 60" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <rect x="15" y="6" width="26" height="20" rx="4" fill={IVORY} stroke={IVORY_EDGE} strokeWidth="1" />
+      <path d="M36 8.5v15" stroke={IVORY_SHADE} strokeWidth="4" strokeLinecap="round" />
+      <path d="M18.5 10v11" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="13" y="3" width="30" height="5.4" rx="2.7" fill="white" stroke={IVORY_EDGE} strokeWidth="1" />
+      <rect x="17" y="11" width="6" height="2.6" rx="1.3" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.6" />
+      <path d="M21 40h14l2 12a3 3 0 0 1-3 3H22a3 3 0 0 1-3-3z" fill={IVORY_SHADE} />
+      <path d="M22.5 42l-1 10" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.8" />
+      <rect x="17" y="53.5" width="22" height="4" rx="2" fill={IVORY_EDGE} />
+      <path d="M10 31c0 8 7 13 18 13s18-5 18-13z" fill={IVORY} />
+      <path d="M46 31c0 8-7 13-18 13-4 0-7.5-.6-10.2-1.8 2.4.4 4.8.6 7.2.6 10.6 0 17-4.4 17.6-11.8z" fill={IVORY_SHADE} />
+      <ellipse cx="28" cy="30.5" rx="18.5" ry="5.6" fill="white" stroke={IVORY_EDGE} strokeWidth="1.1" />
+      <ellipse cx="28" cy="30.6" rx="12" ry="3.2" fill={on ? WATER : IVORY_SHADE} />
+      {on && <path d="M21.5 30h5" stroke="white" strokeWidth="1.1" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
+function Sink({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 56 60" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <path d="M22 32c1.4 8 .8 15-2.6 22h17.2c-3.4-7-4-14-2.6-22z" fill={IVORY} />
+      <path d="M34 32c-1.4 8-.8 15 2.6 22h-4.2c-2.6-7-3-14-2-22z" fill={IVORY_SHADE} />
+      <path d="M24.4 35c.6 6 .2 11-1.6 16" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
+      <ellipse cx="28" cy="55" rx="11" ry="2.6" fill={IVORY_EDGE} />
+      <path d="M6 19h44c0 8.6-7.6 15-22 15S6 27.6 6 19z" fill={IVORY} />
+      <path d="M50 19c0 8.6-7.6 15-22 15-5 0-9.2-.8-12.4-2.2 2.6.4 5.4.6 8.4.6 13.6 0 21.6-5.6 22-13.4z" fill={IVORY_SHADE} />
+      <path d="M10 22.5c1.6 4.6 6 7.6 12 8.8" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="4" y="15.5" width="48" height="6" rx="3" fill="white" stroke={IVORY_EDGE} strokeWidth="1.1" />
+      <ellipse cx="28" cy="18.4" rx="17" ry="1.9" fill={on ? WATER : IVORY_SHADE} />
+      <path d="M28 16V8.6a3.4 3.4 0 0 1 3.4-3.4H35v3.2" fill="none" stroke={BRASS_DARK} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M28 16V8.6a3.4 3.4 0 0 1 3.4-3.4H35v3.2" fill="none" stroke={BRASS} strokeWidth="2.2" strokeLinecap="round" />
+      {[19, 37].map((x) => (
+        <g key={x}>
+          <path d={`M${x} 15.6v-3.4`} stroke={BRASS_DARK} strokeWidth="2.4" strokeLinecap="round" />
+          <path d={`M${x - 2.6} 11.4h5.2`} stroke={BRASS} strokeWidth="2" strokeLinecap="round" />
+        </g>
+      ))}
+      {on && <path d="M35 9.4v6" stroke={WATER} strokeWidth="1.6" strokeLinecap="round" />}
+    </svg>
+  );
+}
+
 function HouseArt({ small = false }: { small?: boolean }) {
   return (
     <svg viewBox="0 0 80 72" className={small ? "pc-mark-icon" : "pc-corner-art"}>
@@ -1499,6 +1677,12 @@ function SchoolArt({ small = false }: { small?: boolean }) {
       <circle cx="40" cy="22" r="4" fill="#ffd56a" />
     </svg>
   );
+}
+
+/** Under the Plumbing look a stretch that unlocks another theme is not news; board changes still are. */
+function shownUnlock(unlock: string | undefined, plumbing: boolean): string | undefined {
+  if (!unlock || !plumbing) return unlock;
+  return THEMES.some((theme) => theme.title === unlock) ? undefined : unlock;
 }
 
 function spreadOrder(paths: readonly (readonly number[])[]): number[] {

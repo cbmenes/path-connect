@@ -154,11 +154,14 @@ function CozyPipe({
   arms,
   rotation,
   live,
+  gauge,
 }: {
   arms: DirId[];
   rotation: number;
   live: boolean;
+  gauge: number;
 }) {
+  const pipeWidth = PIPE_WIDTH * gauge;
   if (arms.length === 0) return null;
   const light = localLight(rotation);
   const pieces = runs(arms);
@@ -167,8 +170,8 @@ function CozyPipe({
   const dots: { key: string; x: number; y: number; r: number; color: string; opacity: number }[] = [];
 
   LAYERS.forEach((layer, li) => {
-    const width = layer.width * PIPE_WIDTH;
-    const dist = layer.shift * PIPE_WIDTH;
+    const width = layer.width * pipeWidth;
+    const dist = layer.shift * pipeWidth;
     const color = layerColor(layer);
     const opacity = layer.opacity ?? 1;
     const isLight = layer.ink === "light";
@@ -210,18 +213,18 @@ function CozyPipe({
       ))}
       {fittings.map((pts, fi) => (
         <g key={`collar-${fi}`}>
-          <path d={linePath(pts)} stroke={layerColor(LAYERS[0]!)} strokeWidth={PIPE_WIDTH + 3} {...butt} />
+          <path d={linePath(pts)} stroke={layerColor(LAYERS[0]!)} strokeWidth={pipeWidth + 3} {...butt} />
           <path
-            d={linePath(shifted(pts, light, PIPE_WIDTH * 0.07))}
+            d={linePath(shifted(pts, light, pipeWidth * 0.07))}
             stroke={layerColor(LAYERS[1]!)}
-            strokeWidth={PIPE_WIDTH * 0.86}
+            strokeWidth={pipeWidth * 0.86}
             {...butt}
           />
           <path
-            d={linePath(shifted(pts, light, PIPE_WIDTH * 0.2))}
+            d={linePath(shifted(pts, light, pipeWidth * 0.2))}
             stroke={layerColor(LAYERS[2]!)}
             strokeOpacity="0.9"
-            strokeWidth={PIPE_WIDTH * 0.36}
+            strokeWidth={pipeWidth * 0.36}
             {...butt}
           />
         </g>
@@ -230,10 +233,10 @@ function CozyPipe({
         pieces.map((run, ri) => (
           <path
             key={`live-${ri}`}
-            d={linePath(shifted(run.pts, light, PIPE_WIDTH * 0.15))}
+            d={linePath(shifted(run.pts, light, pipeWidth * 0.15))}
             stroke="var(--color-pc-spark)"
             strokeOpacity="0.55"
-            strokeWidth={PIPE_WIDTH * 0.3}
+            strokeWidth={pipeWidth * 0.3}
             {...butt}
           />
         ))}
@@ -247,6 +250,7 @@ export function TileArt({
   live,
   hub,
   rotation = 0,
+  gauge = 1,
 }: {
   kind: Kind;
   conduit: Conduit;
@@ -254,9 +258,11 @@ export function TileArt({
   hub: "start" | "end" | "plain";
   /** Clockwise quarter-turns already applied by the board, used only for lighting. */
   rotation?: number;
+  /** Pipe thickness relative to the standard cozy pipe. Openings stay where they are. */
+  gauge?: number;
 }) {
   const arms = openingIds(baseMask(kind));
-  if (conduit === "pipe") return <CozyPipe arms={arms} rotation={rotation} live={live} />;
+  if (conduit === "pipe") return <CozyPipe arms={arms} rotation={rotation} live={live} gauge={gauge} />;
   const widths = WIDTHS[conduit];
   const bore = live ? "var(--color-pc-flow)" : "var(--color-pc-bore)";
   const casing = "var(--color-pc-casing)";
