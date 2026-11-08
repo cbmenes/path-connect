@@ -210,144 +210,188 @@ const LIGHTS: Piece[] = [
   },
 ];
 
-const OFFICE: Piece[] = [
+const PA_BRONZE = "#b07a3e";
+const PA_BRONZE_DARK = "#7a4f24";
+const PA_BRONZE_LIGHT = "#e8bf86";
+const PA_WOOD = "#c9a06e";
+const PA_WOOD_DARK = "#a47b4c";
+const PA_IVORY = "#f6eddc";
+const PA_IVORY_EDGE = "#c9b99e";
+const PA_TEAL = "#5f8f89";
+const PA_SHADOW = "rgb(52 70 66 / 0.16)";
+
+/** A 1950s broadcast room: wall speaker, horn, console radio, microphone stand, turntable, clock, and a plant. */
+const PA_ROOM: Piece[] = [
   {
-    id: "desk",
-    width: 170,
-    height: 90,
-    fits: ["RB", "LB"],
-    art: (
-      <svg viewBox="0 0 170 90">
-        <ellipse cx="86" cy="86" rx="76" ry="4" fill="rgb(29 82 124 / 0.14)" />
-        <rect x="14" y="30" width="8" height="54" rx="3" fill="#b5c6d6" />
-        <rect x="148" y="30" width="8" height="54" rx="3" fill="#b5c6d6" />
-        <rect x="4" y="22" width="162" height="14" rx="6" fill="#d9e4ee" />
-        <rect x="4" y="18" width="162" height="12" rx="6" fill="#f4f8fb" />
-        <path d="M12 20.5h146" stroke="white" strokeWidth="2" strokeLinecap="round" />
-        <rect x="36" y="8" width="60" height="9" rx="3" fill="#e2eaf1" />
-        <path d="M40 11h52" stroke="#c4d2df" strokeWidth="1.4" strokeDasharray="3 2" />
-        <rect x="110" y="0" width="16" height="18" rx="4" fill="#8ea9c2" />
-        <path d="M126 5c6 0 6 9 0 9" stroke="#8ea9c2" strokeWidth="2.6" fill="none" />
-      </svg>
-    ),
-  },
-  {
-    id: "monitor",
-    width: 130,
-    height: 120,
-    fits: ["T", "T2", "RT"],
-    art: (
-      <svg viewBox="0 0 130 120">
-        <ellipse cx="65" cy="116" rx="36" ry="4" fill="rgb(29 82 124 / 0.14)" />
-        <rect x="58" y="80" width="14" height="28" rx="4" fill="#c3d1de" />
-        <rect x="38" y="106" width="54" height="8" rx="4" fill="#b0c1d1" />
-        <rect x="6" y="4" width="118" height="80" rx="12" fill="#dfe7ee" />
-        <path d="M16 6.5h98" stroke="white" strokeWidth="2.4" strokeLinecap="round" />
-        <rect x="14" y="12" width="102" height="64" rx="6" fill="#3d5266" />
-        <path d="M22 18 52 18 28 64" fill="#5d7690" opacity="0.5" />
-        <rect x="24" y="24" width="30" height="5" rx="2.5" fill="#7fc8ea" opacity="0.8" />
-        <rect x="24" y="34" width="46" height="4" rx="2" fill="#9fb7cd" opacity="0.6" />
-        <rect x="24" y="43" width="38" height="4" rx="2" fill="#9fb7cd" opacity="0.6" />
-      </svg>
-    ),
-  },
-  {
-    id: "office-plant",
-    width: 90,
-    height: 120,
-    fits: ["RB", "LB", "B", "B2"],
-    art: <Plant pot="#f7fafc" rim="#dfe7ee" leaf="#8db58a" leafDark="#6c9a72" />,
-  },
-  {
-    id: "chair",
-    width: 100,
-    height: 160,
-    fits: ["RB", "LB"],
-    art: (
-      <svg viewBox="0 0 100 160">
-        <ellipse cx="50" cy="155" rx="40" ry="4" fill="rgb(29 82 124 / 0.14)" />
-        <rect x="20" y="6" width="60" height="70" rx="22" fill="#8ea9c2" />
-        <path d="M32 12c12-3 26-3 36 0" stroke="#b4c9dc" strokeWidth="3" strokeLinecap="round" fill="none" />
-        <rect x="12" y="78" width="76" height="22" rx="11" fill="#7f9bb5" />
-        <path d="M20 81.5h60" stroke="#a8c0d5" strokeWidth="2.4" strokeLinecap="round" />
-        <rect x="46" y="100" width="8" height="34" rx="3" fill="#a9b9c8" />
-        <path d="M16 142 50 132 84 142" stroke="#93a6b8" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        <circle cx="16" cy="146" r="5" fill="#6d8197" />
-        <circle cx="84" cy="146" r="5" fill="#6d8197" />
-        <circle cx="50" cy="140" r="5" fill="#6d8197" />
-      </svg>
-    ),
-  },
-  {
-    id: "desk-lamp",
-    width: 90,
-    height: 110,
+    id: "wall-speaker",
+    width: 92,
+    height: 104,
     fits: ["T", "T2", "RT", "LT"],
     art: (
-      <svg viewBox="0 0 90 110" overflow="visible">
-        <defs>
-          <radialGradient id="pc-sur-desk-glow">
-            <stop offset="0" stopColor="#e9f7ff" stopOpacity="0.9" />
-            <stop offset="1" stopColor="#e9f7ff" stopOpacity="0" />
-          </radialGradient>
-        </defs>
-        <circle cx="62" cy="54" r="48" fill="url(#pc-sur-desk-glow)" />
-        <ellipse cx="34" cy="104" rx="26" ry="5" fill="#a9bccd" />
-        <ellipse cx="34" cy="101" rx="26" ry="5" fill="#c6d4e1" />
-        <path d="M34 98 22 56 58 26" stroke="#b8c7d5" strokeWidth="6" strokeLinecap="round" strokeLinejoin="round" fill="none" />
-        <circle cx="22" cy="56" r="5" fill="#9fb3c6" />
-        <path d="M50 14l26 16-12 18-26-16z" fill="#8ea9c2" />
-        <path d="M53 17l20 12" stroke="#b4c9dc" strokeWidth="2.4" strokeLinecap="round" />
-        <path d="M64 48 38 32" stroke="#f2fbff" strokeWidth="4" strokeLinecap="round" />
+      <svg viewBox="0 0 92 104">
+        <rect x="10" y="10" width="78" height="90" rx="12" fill={PA_SHADOW} />
+        <rect x="6" y="4" width="78" height="90" rx="12" fill={PA_WOOD} />
+        <path d="M84 16v66a12 12 0 0 1-12 12H18a12 12 0 0 0 10-6h46a4 4 0 0 0 4-4V6a12 12 0 0 1 6 10z" fill={PA_WOOD_DARK} opacity="0.5" />
+        <path d="M16 8h58" stroke="#e6c79c" strokeWidth="2.4" strokeLinecap="round" />
+        <circle cx="45" cy="46" r="28" fill="#e7d6b4" stroke={PA_WOOD_DARK} strokeWidth="2" />
+        {[-18, -9, 0, 9, 18].map((dx) => (
+          <path key={dx} d={`M${45 + dx} ${46 - Math.sqrt(26 * 26 - dx * dx)}v${2 * Math.sqrt(26 * 26 - dx * dx)}`} stroke="#c9b48c" strokeWidth="2" strokeLinecap="round" />
+        ))}
+        <rect x="35" y="80" width="20" height="6" rx="3" fill={PA_BRONZE} />
       </svg>
     ),
   },
   {
-    id: "clock",
+    id: "wall-horn",
+    width: 116,
+    height: 84,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 116 84">
+        <rect x="6" y="20" width="10" height="44" rx="4" fill={PA_BRONZE_DARK} />
+        <rect x="14" y="36" width="14" height="12" rx="3" fill={PA_BRONZE_DARK} />
+        <rect x="26" y="30" width="20" height="24" rx="6" fill={PA_BRONZE} />
+        <path d="M44 32 92 8c8 10 12 22 12 34s-4 24-12 34L44 52z" fill={PA_BRONZE} />
+        <path d="M48 34 88 14" stroke={PA_BRONZE_LIGHT} strokeWidth="3" strokeLinecap="round" />
+        <ellipse cx="94" cy="42" rx="9" ry="34" fill={PA_BRONZE_DARK} />
+        <ellipse cx="95" cy="42" rx="6" ry="28" fill="#5a3a1c" />
+      </svg>
+    ),
+  },
+  {
+    id: "console-radio",
+    width: 112,
+    height: 156,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 112 156">
+        <ellipse cx="56" cy="152" rx="50" ry="4" fill={PA_SHADOW} />
+        <rect x="14" y="134" width="8" height="16" rx="3" fill={PA_WOOD_DARK} />
+        <rect x="90" y="134" width="8" height="16" rx="3" fill={PA_WOOD_DARK} />
+        <path d="M8 44a48 36 0 0 1 96 0v86a8 8 0 0 1-8 8H16a8 8 0 0 1-8-8z" fill={PA_WOOD} />
+        <path d="M104 44v86a8 8 0 0 1-8 8h-10a8 8 0 0 0 8-8V44c0-18-10-30-26-34 22 2 36 16 36 34z" fill={PA_WOOD_DARK} opacity="0.5" />
+        <path d="M16 46c0-16 12-30 34-34" stroke="#e6c79c" strokeWidth="3" fill="none" strokeLinecap="round" />
+        <rect x="24" y="40" width="64" height="22" rx="6" fill={PA_IVORY} stroke={PA_IVORY_EDGE} strokeWidth="1.4" />
+        <path d="M30 51h52" stroke={PA_IVORY_EDGE} strokeWidth="1.2" />
+        <path d="M54 44v14" stroke={PA_BRONZE_DARK} strokeWidth="2" strokeLinecap="round" />
+        <rect x="22" y="72" width="68" height="52" rx="8" fill="#e7d6b4" stroke={PA_WOOD_DARK} strokeWidth="1.6" />
+        {[32, 42, 52, 62, 72, 82].map((x) => (
+          <path key={x} d={`M${x} 76v44`} stroke="#c9b48c" strokeWidth="2" strokeLinecap="round" />
+        ))}
+        {[40, 72].map((x) => (
+          <circle key={x} cx={x} cy="66" r="3" fill={PA_BRONZE} />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "mic-stand",
+    width: 64,
+    height: 206,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 64 206">
+        <ellipse cx="32" cy="200" rx="24" ry="5" fill={PA_SHADOW} />
+        <ellipse cx="32" cy="196" rx="20" ry="5" fill={PA_BRONZE_DARK} />
+        <ellipse cx="32" cy="194" rx="17" ry="3.6" fill={PA_BRONZE} />
+        <rect x="29.5" y="56" width="5" height="138" rx="2.5" fill={PA_BRONZE_DARK} />
+        <path d="M31 60v130" stroke={PA_BRONZE_LIGHT} strokeWidth="1.2" opacity="0.7" />
+        <path d="M18 34v6a14 12 0 0 0 28 0v-6" fill="none" stroke={PA_BRONZE_DARK} strokeWidth="3.4" strokeLinecap="round" />
+        <rect x="20" y="8" width="24" height="44" rx="12" fill={PA_BRONZE} />
+        {[16, 22, 28, 34, 40, 46].map((y) => (
+          <path key={y} d={`M23 ${y}h18`} stroke={PA_BRONZE_DARK} strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+        ))}
+        <path d="M24 14c0-2.6 1.6-4.6 4-5.4" fill="none" stroke={PA_BRONZE_LIGHT} strokeWidth="2.4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "on-air",
+    width: 120,
+    height: 58,
+    fits: ["T", "T2", "RT", "LT"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 120 58">
+        <rect x="8" y="10" width="108" height="44" rx="10" fill={PA_SHADOW} />
+        <rect x="4" y="6" width="108" height="44" rx="10" fill={PA_BRONZE} />
+        <rect x="9" y="11" width="98" height="34" rx="7" fill={PA_IVORY} />
+        <circle cx="21" cy="28" r="5.4" fill="#ffb020" />
+        <circle cx="19.8" cy="26.8" r="1.8" fill="#fff1c9" />
+        <text x="68" y="35" textAnchor="middle" fontSize="17" fontWeight="800" letterSpacing="1.5" fill={PA_TEAL} fontFamily="inherit">
+          ON AIR
+        </text>
+      </svg>
+    ),
+  },
+  {
+    id: "wall-clock",
     width: 84,
     height: 84,
     fits: ["T", "T2", "RT", "LT"],
     art: (
       <svg viewBox="0 0 84 84">
-        <circle cx="44" cy="45" r="36" fill="rgb(29 82 124 / 0.12)" />
-        <circle cx="42" cy="42" r="36" fill="#8ea9c2" />
-        <path d="M14 30a30 30 0 0 1 24-22" stroke="#b6cbdd" strokeWidth="3" strokeLinecap="round" fill="none" />
-        <circle cx="42" cy="42" r="29" fill="#f7fafc" />
-        {[0, 90, 180, 270].map((angle) => (
-          <rect key={angle} x="40.5" y="16" width="3" height="7" rx="1.5" fill="#9fb3c6" transform={`rotate(${angle} 42 42)`} />
+        <circle cx="45" cy="45" r="36" fill={PA_SHADOW} />
+        <circle cx="42" cy="42" r="36" fill={PA_BRONZE} />
+        <circle cx="42" cy="42" r="30" fill={PA_IVORY} />
+        {Array.from({ length: 12 }, (_, i) => (
+          <rect key={i} x="41" y="15" width="2" height="5" rx="1" fill={PA_BRONZE_DARK} transform={`rotate(${i * 30} 42 42)`} />
         ))}
-        <path d="M42 42V25M42 42l11 7" stroke="#3d5266" strokeWidth="3" strokeLinecap="round" />
-        <circle cx="42" cy="42" r="3" fill="#3db7e8" />
+        <path d="M42 42V24M42 42l12 7" stroke={PA_BRONZE_DARK} strokeWidth="2.6" strokeLinecap="round" />
+        <circle cx="42" cy="42" r="2.6" fill={PA_BRONZE_DARK} />
+        <path d="M14 34a30 30 0 0 1 18-18" fill="none" stroke={PA_BRONZE_LIGHT} strokeWidth="2.4" strokeLinecap="round" />
       </svg>
     ),
   },
   {
-    id: "pinboard",
-    width: 120,
-    height: 86,
-    fits: ["T", "T2", "RT", "LT"],
-    art: (
-      <svg viewBox="0 0 120 86">
-        <rect x="7" y="8" width="108" height="74" rx="8" fill="rgb(29 82 124 / 0.12)" />
-        <rect x="3" y="3" width="108" height="74" rx="8" fill="#c8d5e1" />
-        <path d="M10 6h94" stroke="#e7eef4" strokeWidth="2.4" strokeLinecap="round" />
-        <rect x="10" y="10" width="94" height="60" rx="4" fill="#e8dcc6" />
-        <rect x="18" y="18" width="24" height="22" rx="2" fill="#fff4b8" transform="rotate(-4 30 29)" />
-        <rect x="50" y="16" width="22" height="20" rx="2" fill="#bfe6f7" transform="rotate(3 61 26)" />
-        <rect x="78" y="22" width="18" height="30" rx="2" fill="white" />
-        <rect x="30" y="44" width="30" height="18" rx="2" fill="#d3e9cf" transform="rotate(2 45 53)" />
-        {[[30, 19], [61, 17], [87, 23], [45, 45]].map(([x, y]) => (
-          <circle key={`${x}-${y}`} cx={x} cy={y} r="2.4" fill="#3d7eab" />
-        ))}
-      </svg>
-    ),
-  },
-  {
-    id: "desk-succulent",
-    width: 64,
+    id: "turntable",
+    width: 124,
     height: 72,
-    fits: ["B", "B2", "RB"],
-    art: <Succulent pot="#f7fafc" rim="#dfe7ee" leaf="#8db58a" leafDark="#6c9a72" shadow="rgb(29 82 124 / 0.14)" />,
+    fits: ["B", "B2", "RB", "LB"],
+    art: (
+      <svg viewBox="0 0 124 72">
+        <ellipse cx="62" cy="68" rx="56" ry="4" fill={PA_SHADOW} />
+        <rect x="6" y="20" width="112" height="42" rx="9" fill={PA_IVORY} stroke={PA_IVORY_EDGE} strokeWidth="1.4" />
+        <path d="M14 24h96" stroke="white" strokeWidth="2" strokeLinecap="round" />
+        <ellipse cx="52" cy="38" rx="34" ry="13" fill="#3a3a36" />
+        <ellipse cx="52" cy="38" rx="26" ry="9.6" fill="none" stroke="#55554f" strokeWidth="1.2" />
+        <ellipse cx="52" cy="38" rx="9" ry="3.6" fill={PA_TEAL} />
+        <circle cx="100" cy="30" r="5" fill={PA_BRONZE} />
+        <path d="M100 30 92 46 70 44" fill="none" stroke={PA_BRONZE_DARK} strokeWidth="2.6" strokeLinecap="round" strokeLinejoin="round" />
+        {[96, 108].map((x) => (
+          <circle key={x} cx={x} cy="52" r="3" fill={PA_BRONZE} />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "pa-plant",
+    width: 88,
+    height: 118,
+    fits: ["RB", "LB", "B", "B2"],
+    art: <Plant pot={PA_TEAL} rim="#7fa9a3" leaf="#8fae86" leafDark="#6f8f68" />,
+  },
+  {
+    id: "records",
+    width: 90,
+    height: 70,
+    fits: ["B", "B2", "RB", "LB"],
+    art: (
+      <svg viewBox="0 0 90 70">
+        <ellipse cx="45" cy="66" rx="40" ry="4" fill={PA_SHADOW} />
+        <rect x="8" y="26" width="74" height="38" rx="5" fill={PA_WOOD} />
+        <path d="M82 30v30a4 4 0 0 1-4 4H66a4 4 0 0 0 4-4V26h8a4 4 0 0 1 4 4z" fill={PA_WOOD_DARK} opacity="0.5" />
+        {[
+          [18, "#d9a66b"],
+          [30, PA_TEAL],
+          [42, "#e7d6b4"],
+          [54, "#c26a4a"],
+        ].map(([x, ink]) => (
+          <rect key={String(x)} x={Number(x)} y="8" width="10" height="30" rx="2" fill={String(ink)} transform={`rotate(${(Number(x) - 36) / 6} ${Number(x) + 5} 38)`} />
+        ))}
+        <path d="M14 34h62" stroke="#e6c79c" strokeWidth="2" strokeLinecap="round" />
+      </svg>
+    ),
   },
 ];
 
@@ -799,7 +843,7 @@ const PLUMBING: Piece[] = [
   },
 ];
 
-const PIECES: Record<ThemeId, Piece[]> = { lights: LIGHTS, alarm: OFFICE, fire: FIRE, plumbing: PLUMBING };
+const PIECES: Record<ThemeId, Piece[]> = { lights: LIGHTS, alarm: PA_ROOM, fire: FIRE, plumbing: PLUMBING };
 const SLOTS: Slot[] = ["RB", "RT", "LB", "LT", "T", "T2", "B", "B2"];
 
 function random(seed: number): () => number {

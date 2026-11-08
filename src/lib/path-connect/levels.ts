@@ -9,7 +9,7 @@
  * Progression:
  * - 1–12 House Lights on 5×5. Levels 1–4 teach the mechanic, then most of
  *   each route starts turned and the boards grow to four lights.
- * - 13–22 Building Alarm on 5×5. Four or five sensors.
+ * - 13–22 Public Announcement on 5×5. Four or five speakers.
  * - 23–32 School Fire Alarm on 5×5. Busier circuits with up to five detectors.
  * - 33–42 Plumbing on 6×6, the last system to unlock. Bolted tiles appear
  *   from level 37.
@@ -367,8 +367,8 @@ function planFor(id: number): Plan {
       wiggle: lerp(0.35, 0.55, t),
       share: lerp(0.8, 1, t),
       fixed: 0,
-      unlock: id === 13 ? "Building Alarm" : undefined,
-      blurb: id === 13 ? "A new system. One panel, four sensors to arm." : undefined,
+      unlock: id === 13 ? "Public Announcement" : undefined,
+      blurb: id === 13 ? "A new system. One house, four speakers to wire." : undefined,
     };
   }
   if (id <= 32) {
@@ -999,7 +999,7 @@ export const LEVELS: readonly Level[] = (() => {
 
 export const CHAPTERS: readonly Chapter[] = [
   { title: "House Lights", from: 1, to: 12, note: "5×5 · learn the basics" },
-  { title: "Building Alarm", from: 13, to: 22, note: "5×5 · longer runs, more sensors" },
+  { title: "Public Announcement", from: 13, to: 22, note: "5×5 · longer runs, more speakers" },
   { title: "School Fire Alarm", from: 23, to: 32, note: "5×5 · busier circuits" },
   { title: "Wider boards", from: 33, to: 46, note: "6×6 · Plumbing, bolted tiles from level 37" },
   { title: "Whole building", from: 47, to: LEVEL_COUNT, note: "7×7 · bolted tiles, most devices" },

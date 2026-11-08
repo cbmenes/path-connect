@@ -155,7 +155,7 @@ describe("levels", () => {
   it("marks each new stretch as an unlock", () => {
     const unlocks = LEVELS.flatMap((level) => (level.unlock ? [[level.id, level.unlock]] : []));
     assert.deepEqual(unlocks, [
-      [13, "Building Alarm"],
+      [13, "Public Announcement"],
       [23, "School Fire Alarm"],
       [33, "Plumbing"],
       [37, "Bolted tiles"],

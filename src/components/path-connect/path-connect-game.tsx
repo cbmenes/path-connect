@@ -644,7 +644,7 @@ export function PathConnectGame() {
                         conduit={theme.conduit}
                         live={order >= 0}
                         rotation={rotation}
-                        gauge={pipeGauge(theme.id)}
+                        gauge={PIPE_GAUGE}
                         hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
                       />
                     </span>
@@ -961,7 +961,7 @@ function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
                   <TileArt
                     kind={tile.kind}
                     conduit="pipe"
-                    gauge={pipeGauge(theme)}
+                    gauge={PIPE_GAUGE}
                     live={on}
                     rotation={rotation}
                     hub={tile.role === "start" ? "start" : tile.role === "end" ? "end" : "plain"}
@@ -1294,14 +1294,14 @@ function LevelPicker({
 
 function ThemeMark({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <FaucetMark />;
-  if (theme === "alarm") return <BuildingArt small />;
+  if (theme === "alarm") return <HornMark />;
   if (theme === "fire") return <FireMark />;
   return <HouseArt small />;
 }
 
 function SourceGlyph({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <MainSource />;
-  if (theme === "alarm") return <PanelSource />;
+  if (theme === "alarm") return <PaHouseSource />;
   if (theme === "fire") return <FireHouseSource />;
   return <HouseSource />;
 }
@@ -1325,29 +1325,7 @@ function HouseSource() {
   );
 }
 
-function PanelSource() {
-  return (
-    <svg viewBox="0 0 64 60" className="pc-source-icon">
-      <rect x="10" y="48" width="44" height="9" rx="3.5" fill="#5d7c99" />
-      <path d="M13 49.2h38" stroke="#8ea9c2" strokeWidth="1.3" strokeLinecap="round" />
-      <rect x="12.5" y="6" width="39" height="44" rx="10" fill="#87a3bd" />
-      <path d="M17 7.6h30" stroke="#b6cbdd" strokeWidth="2" strokeLinecap="round" />
-      <path d="M13.3 42V16" stroke="#a7bed3" strokeWidth="1.6" strokeLinecap="round" opacity="0.8" />
-      <rect x="17.5" y="11.5" width="29" height="33" rx="5.5" fill="#9fb7cd" stroke="#6f8daa" strokeWidth="1.3" />
-      <path d="M20 12.8h24" stroke="#c4d5e4" strokeWidth="1.1" strokeLinecap="round" />
-      <rect x="25" y="17" width="14" height="4.4" rx="2.2" fill="#5d7c99" />
-      {[23, 32, 41].map((cx) => (
-        <g key={cx}>
-          <circle cx={cx} cy="28.5" r="3.6" fill="#5d7c99" />
-          <circle cx={cx - 1.1} cy="27.4" r="1" fill="#a9bfd3" />
-        </g>
-      ))}
-      <rect x="22" y="36.2" width="20" height="3.8" rx="1.9" fill="#5d7c99" />
-    </svg>
-  );
-}
-
-/** `fixture` is the node's place in board order: plumbing cycles tub, toilet, sink; fire alternates detector and bell. */
+/** `fixture` is the node's place in board order: plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire alternates detector and bell. */
 function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
@@ -1355,7 +1333,13 @@ function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fi
     if (pick === 1) return <Toilet on={on} />;
     return <Sink on={on} />;
   }
-  if (theme === "alarm") return <Sensor on={on} />;
+  if (theme === "alarm") {
+    const pick = fixture % 4;
+    if (pick === 0) return <Horn on={on} />;
+    if (pick === 1) return <Microphone on={on} />;
+    if (pick === 2) return <Radio on={on} />;
+    return <Telephone on={on} />;
+  }
   if (theme === "fire") return fixture % 2 === 0 ? <FireDetector on={on} /> : <FireBell on={on} />;
   return <Bulb on={on} />;
 }
@@ -1390,35 +1374,6 @@ function Bulb({ on }: { on: boolean }) {
         </g>
       ))}
       <path d="M18.6 55h10.8l-1.7 3a2 2 0 0 1-1.8 1h-3.8a2 2 0 0 1-1.8-1z" fill="#86703f" />
-    </svg>
-  );
-}
-
-function Sensor({ on }: { on: boolean }) {
-  return (
-    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
-      <circle cx="28.4" cy="29.2" r="24.6" fill="#9fb2c4" />
-      <circle cx="28" cy="28" r="24.6" fill="#e2e9ef" stroke="#b4c3d1" strokeWidth="1" />
-      <path d="M5.4 28A22.6 22.6 0 0 1 28 5.4" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" />
-      <circle cx="28" cy="28" r="19.6" fill="#cfdae5" stroke="#aebfcf" strokeWidth="1.2" />
-      <path d="M11.8 36A17.8 17.8 0 0 0 44.2 36" fill="none" stroke="white" strokeWidth="1.3" opacity="0.75" />
-      <g transform="translate(28 29) scale(1.2) translate(-28 -29)">
-      <path
-        d="M28 15.4c3.4 2.5 7 3.4 11 3.6v8.8c0 7.7-4.5 12.9-11 15.6-6.5-2.7-11-7.9-11-15.6V19c4-.2 7.6-1.1 11-3.6z"
-        fill="#2f5f8c"
-        opacity="0.35"
-        transform="translate(0.8 1.6)"
-      />
-      <path
-        d="M28 15.4c3.4 2.5 7 3.4 11 3.6v8.8c0 7.7-4.5 12.9-11 15.6-6.5-2.7-11-7.9-11-15.6V19c4-.2 7.6-1.1 11-3.6z"
-        fill={on ? "#3d9be6" : "#6a9bcb"}
-      />
-      <path d="M18.6 20.4c3.6-.4 6.6-1.4 9.4-3.2" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
-      <path d="M18.6 21.5v6.3c0 4.6 2 8.2 5.2 10.8" fill="none" stroke="white" strokeWidth="1.3" strokeLinecap="round" opacity="0.35" />
-      <circle cx="28" cy="28.6" r="6" fill={on ? "#2f84cc" : "#5687b8"} />
-      <circle cx="28" cy="28.6" r="3.9" fill={on ? "#bff4ff" : "#b8cfe4"} />
-      <circle cx="26.9" cy="27.4" r="1.3" fill="white" opacity={on ? 1 : 0.8} />
-      </g>
     </svg>
   );
 }
@@ -1514,10 +1469,8 @@ function FireMark() {
   );
 }
 
-/** House lights, plumbing, and the fire alarm run slim conduit; Building Alarm keeps its heavier pipe. */
-function pipeGauge(theme: ThemeId): number {
-  return theme === "alarm" ? 1 : 0.7;
-}
+/** Every theme runs the same slim conduit. */
+const PIPE_GAUGE = 0.7;
 const IVORY = "#fbf6ec";
 const IVORY_SHADE = "#e6dac6";
 const IVORY_EDGE = "#c9b99e";
@@ -1525,6 +1478,132 @@ const BRASS = "#c9953f";
 const BRASS_DARK = "#9a6c28";
 const BRASS_LIGHT = "#f0cf86";
 const WATER = "#8fd3df";
+
+const BRONZE = "#b07a3e";
+const BRONZE_DARK = "#7a4f24";
+const BRONZE_LIGHT = "#e8bf86";
+const PA_GLOW = "#ffe2ad";
+
+/** Cream house with a deep teal roof, a copper door, and a round speaker grille in the gable. */
+function PaHouseSource() {
+  return (
+    <svg viewBox="0 0 64 60" className="pc-source-icon">
+      <path d="M12 29 32 13.5 52 29v18.5a7 7 0 0 1-7 7H19a7 7 0 0 1-7-7V29z" fill={IVORY} />
+      <path d="M14.5 30.5 32 17" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+      <path d="M13 48.5a6.5 6.5 0 0 0 6 5h26a6.5 6.5 0 0 0 6.2-6V30" fill="none" stroke={IVORY_EDGE} strokeWidth="2.4" strokeLinecap="round" opacity="0.5" />
+      <path d="M8.5 33 32 15 55.5 33" fill="none" stroke="#233f3c" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" />
+      <path d="M8 30.5 32 11.5l24 19" fill="none" stroke="#3f6f6a" strokeWidth="8.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.6 28.6 32 10.1" fill="none" stroke="#8fb8b1" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
+      <circle cx="32" cy="26.5" r="4.4" fill={BRONZE_DARK} />
+      <circle cx="32" cy="26.5" r="3.3" fill={BRONZE} />
+      <path d="M29.8 25.4h4.4M29.4 27h5.2M29.8 28.6h4.4" stroke={BRONZE_DARK} strokeWidth="0.7" strokeLinecap="round" />
+      <path d="M17.5 54.5V43.5a5.5 5.5 0 0 1 11 0v11z" fill={BRONZE} />
+      <path d="M19.2 43.4a3.8 3.8 0 0 1 3.8-3.6" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="25.6" cy="48.6" r="1.2" fill={BRONZE_LIGHT} />
+      <rect x="35" y="35.5" width="12.5" height="11.5" rx="2.6" fill="#f3e6cf" stroke={IVORY_EDGE} strokeWidth="1.2" />
+      <path d="M41.25 36.5v9.5M36 41.25h10.5" stroke={IVORY_EDGE} strokeWidth="1.6" />
+    </svg>
+  );
+}
+
+/** Bronze 1950s PA horn on a wall bracket. */
+function Horn({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <rect x="5" y="17" width="6" height="22" rx="2.4" fill={BRONZE_DARK} />
+      <rect x="9" y="24" width="8" height="8" rx="2" fill={BRONZE_DARK} />
+      <rect x="15" y="20" width="12" height="16" rx="4" fill={BRONZE} />
+      <path d="M17 22.4h8" stroke={BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M26 23 50 9c4 6 6 12.5 6 19s-2 13-6 19L26 33z" fill={BRONZE} />
+      <path d="M50 9c4 6 6 12.5 6 19s-2 13-6 19l-9-5.2c2.6-4.6 4-9.2 4-13.8 0-4.4-1.2-8.8-3.6-13.2z" fill={BRONZE_DARK} opacity="0.35" />
+      <path d="M28 24.4 48 12.6" stroke={BRONZE_LIGHT} strokeWidth="2" strokeLinecap="round" />
+      <ellipse cx="51" cy="28" rx="5" ry="19" fill={BRONZE_DARK} />
+      <ellipse cx="51.4" cy="28" rx="3.2" ry="15.6" fill={on ? PA_GLOW : "#5a3a1c"} />
+      <path d="M49.6 15.4c-.8 4-1.2 8.2-1.2 12.6" stroke={BRONZE_LIGHT} strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
+    </svg>
+  );
+}
+
+/** Bronze 1950s broadcast microphone with a ribbed grille on a short stand. */
+function Microphone({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <ellipse cx="32" cy="51" rx="14" ry="3.6" fill={BRONZE_DARK} />
+      <ellipse cx="32" cy="49.6" rx="12" ry="2.6" fill={BRONZE} />
+      <rect x="30" y="34" width="4" height="15" rx="2" fill={BRONZE_DARK} />
+      <path d="M19 20v6a13 10 0 0 0 26 0v-6" fill="none" stroke={BRONZE_DARK} strokeWidth="3" strokeLinecap="round" />
+      <rect x="21" y="4" width="22" height="32" rx="11" fill={BRONZE} />
+      <path d="M43 15v10a11 11 0 0 1-11 11 11 11 0 0 0 8-10.6V15a11 11 0 0 0-8-10.6A11 11 0 0 1 43 15z" fill={BRONZE_DARK} opacity="0.35" />
+      {[10, 14, 18, 22, 26, 30].map((y) => (
+        <path key={y} d={`M24 ${y}h16`} stroke={on ? PA_GLOW : BRONZE_DARK} strokeWidth="1.4" strokeLinecap="round" opacity={on ? 0.9 : 0.55} />
+      ))}
+      <path d="M32 5v30" stroke={BRONZE_DARK} strokeWidth="1.2" opacity="0.5" />
+      <path d="M25 10c0-2.6 1.6-4.6 4-5.4" fill="none" stroke={BRONZE_LIGHT} strokeWidth="2" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** Bronze tabletop radio with a cloth grille, an ivory dial, and two knobs. */
+function Radio({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <rect x="10" y="46" width="6" height="5" rx="1.6" fill={BRONZE_DARK} />
+      <rect x="48" y="46" width="6" height="5" rx="1.6" fill={BRONZE_DARK} />
+      <rect x="5" y="9" width="54" height="39" rx="10" fill={BRONZE} />
+      <path d="M59 19v19a10 10 0 0 1-10 10H15a10 10 0 0 0 9-6h25a4 4 0 0 0 4-4V9.6A10 10 0 0 1 59 19z" fill={BRONZE_DARK} opacity="0.35" />
+      <path d="M12 11.6h40" stroke={BRONZE_LIGHT} strokeWidth="2" strokeLinecap="round" />
+      <rect x="11" y="16" width="24" height="26" rx="6" fill="#e7d6b4" stroke={BRONZE_DARK} strokeWidth="1.2" />
+      {[16, 21, 26, 31].map((x) => (
+        <path key={x} d={`M${x} 19v20`} stroke="#c9b48c" strokeWidth="1.6" strokeLinecap="round" />
+      ))}
+      <circle cx="47" cy="24" r="7.4" fill={on ? PA_GLOW : IVORY} stroke={IVORY_EDGE} strokeWidth="1.2" />
+      <path d="M47 24l3.6-4" stroke={BRONZE_DARK} strokeWidth="1.4" strokeLinecap="round" />
+      {[42, 52].map((x) => (
+        <g key={x}>
+          <circle cx={x} cy="38" r="3.4" fill={IVORY} stroke={IVORY_EDGE} strokeWidth="1" />
+          <circle cx={x - 0.8} cy="37.2" r="1" fill="white" />
+        </g>
+      ))}
+    </svg>
+  );
+}
+
+/** Ivory 1950s rotary telephone. */
+function Telephone({ on }: { on: boolean }) {
+  return (
+    <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <path d="M11 46 17 25h30l6 21a4 4 0 0 1-4 5H15a4 4 0 0 1-4-5z" fill={IVORY} />
+      <path d="M47 25l6 21a4 4 0 0 1-4 5h-8a4 4 0 0 0 4-5l-6-21z" fill={IVORY_SHADE} />
+      <path d="M18.6 28 14 45" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+      <circle cx="32" cy="38" r="9.4" fill="white" stroke={IVORY_EDGE} strokeWidth="1.2" />
+      {Array.from({ length: 10 }, (_, i) => {
+        const angle = ((i * 30 - 60) * Math.PI) / 180;
+        return <circle key={i} cx={32 + Math.cos(angle) * 6.2} cy={38 + Math.sin(angle) * 6.2} r="1.3" fill={IVORY_SHADE} stroke={IVORY_EDGE} strokeWidth="0.5" />;
+      })}
+      <circle cx="32" cy="38" r="2.8" fill={on ? PA_GLOW : IVORY_SHADE} stroke={IVORY_EDGE} strokeWidth="0.8" />
+      <rect x="22" y="21" width="20" height="5" rx="2" fill={IVORY_SHADE} />
+      <path d="M13 17c6-5 32-5 38 0" fill="none" stroke={IVORY_EDGE} strokeWidth="8" strokeLinecap="round" />
+      <path d="M13 17c6-5 32-5 38 0" fill="none" stroke={IVORY} strokeWidth="6.2" strokeLinecap="round" />
+      <path d="M17 13.6c6-3 24-3 30 0" fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
+      {[10.5, 53.5].map((x) => (
+        <ellipse key={x} cx={x} cy="19.5" rx="6" ry="4.4" fill={IVORY} stroke={IVORY_EDGE} strokeWidth="1.1" />
+      ))}
+    </svg>
+  );
+}
+
+function HornMark() {
+  return (
+    <svg viewBox="0 0 80 72" className="pc-mark-icon">
+      <rect x="8" y="26" width="8" height="22" rx="3" fill={BRONZE_DARK} />
+      <rect x="14" y="28" width="16" height="18" rx="5" fill={BRONZE} />
+      <path d="M28 30 62 12c5 8 7 16 7 24s-2 16-7 24L28 42z" fill={BRONZE} />
+      <path d="M31 31 59 16" stroke={BRONZE_LIGHT} strokeWidth="3" strokeLinecap="round" />
+      <ellipse cx="63" cy="36" rx="6" ry="24" fill={BRONZE_DARK} />
+    </svg>
+  );
+}
+
 
 /** Cream cottage with a terracotta tile roof, a chimney, and a lit round window. */
 function MainSource() {
@@ -1646,21 +1725,6 @@ function HouseArt({ small = false }: { small?: boolean }) {
       <rect x="33" y="40" width="14" height="22" rx="2" fill="#a86a3a" />
       <rect x="18" y="40" width="10" height="10" rx="1.5" fill="#ffe7a3" />
       <rect x="52" y="40" width="10" height="10" rx="1.5" fill="#ffe7a3" />
-    </svg>
-  );
-}
-
-function BuildingArt({ small = false }: { small?: boolean }) {
-  return (
-    <svg viewBox="0 0 80 72" className={small ? "pc-mark-icon" : "pc-corner-art"}>
-      <rect x="16" y="16" width="48" height="50" rx="4" fill="#d5e6f4" />
-      <rect x="24" y="24" width="8" height="8" rx="1" fill="#7ec8ea" />
-      <rect x="36" y="24" width="8" height="8" rx="1" fill="#7ec8ea" />
-      <rect x="48" y="24" width="8" height="8" rx="1" fill="#7ec8ea" />
-      <rect x="24" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
-      <rect x="36" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
-      <rect x="48" y="38" width="8" height="8" rx="1" fill="#7ec8ea" />
-      <rect x="34" y="50" width="12" height="16" rx="1" fill="#4f86b0" />
     </svg>
   );
 }
