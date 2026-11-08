@@ -1302,7 +1302,7 @@ function ThemeMark({ theme }: { theme: ThemeId }) {
 function SourceGlyph({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <MainSource />;
   if (theme === "alarm") return <PanelSource />;
-  if (theme === "fire") return <FirePanelSource />;
+  if (theme === "fire") return <FireHouseSource />;
   return <HouseSource />;
 }
 
@@ -1431,20 +1431,24 @@ const FIRE_IVORY_SHADE = "#e6d8bf";
 const FIRE_IVORY_EDGE = "#c9b99e";
 const FIRE_GLOW = "#ffe2ad";
 
-/** Cream 1950s alarm panel with a red header, an amber lamp, and a red pull handle. */
-function FirePanelSource() {
+/** Cream house with a brick-red roof, a red door, and an amber alarm lamp in the gable: where the power starts. */
+function FireHouseSource() {
   return (
     <svg viewBox="0 0 64 60" className="pc-source-icon">
-      <rect x="12" y="8" width="40" height="46" rx="7" fill={FIRE_IVORY} stroke={FIRE_IVORY_EDGE} strokeWidth="1.2" />
-      <path d="M52 15v32a7 7 0 0 1-7 7H19a7 7 0 0 0 5-3h21a4 4 0 0 0 4-4V9a7 7 0 0 1 3 6z" fill={FIRE_IVORY_SHADE} />
-      <path d="M12 15a7 7 0 0 1 7-7h26a7 7 0 0 1 7 7v4H12z" fill={FIRE_RED} />
-      <path d="M17 11h28" stroke={FIRE_RED_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
-      <circle cx="32" cy="31" r="6.4" fill={FIRE_RED_DARK} />
-      <circle cx="32" cy="31" r="5" fill="#ffb020" />
-      <circle cx="30.4" cy="29.4" r="1.6" fill="#fff1c9" />
-      <rect x="25" y="42" width="14" height="6" rx="2" fill={FIRE_RED} />
-      <path d="M28 44h8" stroke={FIRE_RED_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
-      <path d="M15.5 22v26" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.7" />
+      <path d="M12 29 32 13.5 52 29v18.5a7 7 0 0 1-7 7H19a7 7 0 0 1-7-7V29z" fill={FIRE_IVORY} />
+      <path d="M14.5 30.5 32 17" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+      <path d="M13 48.5a6.5 6.5 0 0 0 6 5h26a6.5 6.5 0 0 0 6.2-6V30" fill="none" stroke={FIRE_IVORY_EDGE} strokeWidth="2.4" strokeLinecap="round" opacity="0.5" />
+      <path d="M8.5 33 32 15 55.5 33" fill="none" stroke="#5c2a22" strokeWidth="8" strokeLinecap="round" strokeLinejoin="round" opacity="0.3" />
+      <path d="M8 30.5 32 11.5l24 19" fill="none" stroke="#a5402f" strokeWidth="8.4" strokeLinecap="round" strokeLinejoin="round" />
+      <path d="M8.6 28.6 32 10.1" fill="none" stroke="#dd8a74" strokeWidth="2.6" strokeLinecap="round" opacity="0.85" />
+      <circle cx="32" cy="26.5" r="4.4" fill="#7e2f22" />
+      <circle cx="32" cy="26.5" r="3.3" fill="#ffb020" />
+      <circle cx="31" cy="25.5" r="1.1" fill="#fff1c9" />
+      <path d="M17.5 54.5V43.5a5.5 5.5 0 0 1 11 0v11z" fill="#a5402f" />
+      <path d="M19.2 43.4a3.8 3.8 0 0 1 3.8-3.6" fill="none" stroke="#dd8a74" strokeWidth="1.4" strokeLinecap="round" />
+      <circle cx="25.6" cy="48.6" r="1.2" fill="#f0cf86" />
+      <rect x="35" y="35.5" width="12.5" height="11.5" rx="2.6" fill="#f3e6cf" stroke={FIRE_IVORY_EDGE} strokeWidth="1.2" />
+      <path d="M41.25 36.5v9.5M36 41.25h10.5" stroke={FIRE_IVORY_EDGE} strokeWidth="1.6" />
     </svg>
   );
 }

@@ -243,8 +243,8 @@
   --color-pc-bg: #efe5d6;
   --color-pc-wall: #f8f1e6;
   --color-pc-tray: #f8f3e9;
-  --color-pc-tile: #a7b791;
-  --color-pc-edge: #8a9b76;
+  --color-pc-tile: #a9b29c;
+  --color-pc-edge: #8b937f;
   --color-pc-fg: #4a3a2e;
   --color-pc-muted: #7a6a5c;
   --color-pc-flow: #c4473a;
@@ -2430,8 +2430,7 @@
 
 /*
  * Plumbing: sage tiles on a deeper sage tray, copper conduit, ivory 1950s
- * fixtures, and a cream bathroom wall. School Fire Alarm shares the sage
- * tray and tiles.
+ * fixtures, and a cream bathroom wall.
  */
 .path-connect[data-theme="plumbing"] {
   --color-pc-bg: #eee6d6;
@@ -2463,8 +2462,7 @@
     linear-gradient(180deg, #f7f1e6 0%, var(--color-pc-bg) 100%);
 }
 
-.path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tray,
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tray {
+.path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tray {
   background: linear-gradient(160deg, #9aab85 0%, #8a9b76 55%, #7d8e6a 100%);
   --pc-tray-lip:
     inset 0 2px 0 color-mix(in oklab, white 45%, #9aab85),
@@ -2486,13 +2484,7 @@
 .path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tile[data-charged="true"],
 .path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tile[data-role="end"][data-fed="true"],
 .path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tile[data-role="start"],
-.path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tile[data-role="end"],
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile,
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-live="true"],
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-charged="true"],
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-role="end"][data-fed="true"],
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-role="start"],
-.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-role="end"] {
+.path-connect[data-theme="plumbing"][data-style="cozy"] .pc-tile[data-role="end"] {
   background: linear-gradient(150deg, #bdcaa8 0%, #aebd98 36%, #98a982 100%);
   box-shadow:
     inset 0 3px 0 color-mix(in oklab, white 42%, #bdcaa8),
@@ -2544,9 +2536,43 @@
   --color-pc-pipe-shade: #5a4a2c;
 }
 
-/* School Fire Alarm: slim red conduit with the same top highlight and darker side shading. */
+/* School Fire Alarm: muted gray-sage tiles in a gray-sage tray, with slim brick-red conduit. */
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tray {
+  background: linear-gradient(160deg, #9aa290 0%, #8b937f 55%, #7e8673 100%);
+  --pc-tray-lip:
+    inset 0 2px 0 color-mix(in oklab, white 45%, #9aa290),
+    inset 0 -3px 0 color-mix(in oklab, black 18%, #7e8673),
+    inset 0 0 0 4px color-mix(in oklab, white 14%, #959d8a),
+    inset 0 0 0 8px color-mix(in oklab, white 6%, #8b937f),
+    inset 0 0 0 9px color-mix(in oklab, black 10%, #7e8673),
+    inset 0 0 0 10px color-mix(in oklab, black 16%, #7e8673),
+    inset 3px 16px 16px color-mix(in oklab, black 12%, transparent),
+    inset -2px -6px 12px color-mix(in oklab, white 14%, transparent);
+  --pc-tray-drop:
+    0 0 0 1px color-mix(in oklab, #4a5144 22%, transparent),
+    0 5px 0 #6f7766,
+    0 26px 36px -16px color-mix(in oklab, #4a5144 50%, transparent);
+}
+
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile,
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-live="true"],
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-charged="true"],
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-role="end"][data-fed="true"],
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-role="start"],
+.path-connect[data-theme="fire"][data-style="cozy"] .pc-tile[data-role="end"] {
+  background: linear-gradient(150deg, #bfc6b3 0%, #b0b8a3 36%, #9aa28c 100%);
+  box-shadow:
+    inset 0 3px 0 color-mix(in oklab, white 42%, #bfc6b3),
+    inset 3px 0 0 color-mix(in oklab, white 24%, #b5bca8),
+    inset -3px -5px 0 #8f977f,
+    inset -8px -10px 14px color-mix(in oklab, #4a5144 18%, transparent),
+    0 2px 0 #818971,
+    2px 9px 8px color-mix(in oklab, #3f453a 30%, transparent),
+    4px 17px 18px -4px color-mix(in oklab, #3f453a 36%, transparent);
+}
+
 .path-connect[data-theme="fire"] {
-  --color-pc-pipe-casing: #c4473a;
-  --color-pc-pipe-light: #f7b6a6;
-  --color-pc-pipe-shade: #5c2a22;
+  --color-pc-pipe-casing: #a5402f;
+  --color-pc-pipe-light: #e8a08a;
+  --color-pc-pipe-shade: #4a1f18;
 }
