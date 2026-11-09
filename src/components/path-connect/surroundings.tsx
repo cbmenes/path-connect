@@ -1344,7 +1344,6 @@ const PLUMBING_MORE: Piece[] = [
   })),
   {
     id: "range",
-    group: "fridge",
     width: 112,
     height: 150,
     fits: ["RB", "LB"],
