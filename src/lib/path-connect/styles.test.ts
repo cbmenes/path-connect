@@ -26,7 +26,7 @@ test("Plumbing is its own category, first opening at level 5", () => {
   assert.match(LEVELS[4]!.blurb, /fixtures/);
   const plumbing = CHAPTERS.find((chapter) => chapter.theme === "plumbing");
   assert.equal(plumbing?.title, "Plumbing");
-  assert.deepEqual(plumbing?.ids.slice(0, 8), [5, 6, 7, 8, 21, 22, 23, 24]);
+  assert.deepEqual(plumbing?.ids.slice(0, 8), [5, 6, 7, 8, 23, 24, 25, 26]);
 });
 
 test("categories use the broader Lighting and Fire Safety names", () => {

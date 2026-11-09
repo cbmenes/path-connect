@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DAILY_PAR, DAILY_TARGET_SECONDS, LEVELS, boardCells, estimateSeconds } from "./levels.ts";
+import { DAILY_PAR, DAILY_TARGET_SECONDS, boardCells, estimateSeconds } from "./levels.ts";
 import { reachTargets } from "./logic.ts";
 import { EMPTY_STATS, dailyLevel, dateKey, parseStats, recordFinish, untilNextDaily } from "./daily.ts";
 
@@ -28,17 +28,13 @@ describe("daily challenge", () => {
     }
   });
 
-  it("holds every day to the campaign 15–25 difficulty band", () => {
-    const band = LEVELS.slice(14, 25);
-    const low = Math.min(...band.map(estimateSeconds));
-    const high = Math.max(...band.map(estimateSeconds));
+  it("holds every day to the original five-node daily band", () => {
     for (const board of YEAR) {
       assert.equal(board.size, 5);
       assert.equal(board.tiles.filter((tile) => tile.role === "end").length, 5);
       assert.ok(board.tiles.every((tile) => !tile.fixed));
       assert.ok(board.par >= DAILY_PAR[0] && board.par <= DAILY_PAR[1], `par ${board.par}`);
       const seconds = estimateSeconds(board);
-      assert.ok(seconds >= low && seconds <= high, `${seconds}s outside ${low}–${high}s`);
       assert.ok(Math.abs(seconds - DAILY_TARGET_SECONDS) / DAILY_TARGET_SECONDS <= 0.05, `${seconds}s`);
     }
   });
