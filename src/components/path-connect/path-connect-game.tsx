@@ -1560,28 +1560,29 @@ function PaHouseSource() {
   );
 }
 
-/** Bronze 1950s trumpet horn with a flared bell, on a short post and round foot. */
+/** Bronze 1950s PA horn: a short, round-flared bell with a rolled rim, on a short post and round foot. */
 function Horn({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
-      <ellipse cx="21" cy="50.4" rx="11.5" ry="3.6" fill={BRONZE_DARK} />
-      <ellipse cx="21" cy="49" rx="9.6" ry="2.7" fill={BRONZE} />
-      <path d="M14.4 48.2c2-1.2 4.4-1.6 6.6-1.6" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.1" strokeLinecap="round" />
-      <rect x="18.6" y="31" width="4.8" height="17" rx="2" fill={BRONZE_DARK} />
-      <path d="M19.8 32.5v13.5" stroke={BRONZE} strokeWidth="1.4" strokeLinecap="round" />
-      <rect x="17.2" y="38.6" width="7.6" height="3" rx="1.4" fill={BRONZE} />
-      <rect x="16.6" y="28.4" width="8.8" height="4" rx="1.8" fill={BRONZE_DARK} />
-      <rect x="5" y="21.4" width="10" height="11.6" rx="4.2" fill={BRONZE} />
-      <path d="M7 23.6h6" stroke={BRONZE_LIGHT} strokeWidth="1.5" strokeLinecap="round" />
-      <path d="M14 23.6h4.6v7.8H14z" fill={BRONZE_DARK} />
-      <path d="M18 24.2C30 23.6 41 18.4 47.4 6.4L53 43.8C45 33.4 31 31 18 30.8z" fill={BRONZE} />
-      <path d="M53 43.8C45 33.4 31 31 18 30.8v-2.4c12.6.4 25.6 2.4 33.6 9.2z" fill={BRONZE_DARK} opacity="0.4" />
-      <path d="M19.4 26.2C30.4 25.4 39.6 21 45.4 11.6" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.8" strokeLinecap="round" />
-      <g transform="rotate(8 50.2 25.1)">
-        <ellipse cx="50.2" cy="25.1" rx="6" ry="19.6" fill={BRONZE_DARK} />
-        <ellipse cx="50.2" cy="25.1" rx="4.9" ry="18.4" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.1" opacity="0.75" />
-        <ellipse cx="50.8" cy="25.1" rx="3.4" ry="15.6" fill={on ? PA_GLOW : "#5a3a1c"} />
-        <ellipse cx="52" cy="25.1" rx="1.2" ry="5" fill={on ? "#fff4dc" : "#3f2812"} />
+      <ellipse cx="24" cy="50.6" rx="12" ry="3.6" fill={BRONZE_DARK} />
+      <ellipse cx="24" cy="49.2" rx="10" ry="2.7" fill={BRONZE} />
+      <path d="M17 48.4c2-1.2 4.6-1.6 7-1.6" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.1" strokeLinecap="round" />
+      <rect x="21.6" y="33" width="4.8" height="16" rx="2" fill={BRONZE_DARK} />
+      <path d="M22.8 34.5v12.5" stroke={BRONZE} strokeWidth="1.4" strokeLinecap="round" />
+      <rect x="20" y="39.4" width="8" height="3" rx="1.4" fill={BRONZE} />
+      <rect x="19.4" y="30.4" width="9.2" height="4" rx="1.8" fill={BRONZE_DARK} />
+      <rect x="6.6" y="19.4" width="11" height="13.4" rx="5.4" fill={BRONZE} />
+      <path d="M9 22h6" stroke={BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M16.4 22.6h4v8.2h-4z" fill={BRONZE_DARK} />
+      <path d="M19 22.6C28 22 34 16 38 6L46 43C40 35 30 31.2 19 30.6z" fill={BRONZE} />
+      <path d="M46 43C40 35 30 31.2 19 30.6v-2.6c11 .4 20.4 3.4 25.6 8.4z" fill={BRONZE_DARK} opacity="0.4" />
+      <path d="M20.4 24.6C28.4 24 33 19.6 36 12" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.8" strokeLinecap="round" />
+      <g transform="rotate(-12 42 24.5)">
+        <ellipse cx="42" cy="24.5" rx="11.2" ry="19.6" fill={BRONZE_DARK} />
+        <ellipse cx="42" cy="24.5" rx="10" ry="18.4" fill={BRONZE} />
+        <ellipse cx="42.6" cy="24.8" rx="8" ry="16" fill={on ? PA_GLOW : "#6b4420"} />
+        <ellipse cx="40.6" cy="25.2" rx="3.6" ry="7.4" fill={on ? "#fff4dc" : "#3f2812"} />
+        <path d="M32.6 18.6A10 18.4 0 0 1 41 6.2" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.8" strokeLinecap="round" />
       </g>
     </svg>
   );
@@ -1631,38 +1632,46 @@ function Radio({ on }: { on: boolean }) {
   );
 }
 
-/** Ivory 1950s rotary desk telephone with a cradled handset and a coiled cord. */
+const PHONE_IVORY = "#f6ecd6";
+const PHONE_SHADE = "#e3d2b2";
+const PHONE_EDGE = "#bca580";
+
+/** Ivory 1950s rotary desk telephone: a deep body, a large finger-wheel dial, a cradled handset, and a coiled cord. */
 function Telephone({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
-      <path d="M13 47.6C13 39 16 30.4 20.4 24.6h23.2C48 30.4 51 39 51 47.6a3.4 3.4 0 0 1-3.4 3.4H16.4a3.4 3.4 0 0 1-3.4-3.4z" fill={IVORY} stroke={IVORY_EDGE} strokeWidth="1.1" />
-      <path d="M43.6 24.6C48 30.4 51 39 51 47.6a3.4 3.4 0 0 1-3.4 3.4h-5.4a3.4 3.4 0 0 0 3.4-3.4c0-8.6-2.4-16.6-6-23z" fill={IVORY_SHADE} />
-      <path d="M20.8 28.4c-2.6 4.4-4.4 10-4.8 16.4" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.9" />
-      <circle cx="32" cy="38.6" r="9.8" fill={IVORY_SHADE} stroke={IVORY_EDGE} strokeWidth="1.1" />
-      <circle cx="32" cy="38.2" r="8.8" fill="white" />
+      <rect x="9" y="43" width="46" height="9.4" rx="3.6" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1" />
+      <path d="M11.6 45.4C11.6 36 15 28 20.4 23.4h23.2C49 28 52.4 36 52.4 45.4z" fill={PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="1" />
+      <path d="M43.6 23.4C49 28 52.4 36 52.4 45.4h-6.6c0-8.6-2.6-16-6.8-22z" fill={PHONE_SHADE} opacity="0.9" />
+      <path d="M19.8 27.6c-2.8 4-4.6 9.2-5.2 15" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.85" />
+      <path d="M12 47.4h40" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+      <circle cx="31" cy="37" r="10.4" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1.1" />
+      <circle cx="31" cy="36.6" r="9" fill="white" stroke={PHONE_EDGE} strokeWidth="0.6" />
       {Array.from({ length: 10 }, (_, i) => {
-        const angle = ((i * 28 - 70) * Math.PI) / 180;
-        return <circle key={i} cx={32 + Math.cos(angle) * 6.2} cy={38.2 + Math.sin(angle) * 6.2} r="1.45" fill={IVORY_SHADE} stroke={IVORY_EDGE} strokeWidth="0.9" />;
+        const angle = ((i * 28 - 76) * Math.PI) / 180;
+        return <circle key={i} cx={31 + Math.cos(angle) * 6.2} cy={36.6 + Math.sin(angle) * 6.2} r="1.6" fill="#d9c7a6" stroke={PHONE_EDGE} strokeWidth="0.7" />;
       })}
-      <circle cx="32" cy="38.2" r="3" fill={on ? PA_GLOW : IVORY} stroke={IVORY_EDGE} strokeWidth="0.8" />
-      <path d="M39.4 43.6l2.4 2" stroke={BRONZE_DARK} strokeWidth="1.2" strokeLinecap="round" />
-      {[21.6, 42.4].map((x) => (
-        <rect key={x} x={x - 3} y="20.6" width="6" height="5.4" rx="2.2" fill={IVORY_SHADE} stroke={IVORY_EDGE} strokeWidth="0.9" />
+      <circle cx="31" cy="36.6" r="3.2" fill={on ? PA_GLOW : PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="0.8" />
+      <circle cx="30" cy="35.6" r="1" fill="white" opacity="0.9" />
+      <path d="M38.6 42.6l2.6 2.4" stroke={BRONZE_DARK} strokeWidth="1.3" strokeLinecap="round" />
+      {[21, 43].map((x) => (
+        <rect key={x} x={x - 3.4} y="19" width="6.8" height="6" rx="2.4" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="0.9" />
       ))}
-      <path d="M18 15.4h28" stroke={IVORY_EDGE} strokeWidth="8.4" strokeLinecap="round" />
-      <path d="M18 15.4h28" stroke={IVORY} strokeWidth="6.6" strokeLinecap="round" />
-      <path d="M19.4 13.4h25.2" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.9" />
-      {[13.2, 50.8].map((x) => (
+      <path d="M17 13.6h30" stroke={PHONE_EDGE} strokeWidth="9" strokeLinecap="round" />
+      <path d="M17 13.6h30" stroke={PHONE_IVORY} strokeWidth="7.2" strokeLinecap="round" />
+      <path d="M18.6 11.2h26.8" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />
+      {[12.4, 51.6].map((x) => (
         <g key={x}>
-          <path d={`M${x - 6.4} 15.6a6.4 4.6 0 0 1 12.8 0v4.6a6.4 4 0 0 1-12.8 0z`} fill={IVORY} stroke={IVORY_EDGE} strokeWidth="1.1" />
-          <path d={`M${x - 4.4} 15a4.4 2.6 0 0 1 6.4-1.8`} fill="none" stroke="white" strokeWidth="1.3" strokeLinecap="round" opacity="0.9" />
+          <path d={`M${x - 7} 14.6a7 5.4 0 0 1 14 0v4.4a7 4.4 0 0 1-14 0z`} fill={PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="1.1" />
+          <ellipse cx={x} cy="19.6" rx="5.6" ry="2.2" fill={PHONE_SHADE} />
+          <path d={`M${x - 4.6} 13.6a5 3 0 0 1 6.6-2.2`} fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
         </g>
       ))}
       <path
-        d="M8.6 24.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c1.6.4 3 .6 4.6.4"
+        d="M7.4 23.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c1 .6 1.6 1.4 1.8 2.4"
         fill="none"
-        stroke={IVORY_EDGE}
-        strokeWidth="1.5"
+        stroke={PHONE_EDGE}
+        strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
       />
