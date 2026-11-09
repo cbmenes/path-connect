@@ -112,7 +112,7 @@ const OPENING_SPECS: readonly LevelSpec[] = [
   {
     id: 1,
     name: "Porch light",
-    blurb: "One light. The fixture and two pipes are turned.",
+    blurb: "Power starts at the house. Connect it to the light.",
     theme: "lights",
     routes: PORCH,
     scramble: { "2,1": 1, "2,2": 1, "2,4": 3 },

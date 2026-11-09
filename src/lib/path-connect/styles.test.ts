@@ -54,3 +54,10 @@ test("every level has its own name", () => {
   const names = LEVELS.map((level) => level.name);
   assert.equal(new Set(names).size, names.length);
 });
+
+test("the first level and Lighting tip name the house as the power source", () => {
+  const lighting = themeById("lights");
+  assert.equal(lighting.source, "House");
+  assert.match(lighting.rule, /^Power starts at the house\./);
+  assert.match(LEVELS[0]!.blurb, /^Power starts at the house\./);
+});

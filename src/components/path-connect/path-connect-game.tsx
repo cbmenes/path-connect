@@ -866,14 +866,14 @@ function PowerLesson({
               Power starts at the {source}
             </h3>
             <p id="pc-lesson-body" className="pc-ad-body">
-              Each board has one {source}. Power flows out of it and only through pipes whose ends face
-              each other.
+              Connect the pipes so power reaches every {theme.node}. It flows only through pipe ends that
+              face each other.
             </p>
             <p className="pc-lesson-note">
               <span className="pc-lesson-icon" aria-hidden="true">
                 <SourceGlyph theme={theme.id} />
               </span>
-              The only power source
+              The {source} is the only power source
             </p>
           </>
         ) : (
@@ -882,8 +882,8 @@ function PowerLesson({
               Branch out to every {theme.node}
             </h3>
             <p id="pc-lesson-body" className="pc-ad-body">
-              A {theme.node} is an endpoint. Power stops there and never passes on, so each{" "}
-              {theme.node} needs its own path back to the {source}.
+              Power stops at each {theme.node}. {nodes} don't pass it on, so every {theme.node} needs its own
+              path back to the {source}.
             </p>
             <p className="pc-lesson-note">
               <span className="pc-lesson-icon pc-lesson-stop-icon" aria-hidden="true">
