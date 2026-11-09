@@ -1670,72 +1670,71 @@ function Radio({ on }: { on: boolean }) {
   );
 }
 
-const PHONE_LIGHT = "#f6eed8";
-const PHONE_IVORY = "#ebdfc0";
-const PHONE_SHADE = "#d6c49c";
-const PHONE_DEEP = "#bea67a";
-const PHONE_EDGE = "#977d56";
+const PHONE_IVORY = "#f8efdb";
+const PHONE_SHADE = "#dcc8a2";
+const PHONE_EDGE = "#a98f66";
 
-/** Ivory-cream 1950s rotary desk telephone seen from slightly above: a deep body with a sloped dial face, a thick cradled handset, and a coiled cord. */
+/** Full ivory-cream 1950s rotary desk telephone: a deep two-step body, a large finger-wheel dial, a raised handset, and a coiled cord. */
 function Telephone({ on }: { on: boolean }) {
   const id = svgId(useId());
   return (
     <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
       <defs>
-        <linearGradient id={`${id}f`} x1="0" y1="0" x2="0.35" y2="1">
-          <stop offset="0" stopColor={PHONE_LIGHT} />
-          <stop offset="0.6" stopColor={PHONE_IVORY} />
+        <linearGradient id={`${id}b`} x1="0" y1="0" x2="1" y2="0.3">
+          <stop offset="0" stopColor="#fffaf0" />
+          <stop offset="0.55" stopColor={PHONE_IVORY} />
           <stop offset="1" stopColor={PHONE_SHADE} />
         </linearGradient>
         <linearGradient id={`${id}h`} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor="#fbf5e6" />
-          <stop offset="0.55" stopColor={PHONE_IVORY} />
-          <stop offset="1" stopColor={PHONE_DEEP} />
+          <stop offset="0" stopColor="#fffaf0" />
+          <stop offset="0.6" stopColor={PHONE_IVORY} />
+          <stop offset="1" stopColor={PHONE_SHADE} />
         </linearGradient>
-        <radialGradient id={`${id}d`} cx="0.4" cy="0.35" r="0.75">
-          <stop offset="0" stopColor="#fbf6ea" />
-          <stop offset="1" stopColor={PHONE_IVORY} />
+        <radialGradient id={`${id}d`} cx="0.4" cy="0.35" r="0.7">
+          <stop offset="0" stopColor="white" />
+          <stop offset="1" stopColor="#efe2c6" />
         </radialGradient>
       </defs>
-      <ellipse cx="33" cy="52" rx="25" ry="3" fill={PHONE_EDGE} opacity="0.25" />
-      {Array.from({ length: 7 }, (_, i) => (
-        <ellipse key={i} cx={6.6 - i * 0.3} cy={24 + i * 3.2} rx="2.6" ry="1.6" fill="none" stroke={PHONE_DEEP} strokeWidth="1.4" />
-      ))}
-      <path d="M50.6 27.4 55.6 46.2a3.6 3.6 0 0 1-3 4.4h-4.8l-1.4-23.2z" fill={PHONE_DEEP} stroke={PHONE_EDGE} strokeWidth="1" strokeLinejoin="round" />
-      <path d="M15.6 20.4h31.8l4.6 8.4H11.4z" fill={PHONE_LIGHT} stroke={PHONE_EDGE} strokeWidth="1" strokeLinejoin="round" />
-      <path d="M11.4 28.8h40.6l3.4 17.4a3.6 3.6 0 0 1-3.6 4.4H11.6a3.6 3.6 0 0 1-3.6-4.4z" fill={`url(#${id}f)`} stroke={PHONE_EDGE} strokeWidth="1.1" strokeLinejoin="round" />
-      <path d="M12.6 31 10 45" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.8" />
-      <path d="M12.4 29.6h38.8" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.85" />
-      <ellipse cx="31.6" cy="39.8" rx="11.6" ry="9.6" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1" />
-      <ellipse cx="31.6" cy="39.4" rx="10.2" ry="8.4" fill={`url(#${id}d)`} stroke={PHONE_EDGE} strokeWidth="0.7" />
+      <path d="M5.6 44.4h52.8v2.8a4.4 4.4 0 0 1-4.4 4.4H10a4.4 4.4 0 0 1-4.4-4.4z" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1" />
+      <path d="M7.6 43.6C7.6 33 12 25 19.4 20.6h25.2C52 25 56.4 33 56.4 43.6a2.6 2.6 0 0 1-2.6 2.6H10.2a2.6 2.6 0 0 1-2.6-2.6z" fill={`url(#${id}b)`} stroke={PHONE_EDGE} strokeWidth="1.1" />
+      <path d="M18.8 24.6c-4 3.6-6.6 9-7.4 15.6" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.9" />
+      <ellipse cx="32" cy="21.6" rx="13.6" ry="2" fill={PHONE_EDGE} opacity="0.35" />
+      <circle cx="32" cy="34.4" r="11.4" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1.1" />
+      <circle cx="32" cy="34" r="10" fill={`url(#${id}d)`} stroke={PHONE_EDGE} strokeWidth="0.7" />
       {Array.from({ length: 10 }, (_, i) => {
         const angle = ((i * 27 - 72) * Math.PI) / 180;
-        const x = 31.6 + Math.cos(angle) * 7;
-        const y = 39.4 + Math.sin(angle) * 5.8;
+        const x = 32 + Math.cos(angle) * 6.9;
+        const y = 34 + Math.sin(angle) * 6.9;
         return (
           <g key={i}>
-            <ellipse cx={x} cy={y} rx="1.9" ry="1.6" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="0.7" />
-            <ellipse cx={x + 0.3} cy={y + 0.4} rx="1" ry="0.8" fill={PHONE_DEEP} />
+            <circle cx={x} cy={y} r="1.9" fill="#cdb48a" stroke={PHONE_EDGE} strokeWidth="0.7" />
+            <circle cx={x + 0.4} cy={y + 0.5} r="1" fill="#b39a70" />
           </g>
         );
       })}
-      <ellipse cx="31.6" cy="39.4" rx="3.6" ry="3" fill={on ? PA_GLOW : PHONE_LIGHT} stroke={PHONE_EDGE} strokeWidth="0.9" />
-      <ellipse cx="30.8" cy="38.6" rx="1.2" ry="0.9" fill="white" />
-      <path d="M40.4 44.6l2.8 2" stroke={BRONZE_DARK} strokeWidth="1.4" strokeLinecap="round" />
-      {[20.6, 42.4].map((x) => (
-        <path key={x} d={`M${x - 3.6} 24.6v-3a2.4 2.4 0 0 1 2.4-2.4h2.4a2.4 2.4 0 0 1 2.4 2.4v3z`} fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="0.9" />
+      <circle cx="32" cy="34" r="3.6" fill={on ? PA_GLOW : PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="0.9" />
+      <circle cx="31" cy="33" r="1.1" fill="white" />
+      <path d="M40.2 40.4l3 2.6" stroke={BRONZE_DARK} strokeWidth="1.4" strokeLinecap="round" />
+      <path d="M16.4 21.6 18.6 14.4h26.8l2.2 7.2z" fill={`url(#${id}h)`} stroke={PHONE_EDGE} strokeWidth="1" strokeLinejoin="round" />
+      <path d="M20 16.4h24" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.8" />
+      {[20, 44].map((x) => (
+        <path key={x} d={`M${x - 4} 18v-3.6a2.6 2.6 0 0 1 2.6-2.6h2.8a2.6 2.6 0 0 1 2.6 2.6v3.6z`} fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="0.9" />
       ))}
-      <path d="M16 16.4h31" stroke={PHONE_DEEP} strokeWidth="10" strokeLinecap="round" />
-      <path d="M16 15h31" stroke={PHONE_EDGE} strokeWidth="9.2" strokeLinecap="round" />
-      <path d="M16 15h31" stroke={`url(#${id}h)`} strokeWidth="7.6" strokeLinecap="round" />
-      <path d="M17.6 12.4h27.8" stroke="white" strokeWidth="1.7" strokeLinecap="round" opacity="0.9" />
-      {[11.8, 51.2].map((x) => (
+      <ellipse cx="32" cy="16.4" rx="20" ry="2.4" fill={PHONE_EDGE} opacity="0.3" />
+      <path d="M15 12.4h34" stroke={PHONE_EDGE} strokeWidth="9.6" strokeLinecap="round" />
+      <path d="M15 12.4h34" stroke={`url(#${id}h)`} strokeWidth="7.8" strokeLinecap="round" />
+      <path d="M16.6 9.6h30.8" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.95" />
+      {[11.2, 52.8].map((x) => (
         <g key={x}>
-          <path d={`M${x - 7.8} 14.6a7.8 6.2 0 0 1 15.6 0v5a7.8 4.6 0 0 1-15.6 0z`} fill={`url(#${id}h)`} stroke={PHONE_EDGE} strokeWidth="1.1" />
-          <ellipse cx={x} cy="20" rx="6.4" ry="2.4" fill={PHONE_DEEP} opacity="0.7" />
-          <path d={`M${x - 5.2} 13a5.8 3.6 0 0 1 7.4-2.8`} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.95" />
+          <path d={`M${x - 7.6} 12.8a7.6 6 0 0 1 15.2 0v4.6a7.6 4.8 0 0 1-15.2 0z`} fill={`url(#${id}h)`} stroke={PHONE_EDGE} strokeWidth="1.1" />
+          <ellipse cx={x} cy="18.2" rx="6.2" ry="2.4" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="0.6" />
+          <path d={`M${x - 5} 11.4a5.6 3.4 0 0 1 7.2-2.6`} fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.95" />
         </g>
       ))}
+      {Array.from({ length: 7 }, (_, i) => (
+        <ellipse key={i} cx="3.8" cy={23.6 + i * 3.1} rx="2.4" ry="1.5" fill="none" stroke={PHONE_EDGE} strokeWidth="1.3" />
+      ))}
+      <path d="M4.6 45.2c1 .6 1.8.6 2.8.2" fill="none" stroke={PHONE_EDGE} strokeWidth="1.3" strokeLinecap="round" />
     </svg>
   );
 }
