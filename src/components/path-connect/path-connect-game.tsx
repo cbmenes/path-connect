@@ -54,7 +54,7 @@ import {
   type Hint,
   type HintUses,
 } from "@/lib/path-connect/hint";
-import { readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
+import { ALL_LEVELS_OPEN, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
@@ -224,7 +224,7 @@ export function PathConnectGame() {
   }, []);
 
   useEffect(() => {
-    const saved = readProgress(LEVELS.length);
+    const saved = readProgress(LEVELS.length, { openAll: ALL_LEVELS_OPEN });
     progressRef.current = saved;
     setProgress(saved);
     hintUsesRef.current = readHintUses();
@@ -301,7 +301,7 @@ export function PathConnectGame() {
 
   function pickLevel(nextId: number) {
     setPickerOpen(false);
-    if (nextId > progressRef.current.unlocked) return;
+    if (!ALL_LEVELS_OPEN && nextId > progressRef.current.unlocked) return;
     reset(nextId);
   }
 
@@ -381,7 +381,8 @@ export function PathConnectGame() {
       setElapsed(seconds);
       setResult(finish);
     } else {
-      const opened = Math.min(LEVELS.length, Math.max(progressRef.current.unlocked, levelId + 1));
+      const reached = progressRef.current.unlocked;
+      const opened = levelId === reached ? Math.min(LEVELS.length, reached + 1) : reached;
       saveProgress({ level: levelId, unlocked: opened });
     }
     setFlowPaths(network.paths);
@@ -1258,7 +1259,7 @@ function LevelPicker({
   return (
     <div ref={panelRef} className="pc-picker" role="dialog" aria-label="Choose a level">
       {CHAPTERS.map((chapter) => {
-        const open = chapter.from <= unlocked;
+        const open = ALL_LEVELS_OPEN || chapter.from <= unlocked;
         const ids = Array.from({ length: chapter.to - chapter.from + 1 }, (_, i) => chapter.from + i);
         return (
           <section key={chapter.title} className="pc-chapter" data-open={open}>
@@ -1268,7 +1269,7 @@ function LevelPicker({
             </header>
             <div className="pc-chapter-levels">
               {ids.map((id) => {
-                const isOpen = id <= unlocked;
+                const isOpen = ALL_LEVELS_OPEN || id <= unlocked;
                 const done = id < unlocked;
                 return (
                   <button

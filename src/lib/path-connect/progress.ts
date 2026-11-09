@@ -8,14 +8,17 @@ const STORAGE_KEY = "path-connect-progress";
 
 export const START: Progress = { level: 1, unlocked: 1 };
 
-export function readProgress(count: number): Progress {
+/** Testing switch: every level can be picked, while `unlocked` keeps tracking real progress for the solved marks. */
+export const ALL_LEVELS_OPEN = true;
+
+export function readProgress(count: number, { openAll = false } = {}): Progress {
   if (typeof localStorage === "undefined") return START;
   try {
     const raw = localStorage.getItem(STORAGE_KEY);
     if (!raw) return START;
     const parsed = JSON.parse(raw) as Partial<Progress>;
     const unlocked = clamp(Number(parsed.unlocked), 1, count);
-    const level = clamp(Number(parsed.level), 1, unlocked);
+    const level = clamp(Number(parsed.level), 1, openAll ? count : unlocked);
     return { level, unlocked };
   } catch {
     return START;

@@ -35,4 +35,11 @@ describe("campaign progress", () => {
     useStorage({ "path-connect-progress": "not json" });
     assert.deepEqual(readProgress(60), START);
   });
+
+  it("keeps a later level in play when every level is open, without raising progress", () => {
+    useStorage({ "path-connect-progress": JSON.stringify({ level: 40, unlocked: 14 }) });
+    assert.deepEqual(readProgress(60, { openAll: true }), { level: 40, unlocked: 14 });
+    useStorage({ "path-connect-progress": JSON.stringify({ level: 99, unlocked: 14 }) });
+    assert.deepEqual(readProgress(60, { openAll: true }), { level: 60, unlocked: 14 });
+  });
 });
