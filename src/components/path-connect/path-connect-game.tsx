@@ -1259,13 +1259,14 @@ function LevelPicker({
   return (
     <div ref={panelRef} className="pc-picker" role="dialog" aria-label="Choose a level">
       {CHAPTERS.map((chapter) => {
-        const open = ALL_LEVELS_OPEN || chapter.from <= unlocked;
-        const ids = Array.from({ length: chapter.to - chapter.from + 1 }, (_, i) => chapter.from + i);
+        const first = chapter.ids[0] ?? 1;
+        const open = ALL_LEVELS_OPEN || first <= unlocked;
+        const ids = chapter.ids;
         return (
           <section key={chapter.title} className="pc-chapter" data-open={open}>
             <header>
               <h3>{chapter.title}</h3>
-              <p>{open ? chapter.note : `Finish level ${chapter.from - 1} to open`}</p>
+              <p>{open ? chapter.note : `Finish level ${first - 1} to open`}</p>
             </header>
             <div className="pc-chapter-levels">
               {ids.map((id) => {
@@ -1327,7 +1328,7 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: House Lights cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
+/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
 function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;

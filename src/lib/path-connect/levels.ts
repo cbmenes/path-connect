@@ -6,15 +6,15 @@
  * can be among them. A level is solvable because the solved board reaches
  * every node, and it starts unsolved.
  *
- * Progression:
- * - 1–12 House Lights on 5×5. Levels 1–4 teach the mechanic, then most of
- *   each route starts turned and the boards grow to four lights.
- * - 13–22 Public Announcement on 5×5. Four or five speakers.
- * - 23–32 School Fire Alarm on 5×5. Busier circuits with up to five detectors.
- * - 33–42 Plumbing on 6×6, the last system to unlock. Bolted tiles appear
- *   from level 37.
- * - 43–46 rotate all four themes on 6×6.
- * - 47–60 rotate all four themes on 7×7 with more nodes and bolted tiles.
+ * Progression. Difficulty follows the level number, never the theme:
+ * - 1–12 on 5×5. Levels 1–4 teach the mechanic, then most of each route
+ *   starts turned and the boards grow to four nodes.
+ * - 13–32 on 5×5. Four or five nodes and busier circuits.
+ * - 33–46 on 6×6. Bolted tiles appear from level 37.
+ * - 47–60 on 7×7 with more nodes and bolted tiles.
+ *
+ * Themes rotate in four-level blocks: Lighting, Plumbing, Public
+ * Announcement, Fire Safety, then around again.
  *
  * Hand-built routes reuse the original boards; `seed` and `scramble` pick how
  * many of their tiles start turned. Other levels come from a seeded tree
@@ -67,10 +67,11 @@ export interface Level {
   par: number;
 }
 
+/** A level-picker category: every level of one theme, in level order. */
 export interface Chapter {
   title: string;
-  from: number;
-  to: number;
+  theme: ThemeId;
+  ids: readonly number[];
   /** One line under the chapter title in the level picker. */
   note: string;
 }
@@ -135,8 +136,8 @@ const OPENING_SPECS: readonly LevelSpec[] = [
 ];
 
 /**
- * House Lights. Levels 1–4 are quick wins. From level 5 most of the route
- * starts turned, and the runs, tees, and lights grow toward a four-light finale.
+ * The hand-built opening. Levels 1–4 are quick wins. From level 5 most of the
+ * route starts turned, and the runs, tees, and nodes grow toward a four-node finale.
  */
 const HOUSE_SPECS: readonly LevelSpec[] = [
   OPENING_SPECS[0]!,
@@ -155,8 +156,9 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     id: 5,
     seed: 8,
     name: "Kitchen",
-    blurb: "A tee near the breaker feeds two lights.",
-    theme: "lights",
+    blurb: "A new system. A tee near the water main feeds two fixtures.",
+    theme: "plumbing",
+    unlock: "Plumbing",
     routes: [
       [[3, 0], [3, 1], [3, 2], [3, 3]],
       [[3, 0], [3, 1], [2, 1], [1, 1], [1, 2]],
@@ -168,7 +170,7 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     seed: 250,
     name: "Stair light",
     blurb: "Step the pipe up the stairs, one corner at a time.",
-    theme: "lights",
+    theme: "plumbing",
     routes: [[[4, 0], [4, 1], [3, 1], [3, 2], [2, 2], [2, 3], [1, 3], [1, 4]]],
     scramble: { share: 0.8 },
   },
@@ -176,8 +178,8 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     id: 7,
     seed: 24,
     name: "Three rooms",
-    blurb: "Three lights now. Two tees share the hallway.",
-    theme: "lights",
+    blurb: "Three fixtures now. Two tees share the hallway.",
+    theme: "plumbing",
     routes: [
       [[2, 0], [2, 1], [2, 2], [2, 3], [2, 4]],
       [[2, 0], [2, 1], [1, 1], [1, 2], [1, 3]],
@@ -189,8 +191,8 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     id: 8,
     seed: 4,
     name: "Upstairs",
-    blurb: "One riser feeds three lights on the landing.",
-    theme: "lights",
+    blurb: "One riser feeds three fixtures on the landing.",
+    theme: "plumbing",
     routes: [
       [[4, 2], [3, 2], [2, 2], [1, 2], [0, 2]],
       [[4, 2], [3, 2], [3, 1], [2, 1], [2, 0]],
@@ -202,8 +204,9 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     id: 9,
     seed: 8,
     name: "Night lights",
-    blurb: "Longer runs. Trace each light back to the breaker.",
-    theme: "lights",
+    blurb: "A new system. Trace each speaker back to the house.",
+    theme: "alarm",
+    unlock: "Public Announcement",
     routes: [
       [[0, 0], [0, 1], [0, 2], [0, 3], [1, 3], [1, 4]],
       [[0, 0], [0, 1], [1, 1], [2, 1], [2, 2], [2, 3]],
@@ -215,8 +218,8 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     id: 10,
     seed: 12,
     name: "Back yard",
-    blurb: "Three lights at the ends of three long runs.",
-    theme: "lights",
+    blurb: "Three speakers at the ends of three long runs.",
+    theme: "alarm",
     routes: [
       [[4, 0], [4, 1], [4, 2], [4, 3], [3, 3], [2, 3], [2, 4]],
       [[4, 0], [4, 1], [3, 1], [2, 1], [1, 1], [1, 2], [0, 2]],
@@ -228,8 +231,8 @@ const HOUSE_SPECS: readonly LevelSpec[] = [
     id: 12,
     seed: 30,
     name: "Whole house",
-    blurb: "Four lights, one in each corner room. Light the whole house.",
-    theme: "lights",
+    blurb: "Four speakers, one in each corner room. Put the whole floor on the air.",
+    theme: "alarm",
     routes: [
       [[0, 2], [1, 2], [1, 1], [1, 0]],
       [[0, 2], [1, 2], [1, 3], [1, 4]],
@@ -336,10 +339,13 @@ function lerp(from: number, to: number, t: number): number {
   return from + (to - from) * t;
 }
 
-function lateTheme(id: number): ThemeId {
-  if (id <= 42) return "plumbing";
-  const order: readonly ThemeId[] = ["lights", "alarm", "fire", "plumbing"];
-  return order[(id - 43) % 4]!;
+/** Campaign themes in the order their blocks come around. */
+export const THEME_ORDER: readonly ThemeId[] = ["lights", "plumbing", "alarm", "fire"];
+/** Levels in a row that share one theme before the next one takes over. */
+export const THEME_BLOCK = 4;
+
+export function themeOf(id: number): ThemeId {
+  return THEME_ORDER[Math.floor((id - 1) / THEME_BLOCK) % THEME_ORDER.length]!;
 }
 
 /** Difficulty for a generated level. Each knob rises slowly inside its stretch. */
@@ -347,7 +353,7 @@ function planFor(id: number): Plan {
   if (id <= 12) {
     return {
       id,
-      theme: "lights",
+      theme: themeOf(id),
       size: 5,
       nodes: 4,
       reach: [2, 4],
@@ -360,51 +366,48 @@ function planFor(id: number): Plan {
     const t = (id - 13) / 9;
     return {
       id,
-      theme: "alarm",
+      theme: themeOf(id),
       size: 5,
       nodes: [4, 4, 4, 4, 5, 4, 5, 5, 5, 5][id - 13]!,
       reach: [2, 4],
       wiggle: lerp(0.35, 0.55, t),
       share: lerp(0.8, 1, t),
       fixed: 0,
-      unlock: id === 13 ? "Public Announcement" : undefined,
-      blurb: id === 13 ? "A new system. One house, four speakers to wire." : undefined,
+      unlock: id === 13 ? "Fire Safety" : undefined,
+      blurb: id === 13 ? "A new system. One fire panel, four detectors to arm." : undefined,
     };
   }
   if (id <= 32) {
     const t = (id - 23) / 9;
     return {
       id,
-      theme: "fire",
+      theme: themeOf(id),
       size: 5,
       nodes: id === 23 ? 4 : 5,
       reach: [2, 4],
       wiggle: lerp(0.45, 0.6, t),
       share: lerp(0.9, 1, t),
       fixed: 0,
-      unlock: id === 23 ? "School Fire Alarm" : undefined,
-      blurb: id === 23 ? "A new system. One fire panel, four detectors to arm." : undefined,
     };
   }
   if (id <= 36) {
     return {
       id,
-      theme: lateTheme(id),
+      theme: themeOf(id),
       size: 6,
       nodes: [4, 5, 5, 5][id - 33]!,
       reach: [3, 5],
       wiggle: 0.5,
       share: 0.9,
       fixed: 0,
-      unlock: id === 33 ? "Plumbing" : undefined,
-      blurb: id === 33 ? "A new system on 6×6. Four fixtures to fill." : undefined,
+      unlock: id === 33 ? "6×6 board" : undefined,
     };
   }
   if (id <= 46) {
     const t = (id - 37) / 9;
     return {
       id,
-      theme: lateTheme(id),
+      theme: themeOf(id),
       size: 6,
       nodes: Math.round(lerp(4, 6, t)),
       reach: [3, 5],
@@ -418,7 +421,7 @@ function planFor(id: number): Plan {
   const t = (id - 47) / 13;
   return {
     id,
-    theme: lateTheme(id),
+    theme: themeOf(id),
     size: 7,
     nodes: Math.round(lerp(5, 7, t)),
     reach: [3, 6],
@@ -964,50 +967,34 @@ function buildLevel(spec: LevelSpec): Level {
 
 export const LEVEL_COUNT = 60;
 
-/**
- * Where each theme's names for levels 33 and up begin, and how many names
- * after that are held for them, so levels keep their names when other
- * stretches change. Earlier levels use the names before that point, then the
- * spare names after the held ones.
- */
-const LATE_NAMES_FROM: Record<ThemeId, number> = { lights: 0, alarm: 7, fire: 6, plumbing: 0 };
-const LATE_NAMES_HELD: Record<ThemeId, number> = { lights: 10, alarm: 9, fire: 9, plumbing: 16 };
-
+/** Hand-built levels keep their own names when they open on Lighting; every other level takes its theme's next name. */
 export const LEVELS: readonly Level[] = (() => {
-  const late: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0, plumbing: 0 };
-  const early: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0, plumbing: 0 };
+  const used: Record<ThemeId, number> = { lights: 0, alarm: 0, fire: 0, plumbing: 0 };
   return Array.from({ length: LEVEL_COUNT }, (_, index) => {
     const id = index + 1;
+    const theme = themeOf(id);
     const spec = HOUSE_SPECS.find((item) => item.id === id);
-    if (spec) return buildLevel(spec);
-    const theme = planFor(id).theme;
-    const names = NAMES[theme];
-    const from = LATE_NAMES_FROM[theme];
-    let slot: number;
-    if (id >= 33) {
-      if (late[theme] >= LATE_NAMES_HELD[theme]) throw new Error(`No held name left for level ${id}`);
-      slot = from + late[theme]++;
-    } else {
-      const n = early[theme]++;
-      slot = n < from ? n : from + LATE_NAMES_HELD[theme] + (n - from);
-    }
-    const name = names[slot];
+    if (spec && spec.theme !== theme) throw new Error(`Level ${id} is set to ${spec.theme}, but its block is ${theme}`);
+    if (spec && theme === "lights") return buildLevel(spec);
+    const name = NAMES[theme][used[theme]++];
     if (!name) throw new Error(`No name left for level ${id}`);
-    return generateLevel(id, name);
+    return spec ? buildLevel({ ...spec, name }) : generateLevel(id, name);
   });
 })();
 
-export const CHAPTERS: readonly Chapter[] = [
-  { title: "House Lights", from: 1, to: 12, note: "5×5 · learn the basics" },
-  { title: "Public Announcement", from: 13, to: 22, note: "5×5 · longer runs, more speakers" },
-  { title: "School Fire Alarm", from: 23, to: 32, note: "5×5 · busier circuits" },
-  { title: "Wider boards", from: 33, to: 46, note: "6×6 · Plumbing, bolted tiles from level 37" },
-  { title: "Whole building", from: 47, to: LEVEL_COUNT, note: "7×7 · bolted tiles, most devices" },
-];
+const CHAPTER_NOTES: Record<ThemeId, string> = {
+  lights: "Bulbs, sage lamps, and caged lights",
+  plumbing: "Tubs, toilets, and sinks",
+  alarm: "Horns, microphones, radios, and phones",
+  fire: "Bull horns, bells, and pull stations",
+};
 
-export function chapterOf(levelId: number): Chapter {
-  return CHAPTERS.find((chapter) => levelId >= chapter.from && levelId <= chapter.to) ?? CHAPTERS[0]!;
-}
+export const CHAPTERS: readonly Chapter[] = THEME_ORDER.map((theme) => ({
+  title: themeById(theme).title,
+  theme,
+  ids: LEVELS.filter((level) => level.theme === theme).map((level) => level.id),
+  note: CHAPTER_NOTES[theme],
+}));
 
 export function boardCells(level: Level, spins: readonly number[]): Cell[] {
   return level.tiles.map((tile, index) => ({

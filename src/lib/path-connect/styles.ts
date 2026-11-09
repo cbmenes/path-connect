@@ -28,8 +28,8 @@ export const THEMES: readonly CircuitTheme[] = [
   {
     id: "lights",
     label: "Lights",
-    title: "House Lights",
-    kicker: "House lights",
+    title: "Lighting",
+    kicker: "Lighting",
     source: "Breaker",
     node: "light",
     nodePlural: "lights",
@@ -54,8 +54,8 @@ export const THEMES: readonly CircuitTheme[] = [
   {
     id: "fire",
     label: "Fire",
-    title: "School Fire Alarm",
-    kicker: "School fire alarm",
+    title: "Fire Safety",
+    kicker: "Fire safety",
     source: "Fire panel",
     node: "detector",
     nodePlural: "detectors",

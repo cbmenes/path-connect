@@ -124,40 +124,35 @@ describe("levels", () => {
     });
   });
 
-  it("groups the campaign into systems and board sizes", () => {
+  it("rotates themes in four-level blocks while board sizes grow", () => {
+    const order = ["lights", "plumbing", "alarm", "fire"] as const;
     for (const level of LEVELS) {
-      const expected =
-        level.id <= 12
-          ? "lights"
-          : level.id <= 22
-            ? "alarm"
-            : level.id <= 32
-              ? "fire"
-              : level.id <= 42
-                ? "plumbing"
-                : (["lights", "alarm", "fire", "plumbing"] as const)[(level.id - 43) % 4];
-      assert.equal(level.theme, expected, `level ${level.id} theme`);
+      assert.equal(level.theme, order[Math.floor((level.id - 1) / 4) % 4], `level ${level.id} theme`);
       const size = level.id <= 32 ? 5 : level.id <= 46 ? 6 : 7;
       assert.equal(level.size, size, `level ${level.id} size`);
     }
     assert.deepEqual(
-      CHAPTERS.map((chapter) => [chapter.from, chapter.to]),
+      CHAPTERS.map((chapter) => [chapter.title, chapter.ids.length]),
       [
-        [1, 12],
-        [13, 22],
-        [23, 32],
-        [33, 46],
-        [47, 60],
+        ["Lighting", 16],
+        ["Plumbing", 16],
+        ["Public Announcement", 16],
+        ["Fire Safety", 12],
       ],
     );
+    for (const chapter of CHAPTERS) {
+      assert.ok(chapter.ids.every((id) => LEVELS[id - 1]!.theme === chapter.theme));
+    }
+    assert.equal(CHAPTERS.flatMap((chapter) => chapter.ids).length, LEVELS.length);
   });
 
   it("marks each new stretch as an unlock", () => {
     const unlocks = LEVELS.flatMap((level) => (level.unlock ? [[level.id, level.unlock]] : []));
     assert.deepEqual(unlocks, [
-      [13, "Public Announcement"],
-      [23, "School Fire Alarm"],
-      [33, "Plumbing"],
+      [5, "Plumbing"],
+      [9, "Public Announcement"],
+      [13, "Fire Safety"],
+      [33, "6×6 board"],
       [37, "Bolted tiles"],
       [47, "7×7 board"],
     ]);
@@ -229,7 +224,7 @@ describe("levels", () => {
     for (let id = 6; id <= LEVELS.length; id++) {
       const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
       assert.ok(step <= 15, `level ${id} jumps ${step}%`);
-      const floor = LEVELS[id - 1]!.unlock ? -10 : -3;
+      const floor = [13, 23, 33, 37, 47].includes(id) ? -10 : -3;
       assert.ok(step >= floor, `level ${id} drops ${step}%`);
     }
     for (const level of LEVELS.slice(12)) {
