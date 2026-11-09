@@ -1350,50 +1350,70 @@ function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fi
 const SAGE_SHADE = "#a9bd9f";
 const SAGE_SHADE_DARK = "#7f9476";
 const SAGE_SHADE_LIGHT = "#d3dfca";
+const SAGE_SHADE_DEEP = "#6a7f62";
 
-/** Light sage 1950s dome table lamp on a brass stem. */
+/** Light sage 1950s mushroom-dome table lamp with a sage stem and a rounded sage base. */
 function SageLamp({ on }: { on: boolean }) {
   return (
     <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-lamp is-on" : "pc-glyph pc-lamp"}>
-      {on && <path d="M9.5 29.6 5 48h38l-4.5-18.4z" fill="#fff1c2" opacity="0.35" />}
-      <ellipse cx="24" cy="55.4" rx="13" ry="3.6" fill={BRASS_DARK} />
-      <ellipse cx="24" cy="54" rx="11" ry="2.8" fill={BRASS} />
-      <path d="M15.6 53.2c2.4-1.2 5.4-1.6 8.4-1.6" fill="none" stroke={BRASS_LIGHT} strokeWidth="1.1" strokeLinecap="round" />
-      <rect x="22.3" y="29" width="3.4" height="24" rx="1.7" fill={BRASS_DARK} />
-      <path d="M23.4 31v20" stroke={BRASS_LIGHT} strokeWidth="1" strokeLinecap="round" />
-      <rect x="20.6" y="40" width="6.8" height="2.6" rx="1.3" fill={BRASS} />
-      <path d="M4.5 29C4.5 15 13 5.4 24 5.4S43.5 15 43.5 29z" fill={SAGE_SHADE} />
-      <path d="M43.5 29C43.5 17 37.6 8.6 29 6.2c5 4 8.4 12 8.4 22.8z" fill={SAGE_SHADE_DARK} opacity="0.45" />
-      <path d="M10 22.6c1.2-7.6 6.4-12.8 12.8-14" fill="none" stroke={SAGE_SHADE_LIGHT} strokeWidth="2.6" strokeLinecap="round" />
-      <ellipse cx="24" cy="29" rx="19.5" ry="3.4" fill={SAGE_SHADE_DARK} />
-      <ellipse cx="24" cy="29.6" rx="15" ry="2.2" fill={on ? "#fff4cc" : "#6c8063"} />
-      <circle cx="24" cy="4.4" r="2.4" fill={BRASS} />
+      {on && <path d="M8 31 3 50h42l-5-19z" fill="#fff1c2" opacity="0.32" />}
+      <ellipse cx="24" cy="55.6" rx="14.4" ry="3.8" fill={SAGE_SHADE_DEEP} />
+      <path d="M9.6 55.2v-2.4c0-3.6 6.4-6.2 14.4-6.2s14.4 2.6 14.4 6.2v2.4c0 2.2-6.4 3.8-14.4 3.8s-14.4-1.6-14.4-3.8z" fill={SAGE_SHADE_DARK} />
+      <ellipse cx="24" cy="52.6" rx="14.4" ry="5.4" fill={SAGE_SHADE} />
+      <path d="M13.4 51.2c2.6-1.8 6.4-2.6 10.6-2.6" fill="none" stroke={SAGE_SHADE_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M19.2 51.4 21 33h6l1.8 18.4c-1.4 1-8.2 1-9.6 0z" fill={SAGE_SHADE_DARK} />
+      <path d="M27 33l1.8 18.4c-.6.4-1.6.7-2.8.8L24.6 33z" fill={SAGE_SHADE_DEEP} opacity="0.45" />
+      <path d="M22.2 35.4 21.4 49.6" stroke={SAGE_SHADE_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
+      <ellipse cx="24" cy="42" rx="4.6" ry="1.7" fill={SAGE_SHADE} />
+      <ellipse cx="24" cy="33.4" rx="5" ry="1.9" fill={SAGE_SHADE} />
+      <path d="M2 30.6C2 15 11.6 3.4 24 3.4S46 15 46 30.6c0 1.4-.6 2.4-2 2.6H4c-1.4-.2-2-1.2-2-2.6z" fill={SAGE_SHADE} />
+      <path d="M46 30.6C46 17 39 6.8 29.4 4.2 36 9.4 40 18.6 40 30.6c0 1.2-.4 2.2-1.4 2.6H44c1.4-.2 2-1.2 2-2.6z" fill={SAGE_SHADE_DARK} opacity="0.5" />
+      <path d="M8 22.4C9.6 13.6 15.4 7.6 22.4 6.4" fill="none" stroke={SAGE_SHADE_LIGHT} strokeWidth="3" strokeLinecap="round" />
+      <path d="M7 26.6c.2-1.8.6-3.4 1.2-5" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
+      <ellipse cx="24" cy="31.8" rx="21.6" ry="3.4" fill={SAGE_SHADE_DARK} />
+      <ellipse cx="24" cy="32.4" rx="17.4" ry="2.4" fill={on ? "#fff4cc" : SAGE_SHADE_DEEP} />
+      {on && <ellipse cx="24" cy="32.6" rx="7" ry="1.4" fill="white" opacity="0.9" />}
     </svg>
   );
 }
 
-/** Bronze caged light: a wire cage around a clear bulb, with a domed cap and a round base. */
+/** Bronze caged lamp: a full barrel cage around a warm bulb, with a domed cap and a round base. */
 function CageLight({ on }: { on: boolean }) {
+  const bars = [-1, -0.5, 0, 0.5, 1];
+  const back = [-0.75, -0.25, 0.25, 0.75];
   return (
     <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-lamp is-on" : "pc-glyph pc-lamp"}>
-      <ellipse cx="24" cy="55.6" rx="14.4" ry="3.4" fill={BRONZE_DARK} />
-      <rect x="9.4" y="48.6" width="29.2" height="6.4" rx="3.2" fill={BRONZE} />
-      <path d="M13 50.6h22" stroke={BRONZE_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
-      <ellipse cx="24" cy="32" rx="9.6" ry="12" fill={on ? "#fff4c4" : "#f3e2b8"} opacity={on ? 1 : 0.85} />
-      {on && <ellipse cx="24" cy="33" rx="4.6" ry="6.4" fill="white" opacity="0.9" />}
-      <path d="M21 42c0-5-1.4-8.6-1-12.6M27 42c0-5 1.4-8.6 1-12.6" fill="none" stroke={on ? "#ffc93c" : "#a57d42"} strokeWidth="1.3" strokeLinecap="round" />
-      <path d="M20 29.4q4 2.6 8 0" fill="none" stroke={on ? "#fff3b0" : "#a57d42"} strokeWidth="1.1" strokeLinecap="round" />
-      {[-12, -6, 0, 6, 12].map((dx) => (
-        <path key={dx} d={`M${24 + dx * 0.92} 14.6Q${24 + dx * 1.4} 32 ${24 + dx * 1.04} 48.8`} fill="none" stroke={BRONZE_DARK} strokeWidth="1.7" strokeLinecap="round" />
+      <ellipse cx="24" cy="56" rx="15" ry="3.4" fill={BRONZE_DARK} />
+      <path d="M9 54.6v-3.4c0-2.4 6.6-4 15-4s15 1.6 15 4v3.4c0 1.8-6.6 3.2-15 3.2s-15-1.4-15-3.2z" fill={BRONZE} />
+      <ellipse cx="24" cy="51.2" rx="15" ry="3.2" fill={BRONZE_LIGHT} opacity="0.55" />
+      <path d="M12 53.4c3 1 7.4 1.6 12 1.6" fill="none" stroke={BRONZE_DARK} strokeWidth="1" strokeLinecap="round" opacity="0.6" />
+      {back.map((t) => (
+        <path key={t} d={`M${24 + t * 13} 16Q${24 + t * 19} 32 ${24 + t * 14} 49`} fill="none" stroke={BRONZE_DARK} strokeWidth="1.2" opacity="0.55" />
       ))}
-      {[24, 38].map((y) => (
-        <path key={y} d={`M10.2 ${y}Q24 ${y + 3.4} 37.8 ${y}`} fill="none" stroke={BRONZE} strokeWidth="1.7" strokeLinecap="round" />
+      <ellipse cx="24" cy="33" rx="10.4" ry="13" fill={on ? "#fff1c0" : "#f1dfb2"} />
+      <ellipse cx="24" cy="34" rx={on ? 6.4 : 5} ry={on ? 8.4 : 6.6} fill={on ? "white" : "#f8ecca"} opacity={on ? 0.95 : 0.8} />
+      <path d="M21 45c0-5-1.4-9-1-13.4M27 45c0-5 1.4-9 1-13.4" fill="none" stroke={on ? "#ffc93c" : "#a57d42"} strokeWidth="1.3" strokeLinecap="round" />
+      <path d="M20 31.4q4 2.8 8 0" fill="none" stroke={on ? "#fff3b0" : "#a57d42"} strokeWidth="1.2" strokeLinecap="round" />
+      <path d="M19.6 40.4c-1.6-2-2.4-4.6-2.4-7.4" fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
+      {bars.map((t) => (
+        <g key={t}>
+          <path d={`M${24 + t * 13.4} 16Q${24 + t * 20.4} 32 ${24 + t * 14.4} 49`} fill="none" stroke={BRONZE_DARK} strokeWidth="2.2" strokeLinecap="round" />
+          <path d={`M${24 + t * 13.4 - 0.5} 17Q${24 + t * 20.4 - 0.6} 32 ${24 + t * 14.4 - 0.5} 48`} fill="none" stroke={BRONZE_LIGHT} strokeWidth="0.8" strokeLinecap="round" opacity="0.8" />
+        </g>
       ))}
-      <path d="M11.6 15.4Q12.4 5.6 24 5.2q11.6.4 12.4 10.2z" fill={BRONZE} />
-      <path d="M17 11.6c1.2-2.6 3.6-4 6.4-4.2" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
-      <rect x="10.6" y="13.6" width="26.8" height="3.4" rx="1.7" fill={BRONZE_DARK} />
-      <rect x="21.6" y="1.6" width="4.8" height="4.4" rx="1.6" fill={BRONZE_DARK} />
-      <path d="M9.8 22c-.8 6-.6 14 .6 21" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1" strokeLinecap="round" opacity="0.7" />
+      {[
+        [24, 12.4],
+        [36, 17.2],
+      ].map(([y, half]) => (
+        <path key={y} d={`M${24 - half} ${y}Q24 ${y + 4} ${24 + half} ${y}`} fill="none" stroke={BRONZE} strokeWidth="2" strokeLinecap="round" />
+      ))}
+      <path d="M8.6 17.4Q9.6 4.6 24 4.2q14.4.4 15.4 13.2z" fill={BRONZE} />
+      <path d="M39.4 17.4Q38.6 7.4 29 4.8c4.4 3 6.6 7.4 7 12.6z" fill={BRONZE_DARK} opacity="0.45" />
+      <path d="M13.4 12.8c1.6-3.6 4.8-5.8 9-6.4" fill="none" stroke={BRONZE_LIGHT} strokeWidth="1.8" strokeLinecap="round" />
+      <rect x="8.2" y="15.6" width="31.6" height="4" rx="2" fill={BRONZE_DARK} />
+      <path d="M10 16.6h28" stroke={BRONZE_LIGHT} strokeWidth="0.9" strokeLinecap="round" opacity="0.7" />
+      <rect x="20.6" y="0.8" width="6.8" height="4.6" rx="2" fill={BRONZE_DARK} />
+      <path d="M22 1.8h4" stroke={BRONZE_LIGHT} strokeWidth="0.9" strokeLinecap="round" />
     </svg>
   );
 }
