@@ -1327,7 +1327,7 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: House Lights cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire alternates detector and bell. */
+/** `fixture` is the node's place in board order: House Lights cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
 function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
@@ -1342,7 +1342,12 @@ function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fi
     if (pick === 2) return <Radio on={on} />;
     return <Telephone on={on} />;
   }
-  if (theme === "fire") return fixture % 2 === 0 ? <FireDetector on={on} /> : <FireBell on={on} />;
+  if (theme === "fire") {
+    const pick = fixture % 3;
+    if (pick === 0) return <Horn on={on} />;
+    if (pick === 1) return <FireBell on={on} />;
+    return <PullStation on={on} />;
+  }
   const pick = fixture % 4;
   if (pick === 1) return <SageLamp on={on} />;
   if (pick === 3) return <CageLight on={on} />;
@@ -1484,31 +1489,6 @@ function FireHouseSource() {
   );
 }
 
-/** Ivory ceiling detector with a red accent ring and a vented dome. */
-function FireDetector({ on }: { on: boolean }) {
-  return (
-    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
-      <circle cx="28" cy="28" r="23" fill={FIRE_IVORY} stroke={FIRE_IVORY_EDGE} strokeWidth="1.1" />
-      <path d="M48 36A21.6 21.6 0 0 1 14 46.4 23 23 0 0 0 48.6 24c.6 4 .4 8-.6 12z" fill={FIRE_IVORY_SHADE} />
-      <circle cx="28" cy="28" r="17" fill="none" stroke={FIRE_RED} strokeWidth="3" />
-      <circle cx="28" cy="28" r="13" fill={on ? FIRE_GLOW : "#f6ecdb"} />
-      {Array.from({ length: 12 }, (_, i) => (
-        <path
-          key={i}
-          d="M28 16.6v3.6"
-          stroke={on ? "#f3b866" : FIRE_IVORY_EDGE}
-          strokeWidth="1.4"
-          strokeLinecap="round"
-          transform={`rotate(${i * 30} 28 28)`}
-        />
-      ))}
-      <circle cx="28" cy="28" r="6.4" fill={on ? "#fff7e6" : "white"} stroke={on ? "#ffc070" : FIRE_IVORY_EDGE} strokeWidth="1" />
-      <circle cx="36.5" cy="36.5" r="1.9" fill={on ? "#ff7a5a" : FIRE_RED_DARK} />
-      <path d="M11.6 21A17.6 17.6 0 0 1 23 10.8" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.9" />
-    </svg>
-  );
-}
-
 /** Red alarm bell on an ivory wall plate with a brass striker. */
 function FireBell({ on }: { on: boolean }) {
   return (
@@ -1529,6 +1509,40 @@ function FireBell({ on }: { on: boolean }) {
       <path d="M28 42.6v4" stroke="#9a6c28" strokeWidth="2.6" strokeLinecap="round" />
       <circle cx="28" cy="42.4" r="2.6" fill="#c9953f" />
       {on && <circle cx="27.4" cy="26.2" r="9" fill="none" stroke={FIRE_GLOW} strokeWidth="1.2" opacity="0.7" />}
+    </svg>
+  );
+}
+
+/** Classic 1950s red pull station: a rounded rectangular box with an ivory FIRE plate and an ivory pull-down handle in a recess. */
+function PullStation({ on }: { on: boolean }) {
+  const id = svgId(useId());
+  return (
+    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
+      <defs>
+        <linearGradient id={`${id}b`} x1="0" x2="1" y1="0" y2="0">
+          <stop offset="0" stopColor={FIRE_RED_LIGHT} />
+          <stop offset="0.22" stopColor={FIRE_RED} />
+          <stop offset="1" stopColor={FIRE_RED_DARK} />
+        </linearGradient>
+      </defs>
+      <ellipse cx="29" cy="52.6" rx="15" ry="2.2" fill="#3f2a22" opacity="0.16" />
+      <rect x="15.4" y="4.4" width="27" height="47.2" rx="6" fill="#7e2a21" />
+      <rect x="13.6" y="3.4" width="26.4" height="47" rx="5.8" fill={`url(#${id}b)`} />
+      <path d="M16.6 9.2a4.4 4.4 0 0 1 4.2-3.6h12" fill="none" stroke="#f6b2a4" strokeWidth="1.6" strokeLinecap="round" opacity="0.85" />
+      <rect x="17.4" y="8.6" width="18.8" height="9.2" rx="2.2" fill={on ? FIRE_GLOW : FIRE_IVORY} stroke={FIRE_RED_DARK} strokeWidth="0.9" />
+      <text x="26.8" y="15.6" textAnchor="middle" fontSize="6.6" fontWeight="800" fontFamily="Arial, Helvetica, sans-serif" letterSpacing="0.4" fill={FIRE_RED_DARK}>
+        FIRE
+      </text>
+      <rect x="17.8" y="21.4" width="18" height="18.4" rx="3" fill="#6f241c" />
+      <rect x="18.8" y="22.4" width="16" height="16.4" rx="2.4" fill="#8d2d23" />
+      <rect x="24.6" y="24.6" width="4.4" height="9.4" rx="1.6" fill={FIRE_IVORY_SHADE} />
+      <rect x="16" y="31.4" width="21.6" height="6.8" rx="3.2" fill={FIRE_IVORY_EDGE} />
+      <rect x="16" y="30.4" width="21.6" height="6.4" rx="3.2" fill={on ? "#fff7e6" : FIRE_IVORY} />
+      <path d="M18.4 32.2h16.8" stroke="white" strokeWidth="1.3" strokeLinecap="round" opacity="0.9" />
+      <path d="M23.4 41.6h6.8M24.8 44h4" stroke={FIRE_IVORY} strokeWidth="1.3" strokeLinecap="round" opacity="0.85" />
+      <circle cx="18.2" cy="46.4" r="1.2" fill="#f0cf86" />
+      <circle cx="35.4" cy="46.4" r="1.2" fill="#f0cf86" />
+      {on && <circle cx="26.8" cy="13.2" r="8" fill={FIRE_GLOW} opacity="0.35" />}
     </svg>
   );
 }
