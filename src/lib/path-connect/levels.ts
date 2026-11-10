@@ -9,10 +9,13 @@
  * Progression. Difficulty follows the level number, never the theme:
  * - 1–4 on 5×5 teach the mechanic.
  * - 5–15 on 5×5 match the old levels 15–20: four or five nodes, most pipes turned.
- * - 16–22 on 5×5. Bolted tiles start at level 18.
- * - 23–40 on 6×6, with longer runs and more tees.
- * - 41–100 on 7×7. Nodes stay at 6 or 7, and bolted tiles keep climbing.
- *   Boards never grow to 8×8.
+ * - 16–27 keep five nodes. The house stays on the edge through level 22.
+ * - 23–40 on 6×6. Nodes rise from 5 to 7, runs get longer, and the house
+ *   steps inward. Bolted tiles start here as a light anchor.
+ * - 41–100 on 7×7. Nodes climb from 7 to 8, paths get longer, and the house
+ *   sits near the middle so routes radiate outward. Boards never grow past 7×7.
+ * Bolted tiles stay off every 5×5 board. On 6×6 and 7×7 each theme's own
+ * larger boards allow 3, then 2, then 1, then none. They are not the difficulty.
  *
  * Themes rotate in blocks of three, four, or five levels. Lighting, Plumbing,
  * Public Announcement, and Fire Safety each appear on 25 levels.
@@ -162,6 +165,8 @@ interface Plan {
   wiggle: number;
   share: number;
   fixed: number;
+  /** How many cells the house sits in from the edge, as a min and max. */
+  source: readonly [number, number];
   unlock?: string;
   blurb?: string;
 }
@@ -320,7 +325,30 @@ export function themeOf(id: number): ThemeId {
   return theme;
 }
 
-/** Difficulty for a generated level. Each knob rises with the level number. */
+/**
+ * Bolted tiles are a light anchor, not the difficulty. Every 5×5 board has
+ * none. On 6×6 and 7×7 the count follows that theme's own larger boards, in
+ * groups of four: up to 3, then up to 2, then 1, then none.
+ */
+function boltsFor(id: number, size: number): number {
+  if (size <= 5) return 0;
+  let place = 0;
+  const theme = themeOf(id);
+  for (let cursor = 23; cursor <= id; cursor++) if (themeOf(cursor) === theme) place++;
+  if (place <= 4) return 3;
+  if (place <= 8) return 2;
+  if (place <= 12) return 1;
+  return 0;
+}
+
+/** Early houses stay on the rim. Later houses step inward, then toward the middle. */
+function sourceBand(id: number, size: number): readonly [number, number] {
+  if (size <= 5) return [0, 0];
+  if (size === 6) return id < 33 ? [1, 1] : [2, 2];
+  return id < 71 ? [2, 2] : [2, 3];
+}
+
+/** Difficulty for a generated level. Nodes, paths, and the house do the work. */
 function planFor(id: number): Plan {
   const theme = themeOf(id);
   if (id <= 15) {
@@ -334,6 +362,7 @@ function planFor(id: number): Plan {
       wiggle: lerp(0.35, 0.55, t),
       share: lerp(0.9, 1, t),
       fixed: 0,
+      source: [0, 0],
       unlock: id === 5 ? "Plumbing" : id === 9 ? "Public Announcement" : id === 13 ? "Fire Safety" : undefined,
       blurb:
         id === 5
@@ -355,9 +384,8 @@ function planFor(id: number): Plan {
       reach: [3, 5],
       wiggle: lerp(0.5, 0.6, t),
       share: 1,
-      fixed: id < 18 ? 0 : 2,
-      unlock: id === 18 ? "Bolted tiles" : undefined,
-      blurb: id === 18 ? "Bolted tiles cannot turn. Build the circuit around them." : undefined,
+      fixed: 0,
+      source: [0, 0],
     };
   }
   if (id <= 40) {
@@ -366,11 +394,12 @@ function planFor(id: number): Plan {
       id,
       theme,
       size: 6,
-      nodes: id < 33 ? 5 : 6,
+      nodes: id < 28 ? 5 : id < 36 ? 6 : 7,
       reach: [3, 6],
       wiggle: lerp(0.5, 0.65, t),
       share: 1,
-      fixed: Math.max(2, Math.round(lerp(2, 4, t))),
+      fixed: boltsFor(id, 6),
+      source: sourceBand(id, 6),
       unlock: id === 23 ? "6×6 board" : undefined,
       blurb: id === 23 ? "A bigger board, with longer runs between the tees." : undefined,
     };
@@ -380,11 +409,12 @@ function planFor(id: number): Plan {
     id,
     theme,
     size: 7,
-    nodes: id < 71 ? 6 : Math.min(7, Math.round(lerp(6, 7, (id - 71) / 29))),
-    reach: id < 71 ? [4, 6] : [4, 7],
-    wiggle: lerp(0.55, 0.7, t),
+    nodes: id < 70 ? 7 : 8,
+    reach: id < 50 ? [3, 6] : id < 70 ? [4, 7] : [4, 8],
+    wiggle: lerp(0.55, 0.72, t),
     share: 1,
-    fixed: Math.min(7, Math.max(4, Math.round(lerp(4, 7, t)))),
+    fixed: boltsFor(id, 7),
+    source: sourceBand(id, 7),
     unlock: id === 41 ? "7×7 board" : undefined,
     blurb: id === 41 ? "The biggest board, with longer runs and more devices." : undefined,
   };
@@ -420,13 +450,14 @@ function growRoutes(plan: Plan, attempt: number): Coord[][] | null {
   const degree = new Map<string, number>();
   const nodes: string[] = [];
 
-  const edge: Coord[] = [];
+  const homes: Coord[] = [];
   for (let row = 0; row < size; row++) {
     for (let col = 0; col < size; col++) {
-      if (row === 0 || col === 0 || row === size - 1 || col === size - 1) edge.push([row, col]);
+      const inset = Math.min(row, col, size - 1 - row, size - 1 - col);
+      if (inset >= plan.source[0] && inset <= plan.source[1]) homes.push([row, col]);
     }
   }
-  const source = pick(edge);
+  const source = pick(homes);
   const sourceKey = keyOf(source[0], source[1]);
   parent.set(sourceKey, null);
   degree.set(sourceKey, 0);
@@ -514,7 +545,9 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
       const tees = level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
       const routeCells = level.tiles.filter((tile) => tile.onRoute).length;
       // Keep boards busy enough to read as a step up, without filling every cell.
-      if (routeCells < plan.size * plan.size * 0.45 || routeCells > plan.size * plan.size * 0.8) continue;
+      // Later boards carry more nodes, so the route may cover a little more of the grid.
+      const room = plan.nodes >= 7 ? 0.88 : 0.8;
+      if (routeCells < plan.size * plan.size * 0.45 || routeCells > plan.size * plan.size * room) continue;
       if (goal.par && (level.par < goal.par[0] || level.par > goal.par[1])) continue;
       const described = { ...level, blurb: describe(plan, tees) };
       const miss = Math.abs(estimateSeconds(level) - goal.seconds) / goal.seconds;
@@ -558,6 +591,7 @@ export function generateDaily(day: number): Level {
       wiggle: 0.5,
       share: 1,
       fixed: 0,
+      source: [0, 0],
     },
     "Daily challenge",
     { seconds: DAILY_TARGET_SECONDS, tolerance: 0.03, par: DAILY_PAR, attempts: 600 },
@@ -578,24 +612,24 @@ export function estimateSeconds(level: Level): number {
 }
 
 /** Levels that open a new system, board size, or bolted tiles start a little easier. */
-const BREATHERS = new Set([5, 9, 13, 18, 23, 41]);
+const BREATHERS = new Set([5, 9, 13, 23, 41]);
 
 /**
- * Target solve time per level. Levels 5–15 sit where 15–20 used to, and the
- * curve keeps climbing through the hundredth board.
- * - 1–4 are quick wins under 45 seconds.
- * - 5–15 rise from about 90 seconds to just under 2 minutes.
- * - 16–40 climb from 2 minutes to about 3.5 minutes.
- * - 41–100 build from there to about 6 minutes on the 7×7 boards.
- * Neighboring levels differ by a small step, so there is no wall mid-game.
+ * Target solve time per level. Levels 5–15 sit where 15–20 used to. After
+ * that the curve follows the harder boards: more nodes, longer routes, and a
+ * house that has moved inward. Neighboring levels differ by a small step.
  */
 export function targetSeconds(id: number): number {
   let seconds: number;
   if (id <= 4) seconds = [17, 28, 31, 40][id - 1]!;
   else if (id <= 15) seconds = lerp(92, 112, (id - 5) / 10);
-  else if (id <= 40) seconds = lerp(118, 210, (id - 16) / 24);
-  else if (id <= 70) seconds = lerp(216, 300, (id - 41) / 29);
-  else seconds = lerp(306, 360, (id - 71) / 29);
+  else if (id <= 22) seconds = lerp(118, 141, (id - 16) / 6);
+  else if (id <= 27) seconds = lerp(148, 162, (id - 23) / 4);
+  else if (id <= 35) seconds = lerp(172, 205, (id - 28) / 7);
+  else if (id <= 40) seconds = lerp(220, 245, (id - 36) / 4);
+  else if (id <= 49) seconds = lerp(258, 290, (id - 41) / 8);
+  else if (id <= 69) seconds = lerp(305, 350, (id - 50) / 19);
+  else seconds = lerp(385, 440, (id - 70) / 30);
   return Math.round(BREATHERS.has(id) ? seconds * 0.95 : seconds);
 }
 

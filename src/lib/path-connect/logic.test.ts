@@ -161,20 +161,23 @@ describe("levels", () => {
       [5, "Plumbing"],
       [9, "Public Announcement"],
       [13, "Fire Safety"],
-      [18, "Bolted tiles"],
       [23, "6×6 board"],
       [41, "7×7 board"],
     ]);
   });
 
-  it("bolts tiles from level 18, already facing the solution", () => {
+  it("uses bolted tiles as a light anchor that phases out", () => {
+    const seen = new Map<Level["theme"], number>();
     for (const level of LEVELS) {
       const bolted = level.tiles.filter((tile) => tile.fixed);
-      if (level.id < 18) {
-        assert.equal(bolted.length, 0, `level ${level.id} has bolted tiles`);
-        continue;
+      let expect = 0;
+      if (level.size >= 6) {
+        const place = (seen.get(level.theme) ?? 0) + 1;
+        seen.set(level.theme, place);
+        expect = place <= 4 ? 3 : place <= 8 ? 2 : place <= 12 ? 1 : 0;
       }
-      assert.ok(bolted.length >= 2, `level ${level.id} needs bolted tiles`);
+      assert.equal(bolted.length, expect, `level ${level.id} bolts`);
+      assert.ok(bolted.length <= 3);
       for (const tile of bolted) {
         assert.equal(tile.role, "play");
         assert.equal(tile.onRoute, true);
@@ -196,11 +199,11 @@ describe("levels", () => {
       const count = nodes(level);
       assert.ok(count >= 4 && count <= 5, `level ${level.id} has ${count} nodes`);
     }
-    for (const level of LEVELS.slice(85)) {
-      const count = nodes(level);
-      assert.ok(count >= 6 && count <= 7, `level ${level.id} has ${count} nodes`);
-    }
-    assert.ok(Math.max(...LEVELS.map(nodes)) <= 7);
+    for (const level of LEVELS.slice(15, 27)) assert.equal(nodes(level), 5, `level ${level.id}`);
+    for (const level of LEVELS.slice(27, 35)) assert.equal(nodes(level), 6, `level ${level.id}`);
+    for (const level of LEVELS.slice(35, 69)) assert.equal(nodes(level), 7, `level ${level.id}`);
+    for (const level of LEVELS.slice(69)) assert.equal(nodes(level), 8, `level ${level.id}`);
+    assert.equal(Math.max(...LEVELS.map(nodes)), 8);
     const tees = (level: Level) => level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
     const route = (level: Level) => level.tiles.filter((tile) => tile.onRoute).length;
     const mean = (group: readonly Level[], read: (level: Level) => number) =>
@@ -210,7 +213,7 @@ describe("levels", () => {
     assert.ok(mean(late, tees) > mean(early, tees), "late boards need more tees");
     assert.ok(mean(late, route) > mean(early, route), "late boards need longer routes");
     const bolted = (level: Level) => level.tiles.filter((tile) => tile.fixed).length;
-    assert.ok(mean(LEVELS.slice(80), bolted) > mean(LEVELS.slice(17, 40), bolted));
+    assert.ok(mean(LEVELS.slice(80), bolted) < mean(LEVELS.slice(22, 40), bolted));
     const stretches = [
       [1, 15],
       [16, 22],
@@ -229,8 +232,22 @@ describe("levels", () => {
       assert.ok(counts[i]! >= counts[i - 1]! - 0.2, `nodes ${counts.join(", ")}`);
     }
     assert.ok(pars[4]! > pars[0]! * 2);
-    assert.ok(Math.max(...LEVELS.slice(70).map(nodes)) >= 7);
-    assert.ok(Math.max(...LEVELS.slice(70).map(nodes)) <= 7);
+    assert.ok(LEVELS.slice(69).every((level) => nodes(level) === 8));
+  });
+
+  it("keeps the house on the edge early and moves it inward later", () => {
+    const inset = (level: Level) => {
+      const index = level.tiles.findIndex((tile) => tile.role === "start");
+      const row = Math.floor(index / level.size);
+      const col = index % level.size;
+      return Math.min(row, col, level.size - 1 - row, level.size - 1 - col);
+    };
+    for (const level of LEVELS) {
+      const depth = inset(level);
+      if (level.id <= 22) assert.equal(depth, 0, `level ${level.id} house inset`);
+      else if (level.id < 33) assert.equal(depth, 1, `level ${level.id} house inset`);
+      else assert.ok(depth >= 2, `level ${level.id} house inset ${depth}`);
+    }
   });
 
   it("follows the retention curve without walls", () => {
@@ -243,14 +260,14 @@ describe("levels", () => {
     };
     within(1, 4, 0, 45);
     within(5, 15, 70, 140);
-    within(16, 40, 100, 250);
-    within(41, 70, 180, 360);
-    within(71, 100, 250, 420);
+    within(16, 40, 100, 260);
+    within(41, 70, 220, 420);
+    within(71, 100, 350, 480);
 
     for (let id = 6; id <= LEVELS.length; id++) {
       const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
       assert.ok(step <= 15, `level ${id} jumps ${step}%`);
-      const floor = [5, 9, 13, 18, 23, 41].includes(id) ? -10 : -3;
+      const floor = [5, 9, 13, 23, 41].includes(id) ? -10 : -3;
       assert.ok(step >= floor, `level ${id} drops ${step}%`);
     }
     for (const level of LEVELS.slice(4)) {
