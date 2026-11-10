@@ -2877,7 +2877,13 @@
     grid-template-columns: minmax(0, 1fr);
   }
 
-  /* Surroundings frame the board from above (wall pieces) and below (floor pieces). */
+  /*
+   * Surroundings float above (wall pieces) and below (floor pieces) the board
+   * at staggered heights. The top-left and bottom-right pieces tuck a quarter
+   * of their height behind the board edge, as the side pieces do on desktop.
+   * Each piece is capped by its strip height and by 29% of the board width,
+   * so the three in a strip never touch.
+   */
   .pc-surround {
     --m: 0.62;
   }
@@ -2885,42 +2891,53 @@
   .pc-sur-piece[data-slot] {
     top: auto;
     right: auto;
+    bottom: auto;
     left: auto;
     width: min(
       calc(var(--w) * 1px * var(--k) * var(--m)),
       calc(var(--strip) * var(--w) / var(--h)),
-      31%
+      29%
     );
   }
 
-  .pc-sur-piece[data-slot="LT"],
-  .pc-sur-piece[data-slot="T"],
-  .pc-sur-piece[data-slot="RT"] {
+  .pc-sur-piece[data-slot="LT"] {
     --strip: var(--pc-sur-top);
-    bottom: calc(100% + 10px);
+    bottom: 100%;
+    left: calc(-6px + var(--o) * 3%);
+    translate: 0 calc(22% + var(--o) * 8%);
   }
 
-  .pc-sur-piece[data-slot="LB"],
-  .pc-sur-piece[data-slot="B"],
+  .pc-sur-piece[data-slot="T"] {
+    --strip: calc(var(--pc-sur-top) - 10px);
+    bottom: calc(100% + 16px + var(--o) * 8px);
+    left: calc(44% + var(--o) * 8%);
+    translate: -50% 0;
+  }
+
+  .pc-sur-piece[data-slot="RT"] {
+    --strip: calc(var(--pc-sur-top) - 4px);
+    bottom: calc(100% + 4px + var(--o) * 6px);
+    right: calc(1% + var(--o) * 3%);
+  }
+
+  .pc-sur-piece[data-slot="LB"] {
+    --strip: calc(var(--pc-sur-bottom) - 6px);
+    top: calc(100% + 14px + var(--o) * 10px);
+    left: calc(-4px + var(--o) * 4%);
+  }
+
+  .pc-sur-piece[data-slot="B"] {
+    --strip: calc(var(--pc-sur-bottom) - 14px);
+    top: calc(100% + 4px + var(--o) * 6px);
+    left: calc(48% + var(--o) * 6%);
+    translate: -50% 0;
+  }
+
   .pc-sur-piece[data-slot="RB"] {
     --strip: var(--pc-sur-bottom);
-    bottom: calc(-1 * (var(--pc-sur-bottom) + 10px));
-  }
-
-  .pc-sur-piece[data-slot="LT"],
-  .pc-sur-piece[data-slot="LB"] {
-    left: calc(var(--o) * 4%);
-  }
-
-  .pc-sur-piece[data-slot="RT"],
-  .pc-sur-piece[data-slot="RB"] {
-    right: calc(var(--o) * 4%);
-  }
-
-  .pc-sur-piece[data-slot="T"],
-  .pc-sur-piece[data-slot="B"] {
-    left: calc(50% + (var(--o) - 0.5) * 6%);
-    translate: -50% 0;
+    top: 100%;
+    right: calc(-6px + var(--o) * 3%);
+    translate: 0 calc(-20% - var(--o) * 8%);
   }
 }
 
