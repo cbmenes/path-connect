@@ -2617,3 +2617,323 @@
     drop-shadow(0 0 5px color-mix(in oklab, white 70%, transparent))
     drop-shadow(0 0 12px color-mix(in oklab, var(--color-pc-spark) 85%, transparent));
 }
+
+/* Game menu: Restart, Hint, Undo, sound and the guide, behind one top-bar button on phones. */
+.path-connect[data-style="cozy"] .pc-menu-button {
+  width: 38px;
+  height: 38px;
+  min-height: 38px;
+  border-radius: 12px;
+  background: transparent;
+  color: var(--color-pc-accent);
+}
+
+.path-connect[data-style="cozy"] .pc-menu-button:hover,
+.path-connect[data-style="cozy"] .pc-menu-button[aria-expanded="true"] {
+  background: color-mix(in oklab, white 50%, var(--color-pc-tile));
+  color: var(--color-pc-fg);
+}
+
+.path-connect[data-style="cozy"] .pc-menu-button svg {
+  width: 22px;
+  height: 22px;
+}
+
+.path-connect[data-style="cozy"] .pc-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  right: 0;
+  z-index: 6;
+  display: grid;
+  gap: 2px;
+  width: min(100%, 230px);
+  border-radius: 18px;
+  background: color-mix(in oklab, white 55%, var(--color-pc-tray));
+  padding: 6px;
+  box-shadow:
+    inset 0 1px 0 white,
+    0 0 0 1px color-mix(in oklab, var(--color-pc-shade) 14%, transparent),
+    0 24px 48px -20px color-mix(in oklab, var(--color-pc-shade) 60%, transparent);
+  animation: pc-menu-in 140ms ease-out both;
+}
+
+@keyframes pc-menu-in {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+}
+
+.path-connect[data-style="cozy"] .pc-menu button {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 46px;
+  border-radius: 12px;
+  padding: 0 12px;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  text-align: left;
+  color: var(--color-pc-fg);
+}
+
+.path-connect[data-style="cozy"] .pc-menu button svg {
+  width: 19px;
+  height: 19px;
+  flex: none;
+  color: var(--color-pc-accent);
+}
+
+.path-connect[data-style="cozy"] .pc-menu button:hover:not(:disabled),
+.path-connect[data-style="cozy"] .pc-menu button:focus-visible {
+  background: color-mix(in oklab, white 60%, var(--color-pc-tile));
+  outline: none;
+}
+
+.path-connect[data-style="cozy"] .pc-menu button:disabled {
+  cursor: default;
+  color: var(--color-pc-muted);
+}
+
+.path-connect[data-style="cozy"] .pc-menu button:disabled svg,
+.path-connect[data-style="cozy"] .pc-menu .pc-hint[data-offer="none"] svg {
+  color: var(--color-pc-muted);
+}
+
+.path-connect[data-style="cozy"] .pc-menu .pc-hint-tag {
+  margin-left: auto;
+}
+
+.path-connect[data-style="cozy"] .pc-menu-rule {
+  height: 1px;
+  margin: 3px 8px;
+  background: color-mix(in oklab, var(--color-pc-shade) 16%, transparent);
+}
+
+.pc-lesson-tip {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  margin: 0;
+  border-radius: 14px;
+  background: color-mix(in oklab, white 50%, var(--color-pc-tile));
+  padding: 9px 12px;
+  text-align: left;
+  font-size: 0.8125rem;
+  line-height: 1.4;
+  color: var(--color-pc-fg);
+  box-shadow: inset 0 1px 0 white;
+}
+
+.pc-lesson-tip svg {
+  width: 16px;
+  height: 16px;
+  flex: none;
+  margin-top: 1px;
+  color: var(--color-pc-accent);
+}
+
+@media (min-width: 720px) {
+  .path-connect[data-style="cozy"] .pc-menu-button,
+  .path-connect[data-style="cozy"] .pc-menu {
+    display: none;
+  }
+}
+
+/*
+ * Phones: one compact top bar (name, mode toggle, menu, then the meter and
+ * level line), the board with the room above and below it, and the bottom
+ * bar only while there is a note or a win to show.
+ */
+@media (max-width: 719px) {
+  .path-connect[data-style="cozy"] .pc-shell,
+  .path-connect[data-style="cozy"] .pc-shell[data-size] {
+    --pc-sur-top: 58px;
+    --pc-sur-bottom: 84px;
+    padding-top: 10px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-shell {
+    --pc-board: min(460px, calc(100vw - 40px), max(280px, calc(100dvh - 300px)));
+  }
+
+  .path-connect[data-style="cozy"] .pc-shell[data-size="6"] {
+    --pc-board: min(500px, calc(100vw - 32px), max(300px, calc(100dvh - 300px)));
+  }
+
+  .path-connect[data-style="cozy"] .pc-shell[data-size="7"] {
+    --pc-board: min(540px, calc(100vw - 24px), max(320px, calc(100dvh - 300px)));
+  }
+
+  .path-connect[data-style="cozy"] .pc-top {
+    gap: 6px 8px;
+    border-radius: 18px;
+    background: color-mix(in oklab, var(--color-pc-tray) 72%, transparent);
+    padding: 6px 6px 8px 10px;
+    box-shadow:
+      inset 0 1px 0 white,
+      0 10px 24px -20px color-mix(in oklab, var(--color-pc-shade) 60%, transparent);
+  }
+
+  .path-connect[data-style="cozy"] .pc-where {
+    gap: 8px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-where .pc-mark-icon {
+    width: 26px;
+    height: 23px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-level-name {
+    overflow: hidden;
+    font-size: 0.9375rem;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+
+  .path-connect[data-style="cozy"] .pc-level-name .pc-new {
+    margin-left: 6px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-level-sub,
+  .path-connect[data-style="cozy"] .pc-top .pc-mute {
+    display: none;
+  }
+
+  .path-connect[data-style="cozy"] .pc-top-tools {
+    align-self: center;
+    gap: 2px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-top .pc-modes button {
+    min-height: 32px;
+    padding: 0 10px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-hud {
+    gap: 10px;
+    padding-right: 4px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-hud .pc-meter {
+    min-height: 26px;
+    gap: 7px;
+    padding: 0;
+    background: none;
+    box-shadow: none;
+  }
+
+  .path-connect[data-style="cozy"] .pc-hud .pc-meter .pc-glyph {
+    width: 16px;
+    height: 20px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-hud .pc-meter-track {
+    height: 8px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-hud .pc-meter-count {
+    font-size: 0.8125rem;
+  }
+
+  .path-connect[data-style="cozy"] .pc-hud-stats {
+    flex-direction: row;
+    align-items: center;
+    gap: 10px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-level-pick {
+    margin: -2px -4px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-stage {
+    padding: calc(var(--pc-sur-top) + 18px) 0 calc(var(--pc-sur-bottom) + 18px);
+  }
+
+  .path-connect[data-style="cozy"] .pc-bottom {
+    position: fixed;
+    right: 12px;
+    bottom: calc(12px + env(safe-area-inset-bottom));
+    left: 12px;
+    z-index: 20;
+    width: auto;
+    max-height: calc(100dvh - 24px);
+    overflow-y: auto;
+    background: color-mix(in oklab, white 30%, var(--color-pc-tray));
+    box-shadow:
+      inset 0 1px 0 white,
+      0 0 0 1px color-mix(in oklab, var(--color-pc-shade) 10%, transparent),
+      0 16px 32px -18px color-mix(in oklab, var(--color-pc-shade) 70%, transparent);
+    animation: pc-note-in 180ms ease-out both;
+  }
+
+  .path-connect[data-style="cozy"] .pc-bottom[data-idle],
+  .path-connect[data-style="cozy"] .pc-bottom .pc-tool,
+  .path-connect[data-style="cozy"] .pc-bottom .pc-actions:not(:has(.pc-next)) {
+    display: none;
+  }
+
+  .path-connect[data-style="cozy"] .pc-bottom .pc-actions {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  /* Surroundings frame the board from above (wall pieces) and below (floor pieces). */
+  .pc-surround {
+    --m: 0.62;
+  }
+
+  .pc-sur-piece[data-slot] {
+    top: auto;
+    right: auto;
+    left: auto;
+    width: min(
+      calc(var(--w) * 1px * var(--k) * var(--m)),
+      calc(var(--strip) * var(--w) / var(--h)),
+      31%
+    );
+  }
+
+  .pc-sur-piece[data-slot="LT"],
+  .pc-sur-piece[data-slot="T"],
+  .pc-sur-piece[data-slot="RT"] {
+    --strip: var(--pc-sur-top);
+    bottom: calc(100% + 10px);
+  }
+
+  .pc-sur-piece[data-slot="LB"],
+  .pc-sur-piece[data-slot="B"],
+  .pc-sur-piece[data-slot="RB"] {
+    --strip: var(--pc-sur-bottom);
+    bottom: calc(-1 * (var(--pc-sur-bottom) + 10px));
+  }
+
+  .pc-sur-piece[data-slot="LT"],
+  .pc-sur-piece[data-slot="LB"] {
+    left: calc(var(--o) * 4%);
+  }
+
+  .pc-sur-piece[data-slot="RT"],
+  .pc-sur-piece[data-slot="RB"] {
+    right: calc(var(--o) * 4%);
+  }
+
+  .pc-sur-piece[data-slot="T"],
+  .pc-sur-piece[data-slot="B"] {
+    left: calc(50% + (var(--o) - 0.5) * 6%);
+    translate: -50% 0;
+  }
+}
+
+@keyframes pc-note-in {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .path-connect[data-style="cozy"] .pc-menu,
+  .path-connect[data-style="cozy"] .pc-bottom {
+    animation: none;
+  }
+}

@@ -13,8 +13,10 @@ import {
   Ban,
   Check,
   ChevronDown,
+  CircleHelp,
   Lightbulb,
   Lock,
+  MoreHorizontal,
   RotateCcw,
   RotateCw,
   Timer,
@@ -142,6 +144,8 @@ export function PathConnectGame() {
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
   const [lesson, setLesson] = useState<1 | 2 | null>(null);
+  const [guide, setGuide] = useState(false);
+  const [menuOpen, setMenuOpen] = useState(false);
   const adAbortRef = useRef<AbortController | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -449,6 +453,11 @@ export function PathConnectGame() {
     setNote("Undo will take back the last turn.");
   }
 
+  function restart() {
+    if (mode === "daily") startDaily();
+    else reset(levelId);
+  }
+
   const today = stats.days[todayKey];
   const status =
     phase === "won"
@@ -526,6 +535,21 @@ export function PathConnectGame() {
             >
               {muted ? <VolumeX /> : <Volume2 />}
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              size="icon"
+              className="pc-menu-button border-0"
+              aria-label="Game menu"
+              aria-haspopup="menu"
+              aria-expanded={menuOpen}
+              onClick={() => {
+                setPickerOpen(false);
+                setMenuOpen((open) => !open);
+              }}
+            >
+              <MoreHorizontal />
+            </Button>
           </div>
           <div className="pc-hud">
             <div className="pc-meter" aria-label={`${fed.size} of ${nodeTotal} ${nodeWord} connected`}>
@@ -550,7 +574,10 @@ export function PathConnectGame() {
                   aria-haspopup="dialog"
                   aria-expanded={pickerOpen}
                   aria-label={`Level ${levelId} of ${LEVELS.length}. Choose a level`}
-                  onClick={() => setPickerOpen((open) => !open)}
+                  onClick={() => {
+                    setMenuOpen(false);
+                    setPickerOpen((open) => !open);
+                  }}
                 >
                   Level {levelId}
                   <span className="text-pc-muted"> / {LEVELS.length}</span>
@@ -568,6 +595,22 @@ export function PathConnectGame() {
               unlocked={progress.unlocked}
               onPick={pickLevel}
               onClose={() => setPickerOpen(false)}
+            />
+          )}
+          {menuOpen && (
+            <GameMenu
+              offer={offer}
+              canHint={phase === "play"}
+              muted={muted}
+              onRestart={restart}
+              onHint={onHint}
+              onUndo={onUndo}
+              onToggleSound={() => setMuted((value) => !value)}
+              onGuide={() => {
+                setGuide(true);
+                setLesson(1);
+              }}
+              onClose={() => setMenuOpen(false)}
             />
           )}
         </header>
@@ -718,16 +761,18 @@ export function PathConnectGame() {
           <PowerLesson
             step={lesson}
             theme={theme}
+            tip={guide ? theme.rule : undefined}
             onNext={() => setLesson(2)}
             onDone={() => {
               markOnboarded();
               setLesson(null);
+              setGuide(false);
             }}
           />
         )}
         </div>
 
-        <footer ref={footerRef} className="pc-bottom">
+        <footer ref={footerRef} className="pc-bottom" data-idle={(phase === "play" && !note) || undefined}>
           {phase === "won" && mode === "daily" && result && (
             <DailyResult result={result} stats={stats} />
           )}
@@ -748,18 +793,14 @@ export function PathConnectGame() {
           </p>
 
           <div className="pc-actions">
-            <Button
-              type="button"
-              variant="ghost"
-              onClick={() => (mode === "daily" ? startDaily() : reset(levelId))}
-            >
+            <Button type="button" variant="ghost" className="pc-tool" onClick={restart}>
               <RotateCcw />
               Restart
             </Button>
             <Button
               type="button"
               variant="ghost"
-              className="pc-hint"
+              className="pc-tool pc-hint"
               data-offer={offer}
               aria-label={
                 offer === "free"
@@ -776,7 +817,7 @@ export function PathConnectGame() {
               {offer === "ad" && <span className="pc-hint-tag">Ad</span>}
               {offer === "none" && <span className="pc-hint-tag">0 left</span>}
             </Button>
-            <Button type="button" variant="ghost" onClick={onUndo}>
+            <Button type="button" variant="ghost" className="pc-tool" onClick={onUndo}>
               <Undo2 />
               Undo
             </Button>
@@ -823,14 +864,17 @@ const LESSON_TILES: readonly LessonTile[] = [
 const LESSON_STEP_MS = 260;
 const LESSON_TURN_AT = 1700;
 
+/** With `tip`, the lesson reopens from the menu as a guide and shows the turning rule too. */
 function PowerLesson({
   step,
   theme,
+  tip,
   onNext,
   onDone,
 }: {
   step: 1 | 2;
   theme: CircuitTheme;
+  tip?: string;
   onNext: () => void;
   onDone: () => void;
 }) {
@@ -875,6 +919,12 @@ function PowerLesson({
               </span>
               The {source} is the only power source
             </p>
+            {tip && (
+              <p className="pc-lesson-tip">
+                <RotateCw aria-hidden="true" />
+                {tip}
+              </p>
+            )}
           </>
         ) : (
           <>
@@ -897,7 +947,7 @@ function PowerLesson({
           {step === 1 ? (
             <>
               <Button key="skip" type="button" variant="ghost" onClick={onDone}>
-                Skip
+                {tip ? "Close" : "Skip"}
               </Button>
               <Button key="next" autoFocus type="button" className="pc-ad-watch" onClick={onNext}>
                 Next
@@ -906,7 +956,7 @@ function PowerLesson({
             </>
           ) : (
             <Button key="start" autoFocus type="button" className="pc-ad-watch" onClick={onDone}>
-              Start playing
+              {tip ? "Back to the board" : "Start playing"}
               <ArrowRight />
             </Button>
           )}
@@ -1291,6 +1341,107 @@ function LevelPicker({
           </section>
         );
       })}
+    </div>
+  );
+}
+
+function GameMenu({
+  offer,
+  canHint,
+  muted,
+  onRestart,
+  onHint,
+  onUndo,
+  onToggleSound,
+  onGuide,
+  onClose,
+}: {
+  offer: ReturnType<typeof hintOffer>;
+  canHint: boolean;
+  muted: boolean;
+  onRestart: () => void;
+  onHint: () => void;
+  onUndo: () => void;
+  onToggleSound: () => void;
+  onGuide: () => void;
+  onClose: () => void;
+}) {
+  const panelRef = useRef<HTMLDivElement>(null);
+  const closeRef = useRef(onClose);
+  closeRef.current = onClose;
+
+  // Bound once on open: the Daily timer re-renders often and must not steal focus.
+  useEffect(() => {
+    const onClose = () => closeRef.current();
+    const items = () => [
+      ...(panelRef.current?.querySelectorAll<HTMLButtonElement>("[role^='menuitem']:not(:disabled)") ?? []),
+    ];
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        onClose();
+        document.querySelector<HTMLButtonElement>(".pc-menu-button")?.focus();
+        return;
+      }
+      if (event.key !== "ArrowDown" && event.key !== "ArrowUp") return;
+      const list = items();
+      if (list.length === 0) return;
+      event.preventDefault();
+      const at = list.indexOf(document.activeElement as HTMLButtonElement);
+      const step = event.key === "ArrowDown" ? 1 : -1;
+      list[(at + step + list.length) % list.length]?.focus();
+    };
+    const onDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+      if (panelRef.current?.contains(target)) return;
+      if ((target as Element).closest?.(".pc-menu-button")) return;
+      onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    window.addEventListener("pointerdown", onDown);
+    items()[0]?.focus();
+    return () => {
+      window.removeEventListener("keydown", onKey);
+      window.removeEventListener("pointerdown", onDown);
+    };
+  }, []);
+
+  const pick = (action: () => void) => () => {
+    onClose();
+    action();
+  };
+
+  return (
+    <div ref={panelRef} className="pc-menu" role="menu" aria-label="Game menu">
+      <button type="button" role="menuitem" onClick={pick(onRestart)}>
+        <RotateCcw aria-hidden="true" />
+        Restart
+      </button>
+      <button
+        type="button"
+        role="menuitem"
+        className="pc-hint"
+        data-offer={offer}
+        disabled={!canHint}
+        onClick={pick(onHint)}
+      >
+        <Lightbulb aria-hidden="true" />
+        Hint
+        {offer === "ad" && <span className="pc-hint-tag">Ad</span>}
+        {offer === "none" && <span className="pc-hint-tag">0 left</span>}
+      </button>
+      <button type="button" role="menuitem" onClick={pick(onUndo)}>
+        <Undo2 aria-hidden="true" />
+        Undo
+      </button>
+      <button type="button" role="menuitemcheckbox" aria-checked={!muted} onClick={pick(onToggleSound)}>
+        {muted ? <VolumeX aria-hidden="true" /> : <Volume2 aria-hidden="true" />}
+        {muted ? "Sound off" : "Sound on"}
+      </button>
+      <span className="pc-menu-rule" role="separator" />
+      <button type="button" role="menuitem" onClick={pick(onGuide)}>
+        <CircleHelp aria-hidden="true" />
+        How to play
+      </button>
     </div>
   );
 }
