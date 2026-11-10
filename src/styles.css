@@ -1387,11 +1387,6 @@
     --m: 0.6;
   }
 
-  .pc-sur-piece[data-slot="T2"],
-  .pc-sur-piece[data-slot="B2"] {
-    display: none;
-  }
-
   .pc-sur-piece[data-slot="T"],
   .pc-sur-piece[data-slot="B"] {
     left: calc(-4% + var(--o) * 8%);
@@ -2748,8 +2743,6 @@
 @media (max-width: 719px) {
   .path-connect[data-style="cozy"] .pc-shell,
   .path-connect[data-style="cozy"] .pc-shell[data-size] {
-    --pc-sur-top: 58px;
-    --pc-sur-bottom: 84px;
     padding-top: 10px;
   }
 
@@ -2876,68 +2869,133 @@
   .path-connect[data-style="cozy"] .pc-bottom .pc-actions {
     grid-template-columns: minmax(0, 1fr);
   }
+}
+
+/* Phones and portrait tablets share the layered room above and below the board. */
+@media (max-width: 959px) {
+  .path-connect[data-style="cozy"] .pc-shell,
+  .path-connect[data-style="cozy"] .pc-shell[data-size] {
+    --pc-sur-top: 64px;
+    --pc-sur-bottom: 90px;
+  }
 
   /*
    * Surroundings float above (wall pieces) and below (floor pieces) the board
-   * at staggered heights. The top-left and bottom-right pieces tuck a quarter
-   * of their height behind the board edge, as the side pieces do on desktop.
-   * Each piece is capped by its strip height and by 29% of the board width,
-   * so the three in a strip never touch.
+   * in layers, showing every piece the desktop room has, T2 and B2 included.
+   * Back pieces are smaller and softer; the top-left and bottom-center ones
+   * tuck partway behind the board edge. The bottom-left piece stands in front,
+   * over the tray's rim but never over a tile. Positions leave uneven gaps,
+   * and each level's offset (--o) shifts them further.
    */
   .pc-surround {
     --m: 0.62;
+    z-index: auto;
+    animation: none;
   }
 
   .pc-sur-piece[data-slot] {
+    --cap: 24%;
     top: auto;
     right: auto;
     bottom: auto;
     left: auto;
+    display: block;
     width: min(
       calc(var(--w) * 1px * var(--k) * var(--m)),
       calc(var(--strip) * var(--w) / var(--h)),
-      29%
+      var(--cap)
     );
+    animation: pc-sur-fade 700ms ease-out both;
+  }
+
+  .pc-sur-piece[data-slot="T"],
+  .pc-sur-piece[data-slot="B2"],
+  .pc-sur-piece[data-slot="LT"],
+  .pc-sur-piece[data-slot="B"] {
+    opacity: 0.8;
   }
 
   .pc-sur-piece[data-slot="LT"] {
     --strip: var(--pc-sur-top);
     bottom: 100%;
-    left: calc(-6px + var(--o) * 3%);
-    translate: 0 calc(22% + var(--o) * 8%);
+    left: calc(-6px + var(--o) * 2%);
+    translate: 0 calc(20% + var(--o) * 10%);
   }
 
   .pc-sur-piece[data-slot="T"] {
+    --strip: calc(var(--pc-sur-top) - 22px);
+    --cap: 19%;
+    bottom: calc(100% + 22px + var(--o) * 12px);
+    left: calc(35% + var(--o) * 4%);
+    translate: -50% 0;
+  }
+
+  .pc-sur-piece[data-slot="T2"] {
     --strip: calc(var(--pc-sur-top) - 10px);
-    bottom: calc(100% + 16px + var(--o) * 8px);
-    left: calc(44% + var(--o) * 8%);
+    --cap: 21%;
+    bottom: calc(100% + 3px + var(--o) * 5px);
+    left: calc(61% + var(--o) * 3%);
     translate: -50% 0;
   }
 
   .pc-sur-piece[data-slot="RT"] {
     --strip: calc(var(--pc-sur-top) - 4px);
-    bottom: calc(100% + 4px + var(--o) * 6px);
-    right: calc(1% + var(--o) * 3%);
+    bottom: calc(100% + 10px + var(--o) * 14px);
+    right: calc(-4px + var(--o) * 2%);
   }
 
   .pc-sur-piece[data-slot="LB"] {
-    --strip: calc(var(--pc-sur-bottom) - 6px);
-    top: calc(100% + 14px + var(--o) * 10px);
-    left: calc(-4px + var(--o) * 4%);
+    --strip: calc(var(--pc-sur-bottom) - 4px);
+    --cap: 26%;
+    z-index: 2;
+    top: calc(100% - 7px + var(--o) * 5px);
+    left: calc(-6px + var(--o) * 2%);
+    opacity: 1;
+    filter: drop-shadow(0 6px 6px color-mix(in oklab, var(--color-pc-shade) 28%, transparent));
   }
 
   .pc-sur-piece[data-slot="B"] {
-    --strip: calc(var(--pc-sur-bottom) - 14px);
-    top: calc(100% + 4px + var(--o) * 6px);
-    left: calc(48% + var(--o) * 6%);
+    --strip: calc(var(--pc-sur-bottom) - 20px);
+    --cap: 21%;
+    top: 100%;
+    left: calc(41% + var(--o) * 4%);
+    translate: -50% calc(-16% - var(--o) * 8%);
+  }
+
+  .pc-sur-piece[data-slot="B2"] {
+    --strip: calc(var(--pc-sur-bottom) - 34px);
+    --cap: 18%;
+    top: calc(100% + 34px + var(--o) * 10px);
+    left: calc(64% + var(--o) * 3%);
     translate: -50% 0;
   }
 
   .pc-sur-piece[data-slot="RB"] {
-    --strip: var(--pc-sur-bottom);
-    top: 100%;
-    right: calc(-6px + var(--o) * 3%);
-    translate: 0 calc(-20% - var(--o) * 8%);
+    --strip: calc(var(--pc-sur-bottom) - 8px);
+    top: calc(100% + 8px + var(--o) * 12px);
+    right: calc(-4px + var(--o) * 2%);
+  }
+}
+
+@media (min-width: 720px) and (max-width: 959px) {
+  .path-connect[data-style="cozy"] .pc-shell,
+  .path-connect[data-style="cozy"] .pc-shell[data-size] {
+    --pc-sur-top: 80px;
+    --pc-sur-bottom: 112px;
+  }
+
+  .pc-surround {
+    --m: 0.85;
+  }
+
+  .path-connect[data-style="cozy"] .pc-stage {
+    padding: calc(var(--pc-sur-top) + 30px) 0 calc(var(--pc-sur-bottom) + 28px);
+  }
+}
+
+@keyframes pc-sur-fade {
+  from {
+    opacity: 0;
   }
 }
 
@@ -2950,7 +3008,8 @@
 
 @media (prefers-reduced-motion: reduce) {
   .path-connect[data-style="cozy"] .pc-menu,
-  .path-connect[data-style="cozy"] .pc-bottom {
+  .path-connect[data-style="cozy"] .pc-bottom,
+  .pc-sur-piece[data-slot] {
     animation: none;
   }
 }
