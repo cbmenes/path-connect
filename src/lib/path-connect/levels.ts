@@ -280,13 +280,6 @@ function lerp(from: number, to: number, t: number): number {
 /** Campaign themes in the order their blocks come around. */
 export const THEME_ORDER: readonly ThemeId[] = ["lights", "plumbing", "alarm", "fire"];
 /**
- * Surroundings restart their "don't repeat the piece from the level before"
- * chain on this width. Campaign theme runs use THEME_BLOCKS instead, so this
- * stays the width that chain was built for.
- */
-export const THEME_BLOCK = 4;
-
-/**
  * Theme runs of 3–5 levels. The opening keeps the original four-level
  * Lighting, Plumbing, and Public Announcement stretches. After that the
  * blocks vary, and each theme still lands on 25 levels.
