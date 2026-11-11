@@ -19,14 +19,14 @@ test("Plumbing speaks about a water main and fixtures", () => {
   assert.equal(plumbing.conduit, "pipe");
 });
 
-test("Plumbing is its own category, first opening at level 5", () => {
-  for (const level of LEVELS.slice(0, 4)) assert.notEqual(level.theme, "plumbing");
-  for (const level of LEVELS.slice(4, 8)) assert.equal(level.theme, "plumbing");
-  assert.equal(LEVELS[4]!.unlock, "Plumbing");
-  assert.match(LEVELS[4]!.blurb, /fixtures/);
+test("Plumbing is its own category, first opening at level 3", () => {
+  for (const level of LEVELS.slice(0, 2)) assert.notEqual(level.theme, "plumbing");
+  for (const level of LEVELS.slice(2, 4)) assert.equal(level.theme, "plumbing");
+  assert.equal(LEVELS[2]!.unlock, "Plumbing");
+  assert.match(LEVELS[2]!.blurb, /fixtures/);
   const plumbing = CHAPTERS.find((chapter) => chapter.theme === "plumbing");
   assert.equal(plumbing?.title, "Plumbing");
-  assert.deepEqual(plumbing?.ids.slice(0, 8), [5, 6, 7, 8, 23, 24, 25, 26]);
+  assert.deepEqual(plumbing?.ids.slice(0, 8), [3, 4, 11, 12, 19, 20, 27, 28]);
 });
 
 test("categories use the broader Lighting and Fire Safety names", () => {
@@ -36,16 +36,17 @@ test("categories use the broader Lighting and Fire Safety names", () => {
   );
 });
 
-test("no theme runs longer than five levels in a row", () => {
+test("themes run in pairs, then one of each at the end", () => {
   let run = 1;
   for (let i = 1; i < LEVELS.length; i++) {
     run = LEVELS[i]!.theme === LEVELS[i - 1]!.theme ? run + 1 : 1;
-    assert.ok(run >= 1 && run <= 5, `level ${LEVELS[i]!.id} runs ${run}`);
+    assert.ok(run <= 2, `level ${LEVELS[i]!.id} runs ${run}`);
   }
 });
 
-test("hand-built levels read in their new theme's words", () => {
+test("levels speak in the words of their own theme", () => {
   for (const level of LEVELS.slice(4, 12)) {
+    if (level.theme === "lights") continue;
     assert.doesNotMatch(level.blurb, /\blights?\b|breaker/i, `level ${level.id}`);
   }
 });

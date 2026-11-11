@@ -124,17 +124,18 @@ describe("levels", () => {
     });
   });
 
-  it("rotates themes in short blocks while board sizes grow to 7×7", () => {
+  it("rotates themes in blocks of two while board sizes grow to 7×7", () => {
     let run = 1;
     for (let i = 1; i < LEVELS.length; i++) {
       if (LEVELS[i]!.theme === LEVELS[i - 1]!.theme) run++;
       else {
-        assert.ok(run >= 3 && run <= 5, `levels ${LEVELS[i - 1]!.id - run + 1}–${LEVELS[i - 1]!.id} run ${run}`);
+        const ended = LEVELS[i - 1]!.id;
+        assert.equal(run, ended >= 97 ? 1 : 2, `levels ${ended - run + 1}–${ended} run ${run}`);
         run = 1;
       }
       assert.ok(LEVELS[i]!.size >= LEVELS[i - 1]!.size, `level ${LEVELS[i]!.id} shrinks`);
     }
-    assert.ok(run >= 3 && run <= 5, `final run ${run}`);
+    assert.equal(run, 1, `final run ${run}`);
     for (const level of LEVELS) {
       const size = level.id <= 22 ? 5 : level.id <= 40 ? 6 : 7;
       assert.equal(level.size, size, `level ${level.id} size`);
@@ -158,9 +159,9 @@ describe("levels", () => {
   it("marks each new stretch as an unlock", () => {
     const unlocks = LEVELS.flatMap((level) => (level.unlock ? [[level.id, level.unlock]] : []));
     assert.deepEqual(unlocks, [
-      [5, "Plumbing"],
-      [9, "Public Announcement"],
-      [13, "Fire Safety"],
+      [3, "Plumbing"],
+      [5, "Public Announcement"],
+      [7, "Fire Safety"],
       [23, "6×6 board"],
       [41, "7×7 board"],
     ]);
@@ -174,7 +175,7 @@ describe("levels", () => {
       if (level.size >= 6) {
         const place = (seen.get(level.theme) ?? 0) + 1;
         seen.set(level.theme, place);
-        expect = place <= 4 ? 3 : place <= 8 ? 2 : place <= 12 ? 1 : 0;
+        expect = place <= 2 ? 3 : place <= 4 ? 2 : place <= 6 ? 1 : 0;
       }
       assert.equal(bolted.length, expect, `level ${level.id} bolts`);
       assert.ok(bolted.length <= 3);
@@ -195,12 +196,17 @@ describe("levels", () => {
       assert.ok(scrambled.length <= 4, `${level.name} has ${scrambled.length} turned tiles`);
     }
     assert.deepEqual(LEVELS.slice(0, 4).map(nodes), [1, 2, 2, 1]);
-    for (const level of LEVELS.slice(4, 15)) {
-      const count = nodes(level);
-      assert.ok(count >= 4 && count <= 5, `level ${level.id} has ${count} nodes`);
+    for (const level of LEVELS.slice(4, 22)) assert.equal(nodes(level), 5, `level ${level.id}`);
+    for (const level of LEVELS.slice(22, 35)) assert.equal(nodes(level), 6, `level ${level.id}`);
+    for (const level of LEVELS.slice(4, 30)) {
+      const tees = level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
+      assert.equal(tees, nodes(level) - 1, `level ${level.id} tees`);
+      const turned = level.tiles.filter((tile) => tile.onRoute && !tile.fixed);
+      const wrong = turned.filter((tile) =>
+        tile.kind === "straight" ? (tile.initial - tile.solution) % 2 !== 0 : tile.initial !== tile.solution,
+      );
+      assert.equal(wrong.length, turned.length, `level ${level.id} still has solved pipes`);
     }
-    for (const level of LEVELS.slice(15, 27)) assert.equal(nodes(level), 5, `level ${level.id}`);
-    for (const level of LEVELS.slice(27, 35)) assert.equal(nodes(level), 6, `level ${level.id}`);
     for (const level of LEVELS.slice(35, 69)) assert.equal(nodes(level), 7, `level ${level.id}`);
     for (const level of LEVELS.slice(69)) assert.equal(nodes(level), 8, `level ${level.id}`);
     assert.equal(Math.max(...LEVELS.map(nodes)), 8);
@@ -244,7 +250,10 @@ describe("levels", () => {
     };
     for (const level of LEVELS) {
       const depth = inset(level);
-      if (level.id <= 22) assert.equal(depth, 0, `level ${level.id} house inset`);
+      const inward = level.id >= 15 && level.id <= 30 && level.id % 3 === 0;
+      if (level.id < 15) assert.equal(depth, 0, `level ${level.id} house inset`);
+      else if (level.id <= 22) assert.equal(depth, inward ? 1 : 0, `level ${level.id} house inset`);
+      else if (level.id <= 30) assert.equal(depth, inward ? 2 : 1, `level ${level.id} house inset`);
       else if (level.id < 33) assert.equal(depth, 1, `level ${level.id} house inset`);
       else assert.ok(depth >= 2, `level ${level.id} house inset ${depth}`);
     }
@@ -259,15 +268,21 @@ describe("levels", () => {
       }
     };
     within(1, 4, 0, 45);
-    within(5, 15, 70, 140);
-    within(16, 40, 100, 260);
+    within(5, 15, 45, 92);
+    within(16, 25, 90, 180);
+    within(26, 30, 120, 240);
+    within(31, 40, 100, 260);
     within(41, 70, 220, 420);
     within(71, 100, 350, 480);
+    assert.ok(seconds[14]! > seconds[9]!, "level 15 is harder than level 10");
+    assert.ok(seconds[19]! > seconds[14]!, "level 20 is harder than level 15");
+    assert.ok(seconds[24]! > seconds[19]!, "level 25 is harder than level 20");
+    assert.ok(seconds[29]! > seconds[24]!, "level 30 is harder than level 25");
 
     for (let id = 6; id <= LEVELS.length; id++) {
       const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
       assert.ok(step <= 15, `level ${id} jumps ${step}%`);
-      const floor = [5, 9, 13, 23, 41].includes(id) ? -10 : -3;
+      const floor = id === 41 ? -10 : -3;
       assert.ok(step >= floor, `level ${id} drops ${step}%`);
     }
     for (const level of LEVELS.slice(4)) {
