@@ -1681,6 +1681,11 @@
   border-radius: 13px;
 }
 
+/* The 7×8 layout test is one row taller, so the board gives that row back to the controls. */
+.path-connect[data-style="cozy"] .pc-shell[data-rows="8"] {
+  --pc-board: min(520px, calc(100vw - 76px), calc(100dvh - 370px));
+}
+
 /* Bolted tiles sit a touch lower, with a screw in each corner. */
 .path-connect[data-style="cozy"] .pc-tile[data-fixed] {
   cursor: default;

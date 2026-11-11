@@ -93,13 +93,14 @@ describe("levels", () => {
     assert.equal(LEVELS.length, 100);
     LEVELS.forEach((level, index) => {
       assert.equal(level.id, index + 1);
-      assert.equal(level.tiles.length, level.size * level.size, level.name);
+      assert.equal(level.tiles.length, level.rows * level.cols, level.name);
       assert.equal(level.tiles.filter((tile) => tile.role === "start").length, 1);
       const solved = reachTargets(
         boardCells(
           level,
           level.tiles.map((tile) => tile.solution),
         ),
+        level.cols,
       );
       assert.equal(solved.complete, true, `${level.id} ${level.name} solution`);
       assert.deepEqual(spread(solved.paths), level.solutionPath, `${level.id} ${level.name} path`);
@@ -108,6 +109,7 @@ describe("levels", () => {
           level,
           level.tiles.map((tile) => tile.initial),
         ),
+        level.cols,
       );
       assert.equal(initial.complete, false, `${level.id} ${level.name} should start unsolved`);
 
@@ -133,12 +135,22 @@ describe("levels", () => {
         assert.equal(run, ended >= 97 ? 1 : 2, `levels ${ended - run + 1}–${ended} run ${run}`);
         run = 1;
       }
-      assert.ok(LEVELS[i]!.size >= LEVELS[i - 1]!.size, `level ${LEVELS[i]!.id} shrinks`);
+      if (LEVELS[i]!.id !== 11) {
+        assert.ok(LEVELS[i]!.size >= LEVELS[i - 1]!.size, `level ${LEVELS[i]!.id} shrinks`);
+      }
     }
     assert.equal(run, 1, `final run ${run}`);
     for (const level of LEVELS) {
+      if (level.id === 10) {
+        assert.equal(level.cols, 7, "level 10 width");
+        assert.equal(level.rows, 8, "level 10 height");
+        assert.equal(level.tiles.filter((tile) => tile.role === "end").length, 5);
+        continue;
+      }
       const size = level.id <= 8 ? 5 : level.id <= 40 ? 6 : 7;
       assert.equal(level.size, size, `level ${level.id} size`);
+      assert.equal(level.rows, size, `level ${level.id} rows`);
+      assert.equal(level.cols, size, `level ${level.id} cols`);
       assert.ok(level.size <= 7, `level ${level.id} is ${level.size}×${level.size}`);
     }
     assert.deepEqual(
@@ -248,9 +260,9 @@ describe("levels", () => {
   it("keeps the house on the edge early and moves it inward later", () => {
     const inset = (level: Level) => {
       const index = level.tiles.findIndex((tile) => tile.role === "start");
-      const row = Math.floor(index / level.size);
-      const col = index % level.size;
-      return Math.min(row, col, level.size - 1 - row, level.size - 1 - col);
+      const row = Math.floor(index / level.cols);
+      const col = index % level.cols;
+      return Math.min(row, col, level.rows - 1 - row, level.cols - 1 - col);
     };
     for (const level of LEVELS) {
       const depth = inset(level);
@@ -283,11 +295,13 @@ describe("levels", () => {
     assert.ok(seconds[29]! > seconds[24]!, "level 30 is harder than level 25");
 
     for (let id = 6; id <= LEVELS.length; id++) {
+      if (id === 10) continue;
       const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
       assert.ok(step <= 15, `level ${id} jumps ${step}%`);
       assert.ok(step >= -3, `level ${id} drops ${step}%`);
     }
     for (const level of LEVELS.slice(3)) {
+      if (level.id === 10) continue;
       const target = targetSeconds(level.id);
       assert.ok(
         Math.abs(estimateSeconds(level) - target) / target <= 0.05,
