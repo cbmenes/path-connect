@@ -137,7 +137,7 @@ describe("levels", () => {
     }
     assert.equal(run, 1, `final run ${run}`);
     for (const level of LEVELS) {
-      const size = level.id <= 11 ? 5 : level.id <= 40 ? 6 : 7;
+      const size = level.id <= 8 ? 5 : level.id <= 40 ? 6 : 7;
       assert.equal(level.size, size, `level ${level.id} size`);
       assert.ok(level.size <= 7, `level ${level.id} is ${level.size}×${level.size}`);
     }
@@ -162,23 +162,27 @@ describe("levels", () => {
       [3, "Plumbing"],
       [5, "Public Announcement"],
       [7, "Fire Safety"],
-      [12, "6×6 board"],
+      [9, "6×6 board"],
       [41, "7×7 board"],
     ]);
   });
 
-  it("uses bolted tiles as a light anchor that phases out", () => {
-    const seen = new Map<Level["theme"], number>();
+  it("uses one bolted tile as a light anchor on the size jumps", () => {
+    const expectBolts = (level: Level) => {
+      if (level.size <= 5) return 0;
+      if (level.id <= 12) return 1;
+      let place = 0;
+      const start = level.size === 6 ? 13 : 41;
+      for (let cursor = start; cursor <= level.id; cursor++) {
+        const other = LEVELS[cursor - 1]!;
+        if (other.theme === level.theme && other.size === level.size) place++;
+      }
+      return place <= 2 ? 1 : 0;
+    };
     for (const level of LEVELS) {
       const bolted = level.tiles.filter((tile) => tile.fixed);
-      let expect = 0;
-      if (level.size >= 6) {
-        const place = (seen.get(level.theme) ?? 0) + 1;
-        seen.set(level.theme, place);
-        expect = place <= 2 ? 2 : place <= 4 ? 1 : 0;
-      }
-      assert.equal(bolted.length, expect, `level ${level.id} bolts`);
-      assert.ok(bolted.length <= 2);
+      assert.equal(bolted.length, expectBolts(level), `level ${level.id} bolts`);
+      assert.ok(bolted.length <= 1);
       for (const tile of bolted) {
         assert.equal(tile.role, "play");
         assert.equal(tile.onRoute, true);
@@ -195,10 +199,10 @@ describe("levels", () => {
       );
       assert.ok(scrambled.length <= 4, `${level.name} has ${scrambled.length} turned tiles`);
     }
-    assert.deepEqual(LEVELS.slice(0, 4).map(nodes), [1, 2, 2, 1]);
-    for (const level of LEVELS.slice(4, 16)) assert.equal(nodes(level), 5, `level ${level.id}`);
-    for (const level of LEVELS.slice(16, 35)) assert.equal(nodes(level), 6, `level ${level.id}`);
-    for (const level of LEVELS.slice(4, 30)) {
+    assert.deepEqual(LEVELS.slice(0, 5).map(nodes), [1, 2, 3, 4, 5]);
+    for (const level of LEVELS.slice(5, 12)) assert.equal(nodes(level), 5, `level ${level.id}`);
+    for (const level of LEVELS.slice(12, 44)) assert.equal(nodes(level), 6, `level ${level.id}`);
+    for (const level of LEVELS.slice(3, 30)) {
       const tees = level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
       assert.equal(tees, nodes(level) - 1, `level ${level.id} tees`);
       const turned = level.tiles.filter((tile) => tile.onRoute && !tile.fixed);
@@ -207,7 +211,7 @@ describe("levels", () => {
       );
       assert.equal(wrong.length, turned.length, `level ${level.id} still has solved pipes`);
     }
-    for (const level of LEVELS.slice(35, 69)) assert.equal(nodes(level), 7, `level ${level.id}`);
+    for (const level of LEVELS.slice(44, 69)) assert.equal(nodes(level), 7, `level ${level.id}`);
     for (const level of LEVELS.slice(69)) assert.equal(nodes(level), 8, `level ${level.id}`);
     assert.equal(Math.max(...LEVELS.map(nodes)), 8);
     const tees = (level: Level) => level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
@@ -219,7 +223,7 @@ describe("levels", () => {
     assert.ok(mean(late, tees) > mean(early, tees), "late boards need more tees");
     assert.ok(mean(late, route) > mean(early, route), "late boards need longer routes");
     const bolted = (level: Level) => level.tiles.filter((tile) => tile.fixed).length;
-    assert.ok(mean(LEVELS.slice(80), bolted) < mean(LEVELS.slice(22, 40), bolted));
+    assert.ok(mean(LEVELS.slice(80), bolted) < mean(LEVELS.slice(8, 20), bolted));
     const stretches = [
       [1, 15],
       [16, 22],
@@ -250,8 +254,8 @@ describe("levels", () => {
     };
     for (const level of LEVELS) {
       const depth = inset(level);
-      const inward = level.id >= 15 && level.id <= 30 && level.id % 3 === 0;
-      if (level.id < 15) assert.equal(depth, 0, `level ${level.id} house inset`);
+      const inward = level.id >= 13 && level.id <= 30 && level.id % 3 === 0;
+      if (level.id < 13) assert.equal(depth, 0, `level ${level.id} house inset`);
       else if (level.id <= 30) assert.equal(depth, inward ? 2 : 1, `level ${level.id} house inset`);
       else if (level.id < 33) assert.equal(depth, 1, `level ${level.id} house inset`);
       else assert.ok(depth >= 2, `level ${level.id} house inset ${depth}`);
@@ -266,13 +270,12 @@ describe("levels", () => {
         assert.ok(value >= low && value <= high, `level ${id} takes about ${value}s`);
       }
     };
-    within(1, 4, 0, 45);
-    within(5, 11, 45, 110);
-    within(12, 15, 90, 150);
-    within(16, 25, 90, 180);
-    within(26, 30, 120, 240);
-    within(31, 40, 100, 260);
-    within(41, 70, 220, 420);
+    within(1, 3, 0, 70);
+    within(4, 8, 50, 120);
+    within(9, 12, 100, 160);
+    within(13, 30, 130, 220);
+    within(31, 40, 180, 260);
+    within(41, 70, 200, 430);
     within(71, 100, 350, 480);
     assert.ok(seconds[14]! > seconds[9]!, "level 15 is harder than level 10");
     assert.ok(seconds[19]! > seconds[14]!, "level 20 is harder than level 15");
@@ -282,10 +285,9 @@ describe("levels", () => {
     for (let id = 6; id <= LEVELS.length; id++) {
       const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
       assert.ok(step <= 15, `level ${id} jumps ${step}%`);
-      const floor = id === 41 ? -10 : -3;
-      assert.ok(step >= floor, `level ${id} drops ${step}%`);
+      assert.ok(step >= -3, `level ${id} drops ${step}%`);
     }
-    for (const level of LEVELS.slice(4)) {
+    for (const level of LEVELS.slice(3)) {
       const target = targetSeconds(level.id);
       assert.ok(
         Math.abs(estimateSeconds(level) - target) / target <= 0.05,
