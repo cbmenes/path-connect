@@ -7,8 +7,8 @@
  * links from the source. A board is complete only when every target is
  * reached.
  *
- * Boards are square unless the caller passes a column count. A 5×5, 6×6,
- * or 7×7 board, and the 7×8 layout test, follow the same link rule.
+ * Boards are square. The side length comes from the number of cells, so a
+ * 5×5, 6×6, or 7×7 board follows the same rules.
  *
  * Visual styles never belong in here. Renderers read `kind` + `rotation`
  * and draw whatever conduit they want.
@@ -23,19 +23,6 @@ export function boardSize(cellCount: number): number {
     throw new Error(`Expected a square board, got ${cellCount} cells`);
   }
   return size;
-}
-
-/** Rows and columns. Omitting `cols` keeps the square-board check. */
-export function boardSpan(cellCount: number, cols?: number): { rows: number; cols: number } {
-  if (cols === undefined) {
-    const size = boardSize(cellCount);
-    return { rows: size, cols: size };
-  }
-  const rows = cols > 0 ? cellCount / cols : 0;
-  if (cols < 2 || rows < 2 || !Number.isInteger(rows)) {
-    throw new Error(`Expected a board of ${cols} columns, got ${cellCount} cells`);
-  }
-  return { rows, cols };
 }
 
 export const N = 1;
@@ -121,20 +108,20 @@ export interface Reach {
  * Shortest mutual-opening path from the source to the first target.
  * Returns cell indexes, source first, or null when that target is sealed off.
  */
-export function findPath(cells: readonly Cell[], cols?: number): number[] | null {
-  const start = sourceIndex(cells, cols);
+export function findPath(cells: readonly Cell[]): number[] | null {
+  const start = sourceIndex(cells);
   const end = cells.findIndex((cell) => cell.role === "end");
   if (start < 0 || end < 0) return null;
-  const previous = walkLinks(cells, start, end, cols);
+  const previous = walkLinks(cells, start, end);
   return previous.has(end) ? trace(previous, end) : null;
 }
 
 /** Every target is connected only when the source can reach all of them. */
-export function reachTargets(cells: readonly Cell[], cols?: number): Reach {
-  const start = sourceIndex(cells, cols);
+export function reachTargets(cells: readonly Cell[]): Reach {
+  const start = sourceIndex(cells);
   const ends = cells.flatMap((cell, index) => (cell.role === "end" ? [index] : []));
   if (start < 0 || ends.length === 0) return { reached: [], complete: false, paths: [] };
-  const previous = walkLinks(cells, start, null, cols);
+  const previous = walkLinks(cells, start, null);
   const reached = ends.filter((end) => previous.has(end));
   return {
     reached,
@@ -143,19 +130,14 @@ export function reachTargets(cells: readonly Cell[], cols?: number): Reach {
   };
 }
 
-function sourceIndex(cells: readonly Cell[], cols?: number): number {
-  boardSpan(cells.length, cols);
+function sourceIndex(cells: readonly Cell[]): number {
+  boardSize(cells.length);
   return cells.findIndex((cell) => cell.role === "start");
 }
 
 /** Breadth-first walk across mutual openings. Stops early only when `stopAt` is set. */
-function walkLinks(
-  cells: readonly Cell[],
-  start: number,
-  stopAt: number | null,
-  cols?: number,
-): Map<number, number> {
-  const span = boardSpan(cells.length, cols);
+function walkLinks(cells: readonly Cell[], start: number, stopAt: number | null): Map<number, number> {
+  const size = boardSize(cells.length);
   const previous = new Map<number, number>();
   previous.set(start, -1);
   const queue = [start];
@@ -163,14 +145,14 @@ function walkLinks(
   while (queue.length > 0) {
     const current = queue.shift()!;
     if (stopAt !== null && current === stopAt) break;
-    const { row, col } = rowCol(current, span.cols);
+    const { row, col } = rowCol(current, size);
     const mask = cellMask(cells[current]!);
     for (const dir of DIRS) {
       if ((mask & dir.bit) === 0) continue;
       const nr = row + dir.dr;
       const nc = col + dir.dc;
-      if (nr < 0 || nc < 0 || nr >= span.rows || nc >= span.cols) continue;
-      const next = indexOf(nr, nc, span.cols);
+      if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+      const next = indexOf(nr, nc, size);
       if (previous.has(next)) continue;
       const neighbor = cellMask(cells[next]!);
       if ((neighbor & dir.opposite) === 0) continue;

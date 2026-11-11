@@ -36,7 +36,7 @@ test("categories use the broader Lighting and Fire Safety names", () => {
   );
 });
 
-test("themes run in pairs, then one of each at the end", () => {
+test("themes run in pairs", () => {
   let run = 1;
   for (let i = 1; i < LEVELS.length; i++) {
     run = LEVELS[i]!.theme === LEVELS[i - 1]!.theme ? run + 1 : 1;

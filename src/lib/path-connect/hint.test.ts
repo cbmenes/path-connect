@@ -49,7 +49,7 @@ describe("hints", () => {
         if (!hint) break;
         spins[hint.index] = spins[hint.index]! + hint.turns;
       }
-      assert.equal(reachTargets(boardCells(level, spins), level.cols).complete, false, `level ${level.id}`);
+      assert.equal(reachTargets(boardCells(level, spins)).complete, false, `level ${level.id}`);
     }
   });
 
