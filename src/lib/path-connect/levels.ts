@@ -8,16 +8,15 @@
  *
  * Progression. Difficulty follows the level number, never the theme:
  * - 1–4 on 5×5 teach the mechanic.
- * - 5–15 on 5×5 take about 80–90 seconds: five nodes, every pipe turned, and
+ * - 5–11 on 5×5 take about 85–100 seconds: five nodes, every pipe turned, and
  *   paths that bend instead of running straight.
- * - 16–22 stay on 5×5 and take longer, with longer branches. From level 15 the
- *   house steps off the edge on some boards.
- * - 23–30 on 6×6 take about 2–4 minutes: six nodes, more tees, and some houses
- *   near the middle.
+ * - 12–16 open 6×6 with five nodes, so the bigger board is the step up.
+ *   From level 15 the house steps inward on some boards.
+ * - 17–30 stay on 6×6, climb to six nodes, and take about 2.5–3 minutes.
  * - 31–40 on 6×6 and 41–100 on 7×7 keep their earlier shape. Nodes climb from
  *   6 to 8 and the house sits inward. Boards never grow past 7×7.
  * Bolted tiles stay off every 5×5 board. On 6×6 and 7×7 each theme's own
- * larger boards allow 3, then 2, then 1, for two levels each, then none.
+ * larger boards allow 2, then 1, for two levels each, then none.
  *
  * Themes rotate in blocks of two: Lighting, Plumbing, Public Announcement,
  * then Fire Safety. Each theme still appears on 25 levels, so the last four
@@ -312,19 +311,21 @@ export function themeOf(id: number): ThemeId {
   return theme;
 }
 
+/** First campaign level on a 6×6 board. Everything before it is 5×5. */
+const SIX_START = 12;
+
 /**
  * Bolted tiles are a light anchor, not the difficulty. Every 5×5 board has
  * none. On 6×6 and 7×7 the count follows that theme's own larger boards, in
- * pairs: up to 3, then up to 2, then 1, then none.
+ * pairs: up to 2, then 1, then none.
  */
 function boltsFor(id: number, size: number): number {
   if (size <= 5) return 0;
   let place = 0;
   const theme = themeOf(id);
-  for (let cursor = 23; cursor <= id; cursor++) if (themeOf(cursor) === theme) place++;
-  if (place <= 2) return 3;
-  if (place <= 4) return 2;
-  if (place <= 6) return 1;
+  for (let cursor = SIX_START; cursor <= id; cursor++) if (themeOf(cursor) === theme) place++;
+  if (place <= 2) return 2;
+  if (place <= 4) return 1;
   return 0;
 }
 
@@ -350,18 +351,18 @@ function sourceFor(id: number, size: number): readonly [number, number] {
 /** Difficulty for a generated level. Nodes, paths, and the house do the work. */
 function planFor(id: number): Plan {
   const theme = themeOf(id);
-  if (id <= 15) {
-    const t = (id - 5) / 10;
+  if (id <= 11) {
+    const t = (id - 5) / 6;
     return {
       id,
       theme,
       size: 5,
       nodes: 5,
-      reach: [2, 4],
-      wiggle: lerp(0.62, 0.8, t),
+      reach: id >= 9 ? [3, 4] : [2, 4],
+      wiggle: lerp(0.66, 0.84, t),
       share: 1,
       fixed: 0,
-      source: sourceFor(id, 5),
+      source: [0, 0],
       unlock: id === 5 ? "Public Announcement" : id === 7 ? "Fire Safety" : undefined,
       blurb:
         id === 5
@@ -371,34 +372,34 @@ function planFor(id: number): Plan {
             : undefined,
     };
   }
-  if (id <= 22) {
-    const t = (id - 16) / 6;
+  if (id <= 16) {
+    const t = (id - 12) / 4;
     return {
       id,
       theme,
-      size: 5,
+      size: 6,
       nodes: 5,
-      reach: id === 16 ? [2, 4] : [3, 5],
+      reach: [2, 5],
       wiggle: lerp(0.68, 0.8, t),
       share: 1,
-      fixed: 0,
-      source: sourceFor(id, 5),
+      fixed: boltsFor(id, 6),
+      source: sourceFor(id, 6),
+      unlock: id === 12 ? "6×6 board" : undefined,
+      blurb: id === 12 ? "A bigger board, with longer runs between the tees." : undefined,
     };
   }
   if (id <= 30) {
-    const t = (id - 23) / 7;
+    const t = (id - 17) / 13;
     return {
       id,
       theme,
       size: 6,
       nodes: 6,
-      reach: [3, 6],
-      wiggle: lerp(0.68, 0.82, t),
+      reach: id < 22 ? [3, 5] : [3, 6],
+      wiggle: lerp(0.7, 0.84, t),
       share: 1,
       fixed: boltsFor(id, 6),
       source: sourceFor(id, 6),
-      unlock: id === 23 ? "6×6 board" : undefined,
-      blurb: id === 23 ? "A bigger board, with longer runs between the tees." : undefined,
     };
   }
   if (id <= 40) {
@@ -643,19 +644,18 @@ export function estimateSeconds(level: Level): number {
 const BREATHERS = new Set([41]);
 
 /**
- * Target solve time per level. Levels 5–15 sit in a 45–90 second band, 16–25
- * climb through 1.5–3 minutes, and 26–30 sit in 2–4 minutes. From level 31 the
- * curve is the one those boards were already built for. Neighboring levels
- * differ by a small step.
+ * Target solve time per level. Levels 5–11 sit near the top of a 45–90 second
+ * band. The 6×6 boards open at 12 and carry 12–25 through 1.5–3 minutes, then
+ * 26–30 through 2–4 minutes. From level 31 the curve is the one those boards
+ * were already built for. Neighboring levels differ by a small step.
  */
 export function targetSeconds(id: number): number {
   let seconds: number;
   if (id <= 4) seconds = [17, 28, 31, 40][id - 1]!;
-  else if (id <= 15) seconds = [84, 86, 87, 87, 87, 87, 91, 91, 91, 91, 91][id - 5]!;
-  else if (id === 16) seconds = 104;
-  else if (id <= 22) seconds = lerp(106, 146, (id - 17) / 5);
-  else if (id <= 25) seconds = lerp(158, 170, (id - 23) / 2);
-  else if (id <= 30) seconds = lerp(178, 191, (id - 26) / 4);
+  else if (id <= 11) seconds = [86, 88, 90, 90, 98, 100, 102][id - 5]!;
+  else if (id <= 16) seconds = [108, 114, 118, 128, 136][id - 12]!;
+  else if (id <= 25) seconds = lerp(156, 176, (id - 17) / 8);
+  else if (id <= 30) seconds = lerp(180, 188, (id - 26) / 4);
   else if (id <= 35) seconds = lerp(172, 205, (id - 28) / 7);
   else if (id <= 40) seconds = lerp(220, 245, (id - 36) / 4);
   else if (id <= 49) seconds = lerp(258, 290, (id - 41) / 8);
