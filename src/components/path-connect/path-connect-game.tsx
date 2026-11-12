@@ -1758,7 +1758,7 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
+/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light, sconce; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
 function NodeGlyph({
   theme,
   on,
@@ -1790,10 +1790,74 @@ function NodeGlyph({
     if (pick === 1) return <FireBell on={on} />;
     return <PullStation on={on} />;
   }
-  const pick = fixture % 4;
+  const pick = fixture % 5;
   if (pick === 1) return <SageLamp on={on} />;
   if (pick === 3) return <CageLight on={on} />;
+  if (pick === 4) return <Sconce on={on} />;
   return <Bulb on={on} />;
+}
+
+const SCONCE_AQUA = "#bfe3dc";
+const SCONCE_AQUA_LIT = "#d6f0ea";
+const SCONCE_AQUA_SHADE = "#9ccbc3";
+const SCONCE_AQUA_DEEP = "#7fb3aa";
+const SCONCE_TRIM = "#fbf3df";
+const SCONCE_TRIM_EDGE = "#d6c49c";
+
+/** 1950s wall sconce: a tapered aqua shade with ivory trim and faint fan motifs on a curved brass arm and round wall plate. */
+function Sconce({ on }: { on: boolean }) {
+  const fans: [number, number][] = [
+    [13.4, 14],
+    [20, 11.6],
+    [26.6, 14],
+    [10.6, 24.6],
+    [17, 22.2],
+    [23.4, 22.2],
+    [29.8, 24.6],
+  ];
+  return (
+    <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-lamp is-on" : "pc-glyph pc-lamp"}>
+      {on && <path d="M5 33 0 54h40l-5-21z" fill="#fff1c2" opacity="0.3" />}
+      <ellipse cx="38.6" cy="46.6" rx="7.2" ry="9.8" fill={BRASS_DARK} />
+      <ellipse cx="38" cy="46.2" rx="6.8" ry="9.4" fill={BRASS} />
+      <ellipse cx="37.6" cy="46" rx="5" ry="7.4" fill="none" stroke={BRASS_LIGHT} strokeWidth="0.9" opacity="0.8" />
+      <path d="M33.4 40.6c.8-2 2-3.2 3.4-3.6" fill="none" stroke={BRASS_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
+      {[
+        [37.6, 39.6],
+        [41.4, 47.6],
+      ].map(([cx, cy]) => (
+        <circle key={cx} cx={cx} cy={cy} r="0.9" fill={BRASS_DARK} />
+      ))}
+      <path d="M20 37.6v4.6a6.4 6.4 0 0 0 6.4 6.4h9" fill="none" stroke={BRASS_DARK} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M20 37.6v4.6a6.4 6.4 0 0 0 6.4 6.4h9" fill="none" stroke={BRASS} strokeWidth="2.3" strokeLinecap="round" />
+      <path d="M19.4 39v3.4a6 6 0 0 0 2.4 4.8" fill="none" stroke={BRASS_LIGHT} strokeWidth="0.8" strokeLinecap="round" opacity="0.9" />
+      <circle cx="35.6" cy="48.6" r="2.6" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.9" />
+      <rect x="16.6" y="33.4" width="6.8" height="4.6" rx="1.6" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.9" />
+      <path d="M17.4 36.2h5.2" stroke={BRASS_DARK} strokeWidth="0.8" strokeLinecap="round" />
+      <path
+        d="M10 6.6h20l6.6 24.4Q20 34.2 3.4 31z"
+        fill={on ? SCONCE_AQUA_LIT : SCONCE_AQUA}
+        stroke={SCONCE_AQUA_DEEP}
+        strokeWidth="1"
+        strokeLinejoin="round"
+      />
+      <path d="M26 6.6h4l6.6 24.4q-2.6.7-5.6 1.1z" fill={SCONCE_AQUA_SHADE} opacity="0.75" />
+      <g fill="white" opacity={on ? 0.75 : 0.6}>
+        {fans.map(([x, y]) => (
+          <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
+            <path d="M0 0c-1.1-1.4-1.1-3.4 0-4.8 1.1 1.4 1.1 3.4 0 4.8z" />
+            <path d="M0 0c-1.1-1.4-1.1-3.4 0-4.8 1.1 1.4 1.1 3.4 0 4.8z" transform="rotate(-38)" />
+            <path d="M0 0c-1.1-1.4-1.1-3.4 0-4.8 1.1 1.4 1.1 3.4 0 4.8z" transform="rotate(38)" />
+          </g>
+        ))}
+      </g>
+      <path d="M11.4 9.6 6.6 27.4" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
+      <rect x="9.2" y="4.6" width="21.6" height="3.4" rx="1.7" fill={SCONCE_TRIM} stroke={SCONCE_TRIM_EDGE} strokeWidth="0.8" />
+      <path d="M3 30.2Q20 33.6 37 30.2l.5 2.6Q20 36.4 2.5 32.8z" fill={SCONCE_TRIM} stroke={SCONCE_TRIM_EDGE} strokeWidth="0.8" strokeLinejoin="round" />
+      <ellipse cx="20" cy="34.4" rx="13.4" ry="1.5" fill={on ? "#fff4cc" : SCONCE_AQUA_DEEP} />
+      {on && <ellipse cx="20" cy="34.5" rx="6" ry="1" fill="white" opacity="0.9" />}
+    </svg>
+  );
 }
 
 const SAGE_SHADE = "#a9bd9f";
