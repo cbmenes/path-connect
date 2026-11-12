@@ -61,6 +61,12 @@ import { shouldShowInterstitial } from "@/lib/path-connect/interstitial";
 import { ALL_LEVELS_OPEN, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
 import { REMOVE_ADS_PRICE, readAdsRemoved, writeAdsRemoved } from "@/lib/path-connect/remove-ads";
+import {
+  HINT_NUDGE_SECONDS,
+  dailyReminderVisible,
+  hintNudgeVisible,
+  shouldOfferHintNudge,
+} from "@/lib/path-connect/reminders";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
@@ -119,6 +125,9 @@ export function PathConnectGame() {
   const [phase, setPhase] = useState<Phase>("play");
   const [elapsed, setElapsed] = useState(0);
   const [stats, setStats] = useState<DailyStats>(EMPTY_STATS);
+  const [statsReady, setStatsReady] = useState(false);
+  const [levelSeconds, setLevelSeconds] = useState(0);
+  const [hintNudged, setHintNudged] = useState<ReadonlySet<number>>(() => new Set());
   const [result, setResult] = useState<DailyFinish | null>(null);
   const spinsRef = useRef(spins);
   const phaseRef = useRef(phase);
@@ -127,6 +136,7 @@ export function PathConnectGame() {
   const modeRef = useRef(mode);
   modeRef.current = mode;
   const startedRef = useRef(0);
+  const clockKeyRef = useRef(`${mode}:${levelId}`);
   const campaignRef = useRef<CampaignSnap | null>(null);
   const [flowPath, setFlowPath] = useState<number[] | null>(null);
   const [flowPaths, setFlowPaths] = useState<number[][] | null>(null);
@@ -241,7 +251,43 @@ export function PathConnectGame() {
   useEffect(() => {
     const saved = readStats();
     setStats(saved);
+    setStatsReady(true);
   }, []);
+
+  useEffect(() => {
+    setLevelSeconds(0);
+    if (mode !== "levels" || phase !== "play") return;
+    const started = performance.now();
+    const id = window.setInterval(() => {
+      const seconds = Math.floor((performance.now() - started) / 1000);
+      if (seconds < HINT_NUDGE_SECONDS) return;
+      setLevelSeconds(seconds);
+      window.clearInterval(id);
+    }, 1000);
+    return () => window.clearInterval(id);
+  }, [mode, phase, levelId]);
+
+  useEffect(() => {
+    if (
+      !shouldOfferHintNudge({
+        campaign: mode === "levels",
+        playing: phase === "play" && !lesson,
+        hintsUsed: hintUses[boardKey] ?? 0,
+        offered: hintNudged.has(levelId),
+        seconds: levelSeconds,
+        turns: moves,
+        par: level.par,
+      })
+    ) {
+      return;
+    }
+    setHintNudged((prev) => {
+      if (prev.has(levelId)) return prev;
+      const next = new Set(prev);
+      next.add(levelId);
+      return next;
+    });
+  }, [mode, phase, lesson, hintUses, boardKey, hintNudged, levelSeconds, moves, level.par, levelId]);
 
   useEffect(() => {
     const saved = readProgress(LEVELS.length, { openAll: ALL_LEVELS_OPEN });
@@ -556,7 +602,26 @@ export function PathConnectGame() {
     follow?.();
   }
 
+  const clockKey = `${mode}:${levelId}`;
+  if (clockKeyRef.current !== clockKey) {
+    clockKeyRef.current = clockKey;
+    if (levelSeconds !== 0) setLevelSeconds(0);
+  }
+
   const today = stats.days[todayKey];
+  const showHintNudge = hintNudgeVisible({
+    campaign: mode === "levels",
+    playing: phase === "play" && !lesson,
+    hintsUsed: hintUses[boardKey] ?? 0,
+    offered: hintNudged.has(levelId),
+  });
+  const showDailyReminder =
+    !lesson &&
+    dailyReminderVisible({
+      onCampaign: mode === "levels",
+      statsReady,
+      completed: Boolean(today),
+    });
   const status =
     phase === "won"
       ? mode === "daily" && result
@@ -605,23 +670,26 @@ export function PathConnectGame() {
             </div>
           </div>
           <div className="pc-top-tools">
-            <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
-              <button
-                type="button"
-                aria-pressed={mode === "levels"}
-                className={mode === "levels" ? "is-on" : undefined}
-                onClick={() => switchMode("levels")}
-              >
-                Levels
-              </button>
-              <button
-                type="button"
-                aria-pressed={mode === "daily"}
-                className={mode === "daily" ? "is-on" : undefined}
-                onClick={() => switchMode("daily")}
-              >
-                Daily
-              </button>
+            <div className="pc-mode-wrap">
+              <div className="pc-styles pc-modes" role="group" aria-label="Play mode">
+                <button
+                  type="button"
+                  aria-pressed={mode === "levels"}
+                  className={mode === "levels" ? "is-on" : undefined}
+                  onClick={() => switchMode("levels")}
+                >
+                  Levels
+                </button>
+                <button
+                  type="button"
+                  aria-pressed={mode === "daily"}
+                  className={mode === "daily" ? "is-on" : undefined}
+                  onClick={() => switchMode("daily")}
+                >
+                  Daily
+                </button>
+              </div>
+              {showDailyReminder && <p className="pc-daily-ready">Today's challenge is ready</p>}
             </div>
             <button
               type="button"
@@ -882,6 +950,12 @@ export function PathConnectGame() {
           />
         )}
         </div>
+
+        {showHintNudge && (
+          <button type="button" className="pc-hint-nudge" onClick={onHint}>
+            Need a hint?
+          </button>
+        )}
 
         <footer ref={footerRef} className="pc-bottom" data-idle={(phase === "play" && !note) || undefined}>
           {phase === "won" && mode === "daily" && result && (
