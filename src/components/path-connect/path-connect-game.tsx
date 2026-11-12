@@ -67,6 +67,7 @@ import {
   hintNudgeVisible,
   shouldOfferHintNudge,
 } from "@/lib/path-connect/reminders";
+import { fixtureColors, type FixtureColor } from "@/lib/path-connect/fixture-colors";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
@@ -195,6 +196,7 @@ export function PathConnectGame() {
     });
     return map;
   }, [level]);
+  const fixtureColor = useMemo(() => fixtureColors(level.id, nodeTotal), [level.id, nodeTotal]);
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
   // The pulse sweeps the whole path in about a third of a second on any board size.
@@ -887,7 +889,12 @@ export function PathConnectGame() {
                   )}
                   {tile.role === "end" && (
                     <span className={powered ? "pc-mark pc-plant is-fed" : "pc-mark pc-plant"}>
-                      <NodeGlyph theme={theme.id} on={powered || order >= 0} fixture={fixtureOf.get(index)} />
+                      <NodeGlyph
+                        theme={theme.id}
+                        on={powered || order >= 0}
+                        fixture={fixtureOf.get(index)}
+                        color={fixtureColor[fixtureOf.get(index) ?? 0]}
+                      />
                     </span>
                   )}
                 </button>
@@ -1751,14 +1758,24 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink, shower; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
-function NodeGlyph({ theme, on, fixture = 2 }: { theme: ThemeId; on: boolean; fixture?: number }) {
+/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
+function NodeGlyph({
+  theme,
+  on,
+  fixture = 2,
+  color = "ivory",
+}: {
+  theme: ThemeId;
+  on: boolean;
+  fixture?: number;
+  color?: FixtureColor;
+}) {
   if (theme === "plumbing") {
-    const pick = fixture % 4;
-    if (pick === 0) return <Tub on={on} />;
-    if (pick === 1) return <Toilet on={on} />;
-    if (pick === 3) return <Shower on={on} />;
-    return <Sink on={on} />;
+    const pick = fixture % 3;
+    const paint = PORCELAIN[color];
+    if (pick === 0) return <Tub on={on} paint={paint} />;
+    if (pick === 1) return <Toilet on={on} paint={paint} />;
+    return <Sink on={on} paint={paint} />;
   }
   if (theme === "alarm") {
     const pick = fixture % 4;
@@ -1993,15 +2010,22 @@ const BRASS = "#c9953f";
 const BRASS_DARK = "#9a6c28";
 const BRASS_LIGHT = "#f0cf86";
 const WATER = "#8fd3df";
-const AQUA = "#bfe3dc";
-const AQUA_LIGHT = "#e4f4f0";
-const AQUA_SHADE = "#9ccbc3";
-const AQUA_EDGE = "#7bada5";
-const AQUA_WATER = "#5fbccb";
-const TILE_YELLOW = "#f2d985";
-const TILE_YELLOW_LIGHT = "#f9eab4";
-const TILE_YELLOW_SHADE = "#e3c463";
-const TILE_GROUT = "#d2b357";
+
+interface Porcelain {
+  body: string;
+  rim: string;
+  shade: string;
+  edge: string;
+  water: string;
+}
+
+/** 1950s bathroom pastels. Ivory is the original white fixture. */
+const PORCELAIN: Record<FixtureColor, Porcelain> = {
+  ivory: { body: IVORY, rim: "white", shade: IVORY_SHADE, edge: IVORY_EDGE, water: WATER },
+  aqua: { body: "#bfe3dc", rim: "#e4f4f0", shade: "#9ccbc3", edge: "#7bada5", water: "#5fbccb" },
+  yellow: { body: "#f6e4a6", rim: "#fcf3d2", shade: "#e6cd80", edge: "#c6aa5e", water: "#7fcbd8" },
+  pink: { body: "#f4d0d3", rim: "#fcecee", shade: "#e2b0b6", edge: "#c08f96", water: "#7fcbd8" },
+};
 
 const BRONZE = "#b07a3e";
 const BRONZE_DARK = "#7a4f24";
@@ -2216,7 +2240,7 @@ function FaucetMark() {
   );
 }
 
-function Tub({ on }: { on: boolean }) {
+function Tub({ on, paint }: { on: boolean; paint: Porcelain }) {
   return (
     <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
       {[15, 49].map((x) => (
@@ -2225,13 +2249,13 @@ function Tub({ on }: { on: boolean }) {
           <path d={`M${x - 2.4} 43q-1.6 4 -1 7.2`} fill="none" stroke={BRASS_LIGHT} strokeWidth="1.1" strokeLinecap="round" transform={x > 32 ? `translate(${2 * x} 0) scale(-1 1)` : undefined} />
         </g>
       ))}
-      <path d="M7 22h50c0 13-5 23-25 23S7 35 7 22z" fill={IVORY} />
-      <path d="M57 22c0 13-5 23-25 23-9 0-15-2-18.6-5.6C18 42 23 42.6 30 42.6c17 0 23-8 23.4-20.6z" fill={IVORY_SHADE} />
+      <path d="M7 22h50c0 13-5 23-25 23S7 35 7 22z" fill={paint.body} />
+      <path d="M57 22c0 13-5 23-25 23-9 0-15-2-18.6-5.6C18 42 23 42.6 30 42.6c17 0 23-8 23.4-20.6z" fill={paint.shade} />
       <path d="M11 26c1 7 5 12 12 14" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.9" />
-      <rect x="4.5" y="18" width="55" height="6" rx="3" fill="white" stroke={IVORY_EDGE} strokeWidth="1.1" />
+      <rect x="4.5" y="18" width="55" height="6" rx="3" fill={paint.rim} stroke={paint.edge} strokeWidth="1.1" />
       {on && (
         <>
-          <rect x="9" y="18.8" width="46" height="2.8" rx="1.4" fill={WATER} />
+          <rect x="9" y="18.8" width="46" height="2.8" rx="1.4" fill={paint.water} />
           <path d="M16 19.9h9" stroke="white" strokeWidth="1.2" strokeLinecap="round" />
         </>
       )}
@@ -2246,39 +2270,39 @@ function Tub({ on }: { on: boolean }) {
   );
 }
 
-function Toilet({ on }: { on: boolean }) {
+function Toilet({ on, paint }: { on: boolean; paint: Porcelain }) {
   return (
     <svg viewBox="0 0 56 60" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
-      <rect x="15" y="6" width="26" height="20" rx="4" fill={IVORY} stroke={IVORY_EDGE} strokeWidth="1" />
-      <path d="M36 8.5v15" stroke={IVORY_SHADE} strokeWidth="4" strokeLinecap="round" />
+      <rect x="15" y="6" width="26" height="20" rx="4" fill={paint.body} stroke={paint.edge} strokeWidth="1" />
+      <path d="M36 8.5v15" stroke={paint.shade} strokeWidth="4" strokeLinecap="round" />
       <path d="M18.5 10v11" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-      <rect x="13" y="3" width="30" height="5.4" rx="2.7" fill="white" stroke={IVORY_EDGE} strokeWidth="1" />
+      <rect x="13" y="3" width="30" height="5.4" rx="2.7" fill={paint.rim} stroke={paint.edge} strokeWidth="1" />
       <rect x="17" y="11" width="6" height="2.6" rx="1.3" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.6" />
-      <path d="M21 40h14l2 12a3 3 0 0 1-3 3H22a3 3 0 0 1-3-3z" fill={IVORY_SHADE} />
+      <path d="M21 40h14l2 12a3 3 0 0 1-3 3H22a3 3 0 0 1-3-3z" fill={paint.shade} />
       <path d="M22.5 42l-1 10" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.8" />
-      <rect x="17" y="53.5" width="22" height="4" rx="2" fill={IVORY_EDGE} />
-      <path d="M10 31c0 8 7 13 18 13s18-5 18-13z" fill={IVORY} />
-      <path d="M46 31c0 8-7 13-18 13-4 0-7.5-.6-10.2-1.8 2.4.4 4.8.6 7.2.6 10.6 0 17-4.4 17.6-11.8z" fill={IVORY_SHADE} />
-      <ellipse cx="28" cy="30.5" rx="18.5" ry="5.6" fill="white" stroke={IVORY_EDGE} strokeWidth="1.1" />
-      <ellipse cx="28" cy="30.6" rx="12" ry="3.2" fill={on ? WATER : IVORY_SHADE} />
+      <rect x="17" y="53.5" width="22" height="4" rx="2" fill={paint.edge} />
+      <path d="M10 31c0 8 7 13 18 13s18-5 18-13z" fill={paint.body} />
+      <path d="M46 31c0 8-7 13-18 13-4 0-7.5-.6-10.2-1.8 2.4.4 4.8.6 7.2.6 10.6 0 17-4.4 17.6-11.8z" fill={paint.shade} />
+      <ellipse cx="28" cy="30.5" rx="18.5" ry="5.6" fill={paint.rim} stroke={paint.edge} strokeWidth="1.1" />
+      <ellipse cx="28" cy="30.6" rx="12" ry="3.2" fill={on ? paint.water : paint.shade} />
       {on && <path d="M21.5 30h5" stroke="white" strokeWidth="1.1" strokeLinecap="round" />}
     </svg>
   );
 }
 
-/** Soft aqua 1950s pedestal sink with brass taps. */
-function Sink({ on }: { on: boolean }) {
+/** 1950s pedestal sink with brass taps. */
+function Sink({ on, paint }: { on: boolean; paint: Porcelain }) {
   return (
     <svg viewBox="0 0 56 60" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
-      <path d="M22 32c1.4 8 .8 15-2.6 22h17.2c-3.4-7-4-14-2.6-22z" fill={AQUA} />
-      <path d="M34 32c-1.4 8-.8 15 2.6 22h-4.2c-2.6-7-3-14-2-22z" fill={AQUA_SHADE} />
+      <path d="M22 32c1.4 8 .8 15-2.6 22h17.2c-3.4-7-4-14-2.6-22z" fill={paint.body} />
+      <path d="M34 32c-1.4 8-.8 15 2.6 22h-4.2c-2.6-7-3-14-2-22z" fill={paint.shade} />
       <path d="M24.4 35c.6 6 .2 11-1.6 16" fill="none" stroke="white" strokeWidth="1.5" strokeLinecap="round" opacity="0.85" />
-      <ellipse cx="28" cy="55" rx="11" ry="2.6" fill={AQUA_EDGE} />
-      <path d="M6 19h44c0 8.6-7.6 15-22 15S6 27.6 6 19z" fill={AQUA} />
-      <path d="M50 19c0 8.6-7.6 15-22 15-5 0-9.2-.8-12.4-2.2 2.6.4 5.4.6 8.4.6 13.6 0 21.6-5.6 22-13.4z" fill={AQUA_SHADE} />
+      <ellipse cx="28" cy="55" rx="11" ry="2.6" fill={paint.edge} />
+      <path d="M6 19h44c0 8.6-7.6 15-22 15S6 27.6 6 19z" fill={paint.body} />
+      <path d="M50 19c0 8.6-7.6 15-22 15-5 0-9.2-.8-12.4-2.2 2.6.4 5.4.6 8.4.6 13.6 0 21.6-5.6 22-13.4z" fill={paint.shade} />
       <path d="M10 22.5c1.6 4.6 6 7.6 12 8.8" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" />
-      <rect x="4" y="15.5" width="48" height="6" rx="3" fill={AQUA_LIGHT} stroke={AQUA_EDGE} strokeWidth="1.1" />
-      <ellipse cx="28" cy="18.4" rx="17" ry="1.9" fill={on ? AQUA_WATER : AQUA_SHADE} />
+      <rect x="4" y="15.5" width="48" height="6" rx="3" fill={paint.rim} stroke={paint.edge} strokeWidth="1.1" />
+      <ellipse cx="28" cy="18.4" rx="17" ry="1.9" fill={on ? paint.water : paint.shade} />
       <path d="M28 16V8.6a3.4 3.4 0 0 1 3.4-3.4H35v3.2" fill="none" stroke={BRASS_DARK} strokeWidth="3.4" strokeLinecap="round" />
       <path d="M28 16V8.6a3.4 3.4 0 0 1 3.4-3.4H35v3.2" fill="none" stroke={BRASS} strokeWidth="2.2" strokeLinecap="round" />
       {[19, 37].map((x) => (
@@ -2288,60 +2312,6 @@ function Sink({ on }: { on: boolean }) {
         </g>
       ))}
       {on && <path d="M35 9.4v6" stroke={WATER} strokeWidth="1.6" strokeLinecap="round" />}
-    </svg>
-  );
-}
-
-/** A patch of butter-yellow 1950s wall tile with a brass bell shower head and one valve. */
-function Shower({ on }: { on: boolean }) {
-  return (
-    <svg viewBox="0 0 56 60" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
-      <rect x="6" y="5" width="44" height="50" rx="5" fill={TILE_YELLOW} />
-      <path d="M50 22v28a5 5 0 0 1-5 5H11a5 5 0 0 1-5-5v-1.5h37.5a3 3 0 0 0 3-3V22z" fill={TILE_YELLOW_SHADE} opacity="0.7" />
-      <g stroke={TILE_GROUT} strokeWidth="1.1">
-        {[17, 28, 39].map((x) => (
-          <path key={x} d={`M${x} 5.6v48.8`} />
-        ))}
-        {[15, 25, 35, 45].map((y) => (
-          <path key={y} d={`M6.6 ${y}h42.8`} />
-        ))}
-      </g>
-      {[
-        [8.4, 7.2],
-        [30.4, 17.2],
-        [19.4, 37.2],
-        [41.4, 27.2],
-      ].map(([x, y]) => (
-        <path key={`${x}-${y}`} d={`M${x} ${y! + 5}v-3.6a1.4 1.4 0 0 1 1.4-1.4h3.6`} fill="none" stroke={TILE_YELLOW_LIGHT} strokeWidth="1.4" strokeLinecap="round" />
-      ))}
-      <rect x="6" y="5" width="44" height="50" rx="5" fill="none" stroke={TILE_GROUT} strokeWidth="1.2" />
-      <circle cx="15" cy="13" r="3.6" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.9" />
-      <path d="M15 13l12.6 6.4" stroke={BRASS_DARK} strokeWidth="3.6" strokeLinecap="round" />
-      <path d="M15 13l12.6 6.4" stroke={BRASS} strokeWidth="2.2" strokeLinecap="round" />
-      <path d="M15.6 12.4l10 5" stroke={BRASS_LIGHT} strokeWidth="0.8" strokeLinecap="round" opacity="0.9" />
-      <g transform="translate(29 20.4) rotate(-32)">
-        <rect x="-2.2" y="-1.6" width="4.4" height="4.6" rx="1.4" fill={BRASS_DARK} />
-        <path d="M-2.6 2.6h5.2l7.2 8.4q-7.4 2.8-19.6 0z" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.9" strokeLinejoin="round" />
-        <path d="M-1.4 4.2l-4.6 5.4" stroke={BRASS_LIGHT} strokeWidth="1.1" strokeLinecap="round" opacity="0.9" />
-        <ellipse cx="0" cy="11.2" rx="9.8" ry="2.2" fill={BRASS_DARK} />
-        {[-6, -3, 0, 3, 6].map((x) => (
-          <circle key={x} cx={x} cy="11.3" r="0.65" fill={on ? AQUA_LIGHT : BRASS_LIGHT} />
-        ))}
-      </g>
-      {on && (
-        <g stroke={WATER} strokeWidth="1.5" strokeLinecap="round">
-          <path d="M34 33.5l2.6 6.4" />
-          <path d="M37.4 31.6l3.4 6.6" />
-          <path d="M40.6 29.4l4 6.4" />
-          <path d="M36.4 42.4l1.6 3.6" />
-          <path d="M41.6 40.8l2 3.4" />
-          <path d="M45.6 38.4l1.8 2.8" />
-        </g>
-      )}
-      <circle cx="16" cy="40" r="4.6" fill={BRASS} stroke={BRASS_DARK} strokeWidth="0.9" />
-      <path d="M12.4 40h7.2M16 36.4v7.2" stroke={BRASS_DARK} strokeWidth="2" strokeLinecap="round" />
-      <path d="M12.4 40h7.2M16 36.4v7.2" stroke={BRASS_LIGHT} strokeWidth="0.9" strokeLinecap="round" />
-      <circle cx="16" cy="40" r="1.5" fill={BRASS_DARK} />
     </svg>
   );
 }
