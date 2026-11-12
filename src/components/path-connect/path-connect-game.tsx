@@ -56,8 +56,11 @@ import {
   type Hint,
   type HintUses,
 } from "@/lib/path-connect/hint";
+import { interstitialAds } from "@/lib/path-connect/interstitial-ad";
+import { shouldShowInterstitial } from "@/lib/path-connect/interstitial";
 import { ALL_LEVELS_OPEN, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
+import { REMOVE_ADS_PRICE, readAdsRemoved, writeAdsRemoved } from "@/lib/path-connect/remove-ads";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
@@ -97,6 +100,9 @@ interface Charge {
 
 const prefersReducedMotion = () =>
   typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+
+/** The existing win glow, flash, and sparkles finish inside this window. */
+const WIN_FEEDBACK_MS = 1100;
 
 /**
  * Rotate every tile, including the panel and the nodes, until each node is
@@ -144,8 +150,18 @@ export function PathConnectGame() {
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
   const [lesson, setLesson] = useState<1 | 2 | null>(null);
+  const lessonRef = useRef(lesson);
+  lessonRef.current = lesson;
   const [guide, setGuide] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
+  const [adsRemoved, setAdsRemoved] = useState(false);
+  const adsRemovedRef = useRef(false);
+  const [interstitialLevel, setInterstitialLevel] = useState<number | null>(null);
+  const interstitialLevelRef = useRef<number | null>(null);
+  const interstitialPendingRef = useRef(false);
+  const interstitialTimerRef = useRef<number | null>(null);
+  const afterInterstitialRef = useRef<(() => void) | null>(null);
+  const [removeOffer, setRemoveOffer] = useState(false);
   const adAbortRef = useRef<AbortController | null>(null);
   const mutedRef = useRef(muted);
   mutedRef.current = muted;
@@ -233,11 +249,21 @@ export function PathConnectGame() {
     setProgress(saved);
     hintUsesRef.current = readHintUses();
     setHintUses(hintUsesRef.current);
+    const removed = readAdsRemoved();
+    adsRemovedRef.current = removed;
+    setAdsRemoved(removed);
     if (saved.level !== 1) reset(saved.level, { keepHints: true });
     if (needsOnboarding()) setLesson(1);
     // Read once after mount, so the server render and the first client render match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  useEffect(
+    () => () => {
+      if (interstitialTimerRef.current !== null) window.clearTimeout(interstitialTimerRef.current);
+    },
+    [],
+  );
 
   useEffect(() => {
     if (nudged === null) return;
@@ -257,7 +283,61 @@ export function PathConnectGame() {
   }, [mode, phase]);
 
 
+  function cancelInterstitial() {
+    if (interstitialTimerRef.current !== null) {
+      window.clearTimeout(interstitialTimerRef.current);
+      interstitialTimerRef.current = null;
+    }
+    interstitialPendingRef.current = false;
+    interstitialLevelRef.current = null;
+    afterInterstitialRef.current = null;
+    setInterstitialLevel(null);
+  }
+
+  function scheduleInterstitial(completedId: number) {
+    cancelInterstitial();
+    if (modeRef.current !== "levels" || lessonRef.current) return;
+    if (!shouldShowInterstitial(completedId, adsRemovedRef.current)) return;
+    interstitialPendingRef.current = true;
+    const delay = prefersReducedMotion() ? 0 : WIN_FEEDBACK_MS;
+    interstitialTimerRef.current = window.setTimeout(() => {
+      interstitialTimerRef.current = null;
+      if (lessonRef.current) {
+        interstitialPendingRef.current = false;
+        afterInterstitialRef.current = null;
+        return;
+      }
+      if (modeRef.current !== "levels" || adsRemovedRef.current) {
+        interstitialPendingRef.current = false;
+        const follow = afterInterstitialRef.current;
+        afterInterstitialRef.current = null;
+        follow?.();
+        return;
+      }
+      interstitialPendingRef.current = false;
+      interstitialLevelRef.current = completedId;
+      interstitialAds.show(completedId);
+      setInterstitialLevel(completedId);
+    }, delay);
+  }
+
+  function holdForInterstitial(action: () => void): boolean {
+    if (!interstitialPendingRef.current && interstitialLevelRef.current === null) return false;
+    afterInterstitialRef.current = action;
+    return true;
+  }
+
+  function finishInterstitial() {
+    interstitialPendingRef.current = false;
+    interstitialLevelRef.current = null;
+    setInterstitialLevel(null);
+    const follow = afterInterstitialRef.current;
+    afterInterstitialRef.current = null;
+    follow?.();
+  }
+
   function loadBoard(next: Level, nextId?: number) {
+    cancelInterstitial();
     const initial = next.tiles.map((tile) => tile.initial);
     spinsRef.current = initial;
     movesRef.current = 0;
@@ -318,6 +398,7 @@ export function PathConnectGame() {
   function switchMode(next: PlayMode) {
     if (next === mode) return;
     if (next === "daily") {
+      cancelInterstitial();
       campaignRef.current = {
         levelId,
         spins: spinsRef.current,
@@ -388,6 +469,7 @@ export function PathConnectGame() {
       const reached = progressRef.current.unlocked;
       const opened = levelId === reached ? Math.min(LEVELS.length, reached + 1) : reached;
       saveProgress({ level: levelId, unlocked: opened });
+      scheduleInterstitial(levelId);
     }
     setFlowPaths(network.paths);
     setFlowPath(spreadOrder(network.paths));
@@ -458,6 +540,22 @@ export function PathConnectGame() {
     else reset(levelId);
   }
 
+  function buyRemoveAds() {
+    writeAdsRemoved();
+    adsRemovedRef.current = true;
+    setAdsRemoved(true);
+    setRemoveOffer(false);
+    if (interstitialLevelRef.current !== null) return;
+    if (interstitialTimerRef.current !== null) {
+      window.clearTimeout(interstitialTimerRef.current);
+      interstitialTimerRef.current = null;
+    }
+    interstitialPendingRef.current = false;
+    const follow = afterInterstitialRef.current;
+    afterInterstitialRef.current = null;
+    follow?.();
+  }
+
   const today = stats.days[todayKey];
   const status =
     phase === "won"
@@ -525,6 +623,14 @@ export function PathConnectGame() {
                 Daily
               </button>
             </div>
+            <button
+              type="button"
+              className="pc-remove-ads"
+              disabled={adsRemoved}
+              onClick={() => setRemoveOffer(true)}
+            >
+              {adsRemoved ? "Ads removed" : `Remove ads · ${REMOVE_ADS_PRICE}`}
+            </button>
             <Button
               type="button"
               variant="ghost"
@@ -577,6 +683,8 @@ export function PathConnectGame() {
                   aria-label={`Level ${levelId} of ${LEVELS.length}. Choose a level`}
                   onClick={() => {
                     setMenuOpen(false);
+                    const openPicker = () => setPickerOpen(true);
+                    if (holdForInterstitial(openPicker)) return;
                     setPickerOpen((open) => !open);
                   }}
                 >
@@ -611,6 +719,8 @@ export function PathConnectGame() {
                 setGuide(true);
                 setLesson(1);
               }}
+              adsRemoved={adsRemoved}
+              onRemoveAds={() => setRemoveOffer(true)}
               onClose={() => setMenuOpen(false)}
             />
           )}
@@ -823,7 +933,15 @@ export function PathConnectGame() {
               Undo
             </Button>
             {phase === "won" && mode === "levels" && (
-              <Button type="button" className="pc-next" onClick={() => reset(lastLevel ? 1 : levelId + 1)}>
+              <Button
+                type="button"
+                className="pc-next"
+                onClick={() => {
+                  const advance = () => reset(lastLevel ? 1 : levelId + 1);
+                  if (holdForInterstitial(advance)) return;
+                  advance();
+                }}
+              >
                 {lastLevel ? "Play again" : "Next level"}
                 <ArrowRight />
               </Button>
@@ -837,6 +955,10 @@ export function PathConnectGame() {
           </div>
         </footer>
       </main>
+      {interstitialLevel !== null && (
+        <InterstitialPlaceholder levelId={interstitialLevel} onClose={finishInterstitial} />
+      )}
+      {removeOffer && <RemoveAdsOffer onBuy={buyRemoveAds} onClose={() => setRemoveOffer(false)} />}
     </div>
   );
 }
@@ -1040,6 +1162,65 @@ function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
           </span>
         )}
       </div>
+    </div>
+  );
+}
+
+function InterstitialPlaceholder({ levelId, onClose }: { levelId: number; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="pc-ad-scrim">
+      <section className="pc-ad" role="dialog" aria-modal="true" aria-labelledby="pc-interstitial-title" aria-describedby="pc-interstitial-body">
+        <h3 id="pc-interstitial-title" className="pc-ad-title">
+          Ad placeholder
+        </h3>
+        <p id="pc-interstitial-body" className="pc-ad-body">
+          An interstitial would play after level {levelId}. The ad network is not connected yet.
+        </p>
+        <div className="pc-ad-actions">
+          <Button autoFocus type="button" className="pc-ad-watch" onClick={onClose}>
+            Continue
+          </Button>
+        </div>
+      </section>
+    </div>
+  );
+}
+
+function RemoveAdsOffer({ onBuy, onClose }: { onBuy: () => void; onClose: () => void }) {
+  useEffect(() => {
+    const onKey = (event: KeyboardEvent) => {
+      if (event.key === "Escape") onClose();
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  return (
+    <div className="pc-ad-scrim">
+      <section className="pc-ad" role="dialog" aria-modal="true" aria-labelledby="pc-remove-ads-title" aria-describedby="pc-remove-ads-body">
+        <h3 id="pc-remove-ads-title" className="pc-ad-title">
+          Remove ads
+        </h3>
+        <p id="pc-remove-ads-body" className="pc-ad-body">
+          One time, {REMOVE_ADS_PRICE}. Breaks between levels stay off on this device. The store is not connected yet, so confirming saves the purchase here.
+        </p>
+        <div className="pc-ad-actions">
+          <Button type="button" variant="ghost" onClick={onClose}>
+            Not now
+          </Button>
+          <Button autoFocus type="button" className="pc-ad-watch" onClick={onBuy}>
+            Remove ads · {REMOVE_ADS_PRICE}
+          </Button>
+        </div>
+      </section>
     </div>
   );
 }
@@ -1355,6 +1536,8 @@ function GameMenu({
   onUndo,
   onToggleSound,
   onGuide,
+  adsRemoved,
+  onRemoveAds,
   onClose,
 }: {
   offer: ReturnType<typeof hintOffer>;
@@ -1365,6 +1548,8 @@ function GameMenu({
   onUndo: () => void;
   onToggleSound: () => void;
   onGuide: () => void;
+  adsRemoved: boolean;
+  onRemoveAds: () => void;
   onClose: () => void;
 }) {
   const panelRef = useRef<HTMLDivElement>(null);
@@ -1439,6 +1624,18 @@ function GameMenu({
         {muted ? "Sound off" : "Sound on"}
       </button>
       <span className="pc-menu-rule" role="separator" />
+      {adsRemoved ? (
+        <button type="button" role="menuitem" disabled>
+          <Ban aria-hidden="true" />
+          Ads removed
+        </button>
+      ) : (
+        <button type="button" role="menuitem" onClick={pick(onRemoveAds)}>
+          <Ban aria-hidden="true" />
+          Remove ads
+          <span className="pc-hint-tag">{REMOVE_ADS_PRICE}</span>
+        </button>
+      )}
       <button type="button" role="menuitem" onClick={pick(onGuide)}>
         <CircleHelp aria-hidden="true" />
         How to play

@@ -1501,6 +1501,24 @@
   min-height: 38px;
 }
 
+.path-connect[data-style="cozy"] .pc-remove-ads {
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--color-pc-muted);
+  font-size: 0.8125rem;
+  font-weight: 600;
+}
+
+.path-connect[data-style="cozy"] .pc-remove-ads:hover:not(:disabled) {
+  color: var(--color-pc-fg);
+}
+
+.path-connect[data-style="cozy"] .pc-remove-ads:disabled {
+  cursor: default;
+}
+
 .path-connect[data-style="cozy"] .pc-hud {
   grid-area: hud;
   display: flex;
@@ -2796,7 +2814,8 @@
   }
 
   .path-connect[data-style="cozy"] .pc-level-sub,
-  .path-connect[data-style="cozy"] .pc-top .pc-mute {
+  .path-connect[data-style="cozy"] .pc-top .pc-mute,
+  .path-connect[data-style="cozy"] .pc-remove-ads {
     display: none;
   }
 
