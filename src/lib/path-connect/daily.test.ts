@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { describe, it } from "node:test";
-import { DAILY_PAR, DAILY_TARGET_SECONDS, boardCells, estimateSeconds } from "./levels.ts";
+import { DAILY_CEILING_SECONDS, DAILY_FLOOR_SECONDS, boardCells, estimateSeconds } from "./levels.ts";
 import { reachTargets } from "./logic.ts";
 import { EMPTY_STATS, dailyLevel, dateKey, parseStats, recordFinish, untilNextDaily } from "./daily.ts";
 
@@ -28,14 +28,28 @@ describe("daily challenge", () => {
     }
   });
 
-  it("holds every day to the original five-node daily band", () => {
+  it("rotates hard 5×5, standard 6×6, and occasional 7×7 boards inside two to four minutes", () => {
+    const sizes = YEAR.map((board) => board.size);
+    const count = (size: number) => sizes.filter((item) => item === size).length;
+    assert.ok(count(7) < count(5) && count(5) < count(6), `mix ${count(5)}/${count(6)}/${count(7)}`);
+    assert.ok(count(7) >= 55 && count(7) <= 70, `7×7 days ${count(7)}`);
+    for (let day = 1; day < YEAR.length; day++) {
+      assert.notEqual(sizes[day], sizes[day - 1], `day ${day} repeats a board size`);
+    }
     for (const board of YEAR) {
-      assert.equal(board.size, 5);
-      assert.equal(board.tiles.filter((tile) => tile.role === "end").length, 5);
+      assert.equal(board.rows, board.cols);
+      assert.equal(board.rows, board.size);
       assert.ok(board.tiles.every((tile) => !tile.fixed));
-      assert.ok(board.par >= DAILY_PAR[0] && board.par <= DAILY_PAR[1], `par ${board.par}`);
+      const nodes = board.tiles.filter((tile) => tile.role === "end").length;
+      const tees = board.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
+      assert.equal(tees, nodes - 1);
+      assert.equal(nodes, board.size === 5 ? 5 : 6);
+      const route = board.tiles.filter((tile) => tile.onRoute).length;
+      if (board.size === 5) assert.ok(route >= 16, `hard 5×5 route ${route}`);
       const seconds = estimateSeconds(board);
-      assert.ok(Math.abs(seconds - DAILY_TARGET_SECONDS) / DAILY_TARGET_SECONDS <= 0.05, `${seconds}s`);
+      assert.ok(seconds >= DAILY_FLOOR_SECONDS && seconds <= DAILY_CEILING_SECONDS, `${board.size}×${board.size} ${seconds}s`);
+      const [low, high] = board.size === 5 ? [130, 180] : board.size === 6 ? [160, 230] : [180, 240];
+      assert.ok(seconds >= low && seconds <= high, `${board.size}×${board.size} ${seconds}s`);
     }
   });
 

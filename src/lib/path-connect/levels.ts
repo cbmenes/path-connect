@@ -90,7 +90,7 @@ export interface Chapter {
 type Coord = readonly [number, number];
 
 /** Turn every route tile, or a share of them picked from the seed. */
-type Scramble = Readonly<Record<string, number>> | "all" | { share: number };
+type Scramble = Readonly<Record<string, number>> | "all" | { share: number; minTurn?: number };
 
 interface LevelSpec {
   id: number;
@@ -168,6 +168,10 @@ interface Plan {
   /** Chance a walk turns a corner instead of running straight. */
   wiggle: number;
   share: number;
+  /** Smallest quarter-turn used when scrambling. Omitted means one, two, or three. */
+  minTurn?: number;
+  /** Keep the route on a larger share of a small board. */
+  dense?: boolean;
   fixed: number;
   /** How many cells the house sits in from the edge, as a min and max. */
   source: readonly [number, number];
@@ -790,7 +794,7 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
         unlock: plan.unlock,
         seed: plan.id * 13 + attempt,
         routes,
-        scramble: { share: plan.share },
+        scramble: plan.minTurn ? { share: plan.share, minTurn: plan.minTurn } : { share: plan.share },
         fixed: plan.fixed,
       });
       const tees = level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
@@ -801,7 +805,7 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
       const cols = plan.cols ?? plan.size;
       const room = plan.nodes >= 10 ? 0.98 : plan.nodes >= 9 ? 0.94 : plan.nodes >= 7 ? 0.88 : 0.8;
       const area = rows * cols;
-      const minShare = rows === cols ? 0.45 : plan.relief ? 0.34 : 0.52;
+      const minShare = rows !== cols ? (plan.relief ? 0.34 : 0.52) : plan.dense ? 0.64 : 0.45;
       if (routeCells < area * minShare || routeCells > area * room) continue;
       if (goal.par && (level.par < goal.par[0] || level.par > goal.par[1])) continue;
       const described = { ...level, blurb: describe(plan, tees) };
@@ -836,32 +840,78 @@ function generateLevel(id: number, name: string): Level {
 }
 
 /**
- * Daily stays on the original campaign 15–25 band: a 5×5 board with five
- * devices and no bolted tiles, held to one target time so no day is a breeze
- * or a wall. It does not climb with the longer campaign.
+ * Daily rotates a hard 5×5, a standard 6×6, and an occasional 7×7. The time
+ * target stays inside two to four minutes, with a floor high enough that a
+ * practiced player is unlikely to finish in under a minute. It does not use
+ * the 7×8 campaign boards, and it does not climb with the campaign.
  */
-export const DAILY_TARGET_SECONDS = 112;
-export const DAILY_PAR: readonly [number, number] = [23, 27];
+export const DAILY_FLOOR_SECONDS = 120;
+export const DAILY_CEILING_SECONDS = 240;
 const DAILY_THEMES: readonly ThemeId[] = ["lights", "alarm", "fire", "plumbing"];
+/** Two hard 5×5s and three 6×6s for every 7×7, so the big board stays occasional. */
+const DAILY_SHAPES = ["hard5", "six", "hard5", "six", "seven", "six"] as const;
+
+function dailyShape(day: number): (typeof DAILY_SHAPES)[number] {
+  const index = ((day % DAILY_SHAPES.length) + DAILY_SHAPES.length) % DAILY_SHAPES.length;
+  return DAILY_SHAPES[index]!;
+}
+
+function dailyPlan(day: number, theme: ThemeId): Plan {
+  const shape = dailyShape(day);
+  const id = 100_000 + day;
+  if (shape === "hard5") {
+    return {
+      id,
+      theme,
+      size: 5,
+      nodes: 5,
+      reach: [3, 4],
+      wiggle: 0.86,
+      share: 1,
+      minTurn: 2,
+      dense: true,
+      fixed: 0,
+      source: [0, 0],
+    };
+  }
+  if (shape === "six") {
+    return {
+      id,
+      theme,
+      size: 6,
+      nodes: 6,
+      reach: [3, 6],
+      wiggle: 0.74,
+      share: 1,
+      fixed: 0,
+      source: [1, 1],
+    };
+  }
+  return {
+    id,
+    theme,
+    size: 7,
+    nodes: 6,
+    reach: [3, 6],
+    wiggle: 0.68,
+    share: 1,
+    fixed: 0,
+    source: [2, 2],
+  };
+}
+
+function dailyGoal(day: number, shape: (typeof DAILY_SHAPES)[number]): Goal {
+  const wobble = (Math.abs(day) % 4) * 6;
+  if (shape === "hard5") return { seconds: 150 + wobble, tolerance: 0.08, par: [30, 48], attempts: 900 };
+  if (shape === "six") return { seconds: 180 + wobble, tolerance: 0.08, par: [28, 48], attempts: 900 };
+  return { seconds: 200 + wobble, tolerance: 0.08, par: [28, 46], attempts: 900 };
+}
 
 /** `day` counts UTC days since 1970, so every player gets the same board. */
 export function generateDaily(day: number): Level {
   const theme = DAILY_THEMES[((day % DAILY_THEMES.length) + DAILY_THEMES.length) % DAILY_THEMES.length]!;
-  return generateFromPlan(
-    {
-      id: 100_000 + day,
-      theme,
-      size: 5,
-      nodes: 5,
-      reach: [2, 4],
-      wiggle: 0.5,
-      share: 1,
-      fixed: 0,
-      source: [0, 0],
-    },
-    "Daily challenge",
-    { seconds: DAILY_TARGET_SECONDS, tolerance: 0.03, par: DAILY_PAR, attempts: 600 },
-  );
+  const shape = dailyShape(day);
+  return generateFromPlan(dailyPlan(day, theme), "Daily challenge", dailyGoal(day, shape));
 }
 
 /**
@@ -1049,6 +1099,7 @@ function shareScramble(
   bolted: Set<string>,
   share: number,
   seed: number,
+  minTurn = 1,
 ): Record<string, number> {
   const rand = mulberry32(seed * 2654435761);
   const keys = [...onRoute.keys()].filter((cellKey) => !bolted.has(cellKey)).sort();
@@ -1058,8 +1109,9 @@ function shareScramble(
   }
   const count = Math.max(2, Math.round(keys.length * share));
   const scramble: Record<string, number> = {};
+  const span = Math.max(1, 4 - minTurn);
   for (const cellKey of keys.slice(0, count)) {
-    scramble[cellKey] = normalizeScramble(onRoute.get(cellKey)!, 1 + Math.floor(rand() * 3));
+    scramble[cellKey] = normalizeScramble(onRoute.get(cellKey)!, minTurn + Math.floor(rand() * span));
   }
   return scramble;
 }
@@ -1174,7 +1226,13 @@ function buildLevel(spec: LevelSpec): Level {
   if (spec.scramble === "all") {
     scramble = autoScramble(kinds, terminals, seed * 3);
   } else if ("share" in spec.scramble) {
-    scramble = shareScramble(kinds, bolted, spec.scramble.share as number, seed);
+    scramble = shareScramble(
+      kinds,
+      bolted,
+      spec.scramble.share as number,
+      seed,
+      "minTurn" in spec.scramble ? spec.scramble.minTurn : 1,
+    );
   } else {
     scramble = Object.fromEntries(
       Object.entries(spec.scramble as Record<string, number>).map(([cellKey, amount]) => {
