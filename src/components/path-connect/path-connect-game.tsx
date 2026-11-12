@@ -158,7 +158,7 @@ export function PathConnectGame() {
   const nextUnlock = lastLevel ? undefined : LEVELS[levelId]?.unlock;
   const levelUnlock = level.unlock;
   const linked = linkedIndexes(level, spins);
-  const network = reachTargets(boardCells(level, spins));
+  const network = reachTargets(boardCells(level, spins), level.cols);
   const fed = new Set(network.reached);
   const charged = new Set(network.paths.flat());
   const nodeTotal = level.tiles.filter((tile) => tile.role === "end").length;
@@ -374,7 +374,7 @@ export function PathConnectGame() {
       setHint(null);
       setNote("That one is set. Keep going.");
     }
-    const network = reachTargets(boardCells(level, nextSpins));
+    const network = reachTargets(boardCells(level, nextSpins), level.cols);
     if (!network.complete) return;
     setHint(null);
     if (modeRef.current === "daily") {
@@ -479,6 +479,7 @@ export function PathConnectGame() {
         data-level={levelId}
         data-mode={mode}
         data-size={level.size}
+        data-rows={level.rows}
         data-celebrate={celebrate > 0 || undefined}
       >
         <h1 className="sr-only">Path Connect · {theme.title}</h1>
@@ -628,12 +629,12 @@ export function PathConnectGame() {
             className="pc-board"
             role="group"
             aria-label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
-            style={{ "--pc-cols": level.size } as CSSProperties}
+            style={{ "--pc-cols": level.cols } as CSSProperties}
           >
             {level.tiles.map((tile, index) => {
               const spin = spins[index] ?? tile.initial;
               const rotation = ((spin % 4) + 4) % 4;
-              const { row, col } = rowCol(index, level.size);
+              const { row, col } = rowCol(index, level.cols);
               const locked = phase !== "play" || tile.fixed;
               const powered = tile.role === "end" && fed.has(index);
               const hot = charged.has(index);
@@ -720,15 +721,15 @@ export function PathConnectGame() {
             {celebrate > 0 && flowPath && (
               <span className="pc-sparkles" aria-hidden="true">
                 {sparkleCells(flowPath).map((cell) => {
-                  const { row, col } = rowCol(cell, level.size);
+                  const { row, col } = rowCol(cell, level.cols);
                   return (
                     <span
                       key={`${celebrate}-${cell}`}
                       className="pc-sparkle"
                       style={
                         {
-                          left: `${((col + 0.5) / level.size) * 100}%`,
-                          top: `${((row + 0.5) / level.size) * 100}%`,
+                          left: `${((col + 0.5) / level.cols) * 100}%`,
+                          top: `${((row + 0.5) / level.rows) * 100}%`,
                           "--wave": `${Math.round(flowPath.indexOf(cell) * waveStep)}ms`,
                         } as CSSProperties
                       }
@@ -2041,17 +2042,17 @@ function linkedIndexes(
   spins: readonly number[],
 ): Set<number> {
   const cells = boardCells(level, spins);
-  const size = level.size;
+  const { rows, cols } = level;
   const linked = new Set<number>();
   cells.forEach((cell, index) => {
     const mask = cellMask(cell);
-    const { row, col } = rowCol(index, size);
+    const { row, col } = rowCol(index, cols);
     for (const dir of DIRS) {
       if ((mask & dir.bit) === 0) continue;
       const nextRow = row + dir.dr;
       const nextCol = col + dir.dc;
-      if (nextRow < 0 || nextCol < 0 || nextRow >= size || nextCol >= size) continue;
-      const neighbor = nextRow * size + nextCol;
+      if (nextRow < 0 || nextCol < 0 || nextRow >= rows || nextCol >= cols) continue;
+      const neighbor = nextRow * cols + nextCol;
       const neighborMask = cellMask(cells[neighbor]!);
       if ((neighborMask & dir.opposite) === 0) continue;
       linked.add(index);

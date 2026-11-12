@@ -13,14 +13,18 @@
  *   the board climbs to six nodes. From level 13 the house steps inward on
  *   some boards.
  * - 31–80 are 7×7 and climb from six nodes to eight. 81–150 stay on 7×7 and
- *   climb from eight nodes to nine. Boards never grow past 7×7.
- * Bolted tiles stay off every 5×5 board, and never more than one. Each theme's
- * first pair of 6×6 boards and first pair of 7×7 boards keeps one, then none.
+ *   climb from eight nodes to nine.
+ * - 151–200 are 7×8 (7 columns by 8 rows) with nine, then ten nodes.
+ *   201–250 stay on 7×8 and climb from ten nodes to eleven. Every so often
+ *   one of these boards is a shorter relief.
+ * Bolted tiles stay off every 5×5 board and every 7×8 board, and never more
+ * than one. Each theme's first pair of 6×6 boards and first pair of 7×7
+ * boards keeps one, then none.
  *
  * Themes rotate in blocks of two: Lighting, Plumbing, Public Announcement,
- * then Fire Safety. Eighteen full cycles cover 144 levels. Three more pairs
- * give Lighting, Plumbing, and Public Announcement 38 levels, and Fire Safety
- * 36, the most even split that keeps every block at two.
+ * then Fire Safety. Thirty-one full cycles cover 248 levels (62 each). One
+ * more Lighting pair gives Lighting 64, and the other three themes 62, the
+ * most even split that keeps every block at two.
  *
  * Levels 1–3 keep their hand-built routes. Every later level comes from a
  * seeded tree generator, so every player gets the same boards.
@@ -61,8 +65,10 @@ export interface Level {
   name: string;
   blurb: string;
   theme: ThemeId;
-  /** Board side length. Every board is square. */
+  /** Column count. Square boards use this for both sides. */
   size: number;
+  rows: number;
+  cols: number;
   /** What this level opens, such as a new system or board size. Shown as a small "New" label. */
   unlock?: string;
   tiles: TileModel[];
@@ -92,6 +98,8 @@ interface LevelSpec {
   blurb: string;
   theme: ThemeId;
   size?: number;
+  rows?: number;
+  cols?: number;
   unlock?: string;
   /** Feeds the filler and scramble choices. Defaults to `id`, so moved levels can keep their board. */
   seed?: number;
@@ -150,6 +158,10 @@ interface Plan {
   id: number;
   theme: ThemeId;
   size: number;
+  rows?: number;
+  cols?: number;
+  /** A shorter route on an otherwise late board. */
+  relief?: boolean;
   nodes: number;
   /** Cells each new branch walks, inclusive range. */
   reach: readonly [number, number];
@@ -201,6 +213,32 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Music alcove",
     "Map room",
     "Sun porch",
+    "Lamp closet",
+    "Night nursery",
+    "Gallery",
+    "Conservatory",
+    "Library nook",
+    "Dressing room",
+    "Guest loft",
+    "Sleeping alcove",
+    "Front bedroom",
+    "Back bedroom",
+    "East hall",
+    "West hall",
+    "South hall",
+    "North hall",
+    "Lantern room",
+    "Candle room",
+    "Globe room",
+    "Chart room",
+    "Studio",
+    "Darkroom",
+    "Print room",
+    "Card room",
+    "Tea room",
+    "Morning hall",
+    "Evening room",
+    "Star room",
   ],
   alarm: [
     "Mail room",
@@ -241,6 +279,30 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Relay room",
     "East annex",
     "Tape room",
+    "Page booth",
+    "Announce hall",
+    "Speaker bay",
+    "Horn loft",
+    "Mic hall",
+    "Relay loft",
+    "Wire loft",
+    "Signal loft",
+    "Dispatch loft",
+    "Night desk",
+    "Call booth",
+    "Radio hall",
+    "Paging hall",
+    "West booth",
+    "East booth",
+    "South annex",
+    "North annex",
+    "Bell room",
+    "Tone room",
+    "Voice room",
+    "Cue booth",
+    "Stage call",
+    "Green room",
+    "Sound lock",
   ],
   fire: [
     "Art room",
@@ -279,6 +341,32 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Drill yard",
     "Watch room",
     "Engine bay",
+    "Hose loft",
+    "Fire hall",
+    "Smoke hall",
+    "Exit stair",
+    "Alarm stair",
+    "Pump hall",
+    "Red stair",
+    "Watch loft",
+    "Engine hall",
+    "Sprinkler room",
+    "Standpipe",
+    "Fire escape",
+    "Muster court",
+    "Hydrant yard",
+    "Ladder bay",
+    "Rescue bay",
+    "First aid",
+    "Extinguisher",
+    "Heat closet",
+    "Flame hall",
+    "Ember room",
+    "Ash stair",
+    "Cinder yard",
+    "Siren room",
+    "Beacon stair",
+    "Ward hall",
   ],
   plumbing: [
     "Powder room",
@@ -319,6 +407,31 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Shower stall",
     "Water closet",
     "Boiler bath",
+    "Linen closet",
+    "Copper sink",
+    "Well house",
+    "Pump bath",
+    "Wash stall",
+    "Tub annex",
+    "Basin room",
+    "Slop room",
+    "Spring bath",
+    "Rain cistern",
+    "Shower annex",
+    "Valve room",
+    "Pipe chase",
+    "Floor drain",
+    "Mop sink",
+    "Janitor sink",
+    "Guest shower",
+    "Hall shower",
+    "Kitchen bath",
+    "Scullery sink",
+    "Pantry sink",
+    "Mud sink",
+    "Pool bath",
+    "Garden bath",
+    "Service bath",
   ],
 };
 
@@ -330,15 +443,14 @@ function lerp(from: number, to: number, t: number): number {
 export const THEME_ORDER: readonly ThemeId[] = ["lights", "plumbing", "alarm", "fire"];
 /**
  * Theme runs of 2 levels, cycling Lighting, Plumbing, Public Announcement,
- * and Fire Safety. Eighteen cycles cover 144 levels (36 each). Three more
- * pairs give Lighting, Plumbing, and Public Announcement 38, and Fire Safety
- * 36.
+ * and Fire Safety. Thirty-one cycles cover 248 levels (62 each). One more
+ * Lighting pair makes the split 64, 62, 62, and 62.
  */
 const THEME_BLOCKS: readonly { theme: ThemeId; length: number }[] = [
-  ...Array.from({ length: 18 }, () =>
+  ...Array.from({ length: 31 }, () =>
     THEME_ORDER.map((theme) => ({ theme, length: 2 })),
   ).flat(),
-  ...(["lights", "plumbing", "alarm"] as const).map((theme) => ({ theme, length: 2 })),
+  { theme: "lights", length: 2 },
 ];
 
 const THEME_OF: readonly ThemeId[] = THEME_BLOCKS.flatMap((block) =>
@@ -355,14 +467,22 @@ export function themeOf(id: number): ThemeId {
 const SIX_START = 9;
 /** First campaign level on a 7×7 board. */
 const SEVEN_START = 31;
+/** First campaign level on a 7×8 board. */
+const RECT_START = 151;
+
+/** Every 20th late board is a shorter route, so the climb is not a wall. */
+function isRelief(id: number): boolean {
+  return id >= 160 && id % 20 === 0;
+}
 
 /**
  * Bolted tiles are a light anchor on a size jump, never the difficulty.
- * Every 5×5 board has none, and no board has more than one. On 6×6 and on
- * 7×7, each theme's first pair at that size keeps one bolt, then none.
+ * Every 5×5 board has none, every 7×8 board has none, and no board has more
+ * than one. On 6×6 and on 7×7, each theme's first pair at that size keeps
+ * one bolt, then none.
  */
-function boltsFor(id: number, size: number): number {
-  if (size <= 5) return 0;
+function boltsFor(id: number, size: number, rows = size): number {
+  if (size <= 5 || rows !== size) return 0;
   const theme = themeOf(id);
   const start = size === 6 ? SIX_START : SEVEN_START;
   let place = 0;
@@ -487,27 +607,65 @@ function planFor(id: number): Plan {
       source: sourceBand(id, 7),
     };
   }
-  const t = (id - 111) / 39;
+  if (id <= 150) {
+    const t = (id - 111) / 39;
+    return {
+      id,
+      theme,
+      size: 7,
+      nodes: 9,
+      reach: [4, 8],
+      wiggle: lerp(0.62, 0.8, t),
+      share: 1,
+      fixed: boltsFor(id, 7),
+      source: sourceBand(id, 7),
+    };
+  }
+  const relief = isRelief(id);
+  const t = (id - RECT_START) / 99;
+  const nodes = id < 175 ? 9 : id < 225 ? 10 : 11;
+  const reach: readonly [number, number] = relief ? [3, 5] : nodes >= 11 ? [3, 7] : [4, 8];
   return {
     id,
     theme,
     size: 7,
-    nodes: 9,
-    reach: [4, 8],
-    wiggle: lerp(0.62, 0.8, t),
+    rows: 8,
+    cols: 7,
+    relief,
+    nodes,
+    reach,
+    wiggle: relief ? 0.7 : lerp(0.75, 0.88, t),
     share: 1,
-    fixed: boltsFor(id, 7),
-    source: sourceBand(id, 7),
+    fixed: 0,
+    source: [2, 3],
+    unlock: id === RECT_START ? "7×8 board" : undefined,
+    blurb: id === RECT_START ? "A taller board, with longer runs between the tees." : undefined,
   };
 }
 
-const NUMBER_WORDS = ["Zero", "One", "Two", "Three", "Four", "Five", "Six", "Seven", "Eight", "Nine"];
+const NUMBER_WORDS = [
+  "Zero",
+  "One",
+  "Two",
+  "Three",
+  "Four",
+  "Five",
+  "Six",
+  "Seven",
+  "Eight",
+  "Nine",
+  "Ten",
+  "Eleven",
+];
 
 function describe(plan: Plan, tees: number): string {
   if (plan.blurb) return plan.blurb;
   const theme = themeById(plan.theme);
   const nodes = `${NUMBER_WORDS[plan.nodes]} ${plan.nodes === 1 ? theme.node : theme.nodePlural}`;
-  const board = plan.size > 5 ? ` on a ${plan.size}×${plan.size} board` : "";
+  const cols = plan.cols ?? plan.size;
+  const rows = plan.rows ?? plan.size;
+  const board =
+    plan.size <= 5 ? "" : rows === cols ? ` on a ${plan.size}×${plan.size} board` : ` on a ${cols}×${rows} board`;
   let detail = "Most pipes start turned.";
   if (plan.fixed > 0) {
     const word = NUMBER_WORDS[plan.fixed]!.toLowerCase();
@@ -525,16 +683,17 @@ function describe(plan: Plan, tees: number): string {
  */
 function growRoutes(plan: Plan, attempt: number): Coord[][] | null {
   const rand = mulberry32(plan.id * 7919 + attempt * 104729);
-  const size = plan.size;
+  const cols = plan.cols ?? plan.size;
+  const rows = plan.rows ?? plan.size;
   const pick = <T,>(items: readonly T[]): T => items[Math.floor(rand() * items.length)]!;
   const parent = new Map<string, string | null>();
   const degree = new Map<string, number>();
   const nodes: string[] = [];
 
   const homes: Coord[] = [];
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
-      const inset = Math.min(row, col, size - 1 - row, size - 1 - col);
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
+      const inset = Math.min(row, col, rows - 1 - row, cols - 1 - col);
       if (inset >= plan.source[0] && inset <= plan.source[1]) homes.push([row, col]);
     }
   }
@@ -544,7 +703,7 @@ function growRoutes(plan: Plan, attempt: number): Coord[][] | null {
   degree.set(sourceKey, 0);
 
   const free = (row: number, col: number) =>
-    row >= 0 && col >= 0 && row < size && col < size && !parent.has(keyOf(row, col));
+    row >= 0 && col >= 0 && row < rows && col < cols && !parent.has(keyOf(row, col));
 
   const walk = (from: Coord): boolean => {
     const target = plan.reach[0] + Math.floor(rand() * (plan.reach[1] - plan.reach[0] + 1));
@@ -626,6 +785,8 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
         blurb: "",
         theme: plan.theme,
         size: plan.size,
+        rows: plan.rows,
+        cols: plan.cols,
         unlock: plan.unlock,
         seed: plan.id * 13 + attempt,
         routes,
@@ -636,9 +797,12 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
       const routeCells = level.tiles.filter((tile) => tile.onRoute).length;
       // Keep boards busy enough to read as a step up, without filling every cell.
       // Later boards carry more nodes, so the route may cover a little more of the grid.
-      const room = plan.nodes >= 9 ? 0.94 : plan.nodes >= 7 ? 0.88 : 0.8;
-      const area = plan.size * plan.size;
-      if (routeCells < area * 0.45 || routeCells > area * room) continue;
+      const rows = plan.rows ?? plan.size;
+      const cols = plan.cols ?? plan.size;
+      const room = plan.nodes >= 10 ? 0.98 : plan.nodes >= 9 ? 0.94 : plan.nodes >= 7 ? 0.88 : 0.8;
+      const area = rows * cols;
+      const minShare = rows === cols ? 0.45 : plan.relief ? 0.34 : 0.52;
+      if (routeCells < area * minShare || routeCells > area * room) continue;
       if (goal.par && (level.par < goal.par[0] || level.par > goal.par[1])) continue;
       const described = { ...level, blurb: describe(plan, tees) };
       const miss = Math.abs(estimateSeconds(level) - goal.seconds) / goal.seconds;
@@ -646,7 +810,7 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
         // Daily and the measured 7×7 stretch take the first board on target.
         // The last forty levels keep searching so a long board is not followed
         // by a short one.
-        if (plan.id > 30 && (plan.id < 111 || plan.id > 150)) return described;
+        if (plan.id > 30 && (plan.id < 111 || plan.id > 250)) return described;
         const straights = straightShare(described);
         if (!bend || straights < bend.straights - 0.02 || (straights <= bend.straights && miss < bend.miss)) {
           bend = { level: described, miss, straights };
@@ -667,7 +831,7 @@ function generateLevel(id: number, name: string): Level {
   return generateFromPlan(planFor(id), name, {
     seconds: targetSeconds(id),
     tolerance: 0.012,
-    attempts: id <= 30 ? 1500 : id >= 111 ? 4000 : 800,
+    attempts: id <= 30 ? 1500 : id >= 225 ? 3200 : id >= 151 ? 1800 : id >= 111 ? 4000 : 800,
   });
 }
 
@@ -729,7 +893,11 @@ export function targetSeconds(id: number): number {
   else if (id <= 44) seconds = lerp(214, 260, (id - 31) / 13);
   else if (id <= 68) seconds = lerp(268, 380, (id - 45) / 23);
   else if (id <= 110) seconds = lerp(390, 520, (id - 69) / 41);
-  else seconds = lerp(522, 545, (id - 111) / 39);
+  else if (id <= 150) seconds = lerp(522, 545, (id - 111) / 39);
+  else if (id <= 174) seconds = lerp(555, 640, (id - 151) / 23);
+  else if (id <= 224) seconds = lerp(655, 700, (id - 175) / 49);
+  else seconds = lerp(780, 815, (id - 225) / 25);
+  if (isRelief(id)) seconds *= 0.88;
   return Math.round(seconds);
 }
 
@@ -773,13 +941,13 @@ function normalizeScramble(kind: Kind, amount: number): number {
   return turns;
 }
 
-function assertOrthogonal(a: Coord, b: Coord, size: number, label: string) {
+function assertOrthogonal(a: Coord, b: Coord, rows: number, cols: number, label: string) {
   const dr = Math.abs(a[0] - b[0]);
   const dc = Math.abs(a[1] - b[1]);
   if (dr + dc !== 1)
     throw new Error(`${label} steps from ${keyOf(a[0], a[1])} to ${keyOf(b[0], b[1])}`);
   for (const [row, col] of [a, b]) {
-    if (row < 0 || col < 0 || row >= size || col >= size) {
+    if (row < 0 || col < 0 || row >= rows || col >= cols) {
       throw new Error(`${label} leaves the board at ${keyOf(row, col)}`);
     }
   }
@@ -801,7 +969,8 @@ function extendStubs(
   masks: Map<string, number>,
   route: Set<string>,
   terminals: Set<string>,
-  size: number,
+  rows: number,
+  cols: number,
 ) {
   for (const [cellKey, mask] of [...masks]) {
     if (terminals.has(cellKey) || popcount(mask) !== 1) continue;
@@ -812,7 +981,7 @@ function extendStubs(
       if (mask & dir.bit) continue;
       const nr = row + dir.dr;
       const nc = col + dir.dc;
-      const off = nr < 0 || nc < 0 || nr >= size || nc >= size;
+      const off = nr < 0 || nc < 0 || nr >= rows || nc >= cols;
       let score = 1;
       if (off) score = 0;
       else if (route.has(keyOf(nr, nc))) score = 2;
@@ -828,12 +997,18 @@ function extendStubs(
   }
 }
 
-function forbiddenAt(row: number, col: number, masks: Map<string, number>, size: number): number {
+function forbiddenAt(
+  row: number,
+  col: number,
+  masks: Map<string, number>,
+  rows: number,
+  cols: number,
+): number {
   let forbidden = 0;
   for (const dir of DIRS) {
     const nr = row + dir.dr;
     const nc = col + dir.dc;
-    if (nr < 0 || nc < 0 || nr >= size || nc >= size) continue;
+    if (nr < 0 || nc < 0 || nr >= rows || nc >= cols) continue;
     const neighbor = masks.get(keyOf(nr, nc));
     if (neighbor == null) continue;
     if (neighbor & dir.opposite) forbidden |= dir.bit;
@@ -942,7 +1117,10 @@ export function tapsToSolve(tiles: readonly TileModel[]): number {
 }
 
 function buildLevel(spec: LevelSpec): Level {
-  const size = spec.size ?? GRID_SIZE;
+  const cols = spec.cols ?? spec.size ?? GRID_SIZE;
+  const rows = spec.rows ?? spec.size ?? GRID_SIZE;
+  const size = spec.size ?? cols;
+  const span = rows === cols ? undefined : cols;
   const seed = spec.seed ?? spec.id;
   if (spec.routes.length === 0) throw new Error(`Level ${spec.id} has no nodes`);
   const source = spec.routes[0]![0]!;
@@ -964,7 +1142,7 @@ function buildLevel(spec: LevelSpec): Level {
     for (let index = 1; index < path.length; index++) {
       const prev = path[index - 1]!;
       const coord = path[index]!;
-      assertOrthogonal(prev, coord, size, `Level ${spec.id} route`);
+      assertOrthogonal(prev, coord, rows, cols, `Level ${spec.id} route`);
       const cellKey = keyOf(coord[0], coord[1]);
       if (targetKeys.has(cellKey) && cellKey !== endKey) {
         throw new Error(`Level ${spec.id} walks through a node at ${cellKey}`);
@@ -977,7 +1155,7 @@ function buildLevel(spec: LevelSpec): Level {
 
   const startKey = keyOf(source[0], source[1]);
   const terminals = new Set([startKey, ...targetKeys]);
-  extendStubs(masks, route, terminals, size);
+  extendStubs(masks, route, terminals, rows, cols);
 
   for (const cellKey of terminals) {
     if (popcount(masks.get(cellKey) ?? 0) !== 1) {
@@ -1009,13 +1187,13 @@ function buildLevel(spec: LevelSpec): Level {
   for (const cellKey of bolted) delete scramble[cellKey];
 
   const tiles: TileModel[] = [];
-  for (let row = 0; row < size; row++) {
-    for (let col = 0; col < size; col++) {
+  for (let row = 0; row < rows; row++) {
+    for (let col = 0; col < cols; col++) {
       const cellKey = keyOf(row, col);
       const onRoute = masks.has(cellKey);
       const shape = onRoute
         ? classify(masks.get(cellKey)!)
-        : chooseFiller(forbiddenAt(row, col, masks, size), row * size + col + seed * 17);
+        : chooseFiller(forbiddenAt(row, col, masks, rows, cols), row * cols + col + seed * 17);
       if (!onRoute) masks.set(cellKey, shape.mask);
       const role: Role = cellKey === startKey ? "start" : targetKeys.has(cellKey) ? "end" : "play";
       const solution = shape.rot;
@@ -1027,18 +1205,18 @@ function buildLevel(spec: LevelSpec): Level {
   // A scrambled opening can bridge through fillers. Turn fillers until a
   // node is still dark, without touching the solved route.
   let guard = 0;
-  while (reachTargets(cellsOf(tiles, "initial")).complete && guard < 80) {
+  while (reachTargets(cellsOf(tiles, "initial"), span).complete && guard < 80) {
     const filler = tiles.filter((tile) => !tile.onRoute);
     const tile = filler[guard % filler.length];
     if (!tile) throw new Error(`Level ${spec.id} has no filler to break a shortcut`);
     tile.initial = (tile.initial + 1) % 4;
     guard++;
   }
-  if (reachTargets(cellsOf(tiles, "initial")).complete) {
+  if (reachTargets(cellsOf(tiles, "initial"), span).complete) {
     throw new Error(`Level ${spec.id} is already solved`);
   }
 
-  const solved = reachTargets(cellsOf(tiles, "solution"));
+  const solved = reachTargets(cellsOf(tiles, "solution"), span);
   if (!solved.complete || solved.paths.length !== targetKeys.size) {
     throw new Error(`Level ${spec.id} does not power every node`);
   }
@@ -1050,6 +1228,8 @@ function buildLevel(spec: LevelSpec): Level {
     blurb: spec.blurb,
     theme: spec.theme,
     size,
+    rows,
+    cols,
     unlock: spec.unlock,
     tiles,
     solutionPath,
