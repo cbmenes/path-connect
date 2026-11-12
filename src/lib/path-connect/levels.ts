@@ -1314,7 +1314,7 @@ export const LEVELS: readonly Level[] = (() => {
 
 const CHAPTER_NOTES: Record<ThemeId, string> = {
   lights: "Bulbs, sage lamps, and caged lights",
-  plumbing: "Tubs, toilets, and sinks",
+  plumbing: "Tubs, toilets, sinks, and showers",
   alarm: "Horns, microphones, radios, and phones",
   fire: "Bull horns, bells, and pull stations",
 };
