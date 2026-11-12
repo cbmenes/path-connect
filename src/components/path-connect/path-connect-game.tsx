@@ -522,7 +522,7 @@ export function PathConnectGame() {
     // The board counts as won at once, so Next works while the effect plays.
     phaseRef.current = "won";
     setPhase("won");
-    playWin(mutedRef.current);
+    playWin(mutedRef.current, theme.id);
     if (!prefersReducedMotion()) {
       celebrateIdRef.current += 1;
       setCelebrate(celebrateIdRef.current);
