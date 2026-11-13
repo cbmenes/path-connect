@@ -1,15 +1,19 @@
 /**
- * Plumbing fixtures and PA telephones come in four 1950s pastels. Each board
+ * Plumbing fixtures, PA telephones, and Lighting sconces and lamps come in 1950s pastels. Each board
  * gets its own mix, seeded by the level id so every player sees the same
- * colors on the same board. Colors are dealt from shuffled rounds of all four,
+ * colors on the same board. Colors are dealt from shuffled rounds of the palette,
  * so no color is used more than once more than any other, and two fixtures in
  * a row never repeat a color across a round.
  */
 export const FIXTURE_COLORS = ["ivory", "aqua", "yellow", "pink"] as const;
 export const PHONE_COLORS = ["ivory", "pink", "sage", "yellow"] as const;
+export const SCONCE_COLORS = ["aqua", "sage", "pink", "yellow"] as const;
+export const LAMP_COLORS = ["sage", "aqua", "teal", "pink", "yellow"] as const;
 
 export type FixtureColor = (typeof FIXTURE_COLORS)[number];
 export type PhoneColor = (typeof PHONE_COLORS)[number];
+export type SconceColor = (typeof SCONCE_COLORS)[number];
+export type LampColor = (typeof LAMP_COLORS)[number];
 
 function random(seed: number): () => number {
   let state = (seed ^ 0x5f3759df) >>> 0;
@@ -44,4 +48,23 @@ export function fixtureColors(levelId: number, count: number): FixtureColor[] {
 
 export function phoneColors(levelId: number, count: number): PhoneColor[] {
   return deal(PHONE_COLORS, Math.imul(levelId, 2246822519) ^ 0x7e1e, count);
+}
+
+export function lampColors(levelId: number, count: number): LampColor[] {
+  return deal(LAMP_COLORS, Math.imul(levelId, 668265263) ^ 0x1a3b, count);
+}
+
+/**
+ * Sconces share the board with lamps, so among a few balanced deals the one
+ * that repeats the fewest lamp colors wins, keeping the board's mix varied.
+ */
+export function sconceColors(levelId: number, count: number, lamps: readonly string[] = []): SconceColor[] {
+  let best: SconceColor[] = [];
+  let bestClashes = Infinity;
+  for (let attempt = 0; attempt < 48 && bestClashes > 0; attempt++) {
+    const colors = deal(SCONCE_COLORS, Math.imul(levelId, 3266489917) ^ (0x5c0e + attempt * 0x9e37), count);
+    const clashes = colors.filter((color) => lamps.includes(color)).length;
+    if (clashes < bestClashes) [best, bestClashes] = [colors, clashes];
+  }
+  return best;
 }

@@ -67,7 +67,16 @@ import {
   hintNudgeVisible,
   shouldOfferHintNudge,
 } from "@/lib/path-connect/reminders";
-import { fixtureColors, phoneColors, type FixtureColor, type PhoneColor } from "@/lib/path-connect/fixture-colors";
+import {
+  fixtureColors,
+  lampColors,
+  phoneColors,
+  sconceColors,
+  type FixtureColor,
+  type LampColor,
+  type PhoneColor,
+  type SconceColor,
+} from "@/lib/path-connect/fixture-colors";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
@@ -198,6 +207,11 @@ export function PathConnectGame() {
   }, [level]);
   const fixtureColor = useMemo(() => fixtureColors(level.id, nodeTotal), [level.id, nodeTotal]);
   const phoneColor = useMemo(() => phoneColors(level.id, Math.ceil(nodeTotal / 4)), [level.id, nodeTotal]);
+  const lampColor = useMemo(() => lampColors(level.id, Math.ceil(nodeTotal / 5)), [level.id, nodeTotal]);
+  const sconceColor = useMemo(
+    () => sconceColors(level.id, Math.floor(nodeTotal / 5), lampColor.slice(0, Math.floor((nodeTotal + 3) / 5))),
+    [level.id, nodeTotal, lampColor],
+  );
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
   // The pulse sweeps the whole path in about a third of a second on any board size.
@@ -896,6 +910,8 @@ export function PathConnectGame() {
                         fixture={fixtureOf.get(index)}
                         color={fixtureColor[fixtureOf.get(index) ?? 0]}
                         phone={phoneColor[Math.floor((fixtureOf.get(index) ?? 0) / 4)]}
+                        lamp={lampColor[Math.floor((fixtureOf.get(index) ?? 0) / 5)]}
+                        sconce={sconceColor[Math.floor((fixtureOf.get(index) ?? 0) / 5)]}
                       />
                     </span>
                   )}
@@ -1760,19 +1776,23 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light, sconce; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone with each telephone in its `phone` pastel; fire cycles bull horn, bell, pull station. */
+/** `fixture` is the node's place in board order: Lighting cycles bulb, lamp, bulb, caged light, sconce with each lamp and sconce in its `lamp` / `sconce` pastel; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone with each telephone in its `phone` pastel; fire cycles bull horn, bell, pull station. */
 function NodeGlyph({
   theme,
   on,
   fixture = 2,
   color = "ivory",
   phone = "ivory",
+  lamp = "sage",
+  sconce = "aqua",
 }: {
   theme: ThemeId;
   on: boolean;
   fixture?: number;
   color?: FixtureColor;
   phone?: PhoneColor;
+  lamp?: LampColor;
+  sconce?: SconceColor;
 }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
@@ -1795,21 +1815,31 @@ function NodeGlyph({
     return <PullStation on={on} />;
   }
   const pick = fixture % 5;
-  if (pick === 1) return <SageLamp on={on} />;
+  if (pick === 1) return <SageLamp on={on} paint={LAMP_PAINT[lamp]} />;
   if (pick === 3) return <CageLight on={on} />;
-  if (pick === 4) return <Sconce on={on} />;
+  if (pick === 4) return <Sconce on={on} paint={SCONCE_PAINT[sconce]} />;
   return <Bulb on={on} />;
 }
 
-const SCONCE_AQUA = "#bfe3dc";
-const SCONCE_AQUA_LIT = "#d6f0ea";
-const SCONCE_AQUA_SHADE = "#9ccbc3";
-const SCONCE_AQUA_DEEP = "#7fb3aa";
+interface SconcePaint {
+  body: string;
+  lit: string;
+  shade: string;
+  deep: string;
+}
+
+/** Sconce shade pastels, a little richer than the plumbing ones so they hold up on the cream Lighting board. Aqua is the original. */
+const SCONCE_PAINT: Record<SconceColor, SconcePaint> = {
+  aqua: { body: "#bfe3dc", lit: "#d6f0ea", shade: "#9ccbc3", deep: "#7fb3aa" },
+  sage: { body: "#b6cba9", lit: "#c4d7b8", shade: "#97ae89", deep: "#738d66" },
+  pink: { body: "#f0bac2", lit: "#f5c9cf", shade: "#dc99a4", deep: "#bc7884" },
+  yellow: { body: "#f2d987", lit: "#f6e2a0", shade: "#debf5f", deep: "#bc9b3e" },
+};
 const SCONCE_TRIM = "#fbf3df";
 const SCONCE_TRIM_EDGE = "#d6c49c";
 
-/** 1950s wall sconce: a tapered aqua shade with ivory trim and faint fan motifs on a curved brass arm and round wall plate. */
-function Sconce({ on }: { on: boolean }) {
+/** 1950s wall sconce: a tapered pastel shade with ivory trim and faint white fan motifs on a curved brass arm and round wall plate. */
+function Sconce({ on, paint }: { on: boolean; paint: SconcePaint }) {
   const fans: [number, number][] = [
     [13.4, 14],
     [20, 11.6],
@@ -1840,12 +1870,12 @@ function Sconce({ on }: { on: boolean }) {
       <path d="M17.4 36.2h5.2" stroke={BRASS_DARK} strokeWidth="0.8" strokeLinecap="round" />
       <path
         d="M10 6.6h20l6.6 24.4Q20 34.2 3.4 31z"
-        fill={on ? SCONCE_AQUA_LIT : SCONCE_AQUA}
-        stroke={SCONCE_AQUA_DEEP}
+        fill={on ? paint.lit : paint.body}
+        stroke={paint.deep}
         strokeWidth="1"
         strokeLinejoin="round"
       />
-      <path d="M26 6.6h4l6.6 24.4q-2.6.7-5.6 1.1z" fill={SCONCE_AQUA_SHADE} opacity="0.75" />
+      <path d="M26 6.6h4l6.6 24.4q-2.6.7-5.6 1.1z" fill={paint.shade} opacity="0.75" />
       <g fill="white" opacity={on ? 0.75 : 0.6}>
         {fans.map(([x, y]) => (
           <g key={`${x}-${y}`} transform={`translate(${x} ${y})`}>
@@ -1858,37 +1888,49 @@ function Sconce({ on }: { on: boolean }) {
       <path d="M11.4 9.6 6.6 27.4" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.55" />
       <rect x="9.2" y="4.6" width="21.6" height="3.4" rx="1.7" fill={SCONCE_TRIM} stroke={SCONCE_TRIM_EDGE} strokeWidth="0.8" />
       <path d="M3 30.2Q20 33.6 37 30.2l.5 2.6Q20 36.4 2.5 32.8z" fill={SCONCE_TRIM} stroke={SCONCE_TRIM_EDGE} strokeWidth="0.8" strokeLinejoin="round" />
-      <ellipse cx="20" cy="34.4" rx="13.4" ry="1.5" fill={on ? "#fff4cc" : SCONCE_AQUA_DEEP} />
+      <ellipse cx="20" cy="34.4" rx="13.4" ry="1.5" fill={on ? "#fff4cc" : paint.deep} />
       {on && <ellipse cx="20" cy="34.5" rx="6" ry="1" fill="white" opacity="0.9" />}
     </svg>
   );
 }
 
-const SAGE_SHADE = "#a9bd9f";
-const SAGE_SHADE_DARK = "#7f9476";
-const SAGE_SHADE_LIGHT = "#d3dfca";
-const SAGE_SHADE_DEEP = "#6a7f62";
+interface LampPaint {
+  shade: string;
+  dark: string;
+  light: string;
+  deep: string;
+}
 
-/** Light sage 1950s mushroom-dome table lamp with a sage stem and a rounded sage base. */
-function SageLamp({ on }: { on: boolean }) {
+/** Lamp pastels, a little richer than the plumbing ones so they hold up on the cream Lighting board. Sage is the original. */
+const LAMP_PAINT: Record<LampColor, LampPaint> = {
+  sage: { shade: "#a9bd9f", dark: "#7f9476", light: "#d3dfca", deep: "#6a7f62" },
+  aqua: { shade: "#93d0c7", dark: "#66a89f", light: "#c7e9e3", deep: "#518b83" },
+  teal: { shade: "#72b3b1", dark: "#4b8c8a", light: "#acd7d4", deep: "#3b716f" },
+  pink: { shade: "#eeb0b9", dark: "#c8818d", light: "#f8d6db", deep: "#a86672" },
+  yellow: { shade: "#efd077", dark: "#c9a547", light: "#f8e7ac", deep: "#a88730" },
+};
+
+/** 1950s mushroom-dome table lamp with a matching stem and rounded base, all in one pastel `paint`. */
+function SageLamp({ on, paint }: { on: boolean; paint: LampPaint }) {
+  const { shade, dark, light, deep } = paint;
   return (
     <svg viewBox="0 0 48 60" className={on ? "pc-glyph pc-lamp is-on" : "pc-glyph pc-lamp"}>
       {on && <path d="M8 31 3 50h42l-5-19z" fill="#fff1c2" opacity="0.32" />}
-      <ellipse cx="24" cy="55.6" rx="14.4" ry="3.8" fill={SAGE_SHADE_DEEP} />
-      <path d="M9.6 55.2v-2.4c0-3.6 6.4-6.2 14.4-6.2s14.4 2.6 14.4 6.2v2.4c0 2.2-6.4 3.8-14.4 3.8s-14.4-1.6-14.4-3.8z" fill={SAGE_SHADE_DARK} />
-      <ellipse cx="24" cy="52.6" rx="14.4" ry="5.4" fill={SAGE_SHADE} />
-      <path d="M13.4 51.2c2.6-1.8 6.4-2.6 10.6-2.6" fill="none" stroke={SAGE_SHADE_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
-      <path d="M19.2 51.4 21 33h6l1.8 18.4c-1.4 1-8.2 1-9.6 0z" fill={SAGE_SHADE_DARK} />
-      <path d="M27 33l1.8 18.4c-.6.4-1.6.7-2.8.8L24.6 33z" fill={SAGE_SHADE_DEEP} opacity="0.45" />
-      <path d="M22.2 35.4 21.4 49.6" stroke={SAGE_SHADE_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
-      <ellipse cx="24" cy="42" rx="4.6" ry="1.7" fill={SAGE_SHADE} />
-      <ellipse cx="24" cy="33.4" rx="5" ry="1.9" fill={SAGE_SHADE} />
-      <path d="M2 30.6C2 15 11.6 3.4 24 3.4S46 15 46 30.6c0 1.4-.6 2.4-2 2.6H4c-1.4-.2-2-1.2-2-2.6z" fill={SAGE_SHADE} />
-      <path d="M46 30.6C46 17 39 6.8 29.4 4.2 36 9.4 40 18.6 40 30.6c0 1.2-.4 2.2-1.4 2.6H44c1.4-.2 2-1.2 2-2.6z" fill={SAGE_SHADE_DARK} opacity="0.5" />
-      <path d="M8 22.4C9.6 13.6 15.4 7.6 22.4 6.4" fill="none" stroke={SAGE_SHADE_LIGHT} strokeWidth="3" strokeLinecap="round" />
+      <ellipse cx="24" cy="55.6" rx="14.4" ry="3.8" fill={deep} />
+      <path d="M9.6 55.2v-2.4c0-3.6 6.4-6.2 14.4-6.2s14.4 2.6 14.4 6.2v2.4c0 2.2-6.4 3.8-14.4 3.8s-14.4-1.6-14.4-3.8z" fill={dark} />
+      <ellipse cx="24" cy="52.6" rx="14.4" ry="5.4" fill={shade} />
+      <path d="M13.4 51.2c2.6-1.8 6.4-2.6 10.6-2.6" fill="none" stroke={light} strokeWidth="1.6" strokeLinecap="round" />
+      <path d="M19.2 51.4 21 33h6l1.8 18.4c-1.4 1-8.2 1-9.6 0z" fill={dark} />
+      <path d="M27 33l1.8 18.4c-.6.4-1.6.7-2.8.8L24.6 33z" fill={deep} opacity="0.45" />
+      <path d="M22.2 35.4 21.4 49.6" stroke={light} strokeWidth="1.2" strokeLinecap="round" />
+      <ellipse cx="24" cy="42" rx="4.6" ry="1.7" fill={shade} />
+      <ellipse cx="24" cy="33.4" rx="5" ry="1.9" fill={shade} />
+      <path d="M2 30.6C2 15 11.6 3.4 24 3.4S46 15 46 30.6c0 1.4-.6 2.4-2 2.6H4c-1.4-.2-2-1.2-2-2.6z" fill={shade} />
+      <path d="M46 30.6C46 17 39 6.8 29.4 4.2 36 9.4 40 18.6 40 30.6c0 1.2-.4 2.2-1.4 2.6H44c1.4-.2 2-1.2 2-2.6z" fill={dark} opacity="0.5" />
+      <path d="M8 22.4C9.6 13.6 15.4 7.6 22.4 6.4" fill="none" stroke={light} strokeWidth="3" strokeLinecap="round" />
       <path d="M7 26.6c.2-1.8.6-3.4 1.2-5" fill="none" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
-      <ellipse cx="24" cy="31.8" rx="21.6" ry="3.4" fill={SAGE_SHADE_DARK} />
-      <ellipse cx="24" cy="32.4" rx="17.4" ry="2.4" fill={on ? "#fff4cc" : SAGE_SHADE_DEEP} />
+      <ellipse cx="24" cy="31.8" rx="21.6" ry="3.4" fill={dark} />
+      <ellipse cx="24" cy="32.4" rx="17.4" ry="2.4" fill={on ? "#fff4cc" : deep} />
       {on && <ellipse cx="24" cy="32.6" rx="7" ry="1.4" fill="white" opacity="0.9" />}
     </svg>
   );
