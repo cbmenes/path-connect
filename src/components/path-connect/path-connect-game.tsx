@@ -1100,9 +1100,6 @@ function PowerLesson({
   onNext: () => void;
   onDone: () => void;
 }) {
-  const source = theme.source.toLowerCase();
-  const nodes = theme.nodePlural[0]!.toUpperCase() + theme.nodePlural.slice(1);
-
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
       if (event.key === "Escape") onDone();
@@ -1129,17 +1126,17 @@ function PowerLesson({
         {step === 1 ? (
           <>
             <h3 id="pc-lesson-title" className="pc-ad-title">
-              Power starts at the {source}
+              Flow starts from the house
             </h3>
             <p id="pc-lesson-body" className="pc-ad-body">
-              Connect the pipes so power reaches every {theme.node}. It flows only through pipe ends that
-              face each other.
+              Connect the pipes so flow reaches every node. It flows only through pipe ends that face each
+              other.
             </p>
             <p className="pc-lesson-note">
               <span className="pc-lesson-icon" aria-hidden="true">
                 <SourceGlyph theme={theme.id} />
               </span>
-              The {source} is the only power source
+              The house is the only source of the flow
             </p>
             {tip && (
               <p className="pc-lesson-tip">
@@ -1151,17 +1148,17 @@ function PowerLesson({
         ) : (
           <>
             <h3 id="pc-lesson-title" className="pc-ad-title">
-              Branch out to every {theme.node}
+              Branch out to every node
             </h3>
             <p id="pc-lesson-body" className="pc-ad-body">
-              Power stops at each {theme.node}. {nodes} don't pass it on, so every {theme.node} needs its own
-              path back to the {source}.
+              Flow stops at each node. Nodes don't pass it on, so every node needs its own path back to the
+              house.
             </p>
             <p className="pc-lesson-note">
               <span className="pc-lesson-icon pc-lesson-stop-icon" aria-hidden="true">
                 <Ban />
               </span>
-              {nodes} don't pass power on
+              Nodes don't pass flow on
             </p>
           </>
         )}
