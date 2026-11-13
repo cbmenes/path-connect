@@ -3204,11 +3204,1072 @@ const PA_STUDIO: Piece[] = [
   },
 ];
 
+/** A small pot of leaves standing on `y`, for shelves, sills and trays. */
+function LittlePot({
+  x,
+  y,
+  pot,
+  rim,
+  leaf,
+  leafDark,
+  trail = false,
+}: {
+  x: number;
+  y: number;
+  pot: string;
+  rim: string;
+  leaf: string;
+  leafDark: string;
+  trail?: boolean;
+}) {
+  return (
+    <g transform={`translate(${x} ${y})`}>
+      <ellipse cx="-6" cy="-20" rx="4" ry="8" fill={leafDark} transform="rotate(-30 -6 -20)" />
+      <ellipse cx="6" cy="-20" rx="4" ry="8" fill={leafDark} transform="rotate(30 6 -20)" />
+      <ellipse cx="0" cy="-23" rx="4.4" ry="9" fill={leaf} />
+      <path d="M-9-12h18l-2 12h-14z" fill={pot} />
+      <rect x="-10" y="-15" width="20" height="5" rx="2.5" fill={rim} />
+      {trail && (
+        <>
+          <path d="M-8-12C-15-4-15 8-12 18M8-12c7 6 8 16 5 22" stroke={leafDark} strokeWidth="1.4" fill="none" strokeLinecap="round" />
+          {[
+            [-14, 2],
+            [-13, 14],
+            [14, 0],
+            [13, 10],
+          ].map(([cx, cy]) => (
+            <ellipse key={`${cx}-${cy}`} cx={cx} cy={cy} rx="2.6" ry="4" fill={leaf} />
+          ))}
+        </>
+      )}
+    </g>
+  );
+}
+
+const MONSTERA_LEAVES: readonly (readonly [number, number, number, boolean])[] = [
+  [24, 74, -62, true],
+  [76, 72, 60, false],
+  [28, 46, -30, false],
+  [72, 44, 32, true],
+  [50, 26, 0, false],
+];
+
+/** A split-leaf philodendron on a legged planter. */
+function Monstera({ pot, potDark, leaf, leafDark, shadow }: { pot: string; potDark: string; leaf: string; leafDark: string; shadow: string }) {
+  return (
+    <svg viewBox="0 0 100 150">
+      <ellipse cx="50" cy="146" rx="32" ry="4" fill={shadow} />
+      <path d="M34 128l-5 16M66 128l5 16" stroke={LR_LEG} strokeWidth="3" strokeLinecap="round" />
+      {MONSTERA_LEAVES.map(([cx, cy]) => (
+        <path key={`s${cx}`} d={`M50 96Q${(50 + cx) / 2} ${cy + 20} ${cx} ${cy}`} stroke={leafDark} strokeWidth="2" fill="none" strokeLinecap="round" />
+      ))}
+      {MONSTERA_LEAVES.map(([cx, cy, rot, dark]) => (
+        <g key={`${cx}-${cy}`} transform={`translate(${cx} ${cy}) rotate(${rot})`}>
+          <ellipse rx="13" ry="17" fill={dark ? leafDark : leaf} />
+          <path
+            d="M0 15V-15M-13-4-6-2M-12 6-5 4M13-4 6-2M12 6 5 4"
+            stroke={dark ? leaf : leafDark}
+            strokeWidth="1.8"
+            strokeLinecap="round"
+            opacity="0.8"
+          />
+        </g>
+      ))}
+      <path d="M26 96h48l-6 34H32z" fill={pot} />
+      <rect x="22" y="92" width="56" height="8" rx="4" fill={potDark} />
+      <path d="M32 104l3 22" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+    </svg>
+  );
+}
+
+function Rocker({ u }: { u: Upholstery }) {
+  return (
+    <svg viewBox="0 0 110 124">
+      <ellipse cx="55" cy="120" rx="44" ry="4" fill={SHADOW} />
+      <path d="M6 106q49 18 98 0" stroke={LR_LEG} strokeWidth="4.4" fill="none" strokeLinecap="round" />
+      <path d="M26 72 20 108M84 72l6 36" stroke={LR_LEG} strokeWidth="3.6" strokeLinecap="round" />
+      <path d="M36 74 34 112M74 74l2 38" stroke={WALNUT.dark} strokeWidth="3" strokeLinecap="round" />
+      <path d="M28 70 22 14M82 70l6-56" stroke={LR_LEG} strokeWidth="4" strokeLinecap="round" />
+      <path d="M22 16c22-9 44-9 66 0" stroke={LR_LEG} strokeWidth="5" fill="none" strokeLinecap="round" />
+      <rect x="30" y="20" width="50" height="40" rx="12" fill={u.main} />
+      <path d="M37 27h36" stroke={u.light} strokeWidth="2.4" strokeLinecap="round" />
+      <path d="M55 25v31" stroke={u.dark} strokeWidth="1.6" opacity="0.5" />
+      <rect x="18" y="60" width="74" height="16" rx="8" fill={u.dark} />
+      <rect x="20" y="57" width="70" height="12" rx="6" fill={u.main} />
+      <path d="M28 60h54" stroke={u.light} strokeWidth="2" strokeLinecap="round" />
+      <path d="M18 50v20M92 50v20" stroke={LR_LEG} strokeWidth="3.4" strokeLinecap="round" />
+      <path d="M14 48h22M74 48h22" stroke={LR_LEG} strokeWidth="4.4" strokeLinecap="round" />
+    </svg>
+  );
+}
+
+/** A lounge corner: rockers, an arc lamp, a bookcase, a plant stand and a few wall pieces. */
+const LIGHTS_LOUNGE: Piece[] = [
+  ...[BLUSH, POWDER, SAGE_CHAIR].map(
+    (u): Piece => ({
+      id: `rocker-${u.name}`,
+      group: "rocker",
+      width: 110,
+      height: 124,
+      fits: ["RB", "LB"],
+      art: <Rocker u={u} />,
+    }),
+  ),
+  {
+    id: "arc-lamp",
+    width: 130,
+    height: 210,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 130 210" overflow="visible">
+        <GlowDefs id="pc-sur-arc" />
+        <ellipse cx="30" cy="206" rx="26" ry="4" fill={SHADOW} />
+        <circle cx="104" cy="76" r="38" fill="url(#pc-sur-arc)" />
+        <path d="M30 192V82C30 30 72 14 104 42" stroke={LR_BRASS} strokeWidth="4" fill="none" strokeLinecap="round" />
+        <path d="M32.5 186V86" stroke={LR_BRASS_LIGHT} strokeWidth="1.4" opacity="0.7" />
+        <rect x="12" y="188" width="36" height="14" rx="3" fill={LR_CREAM} />
+        <path d="M44 190v10a3 3 0 0 1-3 2h-4a3 3 0 0 0 3-2v-12z" fill={LR_CREAM_SHADE} />
+        <path d="M84 64a20 20 0 0 1 40 0z" fill={TEAL.main} />
+        <path d="M90 54c4-6 10-8 16-8" stroke={TEAL.light} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <ellipse cx="104" cy="64" rx="20" ry="3" fill={TEAL.dark} />
+        <ellipse cx="104" cy="65" rx="13" ry="1.8" fill="#fff1c2" />
+      </svg>
+    ),
+  },
+  {
+    id: "bookcase",
+    width: 100,
+    height: 170,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 100 170">
+        <ellipse cx="50" cy="166" rx="40" ry="4" fill={SHADOW} />
+        <TaperedLegs left={14} right={86} top={146} length={18} />
+        <rect x="8" y="10" width="84" height="138" rx="5" fill={WALNUT.main} />
+        <rect x="14" y="16" width="72" height="126" rx="3" fill={WALNUT.dark} />
+        <path d="M12 13h76" stroke={WALNUT.light} strokeWidth="1.6" strokeLinecap="round" />
+        <rect x="14" y="56" width="72" height="5" fill={WALNUT.main} />
+        <rect x="14" y="98" width="72" height="5" fill={WALNUT.main} />
+        <rect x="18" y="24" width="7" height="32" rx="1.5" fill="#7fa9a3" />
+        <rect x="26" y="28" width="6" height="28" rx="1.5" fill="#e3bd6c" />
+        <rect x="33" y="22" width="8" height="34" rx="1.5" fill="#e39a82" />
+        <rect x="42" y="26" width="6" height="30" rx="1.5" fill={LR_CREAM_SHADE} />
+        <rect x="50" y="29" width="6" height="27" rx="1.5" fill={LR_SAGE} transform="rotate(14 56 56)" />
+        <path d="M74 56c-7 0-9-6-9-12s5-9 5-14h8c0 5 5 8 5 14s-2 12-9 12z" fill={POWDER.main} />
+        <path d="M69 40c0-3 1-6 2-8" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.6" />
+        <rect x="20" y="90" width="34" height="8" rx="1.5" fill="#e39a82" />
+        <rect x="22" y="82" width="30" height="8" rx="1.5" fill={LR_CREAM_SHADE} />
+        <rect x="24" y="75" width="26" height="7" rx="1.5" fill="#7fa9a3" />
+        <rect x="60" y="66" width="7" height="32" rx="1.5" fill="#e3bd6c" />
+        <rect x="68" y="70" width="6" height="28" rx="1.5" fill={POWDER.main} />
+        <rect x="75" y="64" width="7" height="34" rx="1.5" fill={LR_SAGE} />
+        <rect x="18" y="110" width="7" height="32" rx="1.5" fill={LR_SAGE} />
+        <rect x="26" y="114" width="6" height="28" rx="1.5" fill="#e39a82" />
+        <rect x="33" y="112" width="8" height="30" rx="1.5" fill="#e3bd6c" />
+        <LittlePot x={68} y={142} pot={LR_CREAM} rim={LR_CREAM_SHADE} leaf="#9cbc84" leafDark="#729760" />
+      </svg>
+    ),
+  },
+  {
+    id: "plant-stand",
+    width: 96,
+    height: 150,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 96 150">
+        <ellipse cx="48" cy="146" rx="36" ry="4" fill={SHADOW} />
+        <path d="M16 144 32 34M80 144 64 34" stroke={LR_BRONZE_DARK} strokeWidth="2.6" strokeLinecap="round" />
+        {[
+          [60, 28],
+          [100, 22],
+          [134, 16],
+        ].map(([y, inset]) => (
+          <g key={y}>
+            <rect x={inset} y={y} width={96 - inset * 2} height="5" rx="2.5" fill={WALNUT.main} />
+            <path d={`M${inset + 3} ${y + 1.5}h${90 - inset * 2}`} stroke={WALNUT.light} strokeWidth="1.2" strokeLinecap="round" />
+          </g>
+        ))}
+        <LittlePot x={48} y={60} pot="#7fa9a3" rim="#b9d3cf" leaf="#9cbc84" leafDark="#729760" />
+        <LittlePot x={34} y={100} pot={MUSTARD.main} rim={MUSTARD.light} leaf="#9cbc84" leafDark="#729760" trail />
+        <LittlePot x={63} y={100} pot={CORAL.main} rim={CORAL.light} leaf="#a9c48f" leafDark="#7f9b6a" />
+        <path d="M34 134h28c0-8-6-12-14-12s-14 4-14 12z" fill={LR_PINK} />
+        <path d="M38 130c2-4 5-6 9-7" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.6" fill="none" />
+        {[-8, -3, 2, 7].map((dx, i) => (
+          <ellipse key={dx} cx={48 + dx} cy={i % 2 ? 119 : 121} rx="3.4" ry="5" fill={i % 2 ? "#8fae7c" : "#a9c48f"} />
+        ))}
+      </svg>
+    ),
+  },
+  {
+    id: "sunburst-mirror",
+    width: 100,
+    height: 100,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 100 100">
+        {Array.from({ length: 16 }, (_, i) => (
+          <path key={i} d="M50 4 53 26h-6z" fill={i % 2 ? LR_BRASS_LIGHT : LR_BRASS} transform={`rotate(${i * 22.5} 50 50)`} />
+        ))}
+        <circle cx="51.5" cy="51.5" r="24" fill={SHADOW} />
+        <circle cx="50" cy="50" r="24" fill={LR_BRASS} />
+        <circle cx="50" cy="50" r="20" fill="#dfe9ea" />
+        <path d="M38 46c2-6 7-10 13-11M41 56l14-14" stroke="white" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.8" />
+      </svg>
+    ),
+  },
+  {
+    id: "print-pair",
+    width: 124,
+    height: 84,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 124 84">
+        <rect x="8" y="10" width="50" height="66" rx="3" fill={SHADOW} />
+        <rect x="5" y="7" width="50" height="66" rx="3" fill={WALNUT.main} />
+        <rect x="10" y="12" width="40" height="56" rx="1.5" fill={LR_CREAM} />
+        <path d="M30 62V22" stroke="#729760" strokeWidth="1.6" strokeLinecap="round" />
+        {[26, 36, 46, 56].map((y, i) => (
+          <g key={y}>
+            <ellipse cx="24" cy={y} rx="6" ry="3" fill={i % 2 ? "#9cbc84" : "#b7cd9f"} transform={`rotate(-30 24 ${y})`} />
+            <ellipse cx="36" cy={y - 4} rx="6" ry="3" fill={i % 2 ? "#b7cd9f" : "#9cbc84"} transform={`rotate(30 36 ${y - 4})`} />
+          </g>
+        ))}
+        <rect x="71" y="20" width="50" height="56" rx="3" fill={SHADOW} />
+        <rect x="68" y="17" width="50" height="56" rx="3" fill={LR_BRASS} />
+        <rect x="72" y="21" width="42" height="48" rx="1.5" fill="#fbf6ec" />
+        <circle cx="85" cy="36" r="8" fill="#e39a82" />
+        <rect x="92" y="42" width="16" height="20" rx="2" fill="#7fa9a3" />
+        <path d="M78 60c6-8 14-10 22-6" stroke="#e3bd6c" strokeWidth="4" strokeLinecap="round" fill="none" />
+      </svg>
+    ),
+  },
+  {
+    id: "nesting-tables",
+    width: 120,
+    height: 82,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -32 120 82">
+        <ellipse cx="60" cy="46" rx="52" ry="4" fill={SHADOW} />
+        <path d="M18 10 14 44M62 10l4 34M30 11l-2 33M50 11l2 33" stroke={LR_LEG} strokeWidth="3" strokeLinecap="round" />
+        <ellipse cx="40" cy="8" rx="30" ry="6" fill={WALNUT.dark} />
+        <ellipse cx="40" cy="6" rx="30" ry="6" fill={WALNUT.main} />
+        <path d="M20 4c8-3 20-4 30-3" stroke={WALNUT.light} strokeWidth="1.6" strokeLinecap="round" fill="none" />
+        <path d="M32-14c-2 4-3 10-2 16M36-12c3 3 4 8 3 14" stroke="#729760" strokeWidth="1.4" strokeLinecap="round" fill="none" />
+        <circle cx="31.5" cy="-15" r="2.6" fill="#e3bd6c" />
+        <circle cx="36.5" cy="-13" r="2.4" fill="white" />
+        <path d="M34 6c-6 0-8-5-8-9s4-6 4-9h8c0 3 4 5 4 9s-2 9-8 9z" fill={CORAL.main} />
+        <path d="M74 24 72 44M98 24l2 20" stroke={LR_LEG} strokeWidth="2.6" strokeLinecap="round" />
+        <ellipse cx="86" cy="22" rx="22" ry="4.6" fill={MUSTARD.dark} />
+        <ellipse cx="86" cy="20" rx="22" ry="4.6" fill={MUSTARD.main} />
+        <circle cx="82" cy="10" r="4" fill={CORAL.main} />
+        <circle cx="89" cy="9" r="4" fill="#a9c48f" />
+        <path d="M76 12h20c0 5-4 8-10 8s-10-3-10-8z" fill={TEAL.main} />
+      </svg>
+    ),
+  },
+  {
+    id: "throw-basket",
+    width: 90,
+    height: 82,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 90 82">
+        <ellipse cx="45" cy="54" rx="34" ry="4" fill={SHADOW} />
+        <path d="M14 10h62l-6 40a6 6 0 0 1-6 5H26a6 6 0 0 1-6-5z" fill="#d9b38a" />
+        <path d="M16 22h58M18 34h54M19 46h52" stroke="#b98a5e" strokeWidth="1.6" opacity="0.7" />
+        <path d="M30 12l2 40M45 12v42M60 12l-2 40" stroke="#b98a5e" strokeWidth="1.2" opacity="0.5" />
+        <path d="M22 8c2-12 14-18 26-16s22 8 24 16z" fill={MUSTARD.main} />
+        <path d="M30 0c6-6 14-8 22-6" stroke={MUSTARD.light} strokeWidth="2.2" strokeLinecap="round" fill="none" />
+        <rect x="10" y="6" width="70" height="8" rx="4" fill="#c69a6a" />
+        <path d="M50 8h16v24c0 4-3 6-8 6s-8-2-8-6z" fill={MUSTARD.main} />
+        <path d="M54 12v20" stroke={MUSTARD.light} strokeWidth="2" strokeLinecap="round" />
+        <path d="M52 38v4M56 39v4M60 39v4M64 38v4" stroke={MUSTARD.dark} strokeWidth="1.4" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "monstera",
+    group: "plant",
+    width: 84,
+    height: 126,
+    fits: ["RB", "LB", "B", "B2"],
+    art: <Monstera pot={MUSTARD.main} potDark={MUSTARD.dark} leaf="#9cbc84" leafDark="#729760" shadow={SHADOW} />,
+  },
+];
+
+/** The office side of the station: a steel desk, swivel chairs, a typewriter, a water cooler and lobby pieces. */
+const PA_OFFICE: Piece[] = [
+  {
+    id: "office-desk",
+    width: 150,
+    height: 130,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 150 130" overflow="visible">
+        <ellipse cx="75" cy="126" rx="66" ry="4" fill={PA_SHADOW} />
+        <rect x="60" y="62" width="62" height="30" fill={PA_MINT_DARK} opacity="0.6" />
+        <rect x="10" y="62" width="50" height="60" rx="4" fill={PA_MINT} />
+        <path d="M60 66v52a4 4 0 0 1-4 4h-4a4 4 0 0 0 4-4V62a4 4 0 0 1 4 4z" fill={PA_MINT_DARK} />
+        {[70, 94].map((y) => (
+          <g key={y}>
+            <rect x="16" y={y} width="36" height="18" rx="3" fill="none" stroke={PA_MINT_DARK} strokeWidth="1.6" />
+            <rect x="27" y={y + 7} width="14" height="4" rx="2" fill={PA_BRONZE} />
+          </g>
+        ))}
+        <rect x="122" y="62" width="18" height="60" rx="4" fill={PA_MINT} />
+        <path d="M140 66v52a4 4 0 0 1-4 4h-3a4 4 0 0 0 4-4V62a4 4 0 0 1 3 4z" fill={PA_MINT_DARK} />
+        <rect x="4" y="54" width="142" height="10" rx="4" fill={PA_WOOD} />
+        <path d="M10 56.5h130" stroke={PA_BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+        <rect x="24" y="47" width="34" height="7" rx="1" fill={PA_IVORY} transform="rotate(-4 40 50)" />
+        <path d="M28 49h22" stroke={PA_IVORY_EDGE} strokeWidth="1.2" transform="rotate(-4 40 50)" />
+        <path d="M75 38l-2-10M79 38v-12M83 38l2-9" stroke="#e3bd6c" strokeWidth="2" strokeLinecap="round" />
+        <rect x="72" y="37" width="14" height="17" rx="2" fill="#e39a82" />
+        <ellipse cx="116" cy="40" rx="20" ry="12" fill="#ffe6a6" opacity="0.45" />
+        <path d="M116 54V30" stroke={PA_BRONZE} strokeWidth="3" />
+        <ellipse cx="116" cy="54" rx="10" ry="3" fill={PA_BRONZE_DARK} />
+        <path d="M100 30h32l-4-12h-24z" fill={PA_TEAL} />
+        <path d="M106 21h14" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.5" />
+        <ellipse cx="116" cy="30" rx="14" ry="2" fill="#fff1c2" />
+      </svg>
+    ),
+  },
+  ...TRANSISTOR_TONES.map(
+    (c): Piece => ({
+      id: `office-chair-${c.name}`,
+      group: "office-chair",
+      width: 84,
+      height: 130,
+      fits: ["RB", "LB"],
+      art: (
+        <svg viewBox="0 0 84 130">
+          <ellipse cx="42" cy="126" rx="32" ry="4" fill={PA_SHADOW} />
+          <path d="M42 84v22" stroke="#6b6660" strokeWidth="5" strokeLinecap="round" />
+          <path d="M14 116 42 106l28 10M24 120l18-14 18 14" stroke="#6b6660" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+          {[
+            [14, 118],
+            [70, 118],
+            [24, 122],
+            [60, 122],
+          ].map(([x, y]) => (
+            <circle key={x} cx={x} cy={y} r="3" fill="#4a443e" />
+          ))}
+          <path d="M42 58v14" stroke="#6b6660" strokeWidth="4" />
+          <rect x="18" y="10" width="48" height="50" rx="16" fill={c.main} />
+          <path d="M66 26v18a16 16 0 0 1-16 16h-6a16 16 0 0 0 16-16V10a16 16 0 0 1 6 16z" fill={c.dark} opacity="0.5" />
+          <path d="M26 20c4-4 10-6 16-6" stroke="white" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.5" />
+          {[
+            [34, 30],
+            [50, 30],
+            [42, 42],
+          ].map(([x, y]) => (
+            <circle key={`${x}-${y}`} cx={x} cy={y} r="1.8" fill={c.dark} />
+          ))}
+          <rect x="10" y="68" width="64" height="18" rx="9" fill={c.dark} />
+          <rect x="12" y="66" width="60" height="13" rx="6.5" fill={c.main} />
+          <path d="M20 69h44" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.45" />
+        </svg>
+      ),
+    }),
+  ),
+  {
+    id: "typewriter",
+    width: 110,
+    height: 74,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 110 74">
+        <ellipse cx="55" cy="46" rx="46" ry="4" fill={PA_SHADOW} />
+        <rect x="36" y="-18" width="38" height="30" rx="1" fill="white" stroke={PA_IVORY_EDGE} strokeWidth="1" />
+        <path d="M41-11h28M41-5h22M41 1h26" stroke={PA_IVORY_EDGE} strokeWidth="1.4" strokeLinecap="round" />
+        <rect x="18" y="8" width="74" height="8" rx="4" fill="#4a443e" />
+        <circle cx="16" cy="12" r="5" fill="#4a443e" />
+        <circle cx="94" cy="12" r="5" fill="#4a443e" />
+        <path d="M14 18h82l8 22a4 4 0 0 1-4 4H10a4 4 0 0 1-4-4z" fill={PA_TEAL} />
+        <path d="M18 21h70" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.4" />
+        {[0, 1].map((row) =>
+          Array.from({ length: 9 - row }, (_, i) => (
+            <circle key={`${row}-${i}`} cx={24 + row * 4 + i * 8} cy={27 + row * 6} r="2.6" fill={PA_IVORY} />
+          )),
+        )}
+        <rect x="36" y="37" width="38" height="4" rx="2" fill={PA_IVORY} />
+      </svg>
+    ),
+  },
+  {
+    id: "water-cooler",
+    width: 70,
+    height: 170,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 70 170">
+        <ellipse cx="35" cy="166" rx="26" ry="4" fill={PA_SHADOW} />
+        <path d="M16 16c0-8 8-12 19-12s19 4 19 12v26c0 6-6 10-14 12h-10c-8-2-14-6-14-12z" fill="#cfe6ea" />
+        <path d="M18 26h34v16c0 5-5 8-12 10h-10c-7-2-12-5-12-10z" fill="#b6d7dd" />
+        <path d="M22 12v30" stroke="white" strokeWidth="2.4" strokeLinecap="round" opacity="0.8" />
+        <rect x="29" y="52" width="12" height="8" fill="#b5d3d8" />
+        <rect x="10" y="58" width="50" height="102" rx="6" fill={PA_IVORY} />
+        <path d="M60 64v90a6 6 0 0 1-6 6h-4a6 6 0 0 0 6-6V58a6 6 0 0 1 4 6z" fill={PA_IVORY_EDGE} opacity="0.7" />
+        <rect x="8" y="56" width="54" height="6" rx="3" fill={PA_IVORY_EDGE} />
+        <rect x="20" y="70" width="28" height="18" rx="3" fill="#e2d6c0" />
+        <rect x="25" y="76" width="6" height="8" rx="2" fill="#e39a82" />
+        <rect x="37" y="76" width="6" height="8" rx="2" fill={PA_TEAL} />
+        <rect x="22" y="92" width="24" height="4" rx="2" fill="#b7b2a6" />
+        <rect x="56" y="70" width="8" height="26" rx="3" fill="#e9e6df" stroke="#b7b2a6" strokeWidth="1" />
+        <path d="M16 100v52" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.5" />
+        <rect x="14" y="158" width="10" height="6" rx="2" fill="#9a9488" />
+        <rect x="46" y="158" width="10" height="6" rx="2" fill="#9a9488" />
+      </svg>
+    ),
+  },
+  {
+    id: "coat-rack",
+    width: 70,
+    height: 190,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 70 190">
+        <ellipse cx="35" cy="186" rx="26" ry="4" fill={PA_SHADOW} />
+        <path d="M35 150 14 184M35 150l21 34M35 150v34" stroke={PA_WOOD_DARK} strokeWidth="3.4" strokeLinecap="round" />
+        <path d="M35 24v130" stroke={PA_WOOD} strokeWidth="5" strokeLinecap="round" />
+        <path d="M35 36c-10-2-16 4-18 10M35 36c10-2 16 4 18 10M35 52c-8 0-12 4-14 8M35 52c8 0 12 4 14 8" stroke={PA_WOOD_DARK} strokeWidth="2.6" fill="none" strokeLinecap="round" />
+        {[
+          [17, 46, PA_TEAL],
+          [21, 60, "#e3bd6c"],
+          [49, 60, PA_TEAL],
+        ].map(([x, y, fill]) => (
+          <circle key={`${x}-${y}`} cx={x} cy={y} r="3.4" fill={fill as string} />
+        ))}
+        <path d="M50 44c3 10 3 30-1 44h-9c2-14 2-30 1-40z" fill="#e39a82" />
+        <path d="M41 62h9M41 72h9" stroke="#f4c2b2" strokeWidth="2" />
+        <path d="M40 88v5M44 88v5M48 88v5" stroke="#c97f68" strokeWidth="1.4" strokeLinecap="round" />
+        <circle cx="53" cy="46" r="3.4" fill="#e39a82" />
+        <path d="M24 24c0-12 4-16 11-16s11 4 11 16z" fill="#8a6a4a" />
+        <rect x="24" y="18" width="22" height="4" fill={PA_TEAL} />
+        <ellipse cx="35" cy="24" rx="18" ry="4" fill="#8a6a4a" />
+        <path d="M28 12c2-2 4-3 7-3" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.35" fill="none" />
+      </svg>
+    ),
+  },
+  {
+    id: "round-speaker",
+    width: 96,
+    height: 96,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 96 96">
+        <rect x="42" y="2" width="12" height="14" rx="3" fill={PA_WOOD_DARK} />
+        <path d="M48 14v12" stroke={PA_BRONZE} strokeWidth="4" />
+        <circle cx="50" cy="60" r="34" fill={PA_SHADOW} />
+        <circle cx="48" cy="58" r="34" fill={PA_WOOD} />
+        <circle cx="48" cy="58" r="27" fill="#e8d6b0" />
+        {[8, 14, 20, 26].map((r) => (
+          <circle key={r} cx="48" cy="58" r={r} fill="none" stroke={PA_WOOD_DARK} strokeWidth="1.4" opacity="0.35" />
+        ))}
+        <circle cx="48" cy="58" r="5" fill={PA_BRONZE} />
+        <path d="M22 48c3-10 10-17 20-20" stroke={PA_BRONZE_LIGHT} strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.7" />
+      </svg>
+    ),
+  },
+  {
+    id: "mail-cubbies",
+    width: 120,
+    height: 86,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 120 86">
+        <rect x="8" y="8" width="108" height="74" rx="4" fill={PA_SHADOW} />
+        <rect x="4" y="4" width="108" height="74" rx="4" fill={PA_WOOD} />
+        <path d="M8 6.5h100" stroke={PA_BRONZE_LIGHT} strokeWidth="1.6" strokeLinecap="round" opacity="0.7" />
+        {[0, 1].flatMap((r) =>
+          [0, 1, 2, 3].map((c) => <rect key={`${r}-${c}`} x={10 + c * 25} y={10 + r * 33} width="21" height="29" rx="2" fill={PA_WOOD_DARK} />),
+        )}
+        {[
+          [0, 0, PA_IVORY],
+          [2, 0, PA_MINT],
+          [3, 0, PA_IVORY],
+          [1, 1, "#f4c2b2"],
+          [3, 1, PA_IVORY],
+        ].map(([c, r, fill]) => {
+          const x = 10 + (c as number) * 25;
+          const y = 10 + (r as number) * 33;
+          return (
+            <g key={`${c}-${r}`}>
+              <rect x={x + 3} y={y + 14} width="15" height="11" rx="1" fill={fill as string} />
+              <path d={`M${x + 3} ${y + 14}l7.5 6 7.5-6`} stroke={PA_IVORY_EDGE} strokeWidth="1" fill="none" />
+            </g>
+          );
+        })}
+      </svg>
+    ),
+  },
+  {
+    id: "applause-sign",
+    group: "sign",
+    width: 112,
+    height: 50,
+    fits: ["T", "T2", "RT", "LT"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 112 50">
+        <path d="M24 6V0M88 6V0" stroke={PA_BRONZE} strokeWidth="1.6" />
+        <rect x="7" y="9" width="104" height="36" rx="6" fill={PA_SHADOW} />
+        <rect x="4" y="6" width="104" height="36" rx="6" fill="#4a443e" />
+        <rect x="9" y="11" width="94" height="26" rx="3" fill="#fbe7d8" />
+        <text x="56" y="29" textAnchor="middle" fontSize="12" fontWeight="800" letterSpacing="2" fill="#c94a3c" fontFamily="inherit">
+          APPLAUSE
+        </text>
+      </svg>
+    ),
+  },
+  {
+    id: "lobby-bench",
+    width: 140,
+    height: 70,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 140 70">
+        <ellipse cx="70" cy="42" rx="62" ry="4" fill={PA_SHADOW} />
+        <path d="M20 22l6 18 6-18M108 22l6 18 6-18" stroke="#4a443e" strokeWidth="2" fill="none" strokeLinejoin="round" />
+        <rect x="12" y="16" width="116" height="8" rx="3" fill={PA_WOOD} />
+        <rect x="14" y="2" width="112" height="16" rx="8" fill={PA_TEAL} />
+        <path d="M22 5h96" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.4" />
+        {[40, 70, 100].map((x) => (
+          <circle key={x} cx={x} cy="10" r="1.8" fill="#4b7671" />
+        ))}
+        <g transform="rotate(-6 102 -1)">
+          <rect x="90" y="-5" width="26" height="7" rx="1" fill={PA_IVORY} />
+          <path d="M93-2h18" stroke={PA_IVORY_EDGE} strokeWidth="1.2" />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    id: "pa-monstera",
+    group: "plant",
+    width: 100,
+    height: 150,
+    fits: ["RB", "LB"],
+    art: <Monstera pot={PA_IVORY} potDark={PA_IVORY_EDGE} leaf="#9fb79a" leafDark="#6f8f73" shadow={PA_SHADOW} />,
+  },
+];
+
+/** More of the firehouse hall: a CO₂ extinguisher, wall cabinets, a hose rack, a sprinkler riser, lockers and the station dog. */
+const FIRE_HALL: Piece[] = [
+  {
+    id: "extinguisher-co2",
+    group: "extinguisher",
+    width: 74,
+    height: 150,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 74 150">
+        <ellipse cx="34" cy="146" rx="24" ry="4" fill={FIRE_SHADOW} />
+        <path d="M40 20c16 4 20 20 20 40v24" stroke="#3f3a36" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <path d="M18 34c0-6 6-10 16-10s16 4 16 10v102a6 6 0 0 1-6 6H24a6 6 0 0 1-6-6z" fill={RED} />
+        <path d="M50 34v102a6 6 0 0 1-6 6h-6a6 6 0 0 0 6-6V34c0-5-4-8-9-9.4C45 25 50 29 50 34z" fill={RED_DARK} opacity="0.7" />
+        <path d="M23 38v92" stroke={RED_LIGHT} strokeWidth="3" strokeLinecap="round" opacity="0.8" />
+        <rect x="22" y="54" width="24" height="30" rx="2" fill={CREAM} />
+        <path d="M27 62h14M27 68h10M27 74h12" stroke={CREAM_EDGE} strokeWidth="2" strokeLinecap="round" />
+        <rect x="28" y="14" width="12" height="12" rx="2" fill="#9a9488" />
+        <path d="M26 12h20l6-4" stroke="#5b4a3c" strokeWidth="3.4" fill="none" strokeLinecap="round" strokeLinejoin="round" />
+        <path d="M54 84h12l6 26H48z" fill="#3f3a36" />
+        <ellipse cx="60" cy="110" rx="12" ry="3" fill="#57504a" />
+      </svg>
+    ),
+  },
+  {
+    id: "extinguisher-cabinet",
+    width: 84,
+    height: 124,
+    fits: ["T", "T2", "RT", "LT"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 84 124">
+        <rect x="10" y="10" width="70" height="110" rx="6" fill={FIRE_SHADOW} />
+        <rect x="6" y="6" width="70" height="110" rx="6" fill={CREAM} />
+        <path d="M12 6h58a6 6 0 0 1 6 6v12H6V12a6 6 0 0 1 6-6z" fill={RED} />
+        <text x="41" y="19" textAnchor="middle" fontSize="9" fontWeight="800" letterSpacing="1.6" fill={CREAM} fontFamily="inherit">
+          FIRE
+        </text>
+        <rect x="13" y="30" width="56" height="78" rx="3" fill={CREAM_SHADE} />
+        <path d="M45 41c8 2 10 10 10 22" stroke="#4a3b30" strokeWidth="2.6" fill="none" strokeLinecap="round" />
+        <path d="M30 52c0-5 5-8 11-8s11 3 11 8v48a4 4 0 0 1-4 4H34a4 4 0 0 1-4-4z" fill={RED} />
+        <path d="M33 54v44" stroke={RED_LIGHT} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+        <rect x="34" y="64" width="14" height="14" rx="1.5" fill={CREAM} />
+        <rect x="37" y="38" width="8" height="7" rx="1.5" fill={FIRE_BRASS} />
+        <rect x="13" y="30" width="56" height="78" rx="3" fill="#dbeef0" opacity="0.3" stroke={CREAM_EDGE} strokeWidth="1.6" />
+        <path d="M19 42l14-8M19 54l26-16" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.7" />
+        <rect x="63" y="62" width="4" height="16" rx="2" fill={FIRE_BRASS} />
+      </svg>
+    ),
+  },
+  {
+    id: "hose-rack",
+    width: 100,
+    height: 124,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 100 124">
+        <path d="M50 0v26" stroke={RED_DARK} strokeWidth="6" />
+        <circle cx="50" cy="12" r="10" fill="none" stroke={RED} strokeWidth="3" />
+        <path d="M40 12h20M50 2v20" stroke={RED} strokeWidth="2" />
+        <circle cx="50" cy="12" r="3" fill={FIRE_BRASS} />
+        {[0, 1, 2, 3, 4, 5].map((i) => (
+          <rect key={i} x={16 + i * 10} y="28" width="10" height={i % 2 ? 66 : 72} rx="5" fill={CREAM} stroke={CREAM_EDGE} strokeWidth="1" />
+        ))}
+        <rect x="12" y="24" width="76" height="8" rx="4" fill={RED} />
+        <path d="M16 26h68" stroke={RED_LIGHT} strokeWidth="1.4" strokeLinecap="round" opacity="0.7" />
+        {[22, 42, 62].map((x) => (
+          <circle key={x} cx={x} cy="28" r="2" fill={FIRE_BRASS_LIGHT} />
+        ))}
+        <path d="M80 32c6 20 6 46 0 66" stroke={CREAM_SHADE} strokeWidth="6" fill="none" strokeLinecap="round" />
+        <path d="M74 96h12l-3 22h-6z" fill={FIRE_BRASS} />
+        <path d="M77 100l1 14" stroke={FIRE_BRASS_LIGHT} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "riser-valve",
+    width: 80,
+    height: 176,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 80 176">
+        <ellipse cx="40" cy="172" rx="28" ry="4" fill={FIRE_SHADOW} />
+        <rect x="32" y="0" width="16" height="166" fill={RED} />
+        <path d="M36 4v158" stroke={RED_LIGHT} strokeWidth="2.4" opacity="0.7" />
+        <path d="M46 0v166" stroke={RED_DARK} strokeWidth="3" opacity="0.6" />
+        <rect x="28" y="38" width="24" height="8" rx="2" fill={RED_DARK} />
+        <rect x="28" y="118" width="24" height="8" rx="2" fill={RED_DARK} />
+        <rect x="22" y="160" width="36" height="8" rx="3" fill="#9a9488" />
+        <rect x="24" y="68" width="32" height="34" rx="6" fill={RED} />
+        <path d="M28 72v26" stroke={RED_LIGHT} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+        <circle cx="40" cy="85" r="11" fill="none" stroke={FIRE_BRASS} strokeWidth="3" />
+        <path d="M29 85h22M40 74v22" stroke={FIRE_BRASS} strokeWidth="2" />
+        <circle cx="40" cy="85" r="3" fill={FIRE_BRASS_LIGHT} />
+        <path d="M48 140h8" stroke="#9a9488" strokeWidth="3" />
+        <circle cx="64" cy="140" r="10" fill={CREAM} stroke="#9a9488" strokeWidth="2" />
+        {[-60, -30, 0, 30, 60].map((a) => (
+          <path key={a} d="M64 132v2" stroke="#8a8175" strokeWidth="1.2" transform={`rotate(${a} 64 140)`} />
+        ))}
+        <path d="M64 140l5-5" stroke={RED_DARK} strokeWidth="1.6" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "gear-locker",
+    width: 92,
+    height: 180,
+    fits: ["RB", "LB"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 92 180">
+        <ellipse cx="46" cy="176" rx="40" ry="4" fill={FIRE_SHADOW} />
+        <rect x="6" y="10" width="80" height="160" rx="5" fill={CREAM} />
+        <path d="M86 16v148a6 6 0 0 1-6 6h-4a6 6 0 0 0 6-6V10a6 6 0 0 1 4 6z" fill={CREAM_SHADE} />
+        {[10, 48].map((x, i) => (
+          <g key={x}>
+            <rect x={x} y="14" width="34" height="142" rx="3" fill={CREAM_SHADE} />
+            {[24, 30, 36].map((y) => (
+              <path key={y} d={`M${x + 8} ${y}h18`} stroke={CREAM_EDGE} strokeWidth="2" strokeLinecap="round" />
+            ))}
+            <rect x={x + 10} y="46" width="14" height="11" rx="2" fill={RED} />
+            <text x={x + 17} y="54.5" textAnchor="middle" fontSize="8" fontWeight="800" fill={CREAM} fontFamily="inherit">
+              {i + 1}
+            </text>
+          </g>
+        ))}
+        <rect x="38" y="84" width="3" height="16" rx="1.5" fill="#9a9488" />
+        <rect x="51" y="84" width="3" height="16" rx="1.5" fill="#9a9488" />
+        <rect x="6" y="156" width="80" height="8" fill={RED} />
+        <rect x="12" y="166" width="10" height="6" rx="2" fill="#9a9488" />
+        <rect x="70" y="166" width="10" height="6" rx="2" fill="#9a9488" />
+      </svg>
+    ),
+  },
+  {
+    id: "evac-map",
+    width: 112,
+    height: 86,
+    fits: ["T", "T2", "RT", "LT"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 112 86">
+        <rect x="8" y="8" width="100" height="74" rx="4" fill={FIRE_SHADOW} />
+        <rect x="4" y="4" width="100" height="74" rx="4" fill={RED} />
+        <rect x="9" y="9" width="90" height="54" rx="2" fill="#fbf6ec" />
+        <path d="M16 16h76v40H16zM16 36h30M60 16v20M60 36h32M46 36v20" stroke="#8a8175" strokeWidth="2" fill="none" />
+        <path d="M30 48h22v-8h16" stroke={RED} strokeWidth="2.4" fill="none" strokeDasharray="4 3" />
+        <path d="M68 36l7 4-7 4z" fill={RED} />
+        <circle cx="30" cy="48" r="3.4" fill="#5f8f89" />
+        <text x="54" y="73.5" textAnchor="middle" fontSize="7.5" fontWeight="800" letterSpacing="1.4" fill={CREAM} fontFamily="inherit">
+          EXIT ROUTE
+        </text>
+      </svg>
+    ),
+  },
+  {
+    id: "extinguisher-sign",
+    group: "sign",
+    width: 112,
+    height: 50,
+    fits: ["T", "T2", "RT", "LT"],
+    noFlip: true,
+    art: (
+      <svg viewBox="0 0 112 50">
+        <rect x="6" y="8" width="102" height="38" rx="5" fill={FIRE_SHADOW} />
+        <rect x="4" y="4" width="102" height="38" rx="5" fill={RED} />
+        <rect x="8" y="8" width="94" height="30" rx="3" fill="none" stroke={CREAM} strokeWidth="1.4" />
+        <path d="M16 18c0-3 2-4 5-4s5 1 5 4v14H16z" fill={CREAM} />
+        <path d="M21 14v-3h5" stroke={CREAM} strokeWidth="1.6" fill="none" />
+        <text x="62" y="21" textAnchor="middle" fontSize="8" fontWeight="800" letterSpacing="0.8" fill={CREAM} fontFamily="inherit">
+          EXTINGUISHER
+        </text>
+        <path d="M44 30h30" stroke={CREAM} strokeWidth="2.4" strokeLinecap="round" />
+        <path d="M74 26l7 4-7 4z" fill={CREAM} />
+      </svg>
+    ),
+  },
+  {
+    id: "dalmatian",
+    width: 120,
+    height: 88,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 120 88">
+        <ellipse cx="60" cy="60" rx="50" ry="4" fill={FIRE_SHADOW} />
+        <g transform="translate(0 14)">
+        <rect x="10" y="26" width="100" height="18" rx="9" fill={RED} />
+        <path d="M18 30h84" stroke={RED_LIGHT} strokeWidth="2" strokeLinecap="round" opacity="0.7" />
+        <path d="M98 20c10 2 14 8 12 14" stroke="#d9d2c6" strokeWidth="5.6" fill="none" strokeLinecap="round" />
+        <path d="M98 20c10 2 14 8 12 14" stroke="white" strokeWidth="4" fill="none" strokeLinecap="round" />
+        <ellipse cx="66" cy="16" rx="34" ry="13" fill="white" stroke="#d9d2c6" strokeWidth="1.2" />
+        <rect x="20" y="22" width="32" height="8" rx="4" fill="white" stroke="#d9d2c6" strokeWidth="1.2" />
+        <ellipse cx="32" cy="8" rx="14" ry="12" fill="white" stroke="#d9d2c6" strokeWidth="1.2" />
+        <ellipse cx="22" cy="13" rx="8" ry="6" fill="white" />
+        <circle cx="16" cy="12" r="2.4" fill="#3f3a36" />
+        <path d="M27 5q3 2 6 0" stroke="#3f3a36" strokeWidth="1.4" fill="none" strokeLinecap="round" />
+        <path d="M38-2c8 2 10 10 6 16-4-2-8-8-6-16z" fill="#3f3a36" />
+        {[
+          [56, 8, 3],
+          [70, 5, 2.4],
+          [82, 13, 3.2],
+          [64, 21, 2.2],
+          [90, 21, 2],
+          [48, 18, 2],
+          [28, 0, 1.6],
+          [36, 26, 1.6],
+        ].map(([cx, cy, r]) => (
+          <circle key={`${cx}-${cy}`} cx={cx} cy={cy} r={r} fill="#3f3a36" />
+        ))}
+        <path d="M43 10q4 6 2 12" stroke={RED} strokeWidth="3" fill="none" strokeLinecap="round" />
+        <circle cx="46" cy="22" r="2.4" fill={FIRE_BRASS} />
+        </g>
+      </svg>
+    ),
+  },
+  {
+    id: "fire-cactus",
+    group: "plant",
+    width: 80,
+    height: 120,
+    fits: ["RB", "LB", "B", "B2"],
+    art: (
+      <svg viewBox="0 0 80 120">
+        <ellipse cx="40" cy="116" rx="24" ry="4" fill={FIRE_SHADOW} />
+        <path d="M32 58h-8a6 6 0 0 1-6-6V40a4 4 0 0 1 8 0v10h6zM48 48h8V36a4 4 0 0 1 8 0v14a6 6 0 0 1-6 6H48z" fill="#7f9f78" />
+        <path d="M32 76V30a8 8 0 0 1 16 0v46z" fill="#8fae86" />
+        <path d="M37 30v44M43 30v44" stroke="#6f8f68" strokeWidth="1.2" opacity="0.7" />
+        <path d="M35 28c0-3 1-5 3-6" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.5" fill="none" />
+        <circle cx="40" cy="21" r="3" fill={RED_LIGHT} />
+        <path d="M22 76h36l-4 34a6 6 0 0 1-6 5H32a6 6 0 0 1-6-5z" fill={CREAM} />
+        <rect x="24" y="86" width="32" height="5" fill={RED} />
+        <rect x="20" y="72" width="40" height="8" rx="4" fill={CREAM_SHADE} />
+      </svg>
+    ),
+  },
+];
+
+function WringerWasher({ k }: { k: Kitchen }) {
+  return (
+    <svg viewBox="0 0 90 170">
+      <ellipse cx="45" cy="166" rx="36" ry="4" fill={PLUMB_SHADOW} />
+      <path d="M24 128 18 162M66 128l6 34M45 130v32" stroke={CHROME_EDGE} strokeWidth="3.4" strokeLinecap="round" />
+      {[18, 72, 45].map((x) => (
+        <circle key={x} cx={x} cy="163" r="3" fill="#9a9488" />
+      ))}
+      <path d="M12 70h66l-4 54a8 8 0 0 1-8 7H24a8 8 0 0 1-8-7z" fill={k.body} />
+      <path d="M78 70l-4 54a8 8 0 0 1-8 7h-6a8 8 0 0 0 8-7l4-54z" fill={k.side} />
+      <path d="M20 80l3 40" stroke="white" strokeWidth="2.6" strokeLinecap="round" opacity="0.6" />
+      <rect x="8" y="64" width="74" height="10" rx="5" fill={k.side} />
+      <rect x="20" y="28" width="6" height="38" rx="2" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+      <rect x="64" y="28" width="6" height="38" rx="2" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+      <rect x="16" y="24" width="58" height="6" rx="3" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+      <rect x="18" y="34" width="54" height="8" rx="4" fill="#f6f1e7" stroke={CHROME_EDGE} strokeWidth="1" />
+      <rect x="18" y="44" width="54" height="8" rx="4" fill="#f6f1e7" stroke={CHROME_EDGE} strokeWidth="1" />
+      <path d="M72 38l12-8" stroke={CHROME_EDGE} strokeWidth="2.6" strokeLinecap="round" />
+      <circle cx="84" cy="30" r="3.4" fill={COPPER} />
+    </svg>
+  );
+}
+
+const PEDAL_BINS = [KITCHEN_MINT, KITCHEN_BLUSH] as const;
+
+/** A laundry corner, a linen cupboard, a café window and small kitchen and bath odds and ends. */
+const PLUMBING_HOME: Piece[] = [
+  ...[KITCHEN_MINT, KITCHEN_BUTTER, KITCHEN_POWDER].map(
+    (k): Piece => ({
+      id: `washer-${k.name}`,
+      group: "washer",
+      width: 90,
+      height: 170,
+      fits: ["RB", "LB"],
+      art: <WringerWasher k={k} />,
+    }),
+  ),
+  {
+    id: "linen-cabinet",
+    width: 80,
+    height: 184,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 80 184">
+        <ellipse cx="40" cy="180" rx="32" ry="4" fill={PLUMB_SHADOW} />
+        <rect x="8" y="8" width="64" height="166" rx="5" fill={STONE} />
+        <path d="M72 14v154a6 6 0 0 1-6 6h-4a6 6 0 0 0 6-6V8a6 6 0 0 1 4 6z" fill={STONE_SHADE} />
+        <rect x="4" y="4" width="72" height="8" rx="4" fill={STONE_SHADE} />
+        <rect x="14" y="18" width="52" height="82" rx="3" fill="#e6f0ee" stroke={STONE_SHADE} strokeWidth="2" />
+        <path d="M16 58h48" stroke={STONE_SHADE} strokeWidth="2" />
+        <rect x="18" y="44" width="22" height="7" rx="3" fill={KITCHEN_BLUSH.body} />
+        <rect x="18" y="51" width="22" height="7" rx="3" fill={KITCHEN_MINT.body} />
+        <rect x="18" y="37" width="22" height="7" rx="3" fill={KITCHEN_BUTTER.body} />
+        <rect x="44" y="46" width="18" height="12" rx="3" fill={KITCHEN_POWDER.body} />
+        <rect x="18" y="90" width="44" height="8" rx="3" fill={KITCHEN_POWDER.body} />
+        <rect x="20" y="82" width="40" height="8" rx="3" fill={KITCHEN_BLUSH.body} />
+        <rect x="22" y="74" width="16" height="8" rx="3" fill={KITCHEN_BUTTER.body} />
+        <path d="M20 30l14-10" stroke="white" strokeWidth="2" strokeLinecap="round" opacity="0.8" />
+        <rect x="14" y="108" width="52" height="58" rx="3" fill="none" stroke={STONE_SHADE} strokeWidth="2" />
+        <circle cx="58" cy="136" r="3" fill={COPPER} />
+        <rect x="12" y="172" width="10" height="6" rx="2" fill={WOOD_SHADE} />
+        <rect x="58" y="172" width="10" height="6" rx="2" fill={WOOD_SHADE} />
+      </svg>
+    ),
+  },
+  {
+    id: "vanity-mirror",
+    width: 120,
+    height: 100,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 120 100">
+        {[14, 106].map((x) => (
+          <g key={x}>
+            <circle cx={x} cy="24" r="14" fill="#fff3cc" opacity="0.5" />
+            <rect x={x - 4} y="32" width="8" height="20" rx="3" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+            <ellipse cx={x} cy="24" rx="7" ry="10" fill="#fbf3df" stroke={CHROME_EDGE} strokeWidth="1" />
+          </g>
+        ))}
+        <circle cx="61.5" cy="51.5" r="38" fill={PLUMB_SHADOW} />
+        <circle cx="60" cy="50" r="38" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1.4" />
+        <circle cx="60" cy="50" r="33" fill="#dfe9ea" />
+        <path d="M40 42c3-9 10-15 19-17M42 58l22-22" stroke="white" strokeWidth="2.6" strokeLinecap="round" fill="none" opacity="0.8" />
+      </svg>
+    ),
+  },
+  {
+    id: "pan-rail",
+    width: 124,
+    height: 90,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 124 90">
+        <rect x="8" y="8" width="108" height="6" rx="3" fill={COPPER} />
+        <path d="M12 9.5h100" stroke={COPPER_LIGHT} strokeWidth="1.4" strokeLinecap="round" />
+        <circle cx="8" cy="11" r="4" fill={COPPER} />
+        <circle cx="116" cy="11" r="4" fill={COPPER} />
+        {[24, 52, 82, 104].map((x) => (
+          <path key={x} d={`M${x} 14c-4 2-4 6 0 8`} stroke={CHROME_EDGE} strokeWidth="1.6" fill="none" />
+        ))}
+        <rect x="22" y="22" width="4" height="26" rx="2" fill="#4a443e" />
+        <circle cx="24" cy="64" r="16" fill={COPPER} />
+        <circle cx="24" cy="64" r="11" fill="#a5633a" opacity="0.5" />
+        <path d="M14 56c2-4 6-6 10-6" stroke={COPPER_LIGHT} strokeWidth="2" strokeLinecap="round" fill="none" />
+        <path d="M52 22v40" stroke={CHROME_EDGE} strokeWidth="3" strokeLinecap="round" />
+        <path d="M44 62a8 8 0 0 0 16 0z" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+        <rect x="80" y="22" width="4" height="22" rx="2" fill="#4a443e" />
+        <rect x="68" y="44" width="28" height="26" rx="4" fill={COPPER} />
+        <rect x="66" y="42" width="32" height="5" rx="2.5" fill="#a5633a" />
+        <path d="M72 50v14" stroke={COPPER_LIGHT} strokeWidth="2" strokeLinecap="round" />
+        <path d="M104 22v26" stroke={WOOD_SHADE} strokeWidth="3" strokeLinecap="round" />
+        <rect x="99" y="48" width="10" height="16" rx="3" fill={WOOD} />
+      </svg>
+    ),
+  },
+  {
+    id: "cafe-window",
+    width: 112,
+    height: 104,
+    fits: ["T", "T2", "RT", "LT"],
+    art: (
+      <svg viewBox="0 0 112 104">
+        <rect x="10" y="8" width="96" height="86" rx="4" fill={PLUMB_SHADOW} />
+        <rect x="6" y="4" width="96" height="86" rx="4" fill="#fbf8f1" stroke={STONE_SHADE} strokeWidth="1.6" />
+        <rect x="12" y="10" width="84" height="74" rx="2" fill="#d7e9ee" />
+        <ellipse cx="34" cy="24" rx="10" ry="5" fill="white" opacity="0.9" />
+        <ellipse cx="42" cy="21" rx="8" ry="5" fill="white" opacity="0.9" />
+        <ellipse cx="76" cy="30" rx="8" ry="4" fill="white" opacity="0.8" />
+        <path d="M54 10v74M12 42h84" stroke="#fbf8f1" strokeWidth="4" />
+        {[12, 56].map((x) => (
+          <g key={x}>
+            <rect x={x} y="44" width="40" height="40" fill={KITCHEN_BLUSH.body} />
+            {[6, 14, 22, 30].map((dx) => (
+              <path key={`v${dx}`} d={`M${x + dx} 44v40`} stroke="white" strokeWidth="2.4" opacity="0.55" />
+            ))}
+            {[52, 60, 68, 76].map((y) => (
+              <path key={`h${y}`} d={`M${x} ${y}h40`} stroke="white" strokeWidth="2.4" opacity="0.55" />
+            ))}
+          </g>
+        ))}
+        <rect x="2" y="41" width="104" height="3.4" rx="1.7" fill={COPPER} />
+        <rect x="0" y="86" width="108" height="8" rx="3" fill={STONE} stroke={STONE_SHADE} strokeWidth="1" />
+        <LittlePot x={84} y={88} pot={KITCHEN_MINT.body} rim={KITCHEN_MINT.side} leaf="#a3b88e" leafDark={SAGE_DARK} />
+      </svg>
+    ),
+  },
+  {
+    id: "kettle",
+    width: 80,
+    height: 74,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 80 74">
+        <ellipse cx="40" cy="46" rx="30" ry="4" fill={PLUMB_SHADOW} />
+        <path d="M58 22c8-4 12-12 14-18l4 2c-2 10-6 18-14 24z" fill={KITCHEN_BUTTER.side} />
+        <path d="M24 12c0-18 32-18 32 0" stroke="#4a443e" strokeWidth="3.4" fill="none" strokeLinecap="round" />
+        <path d="M16 42c-2-20 8-32 24-32s26 12 24 32z" fill={KITCHEN_BUTTER.body} />
+        <path d="M64 42c1-14-4-24-12-29 10 3 15 14 14 29z" fill={KITCHEN_BUTTER.side} />
+        <rect x="16" y="38" width="48" height="4" rx="2" fill={KITCHEN_BUTTER.line} />
+        <ellipse cx="40" cy="11" rx="14" ry="3.4" fill={KITCHEN_BUTTER.side} />
+        <circle cx="40" cy="7" r="3.4" fill="#4a443e" />
+        <path d="M22 32c0-8 4-14 10-17" stroke="white" strokeWidth="2.4" strokeLinecap="round" fill="none" opacity="0.7" />
+        {[-5, 0, 5].map((dx, i) => (
+          <circle key={dx} cx={42 + dx} cy={i === 1 ? 24 : 27} r="2.4" fill={i === 1 ? "#e39a82" : "#a3b88e"} />
+        ))}
+      </svg>
+    ),
+  },
+  ...PEDAL_BINS.map(
+    (k): Piece => ({
+      id: `pedal-bin-${k.name}`,
+      group: "pedal-bin",
+      width: 64,
+      height: 80,
+      fits: ["B", "B2"],
+      art: (
+        <svg viewBox="0 -24 64 80">
+          <ellipse cx="32" cy="52" rx="22" ry="4" fill={PLUMB_SHADOW} />
+          <rect x="22" y="46" width="20" height="5" rx="2" fill={CHROME_EDGE} />
+          <path d="M12 12h40l-3 36a4 4 0 0 1-4 4H19a4 4 0 0 1-4-4z" fill={k.body} />
+          <path d="M52 12l-3 36a4 4 0 0 1-4 4h-4a4 4 0 0 0 4-4l3-36z" fill={k.side} />
+          <path d="M14 22h36" stroke={k.line} strokeWidth="1.6" />
+          <path d="M18 18l2 28" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.6" />
+          <path d="M10 12c0-8 10-12 22-12s22 4 22 12z" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+          <rect x="10" y="10" width="44" height="4" rx="2" fill={CHROME_EDGE} />
+          <path d="M18 6c4-3 8-4 12-4" stroke="white" strokeWidth="1.6" strokeLinecap="round" fill="none" />
+        </svg>
+      ),
+    }),
+  ),
+  {
+    id: "bath-scale",
+    width: 90,
+    height: 64,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 90 64">
+        <ellipse cx="45" cy="36" rx="38" ry="4" fill={PLUMB_SHADOW} />
+        <rect x="10" y="12" width="70" height="22" rx="6" fill={KITCHEN_POWDER.body} />
+        <path d="M80 18v10a6 6 0 0 1-6 6h-4a6 6 0 0 0 6-6V12a6 6 0 0 1 4 6z" fill={KITCHEN_POWDER.side} />
+        <rect x="10" y="10" width="70" height="7" rx="3.5" fill="#e3eef3" />
+        <rect x="34" y="18" width="22" height="13" rx="4" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="1" />
+        <rect x="37" y="20" width="16" height="8" rx="2" fill="#fbf6ec" />
+        {[40, 43, 46, 49].map((x) => (
+          <path key={x} d={`M${x} 20v2`} stroke="#8a8175" strokeWidth="0.9" />
+        ))}
+        <path d="M45 27l2-5" stroke="#c94a3c" strokeWidth="1.2" strokeLinecap="round" />
+      </svg>
+    ),
+  },
+  {
+    id: "herb-pots",
+    width: 110,
+    height: 80,
+    fits: ["B", "B2"],
+    art: (
+      <svg viewBox="0 -24 110 80">
+        <ellipse cx="55" cy="52" rx="46" ry="4" fill={PLUMB_SHADOW} />
+        <rect x="10" y="44" width="90" height="6" rx="3" fill={WOOD} />
+        <path d="M14 45.5h82" stroke="white" strokeWidth="1.2" strokeLinecap="round" opacity="0.5" />
+        <LittlePot x={30} y={44} pot={COPPER} rim={COPPER_LIGHT} leaf="#a3b88e" leafDark={SAGE_DARK} />
+        <LittlePot x={55} y={44} pot={KITCHEN_MINT.body} rim={KITCHEN_MINT.side} leaf={SAGE} leafDark="#6f8a5e" />
+        <LittlePot x={80} y={44} pot={KITCHEN_BUTTER.body} rim={KITCHEN_BUTTER.side} leaf="#a3b88e" leafDark={SAGE_DARK} trail />
+      </svg>
+    ),
+  },
+  {
+    id: "pothos-stand",
+    group: "plant",
+    width: 84,
+    height: 150,
+    fits: ["RB", "LB"],
+    art: (
+      <svg viewBox="0 0 84 150">
+        <ellipse cx="42" cy="146" rx="26" ry="4" fill={PLUMB_SHADOW} />
+        <path d="M30 74 22 144M54 74l8 70M42 74v70" stroke={COPPER} strokeWidth="2.6" strokeLinecap="round" />
+        <path d="M26 110h32" stroke={COPPER} strokeWidth="2" />
+        <ellipse cx="42" cy="74" rx="18" ry="3.4" fill={COPPER} />
+        {[
+          [28, 46, -60, true],
+          [56, 46, 60, true],
+          [34, 38, -30, false],
+          [50, 36, 30, false],
+          [42, 32, 0, true],
+        ].map(([cx, cy, rot, dark]) => (
+          <ellipse
+            key={`${cx}-${cy}`}
+            cx={cx as number}
+            cy={cy as number}
+            rx="6"
+            ry="10"
+            fill={dark ? SAGE_DARK : "#a3b88e"}
+            transform={`rotate(${rot} ${cx} ${cy})`}
+          />
+        ))}
+        <path d="M26 54h32l-4 18a4 4 0 0 1-4 3H34a4 4 0 0 1-4-3z" fill={KITCHEN_BLUSH.body} />
+        <rect x="24" y="50" width="36" height="7" rx="3.5" fill={KITCHEN_BLUSH.side} />
+        <path d="M27 58C14 74 14 100 20 124M57 58c12 14 12 34 6 52" stroke={SAGE_DARK} strokeWidth="1.6" fill="none" strokeLinecap="round" />
+        {[
+          [19, 76],
+          [16, 92],
+          [18, 108],
+          [21, 122],
+          [66, 74],
+          [68, 90],
+          [64, 106],
+        ].map(([cx, cy], i) => (
+          <ellipse key={`${cx}-${cy}`} cx={cx} cy={cy} rx="4.4" ry="6.4" fill={i % 2 ? SAGE_DARK : "#a3b88e"} />
+        ))}
+      </svg>
+    ),
+  },
+];
+
 const PIECES: Record<ThemeId, Piece[]> = {
-  lights: [...LIGHTS, ...LIGHTS_MORE, ...LIGHTS_DEN],
-  alarm: [...PA_ROOM, ...PA_MORE, ...PA_STUDIO],
-  fire: [...FIRE, ...FIRE_MORE, ...FIRE_STATION],
-  plumbing: [...PLUMBING, ...PLUMBING_MORE, ...PLUMBING_KITCHEN_BATH],
+  lights: [...LIGHTS, ...LIGHTS_MORE, ...LIGHTS_DEN, ...LIGHTS_LOUNGE],
+  alarm: [...PA_ROOM, ...PA_MORE, ...PA_STUDIO, ...PA_OFFICE],
+  fire: [...FIRE, ...FIRE_MORE, ...FIRE_STATION, ...FIRE_HALL],
+  plumbing: [...PLUMBING, ...PLUMBING_MORE, ...PLUMBING_KITCHEN_BATH, ...PLUMBING_HOME],
 };
 function random(seed: number): () => number {
   let state = seed >>> 0;
