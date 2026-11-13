@@ -1732,14 +1732,15 @@
   border-radius: 13px;
 }
 
-/* Taller boards give a row back to the controls, so the grid still fits the screen. */
+/* A 7×9 keeps the same width as a 7×8, so the tiles stay the same size. The extra row uses the open space above and below the board instead of shrinking it. */
 @media (min-width: 720px) {
-  .path-connect[data-style="cozy"] .pc-shell[data-rows="8"] {
+  .path-connect[data-style="cozy"] .pc-shell[data-rows="8"],
+  .path-connect[data-style="cozy"] .pc-shell[data-rows="9"] {
     --pc-board: min(520px, calc(100vw - 76px), calc(100dvh - 370px));
   }
 
-  .path-connect[data-style="cozy"] .pc-shell[data-rows="9"] {
-    --pc-board: min(460px, calc(100vw - 76px), calc((100dvh - 390px) * 7 / 9));
+  .path-connect[data-style="cozy"] .pc-shell[data-rows="9"] .pc-stage {
+    padding: 44px 0 24px;
   }
 }
 
