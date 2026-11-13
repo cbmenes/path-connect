@@ -79,7 +79,7 @@ import {
 } from "@/lib/path-connect/fixture-colors";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
-import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
+import { lessonCopy, themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
 import { Surroundings } from "@/components/path-connect/surroundings";
 import { TileArt } from "@/components/path-connect/tile-art";
 
@@ -1112,8 +1112,7 @@ function PowerLesson({
   onNext: () => void;
   onDone: () => void;
 }) {
-  const source = theme.source.toLowerCase();
-  const nodes = theme.nodePlural[0]!.toUpperCase() + theme.nodePlural.slice(1);
+  const copy = lessonCopy(theme);
 
   useEffect(() => {
     const onKey = (event: KeyboardEvent) => {
@@ -1141,17 +1140,16 @@ function PowerLesson({
         {step === 1 ? (
           <>
             <h3 id="pc-lesson-title" className="pc-ad-title">
-              Power starts at the {source}
+              {copy.title1}
             </h3>
             <p id="pc-lesson-body" className="pc-ad-body">
-              Connect the pipes so power reaches every {theme.node}. It flows only through pipe ends that
-              face each other.
+              {copy.body1}
             </p>
             <p className="pc-lesson-note">
               <span className="pc-lesson-icon" aria-hidden="true">
                 <SourceGlyph theme={theme.id} />
               </span>
-              The {source} is the only power source
+              {copy.note1}
             </p>
             {tip && (
               <p className="pc-lesson-tip">
@@ -1163,17 +1161,16 @@ function PowerLesson({
         ) : (
           <>
             <h3 id="pc-lesson-title" className="pc-ad-title">
-              Branch out to every {theme.node}
+              {copy.title2}
             </h3>
             <p id="pc-lesson-body" className="pc-ad-body">
-              Power stops at each {theme.node}. {nodes} don't pass it on, so every {theme.node} needs its own
-              path back to the {source}.
+              {copy.body2}
             </p>
             <p className="pc-lesson-note">
               <span className="pc-lesson-icon pc-lesson-stop-icon" aria-hidden="true">
                 <Ban />
               </span>
-              {nodes} don't pass power on
+              {copy.note2}
             </p>
           </>
         )}

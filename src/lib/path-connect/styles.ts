@@ -59,7 +59,7 @@ export const THEMES: readonly CircuitTheme[] = [
     source: "Fire panel",
     node: "detector",
     nodePlural: "detectors",
-    rule: "Turn a tile a quarter turn. A detector arms only when the pipes face each other all the way from the fire panel.",
+    rule: "Turn a tile a quarter turn. A device arms only when the pipes face each other all the way from the fire panel.",
     live: "The detectors are arming.",
     complete: "Every detector is armed.",
     conduit: "pipe",
@@ -83,5 +83,34 @@ export const DEFAULT_THEME: ThemeId = "lights";
 
 export function themeById(id: ThemeId): CircuitTheme {
   return THEMES.find((theme) => theme.id === id) ?? THEMES[0]!;
+}
+
+/**
+ * Wording for the two how-to-play cards. Plumbing talks about water, and Fire
+ * Safety talks about devices. Lighting and Public Announcement stay on power,
+ * which is also the first-time tutorial.
+ */
+export function lessonCopy(theme: CircuitTheme): {
+  title1: string;
+  body1: string;
+  note1: string;
+  title2: string;
+  body2: string;
+  note2: string;
+} {
+  const flow = theme.id === "plumbing" ? "water" : "power";
+  const Flow = flow === "water" ? "Water" : "Power";
+  const node = theme.id === "fire" ? "device" : theme.node;
+  const nodePlural = theme.id === "fire" ? "devices" : theme.nodePlural;
+  const Nodes = nodePlural[0]!.toUpperCase() + nodePlural.slice(1);
+  const source = theme.source.toLowerCase();
+  return {
+    title1: `${Flow} starts at the ${source}`,
+    body1: `Connect the pipes so ${flow} reaches every ${node}. It flows only through pipe ends that face each other.`,
+    note1: `The ${source} is the only ${flow} source`,
+    title2: `Branch out to every ${node}`,
+    body2: `${Flow} stops at each ${node}. ${Nodes} don't pass it on, so every ${node} needs its own path back to the ${source}.`,
+    note2: `${Nodes} don't pass ${flow} on`,
+  };
 }
 

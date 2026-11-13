@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import { CHAPTERS, LEVELS } from "./levels.ts";
-import { THEMES, themeById } from "./styles.ts";
+import { THEMES, lessonCopy, themeById } from "./styles.ts";
 
 test("Plumbing joins the three systems as a fourth level theme", () => {
   assert.deepEqual(
@@ -61,4 +61,56 @@ test("the first level and Lighting tip name the house as the power source", () =
   assert.equal(lighting.source, "House");
   assert.match(lighting.rule, /^Power starts at the house\./);
   assert.match(LEVELS[0]!.blurb, /^Power starts at the house\./);
+});
+
+test("how-to-play cards talk about water on Plumbing and devices on Fire Safety", () => {
+  const plumbing = lessonCopy(themeById("plumbing"));
+  assert.equal(plumbing.title1, "Water starts at the water main");
+  assert.equal(
+    plumbing.body1,
+    "Connect the pipes so water reaches every fixture. It flows only through pipe ends that face each other.",
+  );
+  assert.equal(plumbing.note1, "The water main is the only water source");
+  assert.match(
+    themeById("plumbing").rule,
+    /A fixture fills only when the pipes face each other all the way from the water main\./,
+  );
+  assert.equal(
+    plumbing.body2,
+    "Water stops at each fixture. Fixtures don't pass it on, so every fixture needs its own path back to the water main.",
+  );
+  assert.equal(plumbing.note2, "Fixtures don't pass water on");
+
+  const fire = lessonCopy(themeById("fire"));
+  assert.equal(fire.title1, "Power starts at the fire panel");
+  assert.equal(
+    fire.body1,
+    "Connect the pipes so power reaches every device. It flows only through pipe ends that face each other.",
+  );
+  assert.equal(fire.note1, "The fire panel is the only power source");
+  assert.match(
+    themeById("fire").rule,
+    /A device arms only when the pipes face each other all the way from the fire panel\./,
+  );
+  assert.equal(
+    fire.body2,
+    "Power stops at each device. Devices don't pass it on, so every device needs its own path back to the fire panel.",
+  );
+  assert.equal(fire.note2, "Devices don't pass power on");
+});
+
+test("the first-time lesson and the other themes still talk about power", () => {
+  const lighting = lessonCopy(themeById("lights"));
+  assert.equal(lighting.title1, "Power starts at the house");
+  assert.match(lighting.body1, /power reaches every light/);
+  assert.equal(lighting.note1, "The house is the only power source");
+  assert.match(lighting.body2, /^Power stops at each light\. Lights don't pass it on/);
+  assert.equal(lighting.note2, "Lights don't pass power on");
+  assert.match(themeById("lights").rule, /^Power starts at the house\./);
+
+  const alarm = lessonCopy(themeById("alarm"));
+  assert.equal(alarm.title1, "Power starts at the house");
+  assert.match(alarm.body1, /power reaches every speaker/);
+  assert.equal(alarm.note2, "Speakers don't pass power on");
+  assert.match(themeById("alarm").rule, /A speaker comes on only when/);
 });
