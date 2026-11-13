@@ -1316,7 +1316,7 @@ const CHAPTER_NOTES: Record<ThemeId, string> = {
   lights: "Bulbs, sage lamps, caged lights, and sconces",
   plumbing: "Tubs, toilets, and sinks",
   alarm: "Horns, microphones, radios, and phones",
-  fire: "Bull horns, bells, and pull stations",
+  fire: "Bull horns, bells, pull stations, and heat detectors",
 };
 
 export const CHAPTERS: readonly Chapter[] = THEME_ORDER.map((theme) => ({

@@ -1776,7 +1776,7 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: Lighting cycles bulb, lamp, bulb, caged light, sconce with each lamp and sconce in its `lamp` / `sconce` pastel; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone with each telephone in its `phone` pastel; fire cycles bull horn, bell, pull station. */
+/** `fixture` is the node's place in board order: Lighting cycles bulb, lamp, bulb, caged light, sconce with each lamp and sconce in its `lamp` / `sconce` pastel; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone with each telephone in its `phone` pastel; fire cycles bull horn, bell, pull station, heat detector. */
 function NodeGlyph({
   theme,
   on,
@@ -1809,9 +1809,10 @@ function NodeGlyph({
     return <Telephone on={on} paint={PHONE_PAINT[phone]} />;
   }
   if (theme === "fire") {
-    const pick = fixture % 3;
+    const pick = fixture % 4;
     if (pick === 0) return <Horn on={on} />;
     if (pick === 1) return <FireBell on={on} />;
+    if (pick === 3) return <HeatDetector on={on} />;
     return <PullStation on={on} />;
   }
   const pick = fixture % 5;
@@ -2095,6 +2096,53 @@ function PullStation({ on }: { on: boolean }) {
       <circle cx="18.2" cy="46.4" r="1.2" fill="#f0cf86" />
       <circle cx="35.4" cy="46.4" r="1.2" fill="#f0cf86" />
       {on && <circle cx="26.8" cy="13.2" r="8" fill={FIRE_GLOW} opacity="0.35" />}
+    </svg>
+  );
+}
+
+const DETECTOR_BRASS = "#cdb067";
+const DETECTOR_BRASS_LIGHT = "#f1e0a8";
+const DETECTOR_BRASS_DARK = "#8e7536";
+const DETECTOR_CHROME = "#efeadf";
+const DETECTOR_CHROME_EDGE = "#8f8778";
+
+/** 1950s heat detector: a round brass dome with a chrome ring, four slim chrome star points, and an ivory sensor ringed in red. */
+function HeatDetector({ on }: { on: boolean }) {
+  const id = svgId(useId());
+  return (
+    <svg viewBox="0 0 56 56" className={on ? "pc-glyph pc-badge is-on" : "pc-glyph pc-badge"}>
+      <defs>
+        <radialGradient id={`${id}d`} cx="0.36" cy="0.32" r="0.75">
+          <stop offset="0" stopColor={DETECTOR_BRASS_LIGHT} />
+          <stop offset="0.45" stopColor={DETECTOR_BRASS} />
+          <stop offset="1" stopColor={DETECTOR_BRASS_DARK} />
+        </radialGradient>
+      </defs>
+      <ellipse cx="29" cy="52" rx="19" ry="2.6" fill="#3f2a22" opacity="0.16" />
+      <circle cx="28" cy="28" r="23.4" fill={DETECTOR_BRASS_DARK} />
+      <circle cx="27.6" cy="27.4" r="22.6" fill={`url(#${id}d)`} />
+      <path d="M10.4 20.4A19 19 0 0 1 22 8.6" fill="none" stroke="white" strokeWidth="2.2" strokeLinecap="round" opacity="0.5" />
+      <g transform="rotate(-14 28 28)">
+        {[0, 90, 180, 270].map((angle) => (
+          <path
+            key={angle}
+            d="M26.6 18.4 28 6.4l1.4 12z"
+            transform={`rotate(${angle} 28 28)`}
+            fill={DETECTOR_CHROME}
+            stroke={DETECTOR_CHROME_EDGE}
+            strokeWidth="0.7"
+            strokeLinejoin="round"
+          />
+        ))}
+      </g>
+      <circle cx="28" cy="28" r="10.6" fill="none" stroke={DETECTOR_CHROME_EDGE} strokeWidth="2.6" />
+      <circle cx="28" cy="28" r="10.6" fill="none" stroke={DETECTOR_CHROME} strokeWidth="1.5" />
+      <circle cx="28" cy="28.4" r="7.6" fill={DETECTOR_BRASS_DARK} opacity="0.5" />
+      <circle cx="28" cy="28" r="7.4" fill={DETECTOR_BRASS} stroke={DETECTOR_BRASS_DARK} strokeWidth="0.7" />
+      <path d="M23.4 25.6a5.4 5.4 0 0 1 4-3.2" fill="none" stroke={DETECTOR_BRASS_LIGHT} strokeWidth="1.2" strokeLinecap="round" />
+      <circle cx="28" cy="28" r="3.9" fill={on ? FIRE_GLOW : FIRE_IVORY} stroke={FIRE_RED} strokeWidth="1.4" />
+      <circle cx="27.1" cy="27.1" r="1" fill="white" opacity="0.9" />
+      {on && <circle cx="28" cy="28" r="12.6" fill="none" stroke={FIRE_GLOW} strokeWidth="1.2" opacity="0.7" />}
     </svg>
   );
 }
