@@ -2,7 +2,15 @@ import assert from "node:assert/strict";
 import { describe, it } from "node:test";
 import { DAILY_CEILING_SECONDS, DAILY_FLOOR_SECONDS, boardCells, estimateSeconds } from "./levels.ts";
 import { reachTargets } from "./logic.ts";
-import { EMPTY_STATS, dailyLevel, dateKey, parseStats, recordFinish, untilNextDaily } from "./daily.ts";
+import {
+  EMPTY_STATS,
+  dailyLevel,
+  dateKey,
+  parseStats,
+  recordFinish,
+  settleStreak,
+  untilNextDaily,
+} from "./daily.ts";
 
 const YEAR = Array.from({ length: 365 }, (_, day) => dailyLevel(new Date(Date.UTC(2026, 0, 1 + day, 12))));
 
@@ -79,11 +87,15 @@ describe("daily personal bests", () => {
       bestSeconds: 140,
       bestTurns: 30,
       days: { "2026-11-07": { seconds: 140, turns: 30 } },
+      streak: 1,
+      longest: 1,
     });
+    assert.equal(result.streak, 1);
+    assert.equal(result.milestone, null);
   });
 
   it("improves time and turns separately", () => {
-    const start = { bestSeconds: 140, bestTurns: 30, days: {} };
+    const start = { bestSeconds: 140, bestTurns: 30, days: {}, streak: 0, longest: 0 };
     const faster = recordFinish(start, "2026-11-08", { seconds: 120, turns: 34 });
     assert.equal(faster.newBestTime, true);
     assert.equal(faster.newBestTurns, false);
@@ -98,7 +110,7 @@ describe("daily personal bests", () => {
   });
 
   it("does not count a tie as a new best", () => {
-    const start = { bestSeconds: 120, bestTurns: 26, days: {} };
+    const start = { bestSeconds: 120, bestTurns: 26, days: {}, streak: 0, longest: 0 };
     const tie = recordFinish(start, "2026-11-10", { seconds: 120, turns: 26 });
     assert.equal(tie.newBestTime, false);
     assert.equal(tie.newBestTurns, false);
@@ -127,6 +139,86 @@ describe("daily personal bests", () => {
       bestSeconds: 91,
       bestTurns: 22,
       days: {},
+      streak: 0,
+      longest: 0,
     });
   });
 });
+
+describe("daily streak", () => {
+  const finish = (stats: typeof EMPTY_STATS, key: string) => recordFinish(stats, key, { seconds: 100, turns: 20 });
+
+  it("grows by one for each consecutive day", () => {
+    let stats = EMPTY_STATS;
+    for (let day = 1; day <= 3; day++) {
+      const done = finish(stats, `2026-11-0${day}`);
+      assert.equal(done.counted, true);
+      assert.equal(done.streak, day);
+      assert.equal(done.longest, day);
+      assert.equal(done.milestone, day === 3 ? 3 : null);
+      stats = done.stats;
+    }
+    const replay = finish(stats, "2026-11-03");
+    assert.equal(replay.counted, false);
+    assert.equal(replay.milestone, null);
+    assert.equal(replay.streak, 3);
+  });
+
+  it("stays alive the morning after a finish and resets once a day is missed", () => {
+    let stats = EMPTY_STATS;
+    let seventh = finish(EMPTY_STATS, "2026-11-01");
+    for (let day = 1; day <= 7; day++) {
+      seventh = finish(stats, `2026-11-${String(day).padStart(2, "0")}`);
+      stats = seventh.stats;
+    }
+    assert.equal(stats.streak, 7);
+    assert.equal(stats.longest, 7);
+    assert.equal(seventh.milestone, 7);
+    assert.equal(finish(stats, "2026-11-07").milestone, null);
+
+    assert.equal(settleStreak(stats, "2026-11-08").streak, 7);
+    const missed = settleStreak(stats, "2026-11-09");
+    assert.equal(missed.streak, 0);
+    assert.equal(missed.longest, 7);
+
+    const again = finish(missed, "2026-11-09");
+    assert.equal(again.counted, true);
+    assert.equal(again.streak, 1);
+    assert.equal(again.longest, 7);
+    assert.equal(again.milestone, null);
+    assert.equal(again.stats.bestSeconds, 100);
+  });
+
+  it("crosses a month and only marks the listed milestones", () => {
+    let stats = finish(EMPTY_STATS, "2026-01-31").stats;
+    const next = finish(stats, "2026-02-01");
+    assert.equal(next.streak, 2);
+    assert.equal(next.milestone, null);
+
+    stats = EMPTY_STATS;
+    const marked: number[] = [];
+    for (let day = 0; day < 100; day++) {
+      const done = finish(stats, shift(day));
+      if (done.milestone) marked.push(done.milestone);
+      stats = done.stats;
+    }
+    assert.deepEqual(marked, [3, 7, 14, 30, 100]);
+    assert.equal(stats.longest, 100);
+    assert.equal(finish(stats, shift(99)).milestone, null);
+  });
+
+  it("rebuilds a streak saved before streaks existed", () => {
+    const parsed = parseStats(
+      '{"bestSeconds":80,"bestTurns":20,"days":{"2026-11-01":{"seconds":80,"turns":20},"2026-11-02":{"seconds":90,"turns":21}}}',
+    );
+    const live = settleStreak(parsed, "2026-11-03");
+    assert.equal(live.streak, 2);
+    assert.equal(live.longest, 2);
+    assert.equal(settleStreak(parsed, "2026-11-04").streak, 0);
+    assert.equal(settleStreak(parsed, "2026-11-04").longest, 2);
+  });
+});
+
+function shift(day: number): string {
+  return new Date(Date.UTC(2026, 0, 1 + day)).toISOString().slice(0, 10);
+}

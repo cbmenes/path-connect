@@ -33,6 +33,8 @@ import {
   formatDailyDate,
   readStats,
   recordFinish,
+  settleStreak,
+  streakMilestone,
   untilNextDaily,
   writeStats,
   type DailyFinish,
@@ -267,9 +269,11 @@ export function PathConnectGame() {
 
   useEffect(() => {
     const saved = readStats();
-    setStats(saved);
+    const settled = settleStreak(saved, todayKey);
+    setStats(settled);
+    if (settled.streak !== saved.streak || settled.longest !== saved.longest) writeStats(settled);
     setStatsReady(true);
-  }, []);
+  }, [todayKey]);
 
   useEffect(() => {
     setLevelSeconds(0);
@@ -676,9 +680,12 @@ export function PathConnectGame() {
               <p className="pc-level-sub">
                 {mode === "daily" ? (
                   <span className="pc-best">
-                    {stats.bestSeconds !== null && stats.bestTurns !== null
-                      ? `Best time ${formatClock(stats.bestSeconds)} · Best turns ${stats.bestTurns}`
-                      : "Same board for everyone today."}
+                    <StreakWords current={stats.streak} longest={stats.longest} />
+                    <span className="pc-best-rest">
+                      {stats.bestSeconds !== null && stats.bestTurns !== null
+                        ? `Best time ${formatClock(stats.bestSeconds)} · Best turns ${stats.bestTurns}`
+                        : "Same board for everyone today."}
+                    </span>
                   </span>
                 ) : (
                   level.blurb
@@ -706,7 +713,13 @@ export function PathConnectGame() {
                   Daily
                 </button>
               </div>
-              {showDailyReminder && <p className="pc-daily-ready">Today's challenge is ready</p>}
+              {mode === "daily" ? (
+                <p className="pc-daily-ready pc-streak-chip" data-milestone={streakMilestone(stats.streak) ? "" : undefined}>
+                  <StreakWords current={stats.streak} longest={stats.longest} stacked />
+                </p>
+              ) : (
+                showDailyReminder && <p className="pc-daily-ready">Today's challenge is ready</p>
+              )}
             </div>
             <button
               type="button"
@@ -1519,6 +1532,16 @@ function turnsLabel(turns: number): string {
   return `${turns} ${turns === 1 ? "turn" : "turns"}`;
 }
 
+function StreakWords({ current, longest, stacked = false }: { current: number; longest: number; stacked?: boolean }) {
+  const milestone = streakMilestone(current);
+  return (
+    <>
+      {milestone ? <span className="pc-streak-hit">{milestone}-day streak!</span> : `Streak ${current}`}
+      {stacked ? <span className="pc-streak-best">Longest {longest}</span> : ` · Longest ${longest}`}
+    </>
+  );
+}
+
 function dailyCheer(result: DailyFinish): string {
   if (result.newBestTime && result.newBestTurns) return "New best time and fewest turns.";
   if (result.newBestTime) return "New best time.";
@@ -1557,8 +1580,12 @@ function DailyResult({ result, stats }: { result: DailyFinish; stats: DailyStats
           </span>
         </div>
       ))}
-      <p className="pc-daily-next">
-        Next board in <span className="tabular">{wait}</span>
+      <p className="pc-daily-next pc-daily-streak" data-milestone={streakMilestone(stats.streak) ? "" : undefined}>
+        <StreakWords current={stats.streak} longest={stats.longest} />
+        <span className="pc-daily-wait">
+          {" "}
+          · Next board in <span className="tabular">{wait}</span>
+        </span>
       </p>
     </section>
   );

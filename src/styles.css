@@ -1473,6 +1473,10 @@
   color: var(--color-pc-muted);
 }
 
+.path-connect[data-style="cozy"] .pc-best-rest {
+  display: block;
+}
+
 .path-connect[data-style="cozy"] .pc-top-tools {
   grid-area: tools;
   align-self: start;
@@ -1980,16 +1984,16 @@
   display: grid;
   flex: 1 0 100%;
   grid-template-columns: repeat(2, minmax(0, 1fr));
-  gap: 6px;
+  gap: 2px 6px;
 }
 
 .path-connect[data-style="cozy"] .pc-daily-stat {
   display: grid;
   justify-items: center;
-  gap: 2px;
+  gap: 0;
   border-radius: 14px;
   background: color-mix(in oklab, white 55%, var(--color-pc-tile));
-  padding: 8px 6px 9px;
+  padding: 4px 6px 5px;
   box-shadow: inset 0 1px 0 white;
 }
 
@@ -2008,16 +2012,17 @@
 }
 
 .path-connect[data-style="cozy"] .pc-daily-value {
-  font-size: 1.5rem;
+  font-size: 1.25rem;
   font-weight: 700;
-  line-height: 1.1;
+  line-height: 1.15;
   color: var(--color-pc-fg);
 }
 
 .path-connect[data-style="cozy"] .pc-daily-best {
-  min-height: 20px;
+  min-height: 0;
   font-size: 0.75rem;
   font-weight: 600;
+  line-height: 1.2;
   color: var(--color-pc-muted);
 }
 
@@ -2025,11 +2030,53 @@
   margin-left: 0;
 }
 
-.path-connect[data-style="cozy"] .pc-daily-next {
+.path-connect[data-style="cozy"] .pc-daily-next,
+.path-connect[data-style="cozy"] .pc-daily-streak {
   grid-column: 1 / -1;
   margin: 0;
   text-align: center;
   font-size: 0.75rem;
+  color: var(--color-pc-muted);
+}
+
+.path-connect[data-style="cozy"] .pc-daily-streak {
+  font-weight: 700;
+  color: var(--color-pc-fg);
+}
+
+.path-connect[data-style="cozy"] .pc-daily-wait {
+  font-weight: 600;
+  color: var(--color-pc-muted);
+}
+
+/* The result panel sits under a full board. Keep Practice again inside the window. */
+@media (min-width: 720px) {
+  .path-connect[data-style="cozy"] .pc-shell:has(.pc-daily-result) {
+    padding-bottom: 8px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-shell:has(.pc-daily-result) .pc-stage {
+    padding-top: 64px;
+    padding-bottom: 8px;
+  }
+
+  .path-connect[data-style="cozy"] .pc-bottom:has(.pc-daily-result) {
+    gap: 4px;
+  }
+}
+
+.path-connect[data-style="cozy"] .pc-streak-hit {
+  color: var(--color-pc-flow);
+  font-weight: 700;
+}
+
+.path-connect[data-style="cozy"] .pc-streak-chip {
+  display: none;
+}
+
+.path-connect[data-style="cozy"] .pc-streak-best {
+  display: block;
+  font-weight: 600;
   color: var(--color-pc-muted);
 }
 
@@ -2855,6 +2902,14 @@
   .path-connect[data-style="cozy"] .pc-top .pc-mute,
   .path-connect[data-style="cozy"] .pc-remove-ads {
     display: none;
+  }
+
+  .path-connect[data-style="cozy"] .pc-streak-chip {
+    display: block;
+  }
+
+  .path-connect[data-style="cozy"] .pc-streak-chip[data-milestone] {
+    color: var(--color-pc-flow);
   }
 
   .path-connect[data-style="cozy"] .pc-top-tools {
