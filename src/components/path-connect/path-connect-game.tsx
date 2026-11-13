@@ -67,7 +67,7 @@ import {
   hintNudgeVisible,
   shouldOfferHintNudge,
 } from "@/lib/path-connect/reminders";
-import { fixtureColors, type FixtureColor } from "@/lib/path-connect/fixture-colors";
+import { fixtureColors, phoneColors, type FixtureColor, type PhoneColor } from "@/lib/path-connect/fixture-colors";
 import { rewardedAds } from "@/lib/path-connect/rewarded-ad";
 import { playTurn, playWin } from "@/lib/path-connect/sound";
 import { themeById, type CircuitTheme, type ThemeId } from "@/lib/path-connect/styles";
@@ -197,6 +197,7 @@ export function PathConnectGame() {
     return map;
   }, [level]);
   const fixtureColor = useMemo(() => fixtureColors(level.id, nodeTotal), [level.id, nodeTotal]);
+  const phoneColor = useMemo(() => phoneColors(level.id, Math.ceil(nodeTotal / 4)), [level.id, nodeTotal]);
   const nodeWord = nodeTotal === 1 ? theme.node : theme.nodePlural;
   const meter = nodeTotal === 0 ? 0 : Math.round((fed.size / nodeTotal) * 100);
   // The pulse sweeps the whole path in about a third of a second on any board size.
@@ -894,6 +895,7 @@ export function PathConnectGame() {
                         on={powered || order >= 0}
                         fixture={fixtureOf.get(index)}
                         color={fixtureColor[fixtureOf.get(index) ?? 0]}
+                        phone={phoneColor[Math.floor((fixtureOf.get(index) ?? 0) / 4)]}
                       />
                     </span>
                   )}
@@ -1758,17 +1760,19 @@ function HouseSource() {
   );
 }
 
-/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light, sconce; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone; fire cycles bull horn, bell, pull station. */
+/** `fixture` is the node's place in board order: Lighting cycles bulb, sage lamp, bulb, caged light, sconce; plumbing cycles tub, toilet, sink in the board's pastel `color`; PA cycles horn, microphone, radio, telephone with each telephone in its `phone` pastel; fire cycles bull horn, bell, pull station. */
 function NodeGlyph({
   theme,
   on,
   fixture = 2,
   color = "ivory",
+  phone = "ivory",
 }: {
   theme: ThemeId;
   on: boolean;
   fixture?: number;
   color?: FixtureColor;
+  phone?: PhoneColor;
 }) {
   if (theme === "plumbing") {
     const pick = fixture % 3;
@@ -1782,7 +1786,7 @@ function NodeGlyph({
     if (pick === 0) return <Horn on={on} />;
     if (pick === 1) return <Microphone on={on} />;
     if (pick === 2) return <Radio on={on} />;
-    return <Telephone on={on} />;
+    return <Telephone on={on} paint={PHONE_PAINT[phone]} />;
   }
   if (theme === "fire") {
     const pick = fixture % 3;
@@ -2207,45 +2211,57 @@ function Radio({ on }: { on: boolean }) {
   );
 }
 
-const PHONE_IVORY = "#f6ecd6";
-const PHONE_SHADE = "#e3d2b2";
-const PHONE_EDGE = "#bca580";
+interface PhonePaint {
+  body: string;
+  shade: string;
+  edge: string;
+  hole: string;
+}
 
-/** Ivory 1950s rotary desk telephone: a deep body, a large finger-wheel dial, a cradled handset, and a coiled cord. */
-function Telephone({ on }: { on: boolean }) {
+/** 1950s telephone pastels. Ivory is the original phone. */
+const PHONE_PAINT: Record<PhoneColor, PhonePaint> = {
+  ivory: { body: "#f6ecd6", shade: "#e3d2b2", edge: "#bca580", hole: "#d9c7a6" },
+  pink: { body: "#f4d0d3", shade: "#e2b0b6", edge: "#c08f96", hole: "#e8bfc4" },
+  sage: { body: "#d3dfca", shade: "#b4c6a8", edge: "#8a9f7f", hole: "#bfd0b4" },
+  yellow: { body: "#f6e4a6", shade: "#e6cd80", edge: "#c6aa5e", hole: "#ecd692" },
+};
+
+/** 1950s rotary desk telephone in a pastel `paint`: a deep body, a large finger-wheel dial, a cradled handset, and a coiled cord. */
+function Telephone({ on, paint }: { on: boolean; paint: PhonePaint }) {
+  const { body, shade, edge, hole } = paint;
   return (
     <svg viewBox="0 0 64 56" className={on ? "pc-glyph pc-fixture is-on" : "pc-glyph pc-fixture"}>
-      <rect x="9" y="43" width="46" height="9.4" rx="3.6" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1" />
-      <path d="M11.6 45.4C11.6 36 15 28 20.4 23.4h23.2C49 28 52.4 36 52.4 45.4z" fill={PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="1" />
-      <path d="M43.6 23.4C49 28 52.4 36 52.4 45.4h-6.6c0-8.6-2.6-16-6.8-22z" fill={PHONE_SHADE} opacity="0.9" />
+      <rect x="9" y="43" width="46" height="9.4" rx="3.6" fill={shade} stroke={edge} strokeWidth="1" />
+      <path d="M11.6 45.4C11.6 36 15 28 20.4 23.4h23.2C49 28 52.4 36 52.4 45.4z" fill={body} stroke={edge} strokeWidth="1" />
+      <path d="M43.6 23.4C49 28 52.4 36 52.4 45.4h-6.6c0-8.6-2.6-16-6.8-22z" fill={shade} opacity="0.9" />
       <path d="M19.8 27.6c-2.8 4-4.6 9.2-5.2 15" fill="none" stroke="white" strokeWidth="1.8" strokeLinecap="round" opacity="0.85" />
       <path d="M12 47.4h40" stroke="white" strokeWidth="1" strokeLinecap="round" opacity="0.6" />
-      <circle cx="31" cy="37" r="10.4" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="1.1" />
-      <circle cx="31" cy="36.6" r="9" fill="white" stroke={PHONE_EDGE} strokeWidth="0.6" />
+      <circle cx="31" cy="37" r="10.4" fill={shade} stroke={edge} strokeWidth="1.1" />
+      <circle cx="31" cy="36.6" r="9" fill="white" stroke={edge} strokeWidth="0.6" />
       {Array.from({ length: 10 }, (_, i) => {
         const angle = ((i * 28 - 76) * Math.PI) / 180;
-        return <circle key={i} cx={31 + Math.cos(angle) * 6.2} cy={36.6 + Math.sin(angle) * 6.2} r="1.6" fill="#d9c7a6" stroke={PHONE_EDGE} strokeWidth="0.7" />;
+        return <circle key={i} cx={31 + Math.cos(angle) * 6.2} cy={36.6 + Math.sin(angle) * 6.2} r="1.6" fill={hole} stroke={edge} strokeWidth="0.7" />;
       })}
-      <circle cx="31" cy="36.6" r="3.2" fill={on ? PA_GLOW : PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="0.8" />
+      <circle cx="31" cy="36.6" r="3.2" fill={on ? PA_GLOW : body} stroke={edge} strokeWidth="0.8" />
       <circle cx="30" cy="35.6" r="1" fill="white" opacity="0.9" />
       <path d="M38.6 42.6l2.6 2.4" stroke={BRONZE_DARK} strokeWidth="1.3" strokeLinecap="round" />
       {[21, 43].map((x) => (
-        <rect key={x} x={x - 3.4} y="19" width="6.8" height="6" rx="2.4" fill={PHONE_SHADE} stroke={PHONE_EDGE} strokeWidth="0.9" />
+        <rect key={x} x={x - 3.4} y="19" width="6.8" height="6" rx="2.4" fill={shade} stroke={edge} strokeWidth="0.9" />
       ))}
-      <path d="M17 13.6h30" stroke={PHONE_EDGE} strokeWidth="9" strokeLinecap="round" />
-      <path d="M17 13.6h30" stroke={PHONE_IVORY} strokeWidth="7.2" strokeLinecap="round" />
+      <path d="M17 13.6h30" stroke={edge} strokeWidth="9" strokeLinecap="round" />
+      <path d="M17 13.6h30" stroke={body} strokeWidth="7.2" strokeLinecap="round" />
       <path d="M18.6 11.2h26.8" stroke="white" strokeWidth="1.6" strokeLinecap="round" opacity="0.9" />
       {[12.4, 51.6].map((x) => (
         <g key={x}>
-          <path d={`M${x - 7} 14.6a7 5.4 0 0 1 14 0v4.4a7 4.4 0 0 1-14 0z`} fill={PHONE_IVORY} stroke={PHONE_EDGE} strokeWidth="1.1" />
-          <ellipse cx={x} cy="19.6" rx="5.6" ry="2.2" fill={PHONE_SHADE} />
+          <path d={`M${x - 7} 14.6a7 5.4 0 0 1 14 0v4.4a7 4.4 0 0 1-14 0z`} fill={body} stroke={edge} strokeWidth="1.1" />
+          <ellipse cx={x} cy="19.6" rx="5.6" ry="2.2" fill={shade} />
           <path d={`M${x - 4.6} 13.6a5 3 0 0 1 6.6-2.2`} fill="none" stroke="white" strokeWidth="1.4" strokeLinecap="round" opacity="0.9" />
         </g>
       ))}
       <path
         d="M7.4 23.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c-3 .8-3 3.2 0 3.6c1 .6 1.6 1.4 1.8 2.4"
         fill="none"
-        stroke={PHONE_EDGE}
+        stroke={edge}
         strokeWidth="1.6"
         strokeLinecap="round"
         strokeLinejoin="round"
