@@ -926,7 +926,8 @@ function ClawfootTub({ k }: { k: Kitchen }) {
   return (
     <svg viewBox="0 0 150 104">
       <ellipse cx="75" cy="100" rx="66" ry="4" fill={PLUMB_SHADOW} />
-      <path d="M120 40V16a8 8 0 0 1 16 0v4" stroke={CHROME_EDGE} strokeWidth="3.4" fill="none" strokeLinecap="round" />
+      <path d="M134 40V14a8 8 0 0 0-16 0v6" stroke={CHROME_EDGE} strokeWidth="3.4" fill="none" strokeLinecap="round" />
+      <rect x="114.5" y="20" width="7" height="5" rx="1.5" fill={CHROME_EDGE} />
       <path d="M12 42h126c0 30-14 46-40 46H52C26 88 12 72 12 42z" fill={k.body} />
       <path d="M138 42c0 30-14 46-40 46h-12c26 0 40-16 42-46z" fill={k.side} />
       <rect x="8" y="36" width="134" height="10" rx="5" fill={STONE} />
@@ -2377,26 +2378,26 @@ function PedestalSink({ k }: { k: Kitchen }) {
 function UpperCabinets({ k }: { k: Kitchen }) {
   return (
     <svg viewBox="0 0 128 100">
-      <rect x="8" y="10" width="118" height="70" rx="6" fill={PLUMB_SHADOW} />
-      <rect x="4" y="6" width="118" height="70" rx="6" fill={k.body} />
-      <rect x="4" y="6" width="118" height="8" rx="4" fill={k.side} />
-      <rect x="11" y="19" width="50" height="50" rx="4" fill="none" stroke={k.line} strokeWidth="1.6" />
-      <rect x="65" y="19" width="50" height="50" rx="4" fill="none" stroke={k.line} strokeWidth="1.6" />
-      <rect x="54" y="38" width="3" height="12" rx="1.5" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="0.8" />
-      <rect x="69" y="38" width="3" height="12" rx="1.5" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="0.8" />
-      <path d="M16 24v38" stroke="white" strokeWidth="2.4" strokeLinecap="round" opacity="0.5" />
-      <rect x="0" y="76" width="126" height="6" rx="3" fill={WOOD} />
+      <rect x="8" y="29" width="118" height="70" rx="6" fill={PLUMB_SHADOW} />
       {[
         [30, KITCHEN_BLUSH.body],
         [63, KITCHEN_BUTTER.body],
         [96, KITCHEN_POWDER.body],
       ].map(([x, fill]) => (
-        <g key={x} transform={`translate(${x} 84)`}>
-          <path d="M0-2v3" stroke={CHROME_EDGE} strokeWidth="1.6" strokeLinecap="round" />
-          <path d="M-6 1h12l-1.6 10h-8.8z" fill={fill as string} />
-          <path d="M6 3c4 0 4 6 0 6" stroke={fill as string} strokeWidth="2" fill="none" />
+        <g key={x} transform={`translate(${x} 8)`}>
+          <path d="M-6 0h12l-1.6 10h-8.8z" fill={fill as string} />
+          <path d="M6 2c4 0 4 6 0 6" stroke={fill as string} strokeWidth="2" fill="none" />
+          <ellipse cx="0" cy="11" rx="8" ry="1.6" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="0.6" />
         </g>
       ))}
+      <rect x="0" y="19" width="126" height="6" rx="3" fill={WOOD} />
+      <rect x="4" y="25" width="118" height="70" rx="6" fill={k.body} />
+      <rect x="4" y="87" width="118" height="8" rx="4" fill={k.side} />
+      <rect x="11" y="31" width="50" height="50" rx="4" fill="none" stroke={k.line} strokeWidth="1.6" />
+      <rect x="65" y="31" width="50" height="50" rx="4" fill="none" stroke={k.line} strokeWidth="1.6" />
+      <rect x="54" y="50" width="3" height="12" rx="1.5" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="0.8" />
+      <rect x="69" y="50" width="3" height="12" rx="1.5" fill={CHROME} stroke={CHROME_EDGE} strokeWidth="0.8" />
+      <path d="M16 36v38" stroke="white" strokeWidth="2.4" strokeLinecap="round" opacity="0.5" />
     </svg>
   );
 }
