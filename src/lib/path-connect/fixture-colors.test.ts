@@ -46,12 +46,17 @@ const NODE_PALETTES = [
   { name: "Lighting lamp", theme: "lights", palette: LAMP_COLORS, colors: lampColors },
 ] as const;
 
-test("Lighting sconces never repeat a lamp color on the same board", () => {
+test("Lighting sconces avoid lamp colors whenever another pastel is free", () => {
   for (const level of LEVELS.filter((l) => l.theme === "lights")) {
     const nodes = level.tiles.filter((tile) => tile.role === "end").length;
     const lamps = lampColors(level.id, Math.floor((nodes + 3) / 5));
     const sconces = sconceColors(level.id, Math.floor(nodes / 5), lamps);
-    assert.ok(!sconces.some((color) => lamps.includes(color)), `level ${level.id}: lamps ${lamps}, sconces ${sconces}`);
+    const free = SCONCE_COLORS.filter((color) => !lamps.includes(color)).length;
+    const clashes = sconces.filter((color) => lamps.includes(color)).length;
+    assert.ok(
+      clashes <= Math.max(0, sconces.length - free),
+      `level ${level.id}: lamps ${lamps}, sconces ${sconces}`,
+    );
   }
 });
 

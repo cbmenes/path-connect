@@ -8,8 +8,8 @@
  * reached.
  *
  * A square board takes its side from the cell count. A wider caller can pass
- * the column count, so a 7×8 board uses the same link rule as a 5×5, 6×6,
- * or 7×7 board.
+ * the column count, so a 7×8 or 7×9 board uses the same link rule as a 5×5,
+ * 6×6, or 7×7 board.
  *
  * Visual styles never belong in here. Renderers read `kind` + `rotation`
  * and draw whatever conduit they want.

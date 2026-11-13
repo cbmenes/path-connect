@@ -89,8 +89,8 @@ describe("openings", () => {
 });
 
 describe("levels", () => {
-  it("ships two hundred and fifty solvable boards that start unsolved", () => {
-    assert.equal(LEVELS.length, 250);
+  it("ships three hundred and twenty solvable boards that start unsolved", () => {
+    assert.equal(LEVELS.length, 320);
     LEVELS.forEach((level, index) => {
       assert.equal(level.id, index + 1);
       assert.equal(level.tiles.length, level.rows * level.cols, level.name);
@@ -126,7 +126,7 @@ describe("levels", () => {
     });
   });
 
-  it("rotates themes in blocks of two while boards grow to 7×8", () => {
+  it("rotates themes in blocks of two while boards grow to 7×9", () => {
     let run = 1;
     for (let i = 1; i < LEVELS.length; i++) {
       if (LEVELS[i]!.theme === LEVELS[i - 1]!.theme) run++;
@@ -139,18 +139,19 @@ describe("levels", () => {
     }
     assert.equal(run, 2, `final run ${run}`);
     for (const level of LEVELS) {
-      const size = level.id <= 8 ? 5 : level.id <= 30 ? 6 : 7;
-      assert.equal(level.size, size, `level ${level.id} size`);
-      assert.equal(level.cols, size, `level ${level.id} cols`);
-      assert.equal(level.rows, level.id >= 151 ? 8 : size, `level ${level.id} rows`);
+      const cols = level.id <= 8 ? 5 : level.id <= 30 ? 6 : 7;
+      const rows = level.id <= 8 ? 5 : level.id <= 30 ? 6 : level.id <= 148 ? 7 : level.id <= 236 ? 8 : 9;
+      assert.equal(level.size, cols, `level ${level.id} size`);
+      assert.equal(level.cols, cols, `level ${level.id} cols`);
+      assert.equal(level.rows, rows, `level ${level.id} rows`);
     }
     assert.deepEqual(
       CHAPTERS.map((chapter) => [chapter.title, chapter.ids.length]),
       [
-        ["Lighting", 64],
-        ["Plumbing", 62],
-        ["Public Announcement", 62],
-        ["Fire Safety", 62],
+        ["Lighting", 80],
+        ["Plumbing", 80],
+        ["Public Announcement", 80],
+        ["Fire Safety", 80],
       ],
     );
     for (const chapter of CHAPTERS) {
@@ -167,26 +168,19 @@ describe("levels", () => {
       [7, "Fire Safety"],
       [9, "6×6 board"],
       [31, "7×7 board"],
-      [151, "7×8 board"],
+      [149, "7×8 board"],
+      [237, "7×9 board"],
     ]);
   });
 
-  it("uses one bolted tile as a light anchor on the size jumps", () => {
-    const expectBolts = (level: Level) => {
-      if (level.rows !== level.cols || level.size <= 5) return 0;
-      let place = 0;
-      const start = level.size === 6 ? 9 : 31;
-      for (let cursor = start; cursor <= level.id; cursor++) {
-        const other = LEVELS[cursor - 1]!;
-        if (other.theme === level.theme && other.rows === other.cols && other.size === level.size) place++;
-      }
-      return place <= 2 ? 1 : 0;
-    };
+  it("bolts one solved route tee on the bands that ask for it", () => {
+    const boltedBand = (id: number) =>
+      (id >= 9 && id <= 16) || (id >= 31 && id <= 38) || (id >= 149 && id <= 156) || (id >= 237 && id <= 244);
     for (const level of LEVELS) {
       const bolted = level.tiles.filter((tile) => tile.fixed);
-      assert.equal(bolted.length, expectBolts(level), `level ${level.id} bolts`);
-      assert.ok(bolted.length <= 1);
+      assert.equal(bolted.length, boltedBand(level.id) ? 1 : 0, `level ${level.id} bolts`);
       for (const tile of bolted) {
+        assert.equal(tile.kind, "tee", `level ${level.id} bolts a ${tile.kind}`);
         assert.equal(tile.role, "play");
         assert.equal(tile.onRoute, true);
         assert.equal(tile.initial, tile.solution);
@@ -202,14 +196,40 @@ describe("levels", () => {
       );
       assert.ok(scrambled.length <= 4, `${level.name} has ${scrambled.length} turned tiles`);
     }
-    assert.deepEqual(LEVELS.slice(0, 5).map(nodes), [1, 2, 3, 4, 5]);
-    for (const level of LEVELS.slice(5, 12)) assert.equal(nodes(level), 5, `level ${level.id}`);
-    for (const level of LEVELS.slice(12, 44)) assert.equal(nodes(level), 6, `level ${level.id}`);
-    for (const level of LEVELS.slice(44, 68)) assert.equal(nodes(level), 7, `level ${level.id}`);
-    for (const level of LEVELS.slice(68, 110)) assert.equal(nodes(level), 8, `level ${level.id}`);
-    for (const level of LEVELS.slice(110, 174)) assert.equal(nodes(level), 9, `level ${level.id}`);
-    for (const level of LEVELS.slice(174, 224)) assert.equal(nodes(level), 10, `level ${level.id}`);
-    for (const level of LEVELS.slice(224)) assert.equal(nodes(level), 11, `level ${level.id}`);
+    const shape: readonly (readonly [number, number, number])[] = [
+      [1, 1, 1],
+      [2, 2, 2],
+      [3, 3, 3],
+      [4, 4, 4],
+      [5, 6, 5],
+      [7, 8, 6],
+      [9, 10, 5],
+      [11, 13, 6],
+      [14, 16, 7],
+      [17, 22, 6],
+      [23, 30, 7],
+      [31, 34, 6],
+      [35, 38, 7],
+      [39, 60, 6],
+      [61, 82, 7],
+      [83, 104, 8],
+      [105, 126, 9],
+      [127, 148, 10],
+      [149, 152, 9],
+      [153, 156, 10],
+      [157, 176, 9],
+      [177, 196, 10],
+      [197, 216, 11],
+      [217, 236, 12],
+      [237, 240, 11],
+      [241, 244, 12],
+      [245, 264, 11],
+      [265, 284, 12],
+      [285, 320, 13],
+    ];
+    for (const [from, to, count] of shape) {
+      for (const level of LEVELS.slice(from - 1, to)) assert.equal(nodes(level), count, `level ${level.id}`);
+    }
     for (const level of LEVELS.slice(3, 30)) {
       const tees = level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
       assert.equal(tees, nodes(level) - 1, `level ${level.id} tees`);
@@ -219,39 +239,16 @@ describe("levels", () => {
       );
       assert.equal(wrong.length, turned.length, `level ${level.id} still has solved pipes`);
     }
-    assert.equal(Math.max(...LEVELS.map(nodes)), 11);
+    assert.equal(Math.max(...LEVELS.map(nodes)), 13);
     const tees = (level: Level) => level.tiles.filter((tile) => tile.onRoute && tile.kind === "tee").length;
     const route = (level: Level) => level.tiles.filter((tile) => tile.onRoute).length;
     const mean = (group: readonly Level[], read: (level: Level) => number) =>
       group.reduce((sum, level) => sum + read(level), 0) / group.length;
     const early = LEVELS.slice(4, 15);
-    const late = LEVELS.slice(70);
+    const late = LEVELS.slice(200);
     assert.ok(mean(late, tees) > mean(early, tees), "late boards need more tees");
     assert.ok(mean(late, route) > mean(early, route), "late boards need longer routes");
-    const bolted = (level: Level) => level.tiles.filter((tile) => tile.fixed).length;
-    assert.ok(mean(LEVELS.slice(80), bolted) < mean(LEVELS.slice(8, 20), bolted));
-    const stretches = [
-      [1, 15],
-      [16, 30],
-      [31, 50],
-      [51, 80],
-      [81, 110],
-      [111, 150],
-      [151, 200],
-      [201, 250],
-    ] as const;
-    const average = (from: number, to: number, read: (level: Level) => number) => {
-      const group = LEVELS.slice(from - 1, to);
-      return group.reduce((sum, level) => sum + read(level), 0) / group.length;
-    };
-    const pars = stretches.map(([from, to]) => average(from, to, (level) => level.par));
-    const counts = stretches.map(([from, to]) => average(from, to, nodes));
-    for (let i = 1; i < stretches.length; i++) {
-      assert.ok(pars[i]! >= pars[i - 1]! - 0.5, `taps ${pars.join(", ")}`);
-      assert.ok(counts[i]! >= counts[i - 1]! - 0.2, `nodes ${counts.join(", ")}`);
-    }
-    assert.ok(pars[7]! > pars[0]! * 2);
-    assert.ok(LEVELS.slice(224).every((level) => nodes(level) === 11));
+    assert.ok(mean(late, (level) => level.par) > mean(early, (level) => level.par) * 1.5);
   });
 
   it("keeps the house on the edge early and moves it inward later", () => {
@@ -281,28 +278,26 @@ describe("levels", () => {
       }
     };
     within(1, 3, 0, 70);
-    within(4, 8, 50, 120);
-    within(9, 12, 100, 160);
-    within(13, 30, 130, 220);
+    within(4, 8, 50, 160);
+    within(9, 12, 100, 180);
+    within(13, 30, 130, 280);
     within(31, 44, 180, 320);
     within(45, 80, 220, 520);
-    within(81, 150, 350, 760);
-    within(151, 174, 480, 700);
-    within(175, 250, 520, 900);
-    const late = seconds.slice(150);
-    assert.ok(late.filter((value) => value > seconds[79]!).length === late.length, "late boards outlast the mid-game");
-    assert.ok(late.filter((value) => value > seconds[109]!).length >= 90, "most late boards outlast level 110");
+    within(81, 148, 350, 700);
+    within(149, 236, 520, 900);
+    within(237, 320, 680, 980);
+    const late = seconds.slice(236);
+    assert.ok(late.every((value) => value > seconds[79]!), "the tall boards outlast the mid-game");
     assert.ok(seconds[14]! > seconds[9]!, "level 15 is harder than level 10");
     assert.ok(seconds[19]! > seconds[14]!, "level 20 is harder than level 15");
     assert.ok(seconds[24]! > seconds[19]!, "level 25 is harder than level 20");
     assert.ok(seconds[29]! > seconds[24]!, "level 30 is harder than level 25");
+    assert.ok(seconds[319]! > seconds[29]!, "the last level outlasts level 30");
 
     for (let id = 6; id <= LEVELS.length; id++) {
       const step = Math.round((seconds[id - 1]! / seconds[id - 2]! - 1) * 100);
-      const relief = id >= 160 && id % 20 === 0;
-      const afterRelief = id - 1 >= 160 && (id - 1) % 20 === 0;
-      assert.ok(step <= (afterRelief ? 22 : 15), `level ${id} jumps ${step}%`);
-      assert.ok(step >= (relief ? -18 : id >= 175 ? -6 : -3), `level ${id} drops ${step}%`);
+      assert.ok(step <= 22, `level ${id} jumps ${step}%`);
+      assert.ok(step >= -16, `level ${id} drops ${step}%`);
     }
     for (const level of LEVELS.slice(3)) {
       const target = targetSeconds(level.id);

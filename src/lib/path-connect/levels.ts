@@ -6,25 +6,24 @@
  * can be among them. A level is solvable because the solved board reaches
  * every node, and it starts unsolved.
  *
- * Progression. Difficulty follows the level number, never the theme:
- * - 1–3 on 5×5 teach the mechanic: one node, then two, then three.
- * - 4–8 stay on 5×5 and reach four, then five nodes. No 5×5 board has six.
- * - 9–30 are 6×6. The first of them keep five nodes and one bolted tile, then
- *   the board climbs to six nodes. From level 13 the house steps inward on
- *   some boards.
- * - 31–80 are 7×7 and climb from six nodes to eight. 81–150 stay on 7×7 and
- *   climb from eight nodes to nine.
- * - 151–200 are 7×8 (7 columns by 8 rows) with nine, then ten nodes.
- *   201–250 stay on 7×8 and climb from ten nodes to eleven. Every so often
- *   one of these boards is a shorter relief.
- * Bolted tiles stay off every 5×5 board and every 7×8 board, and never more
- * than one. Each theme's first pair of 6×6 boards and first pair of 7×7
- * boards keeps one, then none.
+ * Progression. Difficulty follows the level number, never the theme. Each
+ * band below is exact: board size, node count, and bolted tiles.
+ * - 1–4 on 5×5 teach the mechanic: one node, then two, three, and four.
+ * - 5–6 stay on 5×5 with five nodes. 7–8 stay on 5×5 with six.
+ * - 9–16 are 6×6 with one bolted tile: five nodes, then six, then seven.
+ *   17–30 stay on 6×6 with no bolts: six nodes, then seven.
+ * - 31–38 are 7×7 with one bolted tile: six nodes, then seven.
+ *   39–148 stay on 7×7 with no bolts and climb from six nodes to ten.
+ * - 149–156 are 7×8 (7 columns by 8 rows) with one bolted tile: nine nodes,
+ *   then ten. 157–236 stay on 7×8 with no bolts and climb from nine to twelve.
+ * - 237–244 are 7×9 with one bolted tile: eleven nodes, then twelve.
+ *   245–320 stay on 7×9 with no bolts and climb from eleven nodes to thirteen.
+ * A bolted tile is always a route pipe at its solved facing, preferring a
+ * tee, so it locks a split without making the board unsolvable. No board
+ * has more than one, and every 5×5 board has none.
  *
  * Themes rotate in blocks of two: Lighting, Plumbing, Public Announcement,
- * then Fire Safety. Thirty-one full cycles cover 248 levels (62 each). One
- * more Lighting pair gives Lighting 64, and the other three themes 62, the
- * most even split that keeps every block at two.
+ * then Fire Safety. Forty cycles cover 320 levels, 80 of each theme.
  *
  * Levels 1–3 keep their hand-built routes. Every later level comes from a
  * seeded tree generator, so every player gets the same boards.
@@ -160,8 +159,6 @@ interface Plan {
   size: number;
   rows?: number;
   cols?: number;
-  /** A shorter route on an otherwise late board. */
-  relief?: boolean;
   nodes: number;
   /** Cells each new branch walks, inclusive range. */
   reach: readonly [number, number];
@@ -243,6 +240,22 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Morning hall",
     "Evening room",
     "Star room",
+    "Moon room",
+    "Iris room",
+    "Fern room",
+    "Willow hall",
+    "Cedar loft",
+    "Birch room",
+    "Maple hall",
+    "Oak landing",
+    "Pine room",
+    "Ivy hall",
+    "Rose room",
+    "Daisy nook",
+    "Clover room",
+    "Meadow loft",
+    "Orchard room",
+    "Harvest hall",
   ],
   alarm: [
     "Mail room",
@@ -307,6 +320,24 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Stage call",
     "Green room",
     "Sound lock",
+    "Air room",
+    "Wave booth",
+    "Echo hall",
+    "Static room",
+    "Channel loft",
+    "Band booth",
+    "Wire booth",
+    "Line room",
+    "Patch bay",
+    "Jack room",
+    "Plug hall",
+    "Cord loft",
+    "Bell loft",
+    "Chime room",
+    "Tone booth",
+    "Cue hall",
+    "Call loft",
+    "Page loft",
   ],
   fire: [
     "Art room",
@@ -371,6 +402,24 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Siren room",
     "Beacon stair",
     "Ward hall",
+    "Hose stair",
+    "Bell yard",
+    "Red loft",
+    "Pump loft",
+    "Smoke loft",
+    "Exit loft",
+    "Alarm loft",
+    "Watch stair",
+    "Engine loft",
+    "Ladder hall",
+    "Rescue hall",
+    "Hydrant hall",
+    "Muster hall",
+    "Ember stair",
+    "Ash hall",
+    "Cinder hall",
+    "Siren loft",
+    "Beacon hall",
   ],
   plumbing: [
     "Powder room",
@@ -436,6 +485,23 @@ const NAMES: Record<ThemeId, readonly string[]> = {
     "Pool bath",
     "Garden bath",
     "Service bath",
+    "Tap room",
+    "Spigot nook",
+    "Cistern bath",
+    "Well bath",
+    "Basin annex",
+    "Tub hall",
+    "Soap nook",
+    "Linen sink",
+    "Copper nook",
+    "Wash annex",
+    "Drain room",
+    "Valve bath",
+    "Pipe bath",
+    "Mop room",
+    "Janitor bath",
+    "Service nook",
+    "Guest tap",
   ],
 };
 
@@ -447,15 +513,11 @@ function lerp(from: number, to: number, t: number): number {
 export const THEME_ORDER: readonly ThemeId[] = ["lights", "plumbing", "alarm", "fire"];
 /**
  * Theme runs of 2 levels, cycling Lighting, Plumbing, Public Announcement,
- * and Fire Safety. Thirty-one cycles cover 248 levels (62 each). One more
- * Lighting pair makes the split 64, 62, 62, and 62.
+ * and Fire Safety. Forty cycles cover 320 levels, 80 of each theme.
  */
-const THEME_BLOCKS: readonly { theme: ThemeId; length: number }[] = [
-  ...Array.from({ length: 31 }, () =>
-    THEME_ORDER.map((theme) => ({ theme, length: 2 })),
-  ).flat(),
-  { theme: "lights", length: 2 },
-];
+const THEME_BLOCKS: readonly { theme: ThemeId; length: number }[] = Array.from({ length: 40 }, () =>
+  THEME_ORDER.map((theme) => ({ theme, length: 2 })),
+).flat();
 
 const THEME_OF: readonly ThemeId[] = THEME_BLOCKS.flatMap((block) =>
   Array.from({ length: block.length }, () => block.theme),
@@ -472,26 +534,61 @@ const SIX_START = 9;
 /** First campaign level on a 7×7 board. */
 const SEVEN_START = 31;
 /** First campaign level on a 7×8 board. */
-const RECT_START = 151;
+const RECT_START = 149;
+/** First campaign level on a 7×9 board. */
+const TALL_START = 237;
 
-/** Every 20th late board is a shorter route, so the climb is not a wall. */
-function isRelief(id: number): boolean {
-  return id >= 160 && id % 20 === 0;
+/** One exact stretch of the campaign: board, nodes, and whether a tile is bolted. */
+interface Band {
+  to: number;
+  cols: number;
+  rows: number;
+  nodes: number;
+  fixed: number;
+  reach: readonly [number, number];
+  wiggle: readonly [number, number];
 }
 
 /**
- * Bolted tiles are a light anchor on a size jump, never the difficulty.
- * Every 5×5 board has none, every 7×8 board has none, and no board has more
- * than one. On 6×6 and on 7×7, each theme's first pair at that size keeps
- * one bolt, then none.
+ * Levels 4–320. Levels 1–3 stay hand-built and already match the opening of
+ * this table: 5×5, one node, then two, then three, and no bolted tiles.
  */
-function boltsFor(id: number, size: number, rows = size): number {
-  if (size <= 5 || rows !== size) return 0;
-  const theme = themeOf(id);
-  const start = size === 6 ? SIX_START : SEVEN_START;
-  let place = 0;
-  for (let cursor = start; cursor <= id; cursor++) if (themeOf(cursor) === theme) place++;
-  return place <= 2 ? 1 : 0;
+const BANDS: readonly Band[] = [
+  { to: 4, cols: 5, rows: 5, nodes: 4, fixed: 0, reach: [2, 4], wiggle: [0.7, 0.7] },
+  { to: 6, cols: 5, rows: 5, nodes: 5, fixed: 0, reach: [2, 3], wiggle: [0.74, 0.8] },
+  { to: 8, cols: 5, rows: 5, nodes: 6, fixed: 0, reach: [2, 3], wiggle: [0.78, 0.84] },
+  { to: 10, cols: 6, rows: 6, nodes: 5, fixed: 1, reach: [3, 5], wiggle: [0.72, 0.78] },
+  { to: 13, cols: 6, rows: 6, nodes: 6, fixed: 1, reach: [2, 4], wiggle: [0.74, 0.8] },
+  { to: 16, cols: 6, rows: 6, nodes: 7, fixed: 1, reach: [2, 4], wiggle: [0.76, 0.82] },
+  { to: 22, cols: 6, rows: 6, nodes: 6, fixed: 0, reach: [2, 5], wiggle: [0.74, 0.82] },
+  { to: 30, cols: 6, rows: 6, nodes: 7, fixed: 0, reach: [3, 5], wiggle: [0.76, 0.86] },
+  { to: 34, cols: 7, rows: 7, nodes: 6, fixed: 1, reach: [3, 5], wiggle: [0.58, 0.64] },
+  { to: 38, cols: 7, rows: 7, nodes: 7, fixed: 1, reach: [3, 5], wiggle: [0.6, 0.68] },
+  { to: 60, cols: 7, rows: 7, nodes: 6, fixed: 0, reach: [3, 6], wiggle: [0.6, 0.7] },
+  { to: 82, cols: 7, rows: 7, nodes: 7, fixed: 0, reach: [3, 6], wiggle: [0.62, 0.72] },
+  { to: 104, cols: 7, rows: 7, nodes: 8, fixed: 0, reach: [3, 6], wiggle: [0.64, 0.74] },
+  { to: 126, cols: 7, rows: 7, nodes: 9, fixed: 0, reach: [3, 6], wiggle: [0.66, 0.76] },
+  { to: 148, cols: 7, rows: 7, nodes: 10, fixed: 0, reach: [2, 5], wiggle: [0.68, 0.78] },
+  { to: 152, cols: 7, rows: 8, nodes: 9, fixed: 1, reach: [3, 6], wiggle: [0.7, 0.74] },
+  { to: 156, cols: 7, rows: 8, nodes: 10, fixed: 1, reach: [3, 6], wiggle: [0.72, 0.76] },
+  { to: 176, cols: 7, rows: 8, nodes: 9, fixed: 0, reach: [3, 6], wiggle: [0.72, 0.8] },
+  { to: 196, cols: 7, rows: 8, nodes: 10, fixed: 0, reach: [3, 6], wiggle: [0.74, 0.82] },
+  { to: 216, cols: 7, rows: 8, nodes: 11, fixed: 0, reach: [2, 5], wiggle: [0.76, 0.84] },
+  { to: 236, cols: 7, rows: 8, nodes: 12, fixed: 0, reach: [2, 4], wiggle: [0.78, 0.86] },
+  { to: 240, cols: 7, rows: 9, nodes: 11, fixed: 1, reach: [3, 6], wiggle: [0.76, 0.8] },
+  { to: 244, cols: 7, rows: 9, nodes: 12, fixed: 1, reach: [2, 5], wiggle: [0.78, 0.82] },
+  { to: 264, cols: 7, rows: 9, nodes: 11, fixed: 0, reach: [3, 6], wiggle: [0.78, 0.84] },
+  { to: 284, cols: 7, rows: 9, nodes: 12, fixed: 0, reach: [2, 5], wiggle: [0.8, 0.86] },
+  { to: 320, cols: 7, rows: 9, nodes: 13, fixed: 0, reach: [2, 4], wiggle: [0.8, 0.88] },
+];
+
+function bandFor(id: number): { band: Band; from: number } {
+  let from = 4;
+  for (const band of BANDS) {
+    if (id <= band.to) return { band, from };
+    from = band.to + 1;
+  }
+  throw new Error(`No board plan for level ${id}`);
 }
 
 /** Early houses stay on the rim. Later houses step inward, then toward the middle. */
@@ -513,137 +610,51 @@ function sourceFor(id: number, size: number): readonly [number, number] {
   return sourceBand(id, size);
 }
 
-/** Difficulty for a generated level. Nodes, paths, and the house do the work. */
+/** Difficulty for a generated level. The band fixes the board, the nodes, and the bolt. */
 function planFor(id: number): Plan {
   const theme = themeOf(id);
-  if (id <= 8) {
-    const t = (id - 4) / 4;
-    return {
-      id,
-      theme,
-      size: 5,
-      nodes: id === 4 ? 4 : 5,
-      reach: id === 4 ? [2, 4] : id <= 6 ? [2, 3] : id === 7 ? [2, 4] : [3, 4],
-      wiggle: lerp(0.7, 0.84, t),
-      share: 1,
-      fixed: 0,
-      source: [0, 0],
-      unlock: id === 5 ? "Public Announcement" : id === 7 ? "Fire Safety" : undefined,
-      blurb:
-        id === 5
-          ? "A new system. Trace each speaker back to the house."
-          : id === 7
-            ? "A new system. Arm every detector from the fire panel."
-            : undefined,
-    };
-  }
-  if (id <= 12) {
-    const t = (id - 9) / 3;
-    return {
-      id,
-      theme,
-      size: 6,
-      nodes: 5,
-      reach: [3, 5],
-      wiggle: lerp(0.72, 0.84, t),
-      share: 1,
-      fixed: 1,
-      source: [0, 0],
-      unlock: id === SIX_START ? "6×6 board" : undefined,
-      blurb: id === SIX_START ? "A bigger board, with longer runs between the tees." : undefined,
-    };
-  }
-  if (id <= 30) {
-    const t = (id - 13) / 17;
-    return {
-      id,
-      theme,
-      size: 6,
-      nodes: 6,
-      reach: id < 18 ? [2, 4] : id < 28 ? [3, 5] : [3, 6],
-      wiggle: lerp(0.72, 0.86, t),
-      share: 1,
-      fixed: boltsFor(id, 6),
-      source: sourceFor(id, 6),
-    };
-  }
-  if (id <= 44) {
-    const t = (id - 31) / 13;
-    return {
-      id,
-      theme,
-      size: 7,
-      nodes: 6,
-      reach: id < 38 ? [3, 5] : [3, 6],
-      wiggle: lerp(0.58, 0.72, t),
-      share: 1,
-      fixed: boltsFor(id, 7),
-      source: sourceBand(id, 7),
-      unlock: id === SEVEN_START ? "7×7 board" : undefined,
-      blurb: id === SEVEN_START ? "The biggest board, with longer runs and more devices." : undefined,
-    };
-  }
-  if (id <= 68) {
-    const t = (id - 45) / 23;
-    return {
-      id,
-      theme,
-      size: 7,
-      nodes: 7,
-      reach: id < 56 ? [3, 6] : [4, 7],
-      wiggle: lerp(0.58, 0.74, t),
-      share: 1,
-      fixed: boltsFor(id, 7),
-      source: sourceBand(id, 7),
-    };
-  }
-  if (id <= 110) {
-    const t = (id - 69) / 41;
-    return {
-      id,
-      theme,
-      size: 7,
-      nodes: 8,
-      reach: id < 90 ? [4, 7] : [4, 8],
-      wiggle: lerp(0.6, 0.76, t),
-      share: 1,
-      fixed: boltsFor(id, 7),
-      source: sourceBand(id, 7),
-    };
-  }
-  if (id <= 150) {
-    const t = (id - 111) / 39;
-    return {
-      id,
-      theme,
-      size: 7,
-      nodes: 9,
-      reach: [4, 8],
-      wiggle: lerp(0.62, 0.8, t),
-      share: 1,
-      fixed: boltsFor(id, 7),
-      source: sourceBand(id, 7),
-    };
-  }
-  const relief = isRelief(id);
-  const t = (id - RECT_START) / 99;
-  const nodes = id < 175 ? 9 : id < 225 ? 10 : 11;
-  const reach: readonly [number, number] = relief ? [3, 5] : nodes >= 11 ? [3, 7] : [4, 8];
+  const { band, from } = bandFor(id);
+  const span = band.to - from;
+  const t = span === 0 ? 0 : (id - from) / span;
+  const square = band.rows === band.cols;
   return {
     id,
     theme,
-    size: 7,
-    rows: 8,
-    cols: 7,
-    relief,
-    nodes,
-    reach,
-    wiggle: relief ? 0.7 : lerp(0.75, 0.88, t),
+    size: band.cols,
+    rows: square ? undefined : band.rows,
+    cols: square ? undefined : band.cols,
+    nodes: band.nodes,
+    reach: band.reach,
+    wiggle: lerp(band.wiggle[0], band.wiggle[1], t),
     share: 1,
-    fixed: 0,
-    source: [2, 3],
-    unlock: id === RECT_START ? "7×8 board" : undefined,
-    blurb: id === RECT_START ? "A taller board, with longer runs between the tees." : undefined,
+    fixed: band.fixed,
+    source: sourceFor(id, band.cols),
+    unlock:
+      id === 5
+        ? "Public Announcement"
+        : id === 7
+          ? "Fire Safety"
+          : id === SIX_START
+            ? "6×6 board"
+            : id === SEVEN_START
+              ? "7×7 board"
+              : id === RECT_START
+                ? "7×8 board"
+                : id === TALL_START
+                  ? "7×9 board"
+                  : undefined,
+    blurb:
+      id === 5
+        ? "A new system. Trace each speaker back to the house."
+        : id === 7
+          ? "A new system. Arm every detector from the fire panel."
+          : id === SIX_START
+            ? "A bigger board, with longer runs between the tees."
+            : id === SEVEN_START
+              ? "A bigger board, with longer runs and more devices."
+              : id === RECT_START || id === TALL_START
+                ? "A taller board, with longer runs between the tees."
+                : undefined,
   };
 }
 
@@ -660,6 +671,8 @@ const NUMBER_WORDS = [
   "Nine",
   "Ten",
   "Eleven",
+  "Twelve",
+  "Thirteen",
 ];
 
 function describe(plan: Plan, tees: number): string {
@@ -803,18 +816,16 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
       // Later boards carry more nodes, so the route may cover a little more of the grid.
       const rows = plan.rows ?? plan.size;
       const cols = plan.cols ?? plan.size;
-      const room = plan.nodes >= 10 ? 0.98 : plan.nodes >= 9 ? 0.94 : plan.nodes >= 7 ? 0.88 : 0.8;
+      const room = plan.nodes >= 11 ? 1 : plan.nodes >= 9 ? 0.96 : plan.nodes >= 6 ? 0.92 : 0.8;
       const area = rows * cols;
-      const minShare = rows !== cols ? (plan.relief ? 0.34 : 0.52) : plan.dense ? 0.64 : 0.45;
+      const minShare = plan.nodes >= 12 ? 0.4 : rows !== cols ? 0.48 : plan.dense ? 0.64 : 0.45;
       if (routeCells < area * minShare || routeCells > area * room) continue;
       if (goal.par && (level.par < goal.par[0] || level.par > goal.par[1])) continue;
       const described = { ...level, blurb: describe(plan, tees) };
       const miss = Math.abs(estimateSeconds(level) - goal.seconds) / goal.seconds;
       if (miss <= goal.tolerance) {
-        // Daily and the measured 7×7 stretch take the first board on target.
-        // The last forty levels keep searching so a long board is not followed
-        // by a short one.
-        if (plan.id > 30 && (plan.id < 111 || plan.id > 250)) return described;
+        // Daily and every board after the opening take the first tree on target.
+        if (plan.id > 30) return described;
         const straights = straightShare(described);
         if (!bend || straights < bend.straights - 0.02 || (straights <= bend.straights && miss < bend.miss)) {
           bend = { level: described, miss, straights };
@@ -834,8 +845,8 @@ function generateFromPlan(plan: Plan, name: string, goal: Goal): Level {
 function generateLevel(id: number, name: string): Level {
   return generateFromPlan(planFor(id), name, {
     seconds: targetSeconds(id),
-    tolerance: 0.012,
-    attempts: id <= 30 ? 1500 : id >= 225 ? 3200 : id >= 151 ? 1800 : id >= 111 ? 4000 : 800,
+    tolerance: id >= 127 ? 0.04 : 0.012,
+    attempts: id <= 30 ? 1600 : id >= 127 ? 1600 : 1000,
   });
 }
 
@@ -928,27 +939,57 @@ export function estimateSeconds(level: Level): number {
 }
 
 /**
- * Target solve time per level. The opening lessons stay short, then each
- * stretch climbs by a small step: four and five nodes on 5×5, the 6×6 size
- * jump, six nodes, then the 7×7 size jump. Neighboring levels differ by a
- * small step, including the board-size changes.
+ * End-of-band solve times. The opening lessons stay short, then each band
+ * climbs. A band that drops a node, or drops its bolt along with a node,
+ * starts easier than the band before it.
  */
+const TIME_MARKS: readonly { to: number; at?: number; seconds: number }[] = [
+  { to: 4, seconds: 64 },
+  { to: 6, seconds: 96 },
+  { to: 8, seconds: 128 },
+  { to: 10, seconds: 150 },
+  { to: 13, seconds: 178 },
+  { to: 16, seconds: 210 },
+  { to: 22, seconds: 200 },
+  { to: 30, seconds: 240 },
+  { to: 34, seconds: 270 },
+  { to: 38, seconds: 310 },
+  { to: 60, seconds: 300 },
+  { to: 82, seconds: 380 },
+  { to: 104, seconds: 470 },
+  { to: 126, seconds: 560 },
+  { to: 148, at: 555, seconds: 600 },
+  { to: 152, at: 600, seconds: 630 },
+  { to: 156, at: 680, seconds: 710 },
+  { to: 176, at: 615, seconds: 620 },
+  { to: 196, at: 670, seconds: 700 },
+  { to: 216, at: 685, seconds: 700 },
+  { to: 236, at: 680, seconds: 700 },
+  { to: 240, at: 800, seconds: 850 },
+  { to: 244, at: 770, seconds: 790 },
+  { to: 264, at: 775, seconds: 790 },
+  { to: 284, at: 755, seconds: 770 },
+  { to: 320, at: 765, seconds: 755 },
+];
+
 export function targetSeconds(id: number): number {
-  let seconds: number;
-  if (id <= 3) seconds = [17, 28, 55][id - 1]!;
-  else if (id <= 8) seconds = [64, 79, 87, 95, 106][id - 4]!;
-  else if (id <= 12) seconds = [122, 130, 136, 142][id - 9]!;
-  else if (id <= 20) seconds = lerp(148, 172, (id - 13) / 7);
-  else if (id <= 30) seconds = lerp(178, 198, (id - 21) / 9);
-  else if (id <= 44) seconds = lerp(214, 260, (id - 31) / 13);
-  else if (id <= 68) seconds = lerp(268, 380, (id - 45) / 23);
-  else if (id <= 110) seconds = lerp(390, 520, (id - 69) / 41);
-  else if (id <= 150) seconds = lerp(522, 545, (id - 111) / 39);
-  else if (id <= 174) seconds = lerp(555, 640, (id - 151) / 23);
-  else if (id <= 224) seconds = lerp(655, 700, (id - 175) / 49);
-  else seconds = lerp(780, 815, (id - 225) / 25);
-  if (isRelief(id)) seconds *= 0.88;
-  return Math.round(seconds);
+  if (id <= 3) return [17, 28, 55][id - 1]!;
+  let prevId = 3;
+  let prev = 55;
+  for (const mark of TIME_MARKS) {
+    if (id <= mark.to) {
+      if (mark.at === undefined) {
+        const t = (id - prevId) / (mark.to - prevId);
+        return Math.round(lerp(prev, mark.seconds, t));
+      }
+      const from = prevId + 1;
+      const t = from === mark.to ? 1 : (id - from) / (mark.to - from);
+      return Math.round(lerp(mark.at, mark.seconds, t));
+    }
+    prevId = mark.to;
+    prev = mark.seconds;
+  }
+  return prev;
 }
 
 interface Shape {
@@ -1116,7 +1157,12 @@ function shareScramble(
   return scramble;
 }
 
-/** Bolt a seeded set of route pipes. The source and the nodes always turn. */
+/**
+ * Bolt a seeded route pipe at its solved facing. A tee comes first, so the
+ * bolt locks a split; a corner is the next choice. The source and the nodes
+ * always stay free to turn, and the bolt itself is already correct, so the
+ * board stays solvable.
+ */
 function pickBolted(
   kinds: Map<string, Kind>,
   terminals: Set<string>,
@@ -1125,11 +1171,13 @@ function pickBolted(
 ): Set<string> {
   if (count <= 0) return new Set();
   const rand = mulberry32(seed * 40503 + 17);
+  const rank = (cellKey: string) => (kinds.get(cellKey) === "tee" ? 0 : kinds.get(cellKey) === "corner" ? 1 : 2);
   const keys = [...kinds.keys()].filter((cellKey) => !terminals.has(cellKey)).sort();
   for (let i = keys.length - 1; i > 0; i--) {
     const j = Math.floor(rand() * (i + 1));
     [keys[i], keys[j]] = [keys[j]!, keys[i]!];
   }
+  keys.sort((a, b) => rank(a) - rank(b));
   return new Set(keys.slice(0, count));
 }
 

@@ -1732,10 +1732,14 @@
   border-radius: 13px;
 }
 
-/* The 7×8 board is one row taller, so on a laptop the grid gives that row back to the controls. */
+/* Taller boards give a row back to the controls, so the grid still fits the screen. */
 @media (min-width: 720px) {
   .path-connect[data-style="cozy"] .pc-shell[data-rows="8"] {
     --pc-board: min(520px, calc(100vw - 76px), calc(100dvh - 370px));
+  }
+
+  .path-connect[data-style="cozy"] .pc-shell[data-rows="9"] {
+    --pc-board: min(460px, calc(100vw - 76px), calc((100dvh - 390px) * 7 / 9));
   }
 }
 
