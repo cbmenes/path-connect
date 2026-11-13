@@ -1031,6 +1031,18 @@ export function PathConnectGame() {
               <Undo2 />
               Undo
             </Button>
+            <Button
+              type="button"
+              variant="ghost"
+              className="pc-tool"
+              onClick={() => {
+                setGuide(true);
+                setLesson(1);
+              }}
+            >
+              <CircleHelp />
+              How to play
+            </Button>
             {phase === "won" && mode === "levels" && (
               <Button
                 type="button"
