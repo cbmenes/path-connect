@@ -60,7 +60,7 @@ import {
 } from "@/lib/path-connect/hint";
 import { interstitialAds } from "@/lib/path-connect/interstitial-ad";
 import { shouldShowInterstitial } from "@/lib/path-connect/interstitial";
-import { ALL_LEVELS_OPEN, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
+import { ALL_LEVELS_OPEN, captureDevUnlock, devUnlockAll, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { markOnboarded, markSourceTipSeen, needsOnboarding, needsSourceTip } from "@/lib/path-connect/onboarding";
 import { REMOVE_ADS_PRICE, readAdsRemoved, writeAdsRemoved } from "@/lib/path-connect/remove-ads";
 import {
@@ -163,6 +163,8 @@ export function PathConnectGame() {
   const [motionOn, setMotionOn] = useState(true);
   const [muted, setMuted] = useState(false);
   const [progress, setProgress] = useState<Progress>({ level: 1, unlocked: 1 });
+  const [devUnlock, setDevUnlock] = useState(false);
+  const devUnlockRef = useRef(false);
   const progressRef = useRef(progress);
   progressRef.current = progress;
   const [pickerOpen, setPickerOpen] = useState(false);
@@ -326,7 +328,11 @@ export function PathConnectGame() {
   }, [mode, phase, lesson, hintUses, boardKey, hintNudged, levelSeconds, moves, level.par, levelId]);
 
   useEffect(() => {
-    const saved = readProgress(LEVELS.length, { openAll: ALL_LEVELS_OPEN });
+    captureDevUnlock();
+    const openAll = ALL_LEVELS_OPEN || devUnlockAll();
+    devUnlockRef.current = openAll;
+    setDevUnlock(openAll);
+    const saved = readProgress(LEVELS.length, { openAll });
     progressRef.current = saved;
     setProgress(saved);
     hintUsesRef.current = readHintUses();
@@ -468,7 +474,7 @@ export function PathConnectGame() {
 
   function pickLevel(nextId: number) {
     setPickerOpen(false);
-    if (!ALL_LEVELS_OPEN && nextId > progressRef.current.unlocked) return;
+    if (!devUnlockRef.current && nextId > progressRef.current.unlocked) return;
     reset(nextId);
   }
 
@@ -822,6 +828,7 @@ export function PathConnectGame() {
             <LevelPicker
               current={levelId}
               unlocked={progress.unlocked}
+              openAll={ALL_LEVELS_OPEN || devUnlock}
               onPick={pickLevel}
               onClose={() => setPickerOpen(false)}
             />
@@ -1618,11 +1625,13 @@ function DailyResult({ result, stats }: { result: DailyFinish; stats: DailyStats
 function LevelPicker({
   current,
   unlocked,
+  openAll,
   onPick,
   onClose,
 }: {
   current: number;
   unlocked: number;
+  openAll: boolean;
   onPick: (id: number) => void;
   onClose: () => void;
 }) {
@@ -1651,7 +1660,7 @@ function LevelPicker({
     <div ref={panelRef} className="pc-picker" role="dialog" aria-label="Choose a level">
       {CHAPTERS.map((chapter) => {
         const first = chapter.ids[0] ?? 1;
-        const open = ALL_LEVELS_OPEN || first <= unlocked;
+        const open = openAll || first <= unlocked;
         const ids = chapter.ids;
         return (
           <section key={chapter.title} className="pc-chapter" data-open={open}>
@@ -1661,7 +1670,7 @@ function LevelPicker({
             </header>
             <div className="pc-chapter-levels">
               {ids.map((id) => {
-                const isOpen = ALL_LEVELS_OPEN || id <= unlocked;
+                const isOpen = openAll || id <= unlocked;
                 const done = id < unlocked;
                 return (
                   <button
