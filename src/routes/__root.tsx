@@ -42,13 +42,8 @@ function Root() {
   useEffect(() => {
     applyNativeIosSafeArea(document, window.location.protocol);
   }, []);
-  const nativeIos =
-    typeof document !== "undefined" &&
-    document.documentElement.getAttribute("data-native") === "ios"
-      ? "ios"
-      : undefined;
   return (
-    <html lang="en" className="antialiased" data-native={nativeIos} suppressHydrationWarning>
+    <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>

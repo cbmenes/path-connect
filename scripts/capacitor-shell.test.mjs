@@ -2,6 +2,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
+import { nativeSafeAreaScript } from "./native-safe-area.mjs";
 
 const root = join(import.meta.dirname, "..");
 
@@ -29,9 +30,10 @@ test("the native shell wraps the static client and leaves the website build alon
   assert.equal(pkg.scripts.build.includes("CAPACITOR_BUILD"), false);
 
   const scene = readFileSync(join(root, "ios/App/App/SceneDelegate.swift"), "utf8");
-  assert.match(scene, /PathConnectViewController/);
-  assert.match(scene, /viewport-fit=cover/);
-  assert.match(scene, /data-native","ios"/);
+  assert.match(scene, /rootViewController = PathConnectViewController\(\)/);
+  assert.match(scene, /--pc-native-top/);
+  assert.match(scene, /MutationObserver/);
+  assert.match(nativeSafeAreaScript("59px"), /^!function\(\)\{var t="59px"/);
   const rootView = readFileSync(join(root, "src/routes/__root.tsx"), "utf8");
   assert.equal(rootView.includes("viewport-fit=cover"), false);
 
