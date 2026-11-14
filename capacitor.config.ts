@@ -45,6 +45,17 @@ const config: CapacitorConfig = {
     androidScheme: "https",
     hostname: "localhost",
   },
+  plugins: {
+    // The launch screen alone vanishes before the game paints, leaving the
+    // cream WebView. This holds the same Splash artwork over it for a moment.
+    SplashScreen: {
+      launchShowDuration: 1500,
+      launchAutoHide: true,
+      launchFadeOutDuration: 300,
+      backgroundColor: "#d8eee3",
+      showSpinner: false,
+    },
+  },
 };
 
 export default config;
