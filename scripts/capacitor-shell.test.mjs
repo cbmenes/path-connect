@@ -28,6 +28,13 @@ test("the native shell wraps the static client and leaves the website build alon
   assert.match(pkg.scripts["build:native"], /CAPACITOR_BUILD=1/);
   assert.equal(pkg.scripts.build.includes("CAPACITOR_BUILD"), false);
 
+  const scene = readFileSync(join(root, "ios/App/App/SceneDelegate.swift"), "utf8");
+  assert.match(scene, /PathConnectViewController/);
+  assert.match(scene, /viewport-fit=cover/);
+  assert.match(scene, /data-native","ios"/);
+  const rootView = readFileSync(join(root, "src/routes/__root.tsx"), "utf8");
+  assert.equal(rootView.includes("viewport-fit=cover"), false);
+
   assert.match(progress, /export const ALL_LEVELS_OPEN = false/);
   assert.match(progress, /const DEV_UNLOCK_KEY = "devUnlockAll"/);
 });

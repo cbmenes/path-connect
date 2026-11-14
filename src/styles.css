@@ -1528,6 +1528,11 @@
   gap: 0;
 }
 
+/* Wider than a phone: same inset, using this bar's 14px padding. Phones override it below. */
+html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell {
+  padding-top: calc(14px + env(safe-area-inset-top, 0px));
+}
+
 .path-connect[data-style="cozy"] .pc-top,
 .path-connect[data-style="cozy"] .pc-bottom {
   position: relative;
@@ -3092,6 +3097,16 @@
       0 0 0 1px color-mix(in oklab, var(--color-pc-shade) 10%, transparent),
       0 16px 32px -18px color-mix(in oklab, var(--color-pc-shade) 70%, transparent);
     animation: pc-note-in 180ms ease-out both;
+  }
+
+  /*
+   * Capacitor iOS draws the page under the status bar and Dynamic Island.
+   * `data-native` is set only for capacitor://, so the website and the PWA
+   * keep the 10px top padding above.
+   */
+  html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell,
+  html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell[data-size] {
+    padding-top: calc(10px + env(safe-area-inset-top, 0px));
   }
 
   .path-connect[data-style="cozy"] .pc-bottom[data-idle],
