@@ -51,6 +51,10 @@ test("the native shell wraps the static client and leaves the website build alon
       filename,
     );
   }
+  const cream = /backgroundColor: "#fbedd0"/;
+  assert.match(config, cream);
+  assert.match(scene, /UIColor\(red: 0\.984, green: 0\.929, blue: 0\.816/);
+  assert.match(launch, /red="0\.984" green="0\.929" blue="0\.816"/);
   const spm = readFileSync(join(root, "ios/App/CapApp-SPM/Package.swift"), "utf8");
   assert.match(spm, /CapacitorSplashScreen/);
   const rootView = readFileSync(join(root, "src/routes/__root.tsx"), "utf8");

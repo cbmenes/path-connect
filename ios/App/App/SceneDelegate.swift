@@ -27,7 +27,7 @@ class PathConnectViewController: CAPBridgeViewController {
         let splash = UIImageView(image: image)
         splash.contentMode = .scaleAspectFill
         splash.clipsToBounds = true
-        splash.backgroundColor = UIColor(red: 0.847, green: 0.933, blue: 0.890, alpha: 1)
+        splash.backgroundColor = UIColor(red: 0.984, green: 0.929, blue: 0.816, alpha: 1)
         splash.frame = view.bounds
         splash.autoresizingMask = [.flexibleWidth, .flexibleHeight]
         view.addSubview(splash)
