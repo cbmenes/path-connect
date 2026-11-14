@@ -61,7 +61,7 @@ import {
 import { interstitialAds } from "@/lib/path-connect/interstitial-ad";
 import { shouldShowInterstitial } from "@/lib/path-connect/interstitial";
 import { ALL_LEVELS_OPEN, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
-import { markOnboarded, needsOnboarding } from "@/lib/path-connect/onboarding";
+import { markOnboarded, markSourceTipSeen, needsOnboarding, needsSourceTip } from "@/lib/path-connect/onboarding";
 import { REMOVE_ADS_PRICE, readAdsRemoved, writeAdsRemoved } from "@/lib/path-connect/remove-ads";
 import {
   HINT_NUDGE_SECONDS,
@@ -175,6 +175,7 @@ export function PathConnectGame() {
   const lessonRef = useRef(lesson);
   lessonRef.current = lesson;
   const [guide, setGuide] = useState(false);
+  const [sourceTip, setSourceTip] = useState(false);
   const [menuOpen, setMenuOpen] = useState(false);
   const [adsRemoved, setAdsRemoved] = useState(false);
   const adsRemovedRef = useRef(false);
@@ -223,6 +224,20 @@ export function PathConnectGame() {
   const hintTile = hint && phase === "play" ? level.tiles[hint.index] : undefined;
   const hintLeft =
     hint && hintTile ? turnsToSolve(hintTile.kind, spins[hint.index] ?? hintTile.initial, hintTile.solution) : 0;
+
+  const sourceIndex = level.tiles.findIndex((tile) => tile.role === "start");
+  const showSourceTip =
+    sourceTip && !lesson && mode === "levels" && levelId === 1 && phase === "play" && sourceIndex >= 0;
+  const sourceTipShownRef = useRef(false);
+
+  useEffect(() => {
+    if (showSourceTip) {
+      sourceTipShownRef.current = true;
+      return;
+    }
+    if (sourceTip && sourceTipShownRef.current && (mode !== "levels" || levelId !== 1)) dismissSourceTip();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [showSourceTip, sourceTip, mode, levelId]);
 
   useEffect(() => () => adAbortRef.current?.abort(), []);
 
@@ -321,6 +336,7 @@ export function PathConnectGame() {
     setAdsRemoved(removed);
     if (saved.level !== 1) reset(saved.level, { keepHints: true });
     if (needsOnboarding()) setLesson(1);
+    setSourceTip(needsSourceTip());
     // Read once after mount, so the server render and the first client render match.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
@@ -501,6 +517,11 @@ export function PathConnectGame() {
     setHint(null);
   }
 
+  function dismissSourceTip() {
+    setSourceTip(false);
+    markSourceTipSeen();
+  }
+
   function onRotate(index: number) {
     const tile = level.tiles[index];
     // phaseRef updates in the same click, so a second tap cannot undo a win
@@ -511,6 +532,7 @@ export function PathConnectGame() {
       setNote("Bolted tiles stay put. Turn the tiles around them.");
       return;
     }
+    if (sourceTip) dismissSourceTip();
     const nextSpins = spinsRef.current.map((spin, i) => (i === index ? spin + 1 : spin));
     spinsRef.current = nextSpins;
     movesRef.current += 1;
@@ -874,6 +896,7 @@ export function PathConnectGame() {
                   data-fixed={tile.fixed || undefined}
                   data-nudge={nudged === index || undefined}
                   data-hint={(hintTile && hint?.index === index && hintLeft > 0) || undefined}
+                  data-source-tip={(showSourceTip && index === sourceIndex) || undefined}
                   aria-disabled={locked}
                   aria-label={
                     hint?.index === index && hintLeft > 0
@@ -931,6 +954,7 @@ export function PathConnectGame() {
                 </button>
               );
             })}
+            {showSourceTip && <SourceTip index={sourceIndex} cols={level.cols} rows={level.rows} />}
             {celebrate > 0 && flowPaths && (
               <ChargeRun key={celebrate} paths={flowPaths} boardRef={boardRef} />
             )}
@@ -1786,6 +1810,26 @@ function ThemeMark({ theme }: { theme: ThemeId }) {
   return <HouseArt small />;
 }
 
+/** Points at the house from above, or from below when the house sits on the top row. */
+function SourceTip({ index, cols, rows }: { index: number; cols: number; rows: number }) {
+  const { row, col } = rowCol(index, cols);
+  const below = row === 0;
+  return (
+    <p
+      className="pc-source-tip"
+      role="status"
+      data-below={below || undefined}
+      data-align={col === 0 ? "start" : col === cols - 1 ? "end" : undefined}
+      style={{
+        left: `${((col + 0.5) / cols) * 100}%`,
+        top: `${((below ? row + 1 : row) / rows) * 100}%`,
+      }}
+    >
+      Flow starts from the house.
+    </p>
+  );
+}
+
 function SourceGlyph({ theme }: { theme: ThemeId }) {
   if (theme === "plumbing") return <MainSource />;
   if (theme === "alarm") return <PaHouseSource />;
@@ -1805,7 +1849,9 @@ function HouseSource() {
       <path d="M17.5 54.5V43.5a5.5 5.5 0 0 1 11 0v11z" fill="#b07a52" />
       <path d="M19.2 43.4a3.8 3.8 0 0 1 3.8-3.6" fill="none" stroke="#cfa078" strokeWidth="1.4" strokeLinecap="round" />
       <circle cx="25.6" cy="48.6" r="1.2" fill="#e6c9a2" />
-      <rect x="35" y="33.5" width="12.5" height="11.5" rx="2.6" fill="#ead6b4" stroke="#c9a97c" strokeWidth="1.2" />
+      <rect x="31" y="29.5" width="20.5" height="19.5" rx="7" fill="#ffd27a" opacity="0.28" />
+      <rect x="35" y="33.5" width="12.5" height="11.5" rx="2.6" fill="#ffe1a0" stroke="#c9a97c" strokeWidth="1.2" />
+      <rect x="36" y="34.5" width="10.5" height="9.5" rx="2" fill="#ffc96a" opacity="0.45" />
       <path d="M41.25 34.5v9.5M36 39.25h10.5" stroke="#c9a97c" strokeWidth="1.6" />
       <rect x="36.2" y="34.7" width="10.1" height="9.1" rx="1.8" fill="none" stroke="#fff6e6" strokeWidth="1" opacity="0.8" />
     </svg>

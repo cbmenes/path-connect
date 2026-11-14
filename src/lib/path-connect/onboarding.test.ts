@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { markOnboarded, needsOnboarding } from "./onboarding.ts";
+import { markOnboarded, markSourceTipSeen, needsOnboarding, needsSourceTip } from "./onboarding.ts";
 
 function memory(seed: Record<string, string> = {}) {
   const data = new Map(Object.entries(seed));
@@ -39,4 +39,15 @@ test("storage that throws is treated as no lesson", () => {
   };
   assert.equal(needsOnboarding(broken), false);
   assert.doesNotThrow(() => markOnboarded(broken));
+  assert.equal(needsSourceTip(broken), false);
+  assert.doesNotThrow(() => markSourceTipSeen(broken));
+});
+
+test("the house tip shows once, separately from the lesson", () => {
+  const storage = memory();
+  markOnboarded(storage);
+  assert.equal(needsSourceTip(storage), true);
+  markSourceTipSeen(storage);
+  assert.equal(needsSourceTip(storage), false);
+  assert.equal(needsSourceTip(null), false);
 });

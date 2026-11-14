@@ -1258,7 +1258,113 @@
   overflow: visible;
   filter:
     drop-shadow(0 1.5px 0 color-mix(in oklab, var(--color-pc-shade) 28%, transparent))
-    drop-shadow(1px 5px 5px color-mix(in oklab, var(--color-pc-shade) 34%, transparent));
+    drop-shadow(1px 5px 5px color-mix(in oklab, var(--color-pc-shade) 34%, transparent))
+    drop-shadow(0 0 5px var(--pc-source-glow));
+}
+
+/* The house is the source: a soft, steady light in each theme's own color. It never pulses. */
+.path-connect[data-style="cozy"] {
+  --pc-source-glow: rgb(255 206 120 / 0.55);
+}
+
+.path-connect[data-theme="plumbing"][data-style="cozy"] {
+  --pc-source-glow: rgb(178 230 244 / 0.6);
+}
+
+.path-connect[data-theme="fire"][data-style="cozy"] {
+  --pc-source-glow: rgb(228 86 64 / 0.4);
+}
+
+.path-connect[data-theme="alarm"][data-style="cozy"] {
+  --pc-source-glow: rgb(246 184 92 / 0.55);
+}
+
+.path-connect[data-style="cozy"] .pc-source::before {
+  content: "";
+  pointer-events: none;
+  position: absolute;
+  inset: 4%;
+  z-index: 1;
+  border-radius: 50%;
+  background: radial-gradient(circle, var(--pc-source-glow) 0%, transparent 68%);
+}
+
+.path-connect[data-theme="plumbing"][data-style="cozy"] .pc-source::before {
+  background:
+    radial-gradient(ellipse 34% 14% at 40% 34%, rgb(255 255 255 / 0.5) 0%, transparent 100%),
+    radial-gradient(circle, var(--pc-source-glow) 0%, transparent 68%);
+}
+
+/* Level 1 points at the house once. The ring holds still, unlike the hint pulse. */
+.path-connect[data-style="cozy"] .pc-tile[data-source-tip] {
+  z-index: 3;
+  outline: 3px solid var(--color-pc-flow);
+  outline-offset: 2px;
+}
+
+.pc-source-tip {
+  --pc-tip-nudge: 18px;
+  pointer-events: none;
+  position: absolute;
+  z-index: 5;
+  margin: 0;
+  translate: -50% calc(-100% - 12px);
+  border-radius: 12px;
+  background: var(--color-pc-fg);
+  padding: 7px 12px;
+  font-size: 0.8125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  color: var(--color-pc-bg);
+  box-shadow: 0 8px 18px -10px rgb(40 30 20 / 0.6);
+  animation: pc-note-in 220ms ease-out both;
+}
+
+.pc-source-tip::after {
+  content: "";
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  translate: -50% -1px;
+  border: 7px solid transparent;
+  border-top-color: var(--color-pc-fg);
+}
+
+.pc-source-tip[data-below] {
+  translate: -50% 12px;
+}
+
+.pc-source-tip[data-below]::after {
+  top: auto;
+  bottom: 100%;
+  translate: -50% 1px;
+  border-top-color: transparent;
+  border-bottom-color: var(--color-pc-fg);
+}
+
+.pc-source-tip[data-align="start"] {
+  translate: calc(-1 * var(--pc-tip-nudge)) calc(-100% - 12px);
+}
+
+.pc-source-tip[data-align="end"] {
+  translate: calc(-100% + var(--pc-tip-nudge)) calc(-100% - 12px);
+}
+
+.pc-source-tip[data-align="start"][data-below] {
+  translate: calc(-1 * var(--pc-tip-nudge)) 12px;
+}
+
+.pc-source-tip[data-align="end"][data-below] {
+  translate: calc(-100% + var(--pc-tip-nudge)) 12px;
+}
+
+.pc-source-tip[data-align="start"]::after {
+  left: var(--pc-tip-nudge);
+}
+
+.pc-source-tip[data-align="end"]::after {
+  left: calc(100% - var(--pc-tip-nudge));
 }
 
 .path-connect[data-style="cozy"] .pc-tip {
