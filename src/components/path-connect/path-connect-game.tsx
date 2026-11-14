@@ -220,7 +220,7 @@ export function PathConnectGame() {
   // The pulse sweeps the whole path in about a third of a second on any board size.
   const waveStep = flowPath && flowPath.length > 1 ? Math.min(36, 320 / (flowPath.length - 1)) : 0;
   const boardKey = mode === "daily" ? `daily:${todayKey}` : `level:${levelId}`;
-  const offer = hintOffer(hintUses[boardKey] ?? 0);
+  const offer = hintOffer(hintUses[boardKey] ?? 0, adsRemoved);
   const hintTile = hint && phase === "play" ? level.tiles[hint.index] : undefined;
   const hintLeft =
     hint && hintTile ? turnsToSolve(hintTile.kind, spins[hint.index] ?? hintTile.initial, hintTile.solution) : 0;

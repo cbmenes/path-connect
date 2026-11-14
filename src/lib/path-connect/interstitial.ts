@@ -11,7 +11,7 @@ export function interstitialAfterLevel(levelId: number): boolean {
   return levelId % 2 === 0;
 }
 
-/** A Remove Ads purchase turns every interstitial off. Hint ads are separate. */
+/** A Remove Ads purchase turns every interstitial off. */
 export function shouldShowInterstitial(levelId: number, adsRemoved: boolean): boolean {
   if (adsRemoved) return false;
   return interstitialAfterLevel(levelId);

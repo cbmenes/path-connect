@@ -7,9 +7,8 @@ export interface Hint {
   turns: number;
 }
 
-/** One free hint per board, then one more behind a rewarded ad. */
+/** The first hint on a board is free. Every hint after that asks for a rewarded ad. */
 export const FREE_HINTS = 1;
-export const MAX_HINTS = 2;
 
 export type HintOffer = "free" | "ad" | "none";
 
@@ -24,7 +23,7 @@ export function keepUses(uses: HintUses, keys: readonly string[]): HintUses {
   for (const key of keys) {
     const used = uses[key];
     if (typeof used === "number" && Number.isFinite(used) && used > 0) {
-      kept[key] = Math.min(MAX_HINTS, Math.floor(used));
+      kept[key] = Math.floor(used);
     }
   }
   return kept;
@@ -49,10 +48,10 @@ export function writeHintUses(uses: HintUses): void {
   }
 }
 
-export function hintOffer(used: number): HintOffer {
-  if (used < FREE_HINTS) return "free";
-  if (used < MAX_HINTS) return "ad";
-  return "none";
+/** Remove Ads makes every hint free. Otherwise the first is free and the rest need an ad. */
+export function hintOffer(used: number, adsRemoved = false): HintOffer {
+  if (adsRemoved || used < FREE_HINTS) return "free";
+  return "ad";
 }
 
 export function turnsToSolve(kind: Level["tiles"][number]["kind"], spin: number, solution: number): number {

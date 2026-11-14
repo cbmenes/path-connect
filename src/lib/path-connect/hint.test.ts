@@ -9,8 +9,12 @@ import { placeholderAds } from "./rewarded-ad.ts";
 const BOARDS = [...LEVELS, dailyLevel(new Date("2026-11-07T12:00:00Z"))];
 
 describe("hints", () => {
-  it("offers one free hint, then one behind an ad, then none", () => {
-    assert.deepEqual([0, 1, 2, 3].map(hintOffer), ["free", "ad", "none", "none"]);
+  it("offers one free hint, then an ad for every hint after that", () => {
+    assert.deepEqual([0, 1, 2, 3, 8].map((used) => hintOffer(used)), ["free", "ad", "ad", "ad", "ad"]);
+  });
+
+  it("makes every hint free once ads are removed", () => {
+    assert.deepEqual([0, 1, 4].map((used) => hintOffer(used, true)), ["free", "free", "free"]);
   });
 
   it("points at one wrong, turnable route tile with the right number of taps", () => {
@@ -57,7 +61,7 @@ describe("hints", () => {
     const uses = { "level:4": 2, "level:5": 1, "daily:2026-11-06": 1, "daily:2026-11-07": 9, "level:6": 0 };
     assert.deepEqual(keepUses(uses, ["level:5", "daily:2026-11-07", "level:6"]), {
       "level:5": 1,
-      "daily:2026-11-07": 2,
+      "daily:2026-11-07": 9,
     });
   });
 
