@@ -48,8 +48,10 @@ const config: CapacitorConfig = {
   plugins: {
     // The launch screen alone vanishes before the game paints, leaving the
     // cream WebView. This holds the same Splash artwork over it for a moment.
+    // PathConnectViewController (ios/App/App/SceneDelegate.swift) shows the
+    // same image for the same time, so a stale build or cache still shows it.
     SplashScreen: {
-      launchShowDuration: 1500,
+      launchShowDuration: 1200,
       launchAutoHide: true,
       launchFadeOutDuration: 300,
       backgroundColor: "#d8eee3",

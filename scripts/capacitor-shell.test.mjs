@@ -1,5 +1,5 @@
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { join } from "node:path";
 import test from "node:test";
 import { nativeSafeAreaScript } from "./native-safe-area.mjs";
@@ -34,6 +34,25 @@ test("the native shell wraps the static client and leaves the website build alon
   assert.match(scene, /--pc-native-top/);
   assert.match(scene, /MutationObserver/);
   assert.match(nativeSafeAreaScript("59px"), /^!function\(\)\{var t="59px"/);
+
+  // The launch artwork: the plugin, the launch screen, and the controller's overlay all use the "Splash" asset.
+  assert.ok(pkg.dependencies["@capacitor/splash-screen"]);
+  assert.match(config, /SplashScreen:\s*\{[^}]*launchShowDuration:\s*1200/);
+  assert.match(scene, /splashHold: TimeInterval = 1\.2/);
+  assert.match(scene, /UIImage\(named: "Splash"\)/);
+  const launch = readFileSync(join(root, "ios/App/App/Base.lproj/LaunchScreen.storyboard"), "utf8");
+  assert.match(launch, /image="Splash"/);
+  const splashSet = JSON.parse(
+    readFileSync(join(root, "ios/App/App/Assets.xcassets/Splash.imageset/Contents.json"), "utf8"),
+  );
+  for (const { filename } of splashSet.images) {
+    assert.ok(
+      existsSync(join(root, "ios/App/App/Assets.xcassets/Splash.imageset", filename)),
+      filename,
+    );
+  }
+  const spm = readFileSync(join(root, "ios/App/CapApp-SPM/Package.swift"), "utf8");
+  assert.match(spm, /CapacitorSplashScreen/);
   const rootView = readFileSync(join(root, "src/routes/__root.tsx"), "utf8");
   assert.equal(rootView.includes("viewport-fit=cover"), false);
 
