@@ -158,6 +158,12 @@ function authPopupPlugin(): Plugin {
 // `0.0.0.0:8080` is the live-preview contract — don't change host/port.
 // The dev server starts once `src/router.tsx` and `src/routes/` exist — see
 // AGENTS.md § "First scaffold".
+//
+// `CAPACITOR_BUILD=1` is only the native shell (`npm run build:native`). It
+// writes a static client the WebView can open. The website build still uses
+// Nitro and the PWA plugin exactly as before.
+const nativeShell = process.env.CAPACITOR_BUILD === "1";
+
 export default defineConfig(({ command, isPreview }) => ({
   server: {
     host: "0.0.0.0",
@@ -183,8 +189,20 @@ export default defineConfig(({ command, isPreview }) => ({
     // PWA head + ?install=1 tutorial page; runs before Start/Nitro.
     grokPwaPlugin(),
     tailwindcss(),
-    tanstackStart(),
-    ...(command === "build" || isPreview
+    nativeShell
+      ? tanstackStart({
+          spa: {
+            enabled: true,
+            prerender: {
+              enabled: true,
+              crawlLinks: false,
+              // The default shell name is `_shell.html`. The WebView opens `index.html`.
+              outputPath: "/index",
+            },
+          },
+        })
+      : tanstackStart(),
+    ...((command === "build" || isPreview) && !nativeShell
       ? [
           nitro({
             preset: "vercel",

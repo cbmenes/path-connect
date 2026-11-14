@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">Path Connect</string>
+    <string name="title_activity_main">Path Connect</string>
+    <string name="package_name">com.cbmenes.pathconnect</string>
+    <string name="custom_url_scheme">com.cbmenes.pathconnect</string>
+</resources>

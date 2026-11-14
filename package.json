@@ -10,6 +10,8 @@
   "scripts": {
     "dev": "node scripts/with-app-env.mjs vite dev --host 0.0.0.0 --port 8080",
     "build": "node scripts/with-app-env.mjs vite build && node scripts/copy-pglite-assets.mjs && node scripts/sanitize-vercel-chunks.mjs && npm run db:migrate && npm run db:seed",
+    "build:native": "CAPACITOR_BUILD=1 node scripts/with-app-env.mjs vite build",
+    "cap:sync": "npm run build:native && cap sync",
     "db:migrate": "node scripts/migrate.mjs",
     "db:seed": "node scripts/seed-demo.mjs",
     "build:dev": "node scripts/with-app-env.mjs vite build --mode development",
@@ -23,6 +25,7 @@
     "format": "prettier --write ."
   },
   "dependencies": {
+    "@capacitor/core": "^8.6.2",
     "@electric-sql/pglite": "^0.5.4",
     "@hookform/resolvers": "^5.7.0",
     "@radix-ui/react-accordion": "^1.2.12",
@@ -78,6 +81,9 @@
     "zustand": "^5.0.0"
   },
   "devDependencies": {
+    "@capacitor/android": "^8.6.2",
+    "@capacitor/cli": "^8.6.2",
+    "@capacitor/ios": "^8.6.2",
     "@eslint/js": "^9.20.0",
     "@types/node": "^22.16.5",
     "@types/pg": "^8.11.10",
