@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import { afterEach, describe, it } from "node:test";
-import { START, readProgress, writeProgress } from "./progress.ts";
+import { ALL_LEVELS_OPEN, START, readProgress, writeProgress } from "./progress.ts";
 
 function useStorage(initial: Record<string, string> = {}) {
   const data = new Map(Object.entries(initial));
@@ -13,6 +13,10 @@ function useStorage(initial: Record<string, string> = {}) {
 describe("campaign progress", () => {
   afterEach(() => {
     delete (globalThis as { localStorage?: unknown }).localStorage;
+  });
+
+  it("starts locked to level one", () => {
+    assert.equal(ALL_LEVELS_OPEN, false);
   });
 
   it("starts at level one without storage", () => {

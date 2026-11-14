@@ -8,8 +8,8 @@ const STORAGE_KEY = "path-connect-progress";
 
 export const START: Progress = { level: 1, unlocked: 1 };
 
-/** Testing switch: every level can be picked, while `unlocked` keeps tracking real progress for the solved marks. */
-export const ALL_LEVELS_OPEN = true;
+/** Sequential campaign. Level 1 starts open, and beating a level opens the next one. */
+export const ALL_LEVELS_OPEN = false;
 
 export function readProgress(count: number, { openAll = false } = {}): Progress {
   if (typeof localStorage === "undefined") return START;
