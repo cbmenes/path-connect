@@ -1,6 +1,7 @@
 import { genericOAuthClient } from "better-auth/client/plugins";
 import { createAuthClient } from "better-auth/react";
 import { runPreSignInSignOut, runSignOut } from "../../../scripts/sign-out-plan.mjs";
+import { authClientBaseURL } from "./native-origin";
 import { GROK_PROVIDERS } from "./providers";
 
 /**
@@ -18,6 +19,9 @@ import { GROK_PROVIDERS } from "./providers";
  * the visitor stays signed in.
  */
 export const authClient = createAuthClient({
+  // Undefined on the website, so Better Auth keeps using that page's origin.
+  // The native iOS shell is not http(s); see authClientBaseURL.
+  baseURL: typeof window === "undefined" ? undefined : authClientBaseURL(window.location.origin),
   plugins: [genericOAuthClient()],
   fetchOptions: {
     onRequest(ctx) {
