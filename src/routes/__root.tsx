@@ -5,6 +5,7 @@ import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/brand";
+import { installLegacyWebViewShim } from "@/lib/path-connect/legacy-webview";
 import { applyNativeIosSafeArea } from "@/lib/path-connect/native-shell";
 import appCss from "../styles.css?url";
 const queryClient = new QueryClient({
@@ -42,6 +43,7 @@ function Root() {
   useEffect(() => {
     applyNativeIosSafeArea(document, window.location.protocol);
   }, []);
+  useEffect(() => installLegacyWebViewShim(window), []);
   return (
     <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>

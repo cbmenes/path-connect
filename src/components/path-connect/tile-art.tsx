@@ -1,4 +1,5 @@
 import { baseMask, openingIds, type DirId, type Kind } from "@/lib/path-connect/logic";
+import { PIPE_LAYERS, pipeLayerColor } from "@/lib/path-connect/pipe-layers";
 import type { Conduit } from "@/lib/path-connect/styles";
 
 /**
@@ -36,17 +37,6 @@ const BEND_RADIUS = 22;
 /** Collar sits just inside each opening, like a fitting on real conduit. */
 const COLLAR_FROM = 1.5;
 const COLLAR_TO = 6.5;
-
-/**
- * Layers of the tube, darkest first. `shift` moves a layer toward the light,
- * as a fraction of the pipe width; every layer stays inside the outer rim.
- */
-const LAYERS: { width: number; shift: number; ink: "shade" | "light"; mix: number; opacity?: number }[] = [
-  { width: 1, shift: 0, ink: "shade", mix: 66 },
-  { width: 0.8, shift: 0.07, ink: "shade", mix: 26 },
-  { width: 0.44, shift: 0.15, ink: "light", mix: 26, opacity: 0.9 },
-  { width: 0.14, shift: 0.24, ink: "light", mix: 92, opacity: 0.95 },
-];
 
 type Pt = [number, number];
 
@@ -135,11 +125,6 @@ function linePath(pts: Pt[]): string {
     .join(" ");
 }
 
-function layerColor(layer: (typeof LAYERS)[number]): string {
-  const ink = layer.ink === "shade" ? "var(--color-pc-pipe-shade, var(--color-pc-shade))" : "var(--color-pc-pipe-light)";
-  return `color-mix(in oklab, ${ink} ${layer.mix}%, var(--color-pc-pipe-casing, var(--color-pc-casing)))`;
-}
-
 /** Short fittings just inside each opening. */
 function collars(arms: DirId[]): Pt[][] {
   const at: Record<string, [Pt, Pt]> = {
@@ -169,10 +154,10 @@ function CozyPipe({
   const strokes: { key: string; d: string; width: number; color: string; opacity: number }[] = [];
   const dots: { key: string; x: number; y: number; r: number; color: string; opacity: number }[] = [];
 
-  LAYERS.forEach((layer, li) => {
+  PIPE_LAYERS.forEach((layer, li) => {
     const width = layer.width * pipeWidth;
     const dist = layer.shift * pipeWidth;
-    const color = layerColor(layer);
+    const color = pipeLayerColor(layer);
     const opacity = layer.opacity ?? 1;
     const isLight = layer.ink === "light";
     pieces.forEach((run, ri) => {
@@ -190,7 +175,7 @@ function CozyPipe({
 
   return (
     <svg viewBox="0 0 100 100" overflow="visible" className="h-full w-full" aria-hidden="true">
-      {LAYERS.map((_, li) => (
+      {PIPE_LAYERS.map((_, li) => (
         <g key={`layer-${li}`}>
           {dots
             .filter((dot) => dot.key.startsWith(`d${li}-`))
@@ -213,16 +198,16 @@ function CozyPipe({
       ))}
       {fittings.map((pts, fi) => (
         <g key={`collar-${fi}`}>
-          <path d={linePath(pts)} stroke={layerColor(LAYERS[0]!)} strokeWidth={pipeWidth + 3} {...butt} />
+          <path d={linePath(pts)} stroke={pipeLayerColor(PIPE_LAYERS[0]!)} strokeWidth={pipeWidth + 3} {...butt} />
           <path
             d={linePath(shifted(pts, light, pipeWidth * 0.07))}
-            stroke={layerColor(LAYERS[1]!)}
+            stroke={pipeLayerColor(PIPE_LAYERS[1]!)}
             strokeWidth={pipeWidth * 0.86}
             {...butt}
           />
           <path
             d={linePath(shifted(pts, light, pipeWidth * 0.2))}
-            stroke={layerColor(LAYERS[2]!)}
+            stroke={pipeLayerColor(PIPE_LAYERS[2]!)}
             strokeOpacity="0.9"
             strokeWidth={pipeWidth * 0.36}
             {...butt}

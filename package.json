@@ -20,7 +20,7 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/native-origin.test.ts src/lib/path-connect/native-shell.test.ts src/lib/path-connect/logic.test.ts src/lib/path-connect/daily.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/native-origin.test.ts src/lib/path-connect/native-shell.test.ts src/lib/path-connect/legacy-webview.test.ts src/lib/path-connect/logic.test.ts src/lib/path-connect/daily.test.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -100,6 +100,7 @@
     "lightningcss": "^1.28.0",
     "nitro": "3.0.260610-beta",
     "playwright": "^1.62.0",
+    "postcss": "^8.5.33",
     "prettier": "^3.4.0",
     "typescript": "^5.7.0",
     "typescript-eslint": "^8.56.1",
