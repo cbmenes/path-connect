@@ -44,6 +44,24 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
+// The packaged web assets must come from `npm run cap:sync` (the native build). The
+// website build lacks the old-WebView fallbacks, so the board renders scrambled on
+// Android System WebViews older than Chrome 111.
+tasks.register('verifyNativeWebAssets') {
+    def publicDir = file('src/main/assets/public')
+    doLast {
+        def fix = "Run `npm run cap:sync` from the project root, then rebuild."
+        if (!new File(publicDir, 'index.html').isFile()) {
+            throw new GradleException("Path Connect web assets are missing from ${publicDir}. ${fix}")
+        }
+        def css = fileTree(new File(publicDir, 'assets')) { include '**/*.css' }.files
+        if (!css.any { it.text.contains('.pc-legacy-colors') }) {
+            throw new GradleException("Path Connect web assets in ${publicDir} come from the website build, not the native build, so the board will not lay out on older Android WebViews. ${fix}")
+        }
+    }
+}
+preBuild.dependsOn verifyNativeWebAssets
+
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {
