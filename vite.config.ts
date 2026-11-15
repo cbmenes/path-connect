@@ -13,8 +13,6 @@ import { googleAdsTagPlugin } from "./scripts/google-ads-tag-plugin.mjs";
 // @ts-expect-error JS plugin alongside the TS vite config
 import { appEnvPlugin } from "./scripts/app-env-plugin.mjs";
 import { isMigrationFile } from "./scripts/migration-plan.mjs";
-// @ts-expect-error JS plugin alongside the TS vite config
-import { legacyWebViewCssPlugin } from "./scripts/legacy-webview-css-plugin.mjs";
 
 /** The files `src/lib/db.ts` globs — same directory, same non-recursive scope. */
 function hasGlobbedMigrations(root: string): boolean {
@@ -204,8 +202,9 @@ export default defineConfig(({ command, isPreview }) => ({
           },
         })
       : tanstackStart(),
-    // Native shell only: lets older Android System WebViews lay out the board.
-    ...(nativeShell ? [legacyWebViewCssPlugin()] : []),
+    // No native-only CSS rewrite. Android must ship the same stylesheet the
+    // live site renders. Rewriting dvh and color-mix here made the packaged
+    // file diverge, and the app board scrambled while Chrome stayed clean.
     ...((command === "build" || isPreview) && !nativeShell
       ? [
           nitro({

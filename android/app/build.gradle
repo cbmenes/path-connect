@@ -14,6 +14,10 @@ android {
              // Files and dirs to omit from the packaged assets dir, modified to accommodate modern web apps.
              // Default: https://android.googlesource.com/platform/frameworks/base/+/282e181b58cf72b6ca770dc7ca5f91f135444502/tools/aapt/AaptAssets.cpp#61
             ignoreAssetsPattern = '!.svn:!.git:!.ds_store:!*.scc:.*:!CVS:!thumbs.db:!picasa.ini:!*~'
+            // Store the web client uncompressed. Compressed assets can fail to
+            // open through the WebView asset loader, so the stylesheet never
+            // reaches the page and the board paints without its grid.
+            noCompress 'html', 'js', 'css', 'json', 'svg', 'wasm', 'woff', 'woff2', 'ttf', 'otf', 'map', 'webmanifest'
         }
     }
     buildTypes {
@@ -44,19 +48,34 @@ dependencies {
 
 apply from: 'capacitor.build.gradle'
 
-// The packaged web assets must come from `npm run cap:sync` (the native build). The
-// website build lacks the old-WebView fallbacks, so the board renders scrambled on
-// Android System WebViews older than Chrome 111.
+// The page must load the same board stylesheet the live site renders. A missing
+// file, a rewritten WebView stylesheet, or a link that does not point at a
+// packaged file leaves the grid unstyled.
 tasks.register('verifyNativeWebAssets') {
     def publicDir = file('src/main/assets/public')
     doLast {
         def fix = "Run `npm run cap:sync` from the project root, then rebuild."
-        if (!new File(publicDir, 'index.html').isFile()) {
+        def index = new File(publicDir, 'index.html')
+        if (!index.isFile()) {
             throw new GradleException("Path Connect web assets are missing from ${publicDir}. ${fix}")
         }
-        def css = fileTree(new File(publicDir, 'assets')) { include '**/*.css' }.files
-        if (!css.any { it.text.contains('.pc-legacy-colors') }) {
-            throw new GradleException("Path Connect web assets in ${publicDir} come from the website build, not the native build, so the board will not lay out on older Android WebViews. ${fix}")
+        def html = index.getText('UTF-8')
+        def at = html.indexOf('/assets/')
+        def end = at < 0 ? -1 : html.indexOf('.css', at)
+        if (at < 0 || end < 0) {
+            throw new GradleException("Path Connect index.html does not link its board stylesheet. ${fix}")
+        }
+        def linked = html.substring(at + 1, end + 4)
+        def cssFile = new File(publicDir, linked)
+        if (!cssFile.isFile()) {
+            throw new GradleException("Path Connect index.html loads /${linked}, but that file is not in the Android package. ${fix}")
+        }
+        def css = cssFile.text
+        if (!css.contains('.pc-board') || !css.contains('--pc-cols') || !css.contains('aspect-ratio:1')) {
+            throw new GradleException("Path Connect stylesheet in the Android package is missing the live board grid. ${fix}")
+        }
+        if (css.contains('.pc-legacy-colors')) {
+            throw new GradleException("Path Connect Android package has the rewritten WebView stylesheet instead of the live board CSS. ${fix}")
         }
     }
 }

@@ -1,11 +1,10 @@
 import { QueryClient, QueryClientProvider } from "@tanstack/react-query";
 import { createRootRoute, HeadContent, Outlet, Scripts } from "@tanstack/react-router";
-import { useEffect, useLayoutEffect } from "react";
+import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/brand";
-import { isAndroidShell, pinAndroidViewport } from "@/lib/path-connect/android-board";
 import { installLegacyWebViewShim } from "@/lib/path-connect/legacy-webview";
 import { applyNativeIosSafeArea } from "@/lib/path-connect/native-shell";
 import appCss from "../styles.css?url";
@@ -43,17 +42,6 @@ export const Route = createRootRoute({
 function Root() {
   useEffect(() => {
     applyNativeIosSafeArea(document, window.location.protocol);
-  }, []);
-  useLayoutEffect(() => {
-    if (!isAndroidShell()) return;
-    const pin = () => pinAndroidViewport(window);
-    pin();
-    window.addEventListener("resize", pin);
-    window.visualViewport?.addEventListener("resize", pin);
-    return () => {
-      window.removeEventListener("resize", pin);
-      window.visualViewport?.removeEventListener("resize", pin);
-    };
   }, []);
   useEffect(() => installLegacyWebViewShim(window), []);
   return (

@@ -40,14 +40,6 @@ import {
   type DailyFinish,
   type DailyStats,
 } from "@/lib/path-connect/daily";
-import {
-  applyAndroidBoard,
-  androidViewport,
-  isAndroidShell,
-  pinAndroidViewport,
-  planAndroidBoard,
-  planFixed,
-} from "@/lib/path-connect/android-board";
 import { CHAPTERS, LEVELS, boardCells, type Level } from "@/lib/path-connect/levels";
 import {
   DIRS,
@@ -250,33 +242,6 @@ export function PathConnectGame() {
   }, [showSourceTip, sourceTip, mode, levelId]);
 
   useEffect(() => () => adAbortRef.current?.abort(), []);
-
-  // Pixel-lock the grid on Android. Flexible tracks and aspect-ratio collapse
-  // on some System WebViews, and the tiles then draw on top of each other.
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board || !isAndroidShell()) return;
-    const tray = board.parentElement;
-    const wrap = tray?.parentElement;
-    if (!tray || !wrap) return;
-    const fit = () => {
-      pinAndroidViewport(window);
-      const { width, height } = androidViewport(window);
-      const plan = planAndroidBoard(width, height, level.cols, level.rows);
-      if (plan) applyAndroidBoard(wrap, tray, board, plan, level.cols, level.rows);
-    };
-    fit();
-    const frame = window.requestAnimationFrame(fit);
-    const later = window.setTimeout(fit, 350);
-    window.addEventListener("resize", fit);
-    window.visualViewport?.addEventListener("resize", fit);
-    return () => {
-      window.cancelAnimationFrame(frame);
-      window.clearTimeout(later);
-      window.removeEventListener("resize", fit);
-      window.visualViewport?.removeEventListener("resize", fit);
-    };
-  }, [level.id, level.cols, level.rows]);
 
   // Remember where things sit during play, so a win can hold the board still.
   useLayoutEffect(() => {
@@ -1277,7 +1242,6 @@ function PowerLesson({
 }
 
 function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
-  const boardRef = useRef<HTMLDivElement>(null);
   const [elapsed, setElapsed] = useState(0);
   const motion = !prefersReducedMotion();
   const end = step === 1 ? 300 + 4 * LESSON_STEP_MS : LESSON_TURN_AT + 4 * LESSON_STEP_MS;
@@ -1300,20 +1264,9 @@ function LessonBoard({ step, theme }: { step: 1 | 2; theme: ThemeId }) {
     return elapsed >= 300 + tile.order * LESSON_STEP_MS;
   };
 
-  useLayoutEffect(() => {
-    const board = boardRef.current;
-    if (!board || !isAndroidShell()) return;
-    const tray = board.parentElement;
-    if (!tray) return;
-    const measured = tray.getBoundingClientRect().width;
-    const wrap = measured >= 80 && measured <= 280 ? measured : 236;
-    const plan = planFixed(wrap, 3, 3, 10, 6);
-    if (plan) applyAndroidBoard(tray, tray, board, plan, 3, 3);
-  }, [step]);
-
   return (
     <div className="pc-lesson-board pc-tray" aria-hidden="true">
-      <div ref={boardRef} className="pc-board" style={{ "--pc-cols": 3 } as CSSProperties}>
+      <div className="pc-board" style={{ "--pc-cols": 3 } as CSSProperties}>
         {LESSON_TILES.map((tile, index) => {
           const rotation = index === 5 ? (step === 1 ? 3 : turns) : tile.rotation;
           const on = lit(tile, index);
