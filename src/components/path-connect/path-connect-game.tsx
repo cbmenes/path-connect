@@ -8,6 +8,7 @@ import {
   type CSSProperties,
   type RefObject,
 } from "react";
+import { Link } from "@tanstack/react-router";
 import {
   ArrowRight,
   Ban,
@@ -17,6 +18,7 @@ import {
   Lightbulb,
   MoreHorizontal,
   RotateCcw,
+  Shield,
   RotateCw,
   Timer,
   Undo2,
@@ -1811,6 +1813,10 @@ function GameMenu({
         <CircleHelp aria-hidden="true" />
         How to play
       </button>
+      <Link to="/privacy" role="menuitem" onClick={onClose}>
+        <Shield aria-hidden="true" />
+        Privacy
+      </Link>
     </div>
   );
 }

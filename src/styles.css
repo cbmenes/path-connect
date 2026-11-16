@@ -2884,7 +2884,8 @@ html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell {
   }
 }
 
-.path-connect[data-style="cozy"] .pc-menu button {
+.path-connect[data-style="cozy"] .pc-menu button,
+.path-connect[data-style="cozy"] .pc-menu a {
   display: flex;
   align-items: center;
   gap: 10px;
@@ -2894,10 +2895,12 @@ html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell {
   font-size: 0.9375rem;
   font-weight: 600;
   text-align: left;
+  text-decoration: none;
   color: var(--color-pc-fg);
 }
 
-.path-connect[data-style="cozy"] .pc-menu button svg {
+.path-connect[data-style="cozy"] .pc-menu button svg,
+.path-connect[data-style="cozy"] .pc-menu a svg {
   width: 19px;
   height: 19px;
   flex: none;
@@ -2905,7 +2908,9 @@ html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell {
 }
 
 .path-connect[data-style="cozy"] .pc-menu button:hover:not(:disabled),
-.path-connect[data-style="cozy"] .pc-menu button:focus-visible {
+.path-connect[data-style="cozy"] .pc-menu button:focus-visible,
+.path-connect[data-style="cozy"] .pc-menu a:hover,
+.path-connect[data-style="cozy"] .pc-menu a:focus-visible {
   background: color-mix(in oklab, white 60%, var(--color-pc-tile));
   outline: none;
 }
