@@ -15,7 +15,6 @@ import {
   ChevronDown,
   CircleHelp,
   Lightbulb,
-  Lock,
   MoreHorizontal,
   RotateCcw,
   RotateCw,
@@ -814,7 +813,7 @@ export function PathConnectGame() {
                   className="pc-level-pick"
                   aria-haspopup="dialog"
                   aria-expanded={pickerOpen}
-                  aria-label={`Level ${levelId} of ${LEVELS.length}. Choose a level`}
+                  aria-label={`Level ${levelId}. Choose a level`}
                   onClick={() => {
                     setMenuOpen(false);
                     const openPicker = () => setPickerOpen(true);
@@ -823,7 +822,6 @@ export function PathConnectGame() {
                   }}
                 >
                   Level {levelId}
-                  <span className="text-pc-muted"> / {LEVELS.length}</span>
                   <ChevronDown aria-hidden="true" />
                 </button>
               )}
@@ -1667,30 +1665,27 @@ function LevelPicker({
   return (
     <div ref={panelRef} className="pc-picker" role="dialog" aria-label="Choose a level">
       {CHAPTERS.map((chapter) => {
-        const first = chapter.ids[0] ?? 1;
-        const open = openAll || first <= unlocked;
-        const ids = chapter.ids;
+        const ids = chapter.ids.filter((id) => openAll || id <= unlocked);
+        if (ids.length === 0) return null;
         return (
-          <section key={chapter.title} className="pc-chapter" data-open={open}>
+          <section key={chapter.title} className="pc-chapter" data-open="true">
             <header>
               <h3>{chapter.title}</h3>
-              <p>{open ? chapter.note : `Finish level ${first - 1} to open`}</p>
+              <p>{chapter.note}</p>
             </header>
             <div className="pc-chapter-levels">
               {ids.map((id) => {
-                const isOpen = openAll || id <= unlocked;
                 const done = id < unlocked;
                 return (
                   <button
                     key={id}
                     type="button"
-                    disabled={!isOpen}
                     aria-current={id === current}
-                    aria-label={`Level ${id}${done ? ", solved" : isOpen ? "" : ", locked"}`}
+                    aria-label={`Level ${id}${done ? ", solved" : ""}`}
                     data-done={done || undefined}
                     onClick={() => onPick(id)}
                   >
-                    {isOpen ? id : <Lock aria-hidden="true" />}
+                    {id}
                     {done && id !== current && <Check aria-hidden="true" className="pc-done" />}
                   </button>
                 );
