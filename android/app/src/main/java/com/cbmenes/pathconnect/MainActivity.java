@@ -1,5 +1,6 @@
 package com.cbmenes.pathconnect;
 
+import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -9,6 +10,17 @@ import com.getcapacitor.BridgeWebViewClient;
 import com.getcapacitor.plugin.WebView;
 
 public class MainActivity extends BridgeActivity {
+    /**
+     * Temporary test. The Android WebView opens the live site instead of the
+     * files packaged in the app. Set this to null to load those files again.
+     * The website and the iOS app do not read this.
+     */
+    private static final String LIVE_SITE = "https://path-connect-iota.vercel.app";
+
+    private static boolean isLiveSite(Uri url) {
+        return LIVE_SITE != null && url != null && "path-connect-iota.vercel.app".equalsIgnoreCase(url.getHost());
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Capacitor remembers a live-reload folder in app prefs, and Android
@@ -28,6 +40,14 @@ public class MainActivity extends BridgeActivity {
         // The asset loader sometimes labels .css as a generic type. The
         // WebView then drops the stylesheet and the tiles have no grid.
         webView.setWebViewClient(new BridgeWebViewClient(getBridge()) {
+            @Override
+            public boolean shouldOverrideUrlLoading(android.webkit.WebView view, WebResourceRequest request) {
+                // Keep the live site in this WebView. Capacitor would otherwise
+                // hand that host to the phone's browser.
+                if (isLiveSite(request.getUrl())) return false;
+                return super.shouldOverrideUrlLoading(view, request);
+            }
+
             @Override
             public WebResourceResponse shouldInterceptRequest(android.webkit.WebView view, WebResourceRequest request) {
                 WebResourceResponse response = super.shouldInterceptRequest(view, request);
@@ -54,6 +74,10 @@ public class MainActivity extends BridgeActivity {
                 );
             }
         });
-        webView.post(() -> getBridge().getWebView().loadUrl(getBridge().getAppUrl()));
+        webView.post(() -> {
+            android.webkit.WebView current = getBridge().getWebView();
+            if (current == null) return;
+            current.loadUrl(LIVE_SITE != null ? LIVE_SITE : getBridge().getAppUrl());
+        });
     }
 }
