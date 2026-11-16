@@ -1,7 +1,6 @@
 package com.cbmenes.pathconnect;
 
 import android.graphics.Bitmap;
-import android.net.Uri;
 import android.os.Bundle;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
@@ -12,17 +11,10 @@ import com.getcapacitor.plugin.WebView;
 
 public class MainActivity extends BridgeActivity {
     /**
-     * Temporary test. The Android WebView opens the live site instead of the
-     * files packaged in the app. Set this to null to load those files again.
-     * The website and the iOS app do not read this.
-     */
-    private static final String LIVE_SITE = "https://path-connect-iota.vercel.app";
-
-    /**
      * Chrome on the phone honors the page viewport and lets the grid size the
      * tiles. This WebView instead keeps a button's content size, so the pipes
      * paint over the cells beside them. The script below runs only in this
-     * WebView, on the live site as well as the packaged page.
+     * WebView, on the packaged page.
      */
     private static final String BOARD_LAYOUT_SCRIPT = """
         (function (win) {
@@ -135,10 +127,6 @@ public class MainActivity extends BridgeActivity {
         })(window);
         """;
 
-    private static boolean isLiveSite(Uri url) {
-        return LIVE_SITE != null && url != null && "path-connect-iota.vercel.app".equalsIgnoreCase(url.getHost());
-    }
-
     private static void matchChromeViewport(android.webkit.WebView webView, boolean initialScale) {
         WebSettings settings = webView.getSettings();
         // Honor width=device-width, and stay at the same 100% scale Chrome uses.
@@ -176,14 +164,6 @@ public class MainActivity extends BridgeActivity {
         // The asset loader sometimes labels .css as a generic type. The
         // WebView then drops the stylesheet and the tiles have no grid.
         webView.setWebViewClient(new BridgeWebViewClient(getBridge()) {
-            @Override
-            public boolean shouldOverrideUrlLoading(android.webkit.WebView view, WebResourceRequest request) {
-                // Keep the live site in this WebView. Capacitor would otherwise
-                // hand that host to the phone's browser.
-                if (isLiveSite(request.getUrl())) return false;
-                return super.shouldOverrideUrlLoading(view, request);
-            }
-
             @Override
             public void onPageStarted(android.webkit.WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
@@ -232,7 +212,7 @@ public class MainActivity extends BridgeActivity {
             android.webkit.WebView current = getBridge().getWebView();
             if (current == null) return;
             matchChromeViewport(current, true);
-            current.loadUrl(LIVE_SITE != null ? LIVE_SITE : getBridge().getAppUrl());
+            current.loadUrl(getBridge().getAppUrl());
         });
     }
 }
