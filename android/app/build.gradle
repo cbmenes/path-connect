@@ -77,6 +77,9 @@ tasks.register('verifyNativeWebAssets') {
         if (css.contains('.pc-legacy-colors')) {
             throw new GradleException("Path Connect Android package has the rewritten WebView stylesheet instead of the live board CSS. ${fix}")
         }
+        if (!html.contains('data-pc-android-board')) {
+            throw new GradleException("Path Connect Android package is missing the WebView board fit. ${fix}")
+        }
     }
 }
 preBuild.dependsOn verifyNativeWebAssets
