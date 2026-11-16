@@ -4,6 +4,7 @@ import { useEffect } from "react";
 import { Toaster } from "sonner";
 import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
+import { installAnalytics, loadAnalyticsScript } from "@/lib/analytics";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/brand";
 import { installLegacyWebViewShim } from "@/lib/path-connect/legacy-webview";
 import { applyNativeIosSafeArea } from "@/lib/path-connect/native-shell";
@@ -40,7 +41,9 @@ export const Route = createRootRoute({
 });
 
 function Root() {
+  if (typeof window !== "undefined") installAnalytics();
   useEffect(() => {
+    loadAnalyticsScript();
     applyNativeIosSafeArea(document, window.location.protocol);
   }, []);
   useEffect(() => installLegacyWebViewShim(window), []);

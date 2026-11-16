@@ -25,6 +25,7 @@ import {
   VolumeX,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { trackDailyPlayed, trackHintUsed, trackLevelComplete, trackLevelStart } from "@/lib/analytics";
 import {
   EMPTY_STATS,
   dailyLevel,
@@ -341,6 +342,7 @@ export function PathConnectGame() {
     adsRemovedRef.current = removed;
     setAdsRemoved(removed);
     if (saved.level !== 1) reset(saved.level, { keepHints: true });
+    else trackLevelStart(1);
     if (needsOnboarding()) setLesson(1);
     setSourceTip(needsSourceTip());
     // Read once after mount, so the server render and the first client render match.
@@ -432,7 +434,10 @@ export function PathConnectGame() {
     movesRef.current = 0;
     phaseRef.current = "play";
     setMotionOn(false);
-    if (nextId !== undefined) setLevelId(nextId);
+    if (nextId !== undefined) {
+      setLevelId(nextId);
+      trackLevelStart(nextId);
+    }
     setSpins(initial);
     setMoves(0);
     setPhase("play");
@@ -482,6 +487,7 @@ export function PathConnectGame() {
     startedRef.current = performance.now();
     setElapsed(0);
     loadBoard(daily);
+    trackDailyPlayed();
   }
 
   function switchMode(next: PlayMode) {
@@ -565,6 +571,7 @@ export function PathConnectGame() {
       const opened = levelId === reached ? Math.min(LEVELS.length, reached + 1) : reached;
       saveProgress({ level: levelId, unlocked: opened });
       scheduleInterstitial(levelId);
+      trackLevelComplete(levelId);
     }
     setFlowPaths(network.paths);
     setFlowPath(spreadOrder(network.paths));
@@ -587,6 +594,7 @@ export function PathConnectGame() {
     const tile = level.tiles[next.index]!;
     const what = (tile.role === "start" ? theme.source : tile.role === "end" ? theme.node : "pipe").toLowerCase();
     setNote(`Hint: turn the glowing ${what} ${next.turns === 1 ? "once" : `${next.turns} times`}.`);
+    trackHintUsed(modeRef.current, level.id);
   }
 
   function onHint() {
