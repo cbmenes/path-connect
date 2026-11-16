@@ -1,13 +1,13 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
-  boardLimit,
   fitBoard,
+  formatDebug,
   installAndroidBoardFix,
   isAndroidWebView,
+  lockWidth,
   patchAndroidIndex,
   tileSize,
-  tilesOverlap,
 } from "./android-board-fix.mjs";
 
 const chrome =
@@ -15,7 +15,7 @@ const chrome =
 const webview =
   "Mozilla/5.0 (Linux; Android 16; Pixel 8; wv) AppleWebKit/537.36 (KHTML, like Gecko) Version/4.0 Chrome/131.0.0.0 Mobile Safari/537.36";
 
-test("the live site in Chrome is not treated as the Android app", () => {
+test("Chrome on the device is not the Android WebView", () => {
   assert.equal(isAndroidWebView(chrome), false);
   assert.equal(isAndroidWebView(webview), true);
 });
@@ -25,49 +25,43 @@ test("tile size is the cell inside the gaps", () => {
   assert.equal(tileSize(0, 5, 8), 0);
 });
 
-test("board width stays inside the screen when the tray has been stretched", () => {
-  const limit = boardLimit({
-    viewWidth: 412,
-    shellPad: 32,
-    scenePad: 32,
-    trayPad: 28,
-    sceneWidth: 900,
-    trayWidth: 880,
+test("a stretched tray does not decide the cell size", () => {
+  assert.equal(lockWidth({ viewWidth: 412, trayInner: 880, specifiedInner: 312 }), 312);
+  assert.equal(lockWidth({ viewWidth: 412, trayInner: 320, specifiedInner: 312 }), 320);
+});
+
+test("the debug line reports the board and the first tiles", () => {
+  const line = formatDebug({
+    boardWidth: 312.2,
+    boardHeight: 312.4,
+    tiles: [
+      { width: 56.2, height: 56.2 },
+      { width: 56.2, height: 40 },
+    ],
+    cell: 56.2,
+    cols: 5,
+    rows: 5,
   });
-  assert.equal(limit, 412 - 32 - 32 - 28);
+  assert.match(line, /board 312×312/);
+  assert.match(line, /cell 56.2 cols 5 rows 5/);
+  assert.match(line, /t0 56.2×56.2/);
+  assert.match(line, /t1 56.2×40.0/);
 });
 
-test("overlapping squares are detected and a clean row is not", () => {
-  const clean = [
-    { left: 0, right: 40, top: 0, bottom: 40, width: 40, height: 40 },
-    { left: 48, right: 88, top: 0, bottom: 40, width: 40, height: 40 },
-  ];
-  assert.equal(tilesOverlap(clean, 2), false);
-  const overlap = [
-    { left: 0, right: 80, top: 0, bottom: 80, width: 80, height: 80 },
-    { left: 40, right: 120, top: 0, bottom: 80, width: 80, height: 80 },
-  ];
-  assert.equal(tilesOverlap(overlap, 2), true);
-});
-
-test("a stretched WebView board is pinned to the live board width", () => {
-  const tiles = [0, 1, 2, 3].map(() => {
+function fakeBoard({ cols, tileCount, tileRect, trayWidth, probeWidth }) {
+  const tiles = Array.from({ length: tileCount }, (_, index) => {
     const style = new Map();
     return {
       style: { setProperty: (name, value) => style.set(name, value) },
-      getBoundingClientRect: () => ({ left: 0, right: 120, top: 0, bottom: 120, width: 120, height: 120 }),
+      getBoundingClientRect: () => tileRect(index),
       dump: style,
     };
   });
-  tiles[1].getBoundingClientRect = () => ({ left: 50, right: 170, top: 0, bottom: 120, width: 120, height: 120 });
   const boardStyle = new Map();
-  const shell = {
-    clientWidth: 900,
-    appendChild() {},
-  };
+  const shell = { clientWidth: 900, appendChild() {} };
   const board = {
     style: {
-      getPropertyValue: (name) => (name === "--pc-cols" ? "2" : ""),
+      getPropertyValue: (name) => (name === "--pc-cols" ? String(cols) : ""),
       setProperty: (name, value) => boardStyle.set(name, value),
     },
     getAttribute: (name) => board.attrs[name] ?? null,
@@ -75,16 +69,17 @@ test("a stretched WebView board is pinned to the live board width", () => {
       board.attrs[name] = value;
     },
     attrs: {},
-    parentElement: { clientWidth: 880 },
+    parentElement: { clientWidth: trayWidth },
     closest: (sel) => (sel === ".pc-shell" || sel === ".pc-board-wrap" ? shell : null),
     querySelectorAll: () => tiles,
+    getBoundingClientRect: () => ({ width: trayWidth, height: trayWidth }),
   };
   const win = {
     innerWidth: 412,
     document: {
       createElement: () => ({
         style: {},
-        getBoundingClientRect: () => ({ width: 372 }),
+        getBoundingClientRect: () => ({ width: probeWidth }),
         remove() {},
       }),
     },
@@ -95,36 +90,87 @@ test("a stretched WebView board is pinned to the live board width", () => {
       gap: "8px",
     }),
   };
-  assert.equal(fitBoard(board, win), true);
-  // 372px scene, 32px scene padding, 32px tray padding.
+  return { board, tiles, boardStyle, win };
+}
+
+test("a clean grid is still locked to the calculated cell, not the button content", () => {
+  const { board, tiles, win } = fakeBoard({
+    cols: 5,
+    tileCount: 25,
+    tileRect: (index) => ({
+      left: (index % 5) * 48,
+      right: (index % 5) * 48 + 40,
+      top: Math.floor(index / 5) * 48,
+      bottom: Math.floor(index / 5) * 48 + 40,
+      width: 40,
+      height: 40,
+    }),
+    trayWidth: 360,
+    probeWidth: 0,
+  });
+  const locked = fitBoard(board, win);
+  assert.ok(locked);
+  assert.equal(locked.cols, 5);
+  assert.equal(locked.rows, 5);
+  assert.notEqual(tiles[0].dump.get("width"), "40px");
+  assert.equal(tiles[0].dump.get("width"), tiles[0].dump.get("height"));
+  assert.equal(tiles[0].dump.get("min-width"), "0");
+  assert.match(locked.line, /cols 5 rows 5/);
+  assert.match(locked.line, /t0 /);
+});
+
+test("a stretched WebView board is pinned to the live board width", () => {
+  const { board, tiles, boardStyle, win } = fakeBoard({
+    cols: 2,
+    tileCount: 4,
+    tileRect: (index) =>
+      index === 0
+        ? { left: 0, right: 120, top: 0, bottom: 120, width: 120, height: 120 }
+        : { left: 50, right: 170, top: 0, bottom: 120, width: 120, height: 120 },
+    trayWidth: 880,
+    probeWidth: 372,
+  });
+  const locked = fitBoard(board, win);
+  assert.ok(locked);
   const expected = tileSize(372 - 32 - 32, 2, 8);
   const px = Math.round(expected * 100) / 100;
   assert.equal(tiles[0].dump.get("width"), `${px}px`);
   assert.equal(tiles[0].dump.get("height"), `${px}px`);
-  assert.equal(tiles[0].dump.get("min-width"), "0");
   assert.match(boardStyle.get("grid-template-columns"), new RegExp(`repeat\\(2, ${px}px\\)`));
 });
 
-test("Chrome never receives the board fit", () => {
+test("the Android page installs the fit without waiting for a WebView token", () => {
   const created = [];
   const win = {
     navigator: { userAgent: chrome },
+    console: { log() {} },
     document: {
-      head: { appendChild(node) { created.push(node); } },
+      readyState: "complete",
+      body: { appendChild() {} },
       documentElement: {},
-      createElement: () => ({ setAttribute() {}, textContent: "" }),
+      head: { appendChild(node) { created.push(node); } },
+      createElement: () => ({ setAttribute() {}, textContent: "", style: {} }),
       querySelectorAll: () => [],
+      getElementById: () => null,
+      addEventListener() {},
     },
     addEventListener() {},
     setTimeout() {},
+    setInterval() {},
+    MutationObserver: class {
+      observe() {}
+    },
   };
-  assert.equal(installAndroidBoardFix(win), false);
-  assert.equal(created.length, 0);
+  assert.equal(installAndroidBoardFix(win), true);
+  assert.equal(created.length, 1);
 });
 
-test("the Android index is patched once", () => {
-  const once = patchAndroidIndex("<head><link rel=\"stylesheet\" href=\"/assets/styles-abc.css\"></head>");
+test("the Android index carries the fit and the debug report", () => {
+  const once = patchAndroidIndex('<head><link rel="stylesheet" href="/assets/styles-abc.css"></head>');
   assert.match(once, /data-pc-android-board/);
   assert.match(once, /min-width:0!important/);
+  assert.match(once, /\[pc-board\]/);
+  assert.match(once, /pc-android-debug/);
   assert.equal(patchAndroidIndex(once), once);
+  assert.doesNotMatch(once, /if\(!isAndroidShell/);
 });

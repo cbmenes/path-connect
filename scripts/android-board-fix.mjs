@@ -1,26 +1,16 @@
 /**
- * Android System WebView lays the same stylesheet out differently from Chrome
- * on the same device. Cozy tiles are buttons with overflow visible, so the
- * WebView keeps each button at its content size and the buttons paint over
- * the cells beside them. Chrome shrinks those buttons into the grid.
- *
- * This file is copied only into the Android asset index. The website and the
+ * Android System WebView lays the same stylesheet out differently from Chrome.
+ * Tile buttons keep a content-based size, so they paint over the cells beside
+ * them. This lock is copied only into the Android page. The website and the
  * iOS bundle never receive it.
+ *
+ * Sizes are written into a stylesheet this file owns. The game redraws the
+ * button style attribute, so sizes set on the buttons themselves do not last.
  */
 
 export function isAndroidWebView(userAgent) {
   const ua = String(userAgent ?? "");
   return /Android/i.test(ua) && /;\s*wv\)/.test(ua);
-}
-
-export function isAndroidShell(win) {
-  if (isAndroidWebView(win?.navigator?.userAgent)) return true;
-  try {
-    const cap = win?.Capacitor;
-    return cap?.getPlatform?.() === "android" || cap?.platform === "android";
-  } catch {
-    return false;
-  }
 }
 
 /** Inner board width after the scene and tray padding, never wider than the screen. */
@@ -44,20 +34,26 @@ export function tileSize(innerWidth, cols, gap) {
   return size > 8 ? size : 0;
 }
 
-export function tilesOverlap(rects, cols) {
-  if (!rects.length || !(cols > 0)) return false;
-  const across = Math.min(cols, rects.length);
-  for (let i = 0; i < across; i += 1) {
-    const rect = rects[i];
-    if (!(rect.width > 8) || Math.abs(rect.width - rect.height) > 1.5) return true;
-    if (i > 0 && rect.left < rects[i - 1].right - 1) return true;
-  }
-  if (rects.length > cols) {
-    const first = rects[0];
-    const below = rects[cols];
-    if (below.top < first.bottom - 1) return true;
-  }
-  return false;
+/**
+ * Prefer the tray's content box. If the tiles have already stretched it past
+ * the screen, use the live `--pc-board` width instead of that stretched size.
+ */
+export function lockWidth({ viewWidth, trayInner = 0, specifiedInner = 0 }) {
+  const cap = viewWidth > 40 ? viewWidth - 16 : 0;
+  if (!(cap > 40)) return 0;
+  if (trayInner > 40 && trayInner <= cap) return trayInner;
+  if (specifiedInner > 40) return Math.min(specifiedInner, cap);
+  if (trayInner > 40) return Math.min(trayInner, cap);
+  return 0;
+}
+
+export function formatDebug({ boardWidth, boardHeight, tiles, cell, cols, rows }) {
+  const head = `board ${Math.round(boardWidth)}×${Math.round(boardHeight)} cell ${cell} cols ${cols} rows ${rows}`;
+  const body = tiles
+    .slice(0, 3)
+    .map((tile, index) => `t${index} ${Number(tile.width).toFixed(1)}×${Number(tile.height).toFixed(1)}`)
+    .join(" ");
+  return `${head} ${body}`.trim();
 }
 
 export const ANDROID_BOARD_CSS = `
@@ -75,6 +71,13 @@ export const ANDROID_BOARD_CSS = `
 }
 `.trim();
 
+export function lockRule(key, cols, rows, px, limit) {
+  const size = `${px}px`;
+  const width = `${Math.round(limit * 100) / 100}px`;
+  return `.pc-board[data-pc-lock="${key}"]{width:${width}!important;min-width:0!important;max-width:100%!important;display:grid!important;grid-template-columns:repeat(${cols},${size})!important;grid-template-rows:repeat(${rows},${size})!important}
+.pc-board[data-pc-lock="${key}"]>.pc-tile{width:${size}!important;height:${size}!important;min-width:0!important;min-height:0!important;max-width:${size}!important;max-height:${size}!important;padding:0!important;margin:0!important;box-sizing:border-box!important;flex:none!important;aspect-ratio:auto!important;-webkit-appearance:none!important;appearance:none!important}`;
+}
+
 function padPair(style) {
   return (parseFloat(style?.paddingLeft) || 0) + (parseFloat(style?.paddingRight) || 0);
 }
@@ -82,8 +85,10 @@ function padPair(style) {
 function readCols(board) {
   const fromStyle = parseInt(board.style?.getPropertyValue?.("--pc-cols") || "", 10);
   if (fromStyle > 0) return fromStyle;
-  const tiles = board.querySelectorAll(":scope > .pc-tile").length;
-  return tiles > 0 ? Math.round(Math.sqrt(tiles)) || tiles : 5;
+  const raw = board.getAttribute?.("style") || "";
+  const match = /--pc-cols\s*:\s*(\d+)/.exec(raw);
+  if (match) return parseInt(match[1], 10);
+  return 5;
 }
 
 function readGap(board, win) {
@@ -92,21 +97,50 @@ function readGap(board, win) {
   return Number.isFinite(gap) && gap >= 0 ? gap : 0;
 }
 
+function specifiedBoardWidth(shell, win) {
+  const doc = win.document;
+  if (!shell?.appendChild || !doc.createElement) return 0;
+  win.__pcFitting = true;
+  const probe = doc.createElement("div");
+  probe.style.cssText =
+    "position:absolute;visibility:hidden;pointer-events:none;height:0;min-width:0;width:var(--pc-board);";
+  shell.appendChild(probe);
+  const width = probe.getBoundingClientRect?.().width || 0;
+  probe.remove?.();
+  win.__pcFitting = false;
+  return width;
+}
+
+function showDebug(doc, text) {
+  if (doc.__pcDebuging) return;
+  const parent = doc.body || doc.documentElement;
+  if (!parent) return;
+  doc.__pcDebuging = true;
+  try {
+    let box = doc.getElementById?.("pc-android-debug");
+    if (!box) {
+      box = doc.createElement("div");
+      box.id = "pc-android-debug";
+      box.setAttribute("data-pc-android-debug", "");
+      box.style.cssText =
+        "position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:calc(100vw - 16px);background:rgba(12,18,28,.88);color:#f4efe4;font:600 11px/1.35 ui-monospace,monospace;padding:8px 10px;border-radius:10px;pointer-events:none;white-space:pre;box-shadow:0 8px 24px rgba(0,0,0,.28);";
+      parent.appendChild(box);
+    }
+    box.textContent = text;
+  } finally {
+    doc.__pcDebuging = false;
+  }
+}
+
 /**
  * @param {HTMLElement} board
  * @param {Window} win
  */
 export function fitBoard(board, win) {
   const tiles = [...board.querySelectorAll(":scope > .pc-tile")];
-  if (!tiles.length) return false;
+  if (!tiles.length) return null;
   const cols = readCols(board);
-  const rects = tiles.map((tile) => tile.getBoundingClientRect());
-  const pinned = board.style.getPropertyPriority?.("grid-template-columns") === "important";
-  if (!tilesOverlap(rects, cols) && !pinned) {
-    board.setAttribute("data-pc-fit", "ok");
-    return false;
-  }
-
+  const rows = Math.ceil(tiles.length / cols);
   const doc = win.document;
   const shell = board.closest?.(".pc-shell") || doc.documentElement;
   const scene = board.closest?.(".pc-board-wrap");
@@ -115,35 +149,18 @@ export function fitBoard(board, win) {
   const trayStyle = tray ? win.getComputedStyle(tray) : null;
   const scenePad = padPair(sceneStyle);
   const trayPad = padPair(trayStyle);
-  let specified = 0;
-  if (doc.createElement && shell.appendChild) {
-    win.__pcFitting = true;
-    const probe = doc.createElement("div");
-    probe.style.cssText =
-      "position:absolute;visibility:hidden;pointer-events:none;height:0;min-width:0;width:var(--pc-board);";
-    shell.appendChild(probe);
-    specified = probe.getBoundingClientRect?.().width || 0;
-    probe.remove?.();
-    win.__pcFitting = false;
-  }
-  const fromRule = contentBox(specified, scenePad, trayPad);
-  const limit =
-    fromRule ||
-    boardLimit({
-      viewWidth: win.innerWidth,
-      shellPad: padPair(win.getComputedStyle(shell)),
-      scenePad,
-      trayPad,
-      sceneWidth: scene?.clientWidth || 0,
-      trayWidth: tray?.clientWidth || 0,
-    });
+  const specified = specifiedBoardWidth(shell, win);
+  const trayInner = (tray?.clientWidth || 0) - trayPad;
+  const limit = lockWidth({
+    viewWidth: win.innerWidth,
+    trayInner,
+    specifiedInner: contentBox(specified, scenePad, trayPad),
+  });
   const size = tileSize(limit, cols, readGap(board, win));
-  if (!size) return false;
-  const rows = Math.ceil(tiles.length / cols);
+  if (!size) return null;
   const px = Math.round(size * 100) / 100;
-  const signature = `${cols}:${rows}:${px}:${tiles.length}`;
-  if (board.getAttribute("data-pc-fit") === signature) return false;
-  board.style.setProperty("width", `${Math.round(limit * 100) / 100}px`, "important");
+  const width = Math.round(limit * 100) / 100;
+  board.style.setProperty("width", `${width}px`, "important");
   board.style.setProperty("min-width", "0", "important");
   board.style.setProperty("max-width", "100%", "important");
   board.style.setProperty("grid-template-columns", `repeat(${cols}, ${px}px)`, "important");
@@ -155,14 +172,34 @@ export function fitBoard(board, win) {
     tile.style.setProperty("min-width", "0", "important");
     tile.style.setProperty("min-height", "0", "important");
     tile.style.setProperty("max-width", `${px}px`, "important");
+    tile.style.setProperty("max-height", `${px}px`, "important");
     tile.style.setProperty("padding", "0", "important");
+    tile.style.setProperty("flex", "none", "important");
+    tile.style.setProperty("aspect-ratio", "auto", "important");
   }
-  board.setAttribute("data-pc-fit", signature);
-  return true;
+  const rects = tiles.slice(0, 3).map((tile) => {
+    const rect = tile.getBoundingClientRect();
+    return { width: rect.width, height: rect.height };
+  });
+  const boardRect = board.getBoundingClientRect?.() || { width: width, height: rows * px };
+  return {
+    cols,
+    rows,
+    px,
+    limit,
+    line: formatDebug({
+      boardWidth: boardRect.width,
+      boardHeight: boardRect.height,
+      tiles: rects,
+      cell: px,
+      cols,
+      rows,
+    }),
+  };
 }
 
 export function installAndroidBoardFix(win) {
-  if (!win?.document || !isAndroidShell(win)) return false;
+  if (!win?.document) return false;
   if (win.__pcAndroidBoard) return true;
   win.__pcAndroidBoard = true;
   const doc = win.document;
@@ -171,29 +208,55 @@ export function installAndroidBoardFix(win) {
   style.textContent = ANDROID_BOARD_CSS;
   (doc.head || doc.documentElement).appendChild(style);
 
-  let scheduled = false;
-  const schedule = () => {
-    if (scheduled || win.__pcFitting) return;
-    scheduled = true;
-    const raf = win.requestAnimationFrame || ((fn) => win.setTimeout(fn, 16));
-    raf(() => {
-      scheduled = false;
-      for (const board of doc.querySelectorAll(".pc-board")) fitBoard(board, win);
-    });
+  const run = () => {
+    if (win.__pcFitting || doc.__pcDebuging) return;
+    try {
+      const boards = [...doc.querySelectorAll(".pc-board")];
+      const rules = [ANDROID_BOARD_CSS];
+      const lines = [];
+      boards.forEach((board, index) => {
+        const locked = fitBoard(board, win);
+        if (!locked) return;
+        const key = String(index);
+        board.setAttribute("data-pc-lock", key);
+        board.setAttribute("data-pc-cell", String(locked.px));
+        rules.push(lockRule(key, locked.cols, locked.rows, locked.px, locked.limit));
+        lines.push(locked.line);
+      });
+      const css = rules.join("\n");
+      if (style.textContent !== css) style.textContent = css;
+      const text = lines.length ? lines.join("\n") : "board waiting";
+      showDebug(doc, text);
+      if (lines[0] && win.__pcLog !== lines[0]) {
+        win.__pcLog = lines[0];
+        win.console?.log?.("[pc-board] " + lines[0]);
+      }
+    } catch (error) {
+      const message = error instanceof Error ? error.message : String(error);
+      showDebug(doc, "board error " + message);
+      win.console?.log?.("[pc-board] " + message);
+    }
   };
-  if (typeof win.MutationObserver === "function") {
-    new win.MutationObserver(schedule).observe(doc.documentElement, {
-      childList: true,
-      subtree: true,
-    });
-  }
-  win.addEventListener?.("resize", schedule);
-  schedule();
+
+  let running = false;
+  const safe = () => {
+    if (running || win.__pcFitting || doc.__pcDebuging) return;
+    running = true;
+    try {
+      run();
+    } finally {
+      running = false;
+    }
+  };
+  win.addEventListener?.("resize", safe);
+  const every = win.setInterval || ((fn) => win.setTimeout?.(fn, 400));
+  every(safe, 400);
+  safe();
   return true;
 }
 
 export function androidBoardScript() {
-  return `<script data-pc-android-board>(function(win){${installAndroidBoardFix.toString()}function isAndroidWebView(userAgent){return /Android/i.test(String(userAgent||""))&&/;\\s*wv\\)/.test(String(userAgent||""))}function isAndroidShell(w){if(isAndroidWebView(w?.navigator?.userAgent))return true;try{var cap=w?.Capacitor;return cap?.getPlatform?.()==="android"||cap?.platform==="android"}catch(e){return false}}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${tilesOverlap.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${padPair.toString()}${readCols.toString()}${readGap.toString()}${fitBoard.toString()}function boot(){if(win.__pcAndroidBoard||!isAndroidShell(win))return;installAndroidBoardFix(win)}boot();win.addEventListener&&win.addEventListener("DOMContentLoaded",boot);win.setTimeout&&win.setTimeout(boot,300)})(window);</script>`;
+  return `<script data-pc-android-board>(function(win){${installAndroidBoardFix.toString()}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${lockWidth.toString()}${formatDebug.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${lockRule.toString()}${padPair.toString()}${readCols.toString()}${readGap.toString()}${specifiedBoardWidth.toString()}${showDebug.toString()}${fitBoard.toString()}function boot(){try{installAndroidBoardFix(win)}catch(e){win.console&&win.console.log&&win.console.log("[pc-board] "+(e&&e.message||e))}}if(win.document.readyState==="loading")win.document.addEventListener("DOMContentLoaded",boot);else boot()})(window);</script>`;
 }
 
 export function patchAndroidIndex(html) {
