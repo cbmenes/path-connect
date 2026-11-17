@@ -1,13 +1,20 @@
 import assert from "node:assert/strict";
 import test from "node:test";
+import { readFileSync } from "node:fs";
+import vm from "node:vm";
 import {
   DEBUG_OVERLAY_MARKERS,
+  debugBarProgram,
   fitBoard,
   installAndroidBoardFix,
+  installDebugBarStrip,
   isAndroidWebView,
+  isDebugBar,
   lockWidth,
   overlayMarkersIn,
+  overlayMarkersOutsideStrip,
   patchAndroidIndex,
+  removeDebugBars,
   tileSize,
 } from "./android-board-fix.mjs";
 
@@ -149,8 +156,11 @@ test("the Android page installs the fit without waiting for a WebView token", ()
 test("the Android index carries the fit and not the size overlay", () => {
   const once = patchAndroidIndex('<head><link rel="stylesheet" href="/assets/styles-abc.css"></head>');
   assert.match(once, /data-pc-android-board/);
+  assert.match(once, /data-pc-strip-bar/);
+  assert.match(once, /MutationObserver/);
   assert.match(once, /min-width:0!important/);
-  assert.deepEqual(overlayMarkersIn(once), []);
+  assert.deepEqual(overlayMarkersOutsideStrip(once), []);
+  assert.equal(once.indexOf("data-pc-strip-bar") < once.indexOf("data-pc-android-board"), true);
   assert.equal(patchAndroidIndex(once), once);
   assert.doesNotMatch(once, /if\(!isAndroidShell/);
 });
@@ -162,8 +172,195 @@ test("a page that already has the size bar loses it on sync", () => {
     `<script data-pc-android-board>function ${first}(){return "${sized}"}</script>` +
     `<script>function ${second}(){return "${waiting}"}</script></head>`;
   const once = patchAndroidIndex(stale);
-  assert.deepEqual(overlayMarkersIn(once), []);
-  for (const marker of DEBUG_OVERLAY_MARKERS) assert.equal(once.includes(marker), false);
+  assert.deepEqual(overlayMarkersOutsideStrip(once), []);
+  assert.equal(once.includes(first), false);
+  assert.equal(once.includes(second), false);
+  assert.equal(once.includes(waiting), false);
+  assert.equal(once.includes(sized), false);
+  assert.equal(once.includes(third), true);
   assert.match(once, /min-width:0!important/);
   assert.equal(patchAndroidIndex(once), once);
+});
+
+function debugHost(nodes) {
+  let observer = null;
+  let interval = null;
+  const win = {
+    innerHeight: 800,
+    document: {
+      documentElement: {
+        clientHeight: 800,
+        querySelectorAll: () => nodes.filter((node) => !node.__pcDropped),
+      },
+      getElementById: (id) => nodes.find((node) => node.id === id && !node.__pcDropped) ?? null,
+      addEventListener() {},
+    },
+    getComputedStyle: (el) => el.computed || {},
+    MutationObserver: class {
+      constructor(callback) {
+        observer = callback;
+      }
+      observe() {}
+    },
+    setInterval(callback) {
+      interval = callback;
+    },
+    setTimeout() {},
+  };
+  return {
+    win,
+    fire() {
+      observer?.();
+    },
+    tick() {
+      interval?.();
+    },
+  };
+}
+
+function debugNode(overrides) {
+  return {
+    id: "",
+    tagName: "DIV",
+    textContent: "",
+    className: "",
+    children: [],
+    computed: {},
+    style: { setProperty() {} },
+    getBoundingClientRect() {
+      return { top: 760, bottom: 796, height: 36 };
+    },
+    remove() {
+      this.removed = true;
+    },
+    ...overrides,
+  };
+}
+
+test("the known debug element is removed even before it looks like a bar", () => {
+  const node = debugNode({
+    id: "pc-android-debug",
+    textContent: "",
+    computed: { position: "static", backgroundColor: "transparent" },
+    getBoundingClientRect: () => ({ top: 0, bottom: 0, height: 0 }),
+  });
+  const { win } = debugHost([node]);
+  assert.equal(removeDebugBars(win), 1);
+  assert.equal(node.removed, true);
+});
+
+test("a black board-size bar at the bottom is removed", () => {
+  const node = debugNode({
+    textContent: "board 343x343 · 49 cells · 7 rows",
+    computed: { position: "fixed", bottom: "8px", backgroundColor: "rgb(0, 0, 0)" },
+  });
+  const { win } = debugHost([node]);
+  assert.equal(isDebugBar(node, win), true);
+  assert.equal(removeDebugBars(win), 1);
+  assert.equal(node.removed, true);
+});
+
+test("a black bar keeps the label in a child and still comes off", () => {
+  const node = debugNode({
+    textContent: "board 343x343 · 49 cells",
+    computed: { position: "fixed", bottom: "8px", backgroundColor: "rgb(0, 0, 0)" },
+    children: [{ textContent: "board 343x343 · 49 cells" }],
+  });
+  const { win } = debugHost([node]);
+  assert.equal(removeDebugBars(win), 1);
+  assert.equal(node.removed, true);
+});
+
+test("a tall panel and a bar that is not at the bottom stay", () => {
+  const tall = debugNode({
+    textContent: "board 343x343 · 49 cells",
+    computed: { position: "fixed", bottom: "0px", backgroundColor: "rgb(0, 0, 0)" },
+    getBoundingClientRect: () => ({ top: 200, bottom: 800, height: 600 }),
+  });
+  const middle = debugNode({
+    textContent: "board 343x343 · 49 cells",
+    computed: { position: "absolute", backgroundColor: "#000" },
+    getBoundingClientRect: () => ({ top: 120, bottom: 156, height: 36 }),
+  });
+  const { win } = debugHost([tall, middle]);
+  assert.equal(removeDebugBars(win), 0);
+  assert.equal(tall.removed, undefined);
+  assert.equal(middle.removed, undefined);
+});
+
+test("the game chrome stays even when it mentions the board", () => {
+  const note = debugNode({
+    className: "pc-bottom",
+    textContent: "Back to the board",
+    computed: { position: "fixed", bottom: "12px", backgroundColor: "rgb(246, 241, 232)", height: "80px" },
+    getBoundingClientRect: () => ({ top: 700, bottom: 790, height: 90 }),
+  });
+  const { win } = debugHost([note]);
+  assert.equal(isDebugBar(note, win), false);
+  assert.equal(removeDebugBars(win), 0);
+  assert.equal(note.removed, undefined);
+});
+
+test("a bar added after the Android page loads is removed", () => {
+  const { win, fire, tick } = debugHost([]);
+  assert.equal(installDebugBarStrip(win), true);
+  const late = debugNode({
+    id: "pc-android-debug",
+    textContent: "board 343x343 · 49 cells",
+    computed: { position: "fixed", bottom: "8px", backgroundColor: "#000" },
+  });
+  win.document.documentElement.querySelectorAll = () => [late];
+  win.document.getElementById = () => late;
+  fire();
+  assert.equal(late.removed, true);
+
+  const later = debugNode({
+    textContent: "board 200x200 · 16 cells",
+    computed: { position: "fixed", bottom: "0px", backgroundColor: "rgb(8, 8, 8)" },
+  });
+  win.document.documentElement.querySelectorAll = () => [later];
+  win.document.getElementById = () => null;
+  tick();
+  assert.equal(later.removed, true);
+  assert.equal(installDebugBarStrip(win), true);
+});
+
+test("the packaged stripper matches the script the WebView loads", () => {
+  const program = `${debugBarProgram()}\n`;
+  const asset = readFileSync(new URL("../android/app/src/main/assets/strip-debug-bar.js", import.meta.url), "utf8");
+  const java = readFileSync(
+    new URL("../android/app/src/main/java/com/cbmenes/pathconnect/MainActivity.java", import.meta.url),
+    "utf8",
+  );
+  assert.equal(asset, program);
+  assert.match(java, /strip-debug-bar\.js/);
+  assert.match(java, /onPageStarted[\s\S]*installDebugBarStrip\(view\)/);
+  assert.deepEqual(
+    overlayMarkersIn(program).filter((marker) => marker !== "pc-android-debug"),
+    [],
+  );
+  const nodes = [];
+  const context = {
+    window: {
+      innerHeight: 800,
+      document: {
+        documentElement: { querySelectorAll: () => nodes, clientHeight: 800 },
+        getElementById: (id) => nodes.find((node) => node.id === id) ?? null,
+        addEventListener() {},
+      },
+      getComputedStyle: (el) => el.computed || {},
+      MutationObserver: class {
+        observe() {}
+      },
+      setInterval() {},
+      setTimeout() {},
+    },
+  };
+  vm.createContext(context);
+  vm.runInContext(program, context);
+  const node = debugNode({ id: "pc-android-debug", textContent: "board 10x10 · 4 cells" });
+  nodes.push(node);
+  context.window.__pcStripDebugBar = false;
+  vm.runInContext(program, context);
+  assert.equal(node.removed, true);
 });

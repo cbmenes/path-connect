@@ -8,8 +8,14 @@ import android.webkit.WebSettings;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.getcapacitor.plugin.WebView;
+import java.io.ByteArrayOutputStream;
+import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 
 public class MainActivity extends BridgeActivity {
+    /** Loaded once from assets. The website and the iOS app do not have this file. */
+    private String stripDebugBarScript;
+
     /**
      * Chrome on the phone honors the page viewport and lets the grid size the
      * tiles. This WebView instead keeps a button's content size, so the pipes
@@ -143,8 +149,30 @@ public class MainActivity extends BridgeActivity {
         if (initialScale) webView.setInitialScale(100);
     }
 
-    private static void installBoardLayout(android.webkit.WebView webView) {
+    /**
+     * Drops a leftover board-size bar as soon as this WebView has a document,
+     * then keeps watching if something adds the bar again later.
+     */
+    private void installDebugBarStrip(android.webkit.WebView webView) {
         if (webView == null) return;
+        if (stripDebugBarScript == null) {
+            try (InputStream in = getAssets().open("strip-debug-bar.js")) {
+                ByteArrayOutputStream out = new ByteArrayOutputStream();
+                byte[] buffer = new byte[4096];
+                int count;
+                while ((count = in.read(buffer)) != -1) out.write(buffer, 0, count);
+                stripDebugBarScript = new String(out.toByteArray(), StandardCharsets.UTF_8);
+            } catch (java.io.IOException error) {
+                stripDebugBarScript = "";
+            }
+        }
+        if (stripDebugBarScript.isEmpty()) return;
+        webView.evaluateJavascript(stripDebugBarScript, null);
+    }
+
+    private void installBoardLayout(android.webkit.WebView webView) {
+        if (webView == null) return;
+        installDebugBarStrip(webView);
         webView.evaluateJavascript(BOARD_LAYOUT_SCRIPT, null);
     }
 
@@ -168,6 +196,7 @@ public class MainActivity extends BridgeActivity {
             public void onPageStarted(android.webkit.WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 matchChromeViewport(view, false);
+                installDebugBarStrip(view);
             }
 
             @Override
