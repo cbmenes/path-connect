@@ -1,0 +1,12 @@
+{
+  "name": "remove-ads",
+  "version": "1.0.0",
+  "private": true,
+  "description": "App Store non-consumable purchase for Remove Ads.",
+  "main": "index.js",
+  "capacitor": {
+    "ios": {
+      "src": "ios"
+    }
+  }
+}

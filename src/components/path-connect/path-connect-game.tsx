@@ -64,7 +64,7 @@ import { interstitialAds } from "@/lib/path-connect/interstitial-ad";
 import { shouldShowInterstitial } from "@/lib/path-connect/interstitial";
 import { ALL_LEVELS_OPEN, captureDevUnlock, devUnlockAll, readProgress, writeProgress, type Progress } from "@/lib/path-connect/progress";
 import { markOnboarded, markSourceTipSeen, needsOnboarding, needsSourceTip } from "@/lib/path-connect/onboarding";
-import { REMOVE_ADS_PRICE, readAdsRemoved, writeAdsRemoved } from "@/lib/path-connect/remove-ads";
+import { REMOVE_ADS_PRICE, purchaseRemoveAds, readAdsRemoved, restoreRemoveAds } from "@/lib/path-connect/remove-ads";
 import {
   HINT_NUDGE_SECONDS,
   dailyReminderVisible,
@@ -342,6 +342,11 @@ export function PathConnectGame() {
     const removed = readAdsRemoved();
     adsRemovedRef.current = removed;
     setAdsRemoved(removed);
+    void restoreRemoveAds().then((owned) => {
+      if (!owned) return;
+      adsRemovedRef.current = true;
+      setAdsRemoved(true);
+    });
     if (saved.level !== 1) reset(saved.level, { keepHints: true });
     else trackLevelStart(1);
     if (needsOnboarding()) setLesson(1);
@@ -651,8 +656,13 @@ export function PathConnectGame() {
     else reset(levelId);
   }
 
-  function buyRemoveAds() {
-    writeAdsRemoved();
+  async function buyRemoveAds() {
+    const result = await purchaseRemoveAds();
+    if (result !== "purchased") {
+      if (result === "pending") setNote("The purchase is waiting for approval.");
+      else if (result === "unavailable") setNote("The App Store purchase didn't finish, so ads stay on.");
+      return;
+    }
     adsRemovedRef.current = true;
     setAdsRemoved(true);
     setRemoveOffer(false);
@@ -1377,7 +1387,7 @@ function RemoveAdsOffer({ onBuy, onClose }: { onBuy: () => void; onClose: () => 
           Remove ads
         </h3>
         <p id="pc-remove-ads-body" className="pc-ad-body">
-          One time, {REMOVE_ADS_PRICE}. Breaks between levels stay off on this device. The store is not connected yet, so confirming saves the purchase here.
+          One time, {REMOVE_ADS_PRICE}. Breaks between levels stay off on this device.
         </p>
         <div className="pc-ad-actions">
           <Button type="button" variant="ghost" onClick={onClose}>

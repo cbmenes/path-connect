@@ -21,7 +21,7 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/native-origin.test.ts src/lib/path-connect/native-shell.test.ts src/lib/path-connect/legacy-webview.test.ts src/lib/path-connect/logic.test.ts src/lib/path-connect/daily.test.ts src/lib/path-connect/admob.test.ts src/lib/analytics.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/native-origin.test.ts src/lib/path-connect/native-shell.test.ts src/lib/path-connect/legacy-webview.test.ts src/lib/path-connect/logic.test.ts src/lib/path-connect/daily.test.ts src/lib/path-connect/admob.test.ts src/lib/path-connect/remove-ads.test.ts src/lib/analytics.test.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },
@@ -74,6 +74,7 @@
     "react-hook-form": "^7.54.0",
     "react-resizable-panels": "^4.6.5",
     "recharts": "^2.13.0",
+    "remove-ads": "file:plugins/remove-ads",
     "sonner": "^2.0.7",
     "stripe": "^23.0.0",
     "tailwind-merge": "^3.5.0",

@@ -31,6 +31,8 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * - iOS AdMob is connected. The application id lives in Info.plist, and the
  *   interstitial and rewarded units are requested from the existing ad breaks.
  *   Android still uses the in-game stand-in until it has its own units.
+ * - Remove Ads is the non-consumable App Store product `remove_ads` at $2.99.
+ *   Create that product in App Store Connect. The app asks StoreKit for it.
  * - Open a release build on a device before submitting. This repo cannot
  *   compile the Xcode or Gradle projects by itself.
  */
