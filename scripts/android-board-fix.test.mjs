@@ -2,7 +2,6 @@ import assert from "node:assert/strict";
 import test from "node:test";
 import {
   fitBoard,
-  formatDebug,
   installAndroidBoardFix,
   isAndroidWebView,
   lockWidth,
@@ -28,24 +27,6 @@ test("tile size is the cell inside the gaps", () => {
 test("a stretched tray does not decide the cell size", () => {
   assert.equal(lockWidth({ viewWidth: 412, trayInner: 880, specifiedInner: 312 }), 312);
   assert.equal(lockWidth({ viewWidth: 412, trayInner: 320, specifiedInner: 312 }), 320);
-});
-
-test("the debug line reports the board and the first tiles", () => {
-  const line = formatDebug({
-    boardWidth: 312.2,
-    boardHeight: 312.4,
-    tiles: [
-      { width: 56.2, height: 56.2 },
-      { width: 56.2, height: 40 },
-    ],
-    cell: 56.2,
-    cols: 5,
-    rows: 5,
-  });
-  assert.match(line, /board 312×312/);
-  assert.match(line, /cell 56.2 cols 5 rows 5/);
-  assert.match(line, /t0 56.2×56.2/);
-  assert.match(line, /t1 56.2×40.0/);
 });
 
 function fakeBoard({ cols, tileCount, tileRect, trayWidth, probeWidth }) {
@@ -115,8 +96,6 @@ test("a clean grid is still locked to the calculated cell, not the button conten
   assert.notEqual(tiles[0].dump.get("width"), "40px");
   assert.equal(tiles[0].dump.get("width"), tiles[0].dump.get("height"));
   assert.equal(tiles[0].dump.get("min-width"), "0");
-  assert.match(locked.line, /cols 5 rows 5/);
-  assert.match(locked.line, /t0 /);
 });
 
 test("a stretched WebView board is pinned to the live board width", () => {
@@ -165,12 +144,12 @@ test("the Android page installs the fit without waiting for a WebView token", ()
   assert.equal(created.length, 1);
 });
 
-test("the Android index carries the fit and the debug report", () => {
+test("the Android index carries the fit and not the size overlay", () => {
   const once = patchAndroidIndex('<head><link rel="stylesheet" href="/assets/styles-abc.css"></head>');
   assert.match(once, /data-pc-android-board/);
   assert.match(once, /min-width:0!important/);
-  assert.match(once, /\[pc-board\]/);
-  assert.match(once, /pc-android-debug/);
+  assert.doesNotMatch(once, /pc-android-debug/);
+  assert.doesNotMatch(once, /board waiting/);
   assert.equal(patchAndroidIndex(once), once);
   assert.doesNotMatch(once, /if\(!isAndroidShell/);
 });

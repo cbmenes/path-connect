@@ -47,15 +47,6 @@ export function lockWidth({ viewWidth, trayInner = 0, specifiedInner = 0 }) {
   return 0;
 }
 
-export function formatDebug({ boardWidth, boardHeight, tiles, cell, cols, rows }) {
-  const head = `board ${Math.round(boardWidth)}×${Math.round(boardHeight)} cell ${cell} cols ${cols} rows ${rows}`;
-  const body = tiles
-    .slice(0, 3)
-    .map((tile, index) => `t${index} ${Number(tile.width).toFixed(1)}×${Number(tile.height).toFixed(1)}`)
-    .join(" ");
-  return `${head} ${body}`.trim();
-}
-
 export const ANDROID_BOARD_CSS = `
 .pc-stage,.pc-board-wrap,.pc-tray,.pc-board,.pc-tile{min-width:0!important}
 .pc-tile{
@@ -111,27 +102,6 @@ function specifiedBoardWidth(shell, win) {
   return width;
 }
 
-function showDebug(doc, text) {
-  if (doc.__pcDebuging) return;
-  const parent = doc.body || doc.documentElement;
-  if (!parent) return;
-  doc.__pcDebuging = true;
-  try {
-    let box = doc.getElementById?.("pc-android-debug");
-    if (!box) {
-      box = doc.createElement("div");
-      box.id = "pc-android-debug";
-      box.setAttribute("data-pc-android-debug", "");
-      box.style.cssText =
-        "position:fixed;left:8px;bottom:8px;z-index:2147483647;max-width:calc(100vw - 16px);background:rgba(12,18,28,.88);color:#f4efe4;font:600 11px/1.35 ui-monospace,monospace;padding:8px 10px;border-radius:10px;pointer-events:none;white-space:pre;box-shadow:0 8px 24px rgba(0,0,0,.28);";
-      parent.appendChild(box);
-    }
-    box.textContent = text;
-  } finally {
-    doc.__pcDebuging = false;
-  }
-}
-
 /**
  * @param {HTMLElement} board
  * @param {Window} win
@@ -177,25 +147,7 @@ export function fitBoard(board, win) {
     tile.style.setProperty("flex", "none", "important");
     tile.style.setProperty("aspect-ratio", "auto", "important");
   }
-  const rects = tiles.slice(0, 3).map((tile) => {
-    const rect = tile.getBoundingClientRect();
-    return { width: rect.width, height: rect.height };
-  });
-  const boardRect = board.getBoundingClientRect?.() || { width: width, height: rows * px };
-  return {
-    cols,
-    rows,
-    px,
-    limit,
-    line: formatDebug({
-      boardWidth: boardRect.width,
-      boardHeight: boardRect.height,
-      tiles: rects,
-      cell: px,
-      cols,
-      rows,
-    }),
-  };
+  return { cols, rows, px, limit };
 }
 
 export function installAndroidBoardFix(win) {
@@ -209,11 +161,10 @@ export function installAndroidBoardFix(win) {
   (doc.head || doc.documentElement).appendChild(style);
 
   const run = () => {
-    if (win.__pcFitting || doc.__pcDebuging) return;
+    if (win.__pcFitting) return;
     try {
       const boards = [...doc.querySelectorAll(".pc-board")];
       const rules = [ANDROID_BOARD_CSS];
-      const lines = [];
       boards.forEach((board, index) => {
         const locked = fitBoard(board, win);
         if (!locked) return;
@@ -221,26 +172,18 @@ export function installAndroidBoardFix(win) {
         board.setAttribute("data-pc-lock", key);
         board.setAttribute("data-pc-cell", String(locked.px));
         rules.push(lockRule(key, locked.cols, locked.rows, locked.px, locked.limit));
-        lines.push(locked.line);
       });
       const css = rules.join("\n");
       if (style.textContent !== css) style.textContent = css;
-      const text = lines.length ? lines.join("\n") : "board waiting";
-      showDebug(doc, text);
-      if (lines[0] && win.__pcLog !== lines[0]) {
-        win.__pcLog = lines[0];
-        win.console?.log?.("[pc-board] " + lines[0]);
-      }
     } catch (error) {
       const message = error instanceof Error ? error.message : String(error);
-      showDebug(doc, "board error " + message);
       win.console?.log?.("[pc-board] " + message);
     }
   };
 
   let running = false;
   const safe = () => {
-    if (running || win.__pcFitting || doc.__pcDebuging) return;
+    if (running || win.__pcFitting) return;
     running = true;
     try {
       run();
@@ -256,7 +199,7 @@ export function installAndroidBoardFix(win) {
 }
 
 export function androidBoardScript() {
-  return `<script data-pc-android-board>(function(win){${installAndroidBoardFix.toString()}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${lockWidth.toString()}${formatDebug.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${lockRule.toString()}${padPair.toString()}${readCols.toString()}${readGap.toString()}${specifiedBoardWidth.toString()}${showDebug.toString()}${fitBoard.toString()}function boot(){try{installAndroidBoardFix(win)}catch(e){win.console&&win.console.log&&win.console.log("[pc-board] "+(e&&e.message||e))}}if(win.document.readyState==="loading")win.document.addEventListener("DOMContentLoaded",boot);else boot()})(window);</script>`;
+  return `<script data-pc-android-board>(function(win){${installAndroidBoardFix.toString()}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${lockWidth.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${lockRule.toString()}${padPair.toString()}${readCols.toString()}${readGap.toString()}${specifiedBoardWidth.toString()}${fitBoard.toString()}function boot(){try{installAndroidBoardFix(win)}catch(e){win.console&&win.console.log&&win.console.log("[pc-board] "+(e&&e.message||e))}}if(win.document.readyState==="loading")win.document.addEventListener("DOMContentLoaded",boot);else boot()})(window);</script>`;
 }
 
 export function patchAndroidIndex(html) {
