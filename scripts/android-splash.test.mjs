@@ -32,17 +32,16 @@ test("Android launch splash uses the full Path Connect artwork", () => {
   const [midRed, midGreen] = portrait.mid;
   assert.ok(Math.abs(midRed - red) + Math.abs(midGreen - green) > 40, "center should be the illustration, not empty cream");
 
-  const icon = imageInfo(join(root, "android/app/src/main/res/drawable-nodpi/splash_icon.webp"));
-  assert.equal(icon.w, icon.h);
-
   const styles = readFileSync(join(root, "android/app/src/main/res/values/styles.xml"), "utf8");
   const v31 = readFileSync(join(root, "android/app/src/main/res/values-v31/styles.xml"), "utf8");
   for (const xml of [styles, v31]) {
-    assert.match(xml, /splash_window/);
-    assert.match(xml, /splash_icon/);
+    assert.match(xml, /windowSplashScreenBackground">@color\/splash_background/);
+    assert.match(xml, /windowSplashScreenAnimatedIcon">@drawable\/splash_blank/);
+    assert.match(xml, /@drawable\/splash_window/);
+    assert.equal(xml.includes("splash_icon"), false);
     assert.equal(xml.includes("ic_launcher"), false);
   }
-  assert.match(v31, /android:windowSplashScreenAnimatedIcon">@drawable\/splash_icon/);
+  assert.match(v31, /android:windowSplashScreenAnimatedIcon">@drawable\/splash_blank/);
 
   const activity = readFileSync(
     join(root, "android/app/src/main/java/com/cbmenes/pathconnect/MainActivity.java"),
@@ -50,7 +49,7 @@ test("Android launch splash uses the full Path Connect artwork", () => {
   );
   assert.match(activity, /R\.drawable\.splash/);
   assert.match(activity, /FIT_CENTER/);
-  assert.match(activity, /SplashScreenView/);
+  assert.match(activity, /setOnExitAnimationListener\(view -> view.remove\(\)\)/);
 
   const config = readFileSync(join(root, "capacitor.config.ts"), "utf8");
   assert.match(config, /launchShowDuration:\s*1200/);

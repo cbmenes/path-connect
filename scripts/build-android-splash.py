@@ -54,11 +54,6 @@ def contain(source: Image.Image, size: tuple[int, int]) -> Image.Image:
     return canvas
 
 
-def square_icon(source: Image.Image, size: int) -> Image.Image:
-    """The whole splash, letterboxed, for the Android 12 icon slot."""
-    return contain(source, (size, size))
-
-
 def main() -> None:
     if not SOURCE.is_file():
         raise SystemExit(f"Missing splash source: {SOURCE}")
@@ -71,11 +66,9 @@ def main() -> None:
         (out / "splash.png").unlink(missing_ok=True)
         contain(source, size).save(out / "splash.webp", "WEBP", quality=90, method=6)
         print(f"{folder}/splash.webp {size[0]}x{size[1]}")
-    icon_dir = RES / "drawable-nodpi"
-    icon_dir.mkdir(parents=True, exist_ok=True)
-    (icon_dir / "splash_icon.png").unlink(missing_ok=True)
-    square_icon(source, 768).save(icon_dir / "splash_icon.webp", "WEBP", quality=90, method=6)
-    print("drawable-nodpi/splash_icon.webp 768x768")
+    icon = RES / "drawable-nodpi/splash_icon.webp"
+    if icon.is_file():
+        icon.unlink()
 
 
 if __name__ == "__main__":

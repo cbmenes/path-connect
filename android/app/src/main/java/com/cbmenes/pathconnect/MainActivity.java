@@ -1,6 +1,7 @@
 package com.cbmenes.pathconnect;
 
 import android.graphics.Bitmap;
+import android.os.Build;
 import android.os.Bundle;
 import android.view.View;
 import android.view.ViewGroup;
@@ -8,14 +9,18 @@ import android.view.ViewTreeObserver;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
+import android.widget.FrameLayout;
 import android.widget.ImageView;
+import java.lang.reflect.Method;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.getcapacitor.plugin.WebView;
 
 public class MainActivity extends BridgeActivity {
     private static final String SPLASH_ARTWORK = "pc-splash-art";
-    private boolean splashCoverInstalled;
+    /** Matches SplashScreen.launchShowDuration and launchFadeOutDuration. */
+    private static final int SPLASH_HOLD_MS = 1200;
+    private static final int SPLASH_FADE_MS = 300;
 
     /**
      * Chrome on the phone honors the page viewport and lets the grid size the
@@ -156,92 +161,117 @@ public class MainActivity extends BridgeActivity {
     }
 
     /**
-     * Android 12 keeps a centered icon on screen for the whole launch splash.
-     * Cover that view with the full splash artwork until the splash goes away.
+     * Android 12 draws only a centered icon for the system splash. Drop that
+     * hold and cover the window with the full splash artwork instead.
      */
-    private void coverSystemSplashWithArtwork() {
-        if (splashCoverInstalled) return;
-        splashCoverInstalled = true;
-        final View decor = getWindow().getDecorView();
+    private void showFullSplashImage() {
         getWindow().setBackgroundDrawableResource(R.drawable.splash_window);
-        final long started = android.os.SystemClock.uptimeMillis();
+        releaseSystemSplashHold();
+        ViewGroup decor = (ViewGroup) getWindow().getDecorView();
+        if (decor.findViewWithTag(SPLASH_ARTWORK) != null) return;
+        ImageView artwork = new ImageView(this);
+        artwork.setTag(SPLASH_ARTWORK);
+        artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+        artwork.setImageResource(R.drawable.splash);
+        artwork.setBackgroundResource(R.color.splash_background);
+        artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+        artwork.setClickable(true);
+        decor.addView(artwork, new FrameLayout.LayoutParams(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        ));
+        artwork.bringToFront();
         decor.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
-            private long lastApply;
+            private int frames;
 
             @Override
             public boolean onPreDraw() {
-                long now = android.os.SystemClock.uptimeMillis();
-                boolean showing = true;
-                if (now - lastApply >= 16) {
-                    lastApply = now;
-                    showing = applySplashArtwork(decor);
-                }
-                long elapsed = now - started;
-                if (elapsed > 1600 || (!showing && elapsed > 400)) {
+                artwork.bringToFront();
+                if (++frames > 8) {
                     ViewTreeObserver observer = decor.getViewTreeObserver();
                     if (observer.isAlive()) observer.removeOnPreDrawListener(this);
                 }
                 return true;
             }
         });
+        artwork.postDelayed(this::hideFullSplashImage, SPLASH_HOLD_MS);
     }
 
-    private boolean applySplashArtwork(View root) {
-        View splash = findSplashView(root);
-        if (!(splash instanceof ViewGroup group) || containsWebView(group)) return false;
-        group.setClipToOutline(false);
-        group.setClipChildren(false);
-        group.setBackgroundResource(R.drawable.splash_window);
-        ImageView artwork = group.findViewWithTag(SPLASH_ARTWORK);
-        if (artwork == null) {
-            artwork = new ImageView(this);
-            artwork.setTag(SPLASH_ARTWORK);
-            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
-            artwork.setImageResource(R.drawable.splash);
-            artwork.setBackgroundResource(R.color.splash_background);
-            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
-            group.addView(artwork, new ViewGroup.LayoutParams(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.MATCH_PARENT
-            ));
-        }
-        artwork.bringToFront();
-        for (int i = 0; i < group.getChildCount(); i++) {
-            View child = group.getChildAt(i);
-            if (child != artwork) child.setVisibility(View.GONE);
-        }
-        return true;
+    private void hideFullSplashImage() {
+        View artwork = getWindow().getDecorView().findViewWithTag(SPLASH_ARTWORK);
+        if (artwork == null) return;
+        artwork.animate().alpha(0f).setDuration(SPLASH_FADE_MS).withEndAction(() -> {
+            if (artwork.getParent() instanceof ViewGroup parent) parent.removeView(artwork);
+        });
     }
 
-    private static boolean containsWebView(View view) {
-        if (view instanceof android.webkit.WebView) return true;
-        if (!(view instanceof ViewGroup group)) return false;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            if (containsWebView(group.getChildAt(i))) return true;
+    /**
+     * The splash plugin blocks the first draw so Android 12 keeps its icon
+     * splash up. Let the window draw, and do not keep that icon on screen.
+     */
+    private void releaseSystemSplashHold() {
+        View content = findViewById(android.R.id.content);
+        if (content != null) {
+            try {
+                java.lang.reflect.Field field = ViewTreeObserver.class.getDeclaredField("mOnPreDrawListeners");
+                field.setAccessible(true);
+                Object listeners = field.get(content.getViewTreeObserver());
+                if (listeners != null) dropSplashPreDrawListeners(listeners);
+            } catch (ReflectiveOperationException ignored) {
+                // The full-screen artwork still covers the icon slot.
+            }
         }
-        return false;
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            getSplashScreen().setOnExitAnimationListener(view -> view.remove());
+        }
     }
 
-    private View findSplashView(View view) {
-        if (view == null) return null;
-        if (view.getClass().getName().endsWith("SplashScreenView")) return view;
-        if (!(view instanceof ViewGroup group)) return null;
-        for (int i = 0; i < group.getChildCount(); i++) {
-            View child = group.getChildAt(i);
-            if (isSplashIcon(child) && child.getParent() instanceof View parent) return parent;
-            View found = findSplashView(child);
-            if (found != null) return found;
-        }
-        return null;
-    }
-
-    private boolean isSplashIcon(View view) {
-        int id = view.getId();
-        if (id == View.NO_ID) return false;
+    private static void dropSplashPreDrawListeners(Object listeners) throws ReflectiveOperationException {
+        Method size = method(listeners, "size");
+        Method get = method(listeners, "get", int.class);
+        Method removeAt = null;
+        Method removeItem = null;
         try {
-            return "splashscreen_icon_view".equals(getResources().getResourceEntryName(id));
-        } catch (android.content.res.Resources.NotFoundException ignored) {
-            return false;
+            removeAt = method(listeners, "remove", int.class);
+        } catch (NoSuchMethodException missing) {
+            for (Method method : listeners.getClass().getMethods()) {
+                if (!"remove".equals(method.getName()) || method.getParameterCount() != 1) continue;
+                if (method.getParameterTypes()[0] == int.class) continue;
+                removeItem = method;
+                break;
+            }
+        }
+        int count = (Integer) size.invoke(listeners);
+        if (removeAt != null) {
+            for (int i = count - 1; i >= 0; i--) {
+                Object listener = get.invoke(listeners, i);
+                if (isSplashHold(listener)) removeAt.invoke(listeners, i);
+            }
+            return;
+        }
+        java.util.ArrayList<Object> drop = new java.util.ArrayList<>();
+        for (int i = 0; i < count; i++) {
+            Object listener = get.invoke(listeners, i);
+            if (isSplashHold(listener)) drop.add(listener);
+        }
+        if (removeItem != null) {
+            for (Object listener : drop) removeItem.invoke(listeners, listener);
+        }
+    }
+
+    private static boolean isSplashHold(Object listener) {
+        return listener != null && listener.getClass().getName().toLowerCase().contains("splashscreen");
+    }
+
+    private static Method method(Object target, String name, Class<?>... params) throws NoSuchMethodException {
+        try {
+            Method found = target.getClass().getMethod(name, params);
+            found.setAccessible(true);
+            return found;
+        } catch (NoSuchMethodException missing) {
+            Method found = target.getClass().getDeclaredMethod(name, params);
+            found.setAccessible(true);
+            return found;
         }
     }
 
@@ -255,7 +285,7 @@ public class MainActivity extends BridgeActivity {
             .putString(WebView.CAP_SERVER_PATH, "")
             .commit();
         super.onCreate(savedInstanceState);
-        coverSystemSplashWithArtwork();
+        showFullSplashImage();
         android.webkit.WebView webView = getBridge().getWebView();
         if (webView == null) return;
         matchChromeViewport(webView, true);

@@ -20,7 +20,9 @@
         <item name="android:background">@drawable/splash_window</item>
         <item name="android:windowBackground">@drawable/splash_window</item>
         <item name="windowSplashScreenBackground">@color/splash_background</item>
-        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_icon</item>
+        <!-- A blank icon keeps the launcher icon out of the splash. The full
+             artwork is the window background, not this icon slot. -->
+        <item name="windowSplashScreenAnimatedIcon">@drawable/splash_blank</item>
         <item name="windowSplashScreenAnimationDuration">0</item>
         <item name="postSplashScreenTheme">@style/AppTheme.NoActionBar</item>
     </style>
