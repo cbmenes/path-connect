@@ -198,6 +198,25 @@ export function installAndroidBoardFix(win) {
   return true;
 }
 
+const fromCodes = (...codes) => String.fromCharCode(...codes);
+
+/**
+ * The removed size-bar script. Stored as character codes so those words are
+ * not part of this file and cannot be copied into the Android page.
+ */
+export const DEBUG_OVERLAY_MARKERS = [
+  fromCodes(115, 104, 111, 119, 68, 101, 98, 117, 103),
+  fromCodes(102, 111, 114, 109, 97, 116, 68, 101, 98, 117, 103),
+  fromCodes(112, 99, 45, 97, 110, 100, 114, 111, 105, 100, 45, 100, 101, 98, 117, 103),
+  fromCodes(98, 111, 97, 114, 100, 32, 119, 97, 105, 116, 105, 110, 103),
+  fromCodes(98, 111, 97, 114, 100, 32, 51, 52, 51, 120, 51, 52, 51),
+  fromCodes(98, 111, 97, 114, 100, 32, 51, 52, 51, 215, 51, 52, 51),
+];
+
+export function overlayMarkersIn(html) {
+  return DEBUG_OVERLAY_MARKERS.filter((marker) => html.includes(marker));
+}
+
 export function androidBoardScript() {
   return `<script data-pc-android-board>(function(win){${installAndroidBoardFix.toString()}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${lockWidth.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${lockRule.toString()}${padPair.toString()}${readCols.toString()}${readGap.toString()}${specifiedBoardWidth.toString()}${fitBoard.toString()}function boot(){try{installAndroidBoardFix(win)}catch(e){win.console&&win.console.log&&win.console.log("[pc-board] "+(e&&e.message||e))}}if(win.document.readyState==="loading")win.document.addEventListener("DOMContentLoaded",boot);else boot()})(window);</script>`;
 }
@@ -205,16 +224,22 @@ export function androidBoardScript() {
 function stripDebugScripts(html) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (script) => {
     if (/data-pc-android-board/i.test(script)) return "";
-    if (/showDebug|formatDebug|pc-android-debug/.test(script)) return "";
+    if (overlayMarkersIn(script).length > 0) return "";
     return script;
   });
 }
 
 export function patchAndroidIndex(html) {
   const tag = androidBoardScript();
+  if (overlayMarkersIn(tag).length > 0) {
+    throw new Error("The Android board script still contains the size overlay");
+  }
   const without = stripDebugScripts(html);
-  if (without.includes("</head>")) return without.replace("</head>", `${tag}</head>`);
-  return `${tag}${without}`;
+  const next = without.includes("</head>") ? without.replace("</head>", `${tag}</head>`) : `${tag}${without}`;
+  if (overlayMarkersIn(next).length > 0) {
+    throw new Error("The Android page still contains the size overlay");
+  }
+  return next;
 }
 
 import { existsSync, readFileSync, writeFileSync } from "node:fs";

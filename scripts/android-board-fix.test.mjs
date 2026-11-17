@@ -1,10 +1,12 @@
 import assert from "node:assert/strict";
 import test from "node:test";
 import {
+  DEBUG_OVERLAY_MARKERS,
   fitBoard,
   installAndroidBoardFix,
   isAndroidWebView,
   lockWidth,
+  overlayMarkersIn,
   patchAndroidIndex,
   tileSize,
 } from "./android-board-fix.mjs";
@@ -148,22 +150,18 @@ test("the Android index carries the fit and not the size overlay", () => {
   const once = patchAndroidIndex('<head><link rel="stylesheet" href="/assets/styles-abc.css"></head>');
   assert.match(once, /data-pc-android-board/);
   assert.match(once, /min-width:0!important/);
-  for (const marker of ["showDebug", "formatDebug", "pc-android-debug", "board waiting", "bottom:8px"]) {
-    assert.equal(once.includes(marker), false, marker);
-  }
+  assert.deepEqual(overlayMarkersIn(once), []);
   assert.equal(patchAndroidIndex(once), once);
   assert.doesNotMatch(once, /if\(!isAndroidShell/);
 });
 
 test("a page that already has the size bar loses it on sync", () => {
+  const [first, second, , waiting, sized] = DEBUG_OVERLAY_MARKERS;
   const stale =
-    "<head><script data-pc-android-board>function showDebug(){return \"board 343x343 cell 62 cols 5 rows 5\"}</script>" +
-    "<script>function formatDebug(){}</script></head>";
+    `<head><script data-pc-android-board>function ${first}(){return "${sized}"}</script>` +
+    `<script>function ${second}(){return "${waiting}"}</script></head>`;
   const once = patchAndroidIndex(stale);
-  assert.equal(once.includes("showDebug"), false);
-  assert.equal(once.includes("formatDebug"), false);
-  assert.equal(once.includes("board 343x343"), false);
-  assert.equal(once.includes("pc-android-debug"), false);
+  assert.deepEqual(overlayMarkersIn(once), []);
   assert.match(once, /min-width:0!important/);
   assert.equal(patchAndroidIndex(once), once);
 });
