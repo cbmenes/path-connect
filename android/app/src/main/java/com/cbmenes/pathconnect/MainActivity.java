@@ -2,14 +2,21 @@ package com.cbmenes.pathconnect;
 
 import android.graphics.Bitmap;
 import android.os.Bundle;
+import android.view.View;
+import android.view.ViewGroup;
+import android.view.ViewTreeObserver;
 import android.webkit.WebResourceRequest;
 import android.webkit.WebResourceResponse;
 import android.webkit.WebSettings;
+import android.widget.ImageView;
 import com.getcapacitor.BridgeActivity;
 import com.getcapacitor.BridgeWebViewClient;
 import com.getcapacitor.plugin.WebView;
 
 public class MainActivity extends BridgeActivity {
+    private static final String SPLASH_ARTWORK = "pc-splash-art";
+    private boolean splashCoverInstalled;
+
     /**
      * Chrome on the phone honors the page viewport and lets the grid size the
      * tiles. This WebView instead keeps a button's content size, so the pipes
@@ -148,6 +155,96 @@ public class MainActivity extends BridgeActivity {
         webView.evaluateJavascript(BOARD_LAYOUT_SCRIPT, null);
     }
 
+    /**
+     * Android 12 keeps a centered icon on screen for the whole launch splash.
+     * Cover that view with the full splash artwork until the splash goes away.
+     */
+    private void coverSystemSplashWithArtwork() {
+        if (splashCoverInstalled) return;
+        splashCoverInstalled = true;
+        final View decor = getWindow().getDecorView();
+        getWindow().setBackgroundDrawableResource(R.drawable.splash_window);
+        final long started = android.os.SystemClock.uptimeMillis();
+        decor.getViewTreeObserver().addOnPreDrawListener(new ViewTreeObserver.OnPreDrawListener() {
+            private long lastApply;
+
+            @Override
+            public boolean onPreDraw() {
+                long now = android.os.SystemClock.uptimeMillis();
+                boolean showing = true;
+                if (now - lastApply >= 16) {
+                    lastApply = now;
+                    showing = applySplashArtwork(decor);
+                }
+                long elapsed = now - started;
+                if (elapsed > 1600 || (!showing && elapsed > 400)) {
+                    ViewTreeObserver observer = decor.getViewTreeObserver();
+                    if (observer.isAlive()) observer.removeOnPreDrawListener(this);
+                }
+                return true;
+            }
+        });
+    }
+
+    private boolean applySplashArtwork(View root) {
+        View splash = findSplashView(root);
+        if (!(splash instanceof ViewGroup group) || containsWebView(group)) return false;
+        group.setClipToOutline(false);
+        group.setClipChildren(false);
+        group.setBackgroundResource(R.drawable.splash_window);
+        ImageView artwork = group.findViewWithTag(SPLASH_ARTWORK);
+        if (artwork == null) {
+            artwork = new ImageView(this);
+            artwork.setTag(SPLASH_ARTWORK);
+            artwork.setScaleType(ImageView.ScaleType.FIT_CENTER);
+            artwork.setImageResource(R.drawable.splash);
+            artwork.setBackgroundResource(R.color.splash_background);
+            artwork.setImportantForAccessibility(View.IMPORTANT_FOR_ACCESSIBILITY_NO);
+            group.addView(artwork, new ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            ));
+        }
+        artwork.bringToFront();
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (child != artwork) child.setVisibility(View.GONE);
+        }
+        return true;
+    }
+
+    private static boolean containsWebView(View view) {
+        if (view instanceof android.webkit.WebView) return true;
+        if (!(view instanceof ViewGroup group)) return false;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            if (containsWebView(group.getChildAt(i))) return true;
+        }
+        return false;
+    }
+
+    private View findSplashView(View view) {
+        if (view == null) return null;
+        if (view.getClass().getName().endsWith("SplashScreenView")) return view;
+        if (!(view instanceof ViewGroup group)) return null;
+        for (int i = 0; i < group.getChildCount(); i++) {
+            View child = group.getChildAt(i);
+            if (isSplashIcon(child) && child.getParent() instanceof View parent) return parent;
+            View found = findSplashView(child);
+            if (found != null) return found;
+        }
+        return null;
+    }
+
+    private boolean isSplashIcon(View view) {
+        int id = view.getId();
+        if (id == View.NO_ID) return false;
+        try {
+            return "splashscreen_icon_view".equals(getResources().getResourceEntryName(id));
+        } catch (android.content.res.Resources.NotFoundException ignored) {
+            return false;
+        }
+    }
+
     @Override
     public void onCreate(Bundle savedInstanceState) {
         // Capacitor remembers a live-reload folder in app prefs, and Android
@@ -158,6 +255,7 @@ public class MainActivity extends BridgeActivity {
             .putString(WebView.CAP_SERVER_PATH, "")
             .commit();
         super.onCreate(savedInstanceState);
+        coverSystemSplashWithArtwork();
         android.webkit.WebView webView = getBridge().getWebView();
         if (webView == null) return;
         matchChromeViewport(webView, true);
