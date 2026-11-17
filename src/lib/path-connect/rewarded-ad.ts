@@ -1,3 +1,5 @@
+import { isIosApp, showIosRewarded } from "./admob.ts";
+
 export type AdOutcome = "rewarded" | "dismissed" | "unavailable";
 
 /**
@@ -28,4 +30,14 @@ export const placeholderAds: RewardedAdProvider = {
   },
 };
 
-export const rewardedAds: RewardedAdProvider = placeholderAds;
+/** iOS requests the live rewarded unit. Everywhere else keeps the stand-in. */
+export const rewardedAds: RewardedAdProvider = {
+  get placeholder() {
+    return !isIosApp();
+  },
+  placeholderSeconds: placeholderAds.placeholderSeconds,
+  show(signal) {
+    if (!isIosApp()) return placeholderAds.show(signal);
+    return showIosRewarded(signal);
+  },
+};

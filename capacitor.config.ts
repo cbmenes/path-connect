@@ -8,7 +8,7 @@ import type { CapacitorConfig } from "@capacitor/cli";
  * Android and iOS projects. Those copies are build output and are not kept in
  * git, so run `npm run cap:sync` before opening Android Studio or Xcode.
  * Each WebView then loads that copy from the device.
- * There is no remote `server.url`, and no ad plugin.
+ * There is no remote `server.url`. iOS requests AdMob ads through the Capacitor plugin.
  *
  * The WebView origin is a secure local host (`https://localhost` on Android,
  * `capacitor://localhost` on iOS). Progress and the hidden unlock flag use the
@@ -28,8 +28,9 @@ import type { CapacitorConfig } from "@capacitor/cli";
  *   bar and home indicator on a real device.
  * - Android: Play Console, an upload keystore you can keep, the target SDK Play
  *   currently requires, screenshots, and the data-safety form.
- * - Do not add AdMob, or any other ad plugin, until that account is verified.
- *   The web ad flow is untouched and is not connected to a native ad SDK.
+ * - iOS AdMob is connected. The application id lives in Info.plist, and the
+ *   interstitial and rewarded units are requested from the existing ad breaks.
+ *   Android still uses the in-game stand-in until it has its own units.
  * - Open a release build on a device before submitting. This repo cannot
  *   compile the Xcode or Gradle projects by itself.
  */

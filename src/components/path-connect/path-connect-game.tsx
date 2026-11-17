@@ -408,8 +408,15 @@ export function PathConnectGame() {
       }
       interstitialPendingRef.current = false;
       interstitialLevelRef.current = completedId;
-      interstitialAds.show(completedId);
-      setInterstitialLevel(completedId);
+      const shown = interstitialAds.show(completedId);
+      if (interstitialAds.placeholder) {
+        setInterstitialLevel(completedId);
+        return;
+      }
+      void Promise.resolve(shown).finally(() => {
+        if (interstitialLevelRef.current !== completedId) return;
+        finishInterstitial();
+      });
     }, delay);
   }
 
