@@ -148,8 +148,31 @@ test("the Android index carries the fit and not the size overlay", () => {
   const once = patchAndroidIndex('<head><link rel="stylesheet" href="/assets/styles-abc.css"></head>');
   assert.match(once, /data-pc-android-board/);
   assert.match(once, /min-width:0!important/);
-  assert.doesNotMatch(once, /pc-android-debug/);
+  assert.match(once, /blockDebugOverlay/);
+  assert.doesNotMatch(once, /function showDebug/);
+  assert.doesNotMatch(once, /function formatDebug/);
   assert.doesNotMatch(once, /board waiting/);
+  assert.doesNotMatch(once, /bottom:8px/);
   assert.equal(patchAndroidIndex(once), once);
   assert.doesNotMatch(once, /if\(!isAndroidShell/);
+});
+
+test("a page that already has the size bar loses it on sync", () => {
+  const stale = `<head><script data-pc-android-board>
+    function formatDebug(){return "board 344×344 cell 62.4 cols 5 rows 5"}
+    function showDebug(doc){
+      var box = doc.createElement("div");
+      box.id = "pc-android-debug";
+      box.setAttribute("data-pc-android-debug", "");
+      box.style.cssText = "position:fixed;left:8px;bottom:8px";
+      doc.body.appendChild(box);
+    }
+  </script></head>`;
+  const once = patchAndroidIndex(stale);
+  assert.doesNotMatch(once, /function showDebug/);
+  assert.doesNotMatch(once, /function formatDebug/);
+  assert.doesNotMatch(once, /bottom:8px/);
+  assert.doesNotMatch(once, /board 344/);
+  assert.match(once, /blockDebugOverlay/);
+  assert.equal(patchAndroidIndex(once), once);
 });
