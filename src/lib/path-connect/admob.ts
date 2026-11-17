@@ -1,5 +1,36 @@
-import { Capacitor } from "@capacitor/core";
-import type { AdOptions, RewardAdOptions } from "@capacitor-community/admob";
+import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
+
+/**
+ * Options the iOS AdMob plugin accepts when loading an ad.
+ * Kept local so the web build does not import `@capacitor-community/admob`.
+ * That package's JavaScript entry fails to resolve during the Android sync build.
+ * The native plugin is still installed, and these calls use its `AdMob` bridge.
+ */
+export interface AdOptions {
+  adId: string;
+  isTesting?: boolean;
+}
+
+export interface RewardAdOptions extends AdOptions {}
+
+interface PreparedAd {
+  adUnitId: string;
+}
+
+interface AdMobPlugin {
+  initialize(options: { initializeForTesting?: boolean }): Promise<void>;
+  prepareInterstitial(options: AdOptions): Promise<PreparedAd>;
+  showInterstitial(options: { adId: string }): Promise<void>;
+  prepareRewardVideoAd(options: RewardAdOptions): Promise<PreparedAd>;
+  showRewardVideoAd(options: { adId: string }): Promise<void>;
+  addListener(eventName: string, listenerFunc: () => void): Promise<PluginListenerHandle>;
+}
+
+const AdMob = registerPlugin<AdMobPlugin>("AdMob");
+
+/** Same event names the AdMob plugin emits for a full-screen interstitial. */
+const INTERSTITIAL_DISMISSED = "interstitialAdDismissed";
+const INTERSTITIAL_FAILED_TO_SHOW = "interstitialAdFailedToShow";
 
 /** Read by the iOS Google Mobile Ads SDK from Info.plist when AdMob.initialize runs. */
 export const ADMOB_IOS_APP_ID = "ca-app-pub-6994670649862950~9651422362";
@@ -36,7 +67,6 @@ export function ensureIosAdMob(): Promise<void> {
   if (!starting) {
     starting = (async () => {
       try {
-        const { AdMob } = await import("@capacitor-community/admob");
         await AdMob.initialize({ initializeForTesting: false });
       } catch (error) {
         starting = null;
@@ -49,7 +79,6 @@ export function ensureIosAdMob(): Promise<void> {
 
 /** Loads and presents the iOS interstitial, then resolves when it closes or cannot play. */
 export async function showIosInterstitial(): Promise<void> {
-  const { AdMob, InterstitialAdPluginEvents } = await import("@capacitor-community/admob");
   await ensureIosAdMob();
   const request = iosInterstitialRequest();
   let closed!: () => void;
@@ -62,8 +91,8 @@ export async function showIosInterstitial(): Promise<void> {
     settled = true;
     closed();
   };
-  const dismissed = await AdMob.addListener(InterstitialAdPluginEvents.Dismissed, finish);
-  const failed = await AdMob.addListener(InterstitialAdPluginEvents.FailedToShow, finish);
+  const dismissed = await AdMob.addListener(INTERSTITIAL_DISMISSED, finish);
+  const failed = await AdMob.addListener(INTERSTITIAL_FAILED_TO_SHOW, finish);
   try {
     const { adUnitId } = await AdMob.prepareInterstitial(request);
     await AdMob.showInterstitial({ adId: adUnitId });
@@ -92,7 +121,6 @@ function adError(error: unknown): { message: string; code: string } {
 export async function showIosRewarded(signal: AbortSignal): Promise<"rewarded" | "dismissed" | "unavailable"> {
   if (signal.aborted) return "dismissed";
   try {
-    const { AdMob } = await import("@capacitor-community/admob");
     await ensureIosAdMob();
     if (signal.aborted) return "dismissed";
     const { adUnitId } = await AdMob.prepareRewardVideoAd(iosRewardedRequest());
