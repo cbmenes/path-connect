@@ -156,12 +156,14 @@ test("the Android index carries the fit and not the size overlay", () => {
 });
 
 test("a page that already has the size bar loses it on sync", () => {
-  const [first, second, , waiting, sized] = DEBUG_OVERLAY_MARKERS;
+  const [first, second, third, waiting, sized] = DEBUG_OVERLAY_MARKERS;
   const stale =
-    `<head><script data-pc-android-board>function ${first}(){return "${sized}"}</script>` +
+    `<head><p>${first} ${second} ${third} ${waiting} ${sized}</p>` +
+    `<script data-pc-android-board>function ${first}(){return "${sized}"}</script>` +
     `<script>function ${second}(){return "${waiting}"}</script></head>`;
   const once = patchAndroidIndex(stale);
   assert.deepEqual(overlayMarkersIn(once), []);
+  for (const marker of DEBUG_OVERLAY_MARKERS) assert.equal(once.includes(marker), false);
   assert.match(once, /min-width:0!important/);
   assert.equal(patchAndroidIndex(once), once);
 });
