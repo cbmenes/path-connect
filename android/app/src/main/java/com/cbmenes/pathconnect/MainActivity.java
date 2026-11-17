@@ -18,44 +18,6 @@ public class MainActivity extends BridgeActivity {
      */
     private static final String BOARD_LAYOUT_SCRIPT = """
         (function (win) {
-          function debugNode(node) {
-            if (!node || node.nodeType !== 1) return false;
-            if (node.id === "pc-android-debug") return true;
-            try {
-              return node.getAttribute && node.getAttribute("data-pc-android-debug") != null;
-            } catch (error) {
-              return false;
-            }
-          }
-          function sweepDebug(doc) {
-            if (!doc) return;
-            var box = doc.getElementById && doc.getElementById("pc-android-debug");
-            if (box && box.parentNode) box.parentNode.removeChild(box);
-            if (!doc.querySelectorAll) return;
-            var extra = doc.querySelectorAll("[data-pc-android-debug]");
-            for (var i = 0; i < extra.length; i++) {
-              if (extra[i].parentNode) extra[i].parentNode.removeChild(extra[i]);
-            }
-          }
-          function blockDebug(proto, name) {
-            if (!proto) return;
-            var original = proto[name];
-            if (!original || original.__pcNoDebug) return;
-            var wrapped = function (node) {
-              if (debugNode(node)) {
-                if (node.parentNode) node.parentNode.removeChild(node);
-                return node;
-              }
-              return original.apply(this, arguments);
-            };
-            wrapped.__pcNoDebug = true;
-            try { proto[name] = wrapped; } catch (error) {}
-          }
-          blockDebug(win.Element && win.Element.prototype, "appendChild");
-          blockDebug(win.Element && win.Element.prototype, "insertBefore");
-          blockDebug(win.Node && win.Node.prototype, "appendChild");
-          blockDebug(win.Node && win.Node.prototype, "insertBefore");
-          sweepDebug(win.document);
           if (win.__pcWvBoard) return;
           var doc = win.document;
           if (!doc || !doc.documentElement) return;
@@ -115,7 +77,6 @@ public class MainActivity extends BridgeActivity {
             return (parseFloat(style.paddingLeft) || 0) + (parseFloat(style.paddingRight) || 0);
           }
           function lock() {
-            sweepDebug(doc);
             var node = styleNode();
             var rules = [base];
             var view = viewWidth();
@@ -207,7 +168,6 @@ public class MainActivity extends BridgeActivity {
             public void onPageStarted(android.webkit.WebView view, String url, Bitmap favicon) {
                 super.onPageStarted(view, url, favicon);
                 matchChromeViewport(view, false);
-                installBoardLayout(view);
             }
 
             @Override

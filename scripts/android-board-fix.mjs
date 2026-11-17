@@ -47,52 +47,6 @@ export function lockWidth({ viewWidth, trayInner = 0, specifiedInner = 0 }) {
   return 0;
 }
 
-function isDebugNode(node) {
-  if (!node || node.nodeType !== 1) return false;
-  if (node.id === "pc-android-debug") return true;
-  try {
-    return node.getAttribute?.("data-pc-android-debug") != null;
-  } catch {
-    return false;
-  }
-}
-
-/** Removes the temporary size bar and refuses any later attempt to attach it. */
-export function blockDebugOverlay(win) {
-  const doc = win?.document;
-  if (!doc) return () => {};
-  const drop = (node) => {
-    if (!isDebugNode(node)) return false;
-    node.remove?.();
-    return true;
-  };
-  const sweep = () => {
-    drop(doc.getElementById?.("pc-android-debug"));
-    const extra = doc.querySelectorAll?.("[data-pc-android-debug]");
-    if (extra) for (const node of extra) drop(node);
-  };
-  const block = (proto, name) => {
-    const original = proto?.[name];
-    if (!original || original.__pcNoDebug) return;
-    function wrapped(node, ...rest) {
-      if (drop(node)) return node;
-      return original.call(this, node, ...rest);
-    }
-    wrapped.__pcNoDebug = true;
-    try {
-      proto[name] = wrapped;
-    } catch {
-      // A sealed prototype still loses the bar on the next sweep.
-    }
-  };
-  block(win.Element?.prototype, "appendChild");
-  block(win.Element?.prototype, "insertBefore");
-  block(win.Node?.prototype, "appendChild");
-  block(win.Node?.prototype, "insertBefore");
-  sweep();
-  return sweep;
-}
-
 export const ANDROID_BOARD_CSS = `
 .pc-stage,.pc-board-wrap,.pc-tray,.pc-board,.pc-tile{min-width:0!important}
 .pc-tile{
@@ -198,7 +152,6 @@ export function fitBoard(board, win) {
 
 export function installAndroidBoardFix(win) {
   if (!win?.document) return false;
-  const sweep = blockDebugOverlay(win);
   if (win.__pcAndroidBoard) return true;
   win.__pcAndroidBoard = true;
   const doc = win.document;
@@ -208,7 +161,6 @@ export function installAndroidBoardFix(win) {
   (doc.head || doc.documentElement).appendChild(style);
 
   const run = () => {
-    sweep();
     if (win.__pcFitting) return;
     try {
       const boards = [...doc.querySelectorAll(".pc-board")];
@@ -247,13 +199,13 @@ export function installAndroidBoardFix(win) {
 }
 
 export function androidBoardScript() {
-  return `<script data-pc-android-board>(function(win){${isDebugNode.toString()}${blockDebugOverlay.toString()}${installAndroidBoardFix.toString()}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${lockWidth.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${lockRule.toString()}${padPair.toString()}${readCols.toString()}${readGap.toString()}${specifiedBoardWidth.toString()}${fitBoard.toString()}function boot(){try{installAndroidBoardFix(win)}catch(e){win.console&&win.console.log&&win.console.log("[pc-board] "+(e&&e.message||e))}}if(win.document.readyState==="loading")win.document.addEventListener("DOMContentLoaded",boot);else boot()})(window);</script>`;
+  return `<script data-pc-android-board>(function(win){${installAndroidBoardFix.toString()}${boardLimit.toString()}${contentBox.toString()}${tileSize.toString()}${lockWidth.toString()}var ANDROID_BOARD_CSS=${JSON.stringify(ANDROID_BOARD_CSS)};${lockRule.toString()}${padPair.toString()}${readCols.toString()}${readGap.toString()}${specifiedBoardWidth.toString()}${fitBoard.toString()}function boot(){try{installAndroidBoardFix(win)}catch(e){win.console&&win.console.log&&win.console.log("[pc-board] "+(e&&e.message||e))}}if(win.document.readyState==="loading")win.document.addEventListener("DOMContentLoaded",boot);else boot()})(window);</script>`;
 }
 
 function stripDebugScripts(html) {
   return html.replace(/<script\b[^>]*>[\s\S]*?<\/script>/gi, (script) => {
     if (/data-pc-android-board/i.test(script)) return "";
-    if (/function showDebug|function formatDebug|pc-android-debug|bottom:8px/.test(script)) return "";
+    if (/showDebug|formatDebug|pc-android-debug/.test(script)) return "";
     return script;
   });
 }
