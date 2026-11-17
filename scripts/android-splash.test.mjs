@@ -34,14 +34,16 @@ test("Android launch splash uses the full Path Connect artwork", () => {
 
   const styles = readFileSync(join(root, "android/app/src/main/res/values/styles.xml"), "utf8");
   const v31 = readFileSync(join(root, "android/app/src/main/res/values-v31/styles.xml"), "utf8");
-  for (const xml of [styles, v31]) {
-    assert.match(xml, /windowSplashScreenBackground">@color\/splash_background/);
-    assert.match(xml, /windowSplashScreenAnimatedIcon">@drawable\/splash_blank/);
-    assert.match(xml, /@drawable\/splash_window/);
-    assert.equal(xml.includes("splash_icon"), false);
-    assert.equal(xml.includes("ic_launcher"), false);
-  }
-  assert.match(v31, /android:windowSplashScreenAnimatedIcon">@drawable\/splash_blank/);
+  const blank = readFileSync(join(root, "android/app/src/main/res/drawable/splash_blank.xml"), "utf8");
+  assert.match(blank, /@android:color\/transparent/);
+  assert.match(v31, /windowSplashScreenBackground">@color\/splash_background/);
+  assert.match(v31, /windowSplashScreenAnimatedIcon">@drawable\/splash_blank/);
+  assert.match(v31, /postSplashScreenTheme">@style\/AppTheme\.NoActionBar/);
+  assert.match(v31, /android:background">@drawable\/splash</);
+  assert.match(v31, /android:windowBackground">@drawable\/splash</);
+  assert.equal(v31.includes("splash_icon"), false);
+  assert.equal(v31.includes("ic_launcher"), false);
+  assert.equal(styles.includes("ic_launcher"), false);
 
   const activity = readFileSync(
     join(root, "android/app/src/main/java/com/cbmenes/pathconnect/MainActivity.java"),
