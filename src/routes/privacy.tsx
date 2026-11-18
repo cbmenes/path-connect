@@ -78,8 +78,8 @@ function Privacy() {
           <h2 className="font-display text-2xl text-ink">Contact</h2>
           <p>
             Questions about this policy can be sent through the Path Connect project:{" "}
-            <a className="font-medium text-navy underline" href="https://github.com/cbmenes/path-connect">
-              github.com/cbmenes/path-connect
+            <a className="font-medium text-navy underline" href="mailto:pathconnectpuzzle@gmail.com">
+              pathconnectpuzzle@gmail.com
             </a>
             .
           </p>
