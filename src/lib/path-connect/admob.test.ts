@@ -45,18 +45,18 @@ describe("iOS AdMob units", () => {
 
 describe("Android AdMob units", () => {
   it("uses the production application id and ad units", () => {
-    assert.equal(ADMOB_ANDROID_APP_ID, "ca-app-pub-6994670649862950~9651422362");
-    assert.equal(ADMOB_ANDROID_INTERSTITIAL_ID, "ca-app-pub-6994670649862950/1637200978");
-    assert.equal(ADMOB_ANDROID_REWARDED_ID, "ca-app-pub-6994670649862950/5666724137");
+    assert.equal(ADMOB_ANDROID_APP_ID, "ca-app-pub-6994670649862950~4753875369");
+    assert.equal(ADMOB_ANDROID_INTERSTITIAL_ID, "ca-app-pub-6994670649862950/9006826040");
+    assert.equal(ADMOB_ANDROID_REWARDED_ID, "ca-app-pub-6994670649862950/4266790200");
   });
 
   it("requests those units with testing turned off", () => {
     assert.deepEqual(androidInterstitialRequest(), {
-      adId: "ca-app-pub-6994670649862950/1637200978",
+      adId: "ca-app-pub-6994670649862950/9006826040",
       isTesting: false,
     });
     assert.deepEqual(androidRewardedRequest(), {
-      adId: "ca-app-pub-6994670649862950/5666724137",
+      adId: "ca-app-pub-6994670649862950/4266790200",
       isTesting: false,
     });
   });

@@ -49,9 +49,9 @@ export function iosRewardedRequest(): RewardAdOptions {
 }
 
 /** Production Android AdMob ids. The application id is also in AndroidManifest.xml. */
-export const ADMOB_ANDROID_APP_ID = "ca-app-pub-6994670649862950~9651422362";
-export const ADMOB_ANDROID_INTERSTITIAL_ID = "ca-app-pub-6994670649862950/1637200978";
-export const ADMOB_ANDROID_REWARDED_ID = "ca-app-pub-6994670649862950/5666724137";
+export const ADMOB_ANDROID_APP_ID = "ca-app-pub-6994670649862950~4753875369";
+export const ADMOB_ANDROID_INTERSTITIAL_ID = "ca-app-pub-6994670649862950/9006826040";
+export const ADMOB_ANDROID_REWARDED_ID = "ca-app-pub-6994670649862950/4266790200";
 
 /** Production requests. A testing flag would swap these units for Google's sample ads. */
 export function androidInterstitialRequest(): AdOptions {

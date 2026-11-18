@@ -12,7 +12,7 @@
         <!-- Production Android AdMob application id. -->
         <meta-data
             android:name="com.google.android.gms.ads.APPLICATION_ID"
-            android:value="ca-app-pub-6994670649862950~9651422362" />
+            android:value="ca-app-pub-6994670649862950~4753875369" />
 
         <activity
             android:configChanges="orientation|keyboardHidden|keyboard|screenSize|locale|smallestScreenSize|screenLayout|uiMode|navigation|density"
