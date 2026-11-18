@@ -1795,6 +1795,32 @@ html[data-native="ios"] .path-connect[data-style="cozy"] .pc-shell {
   background: color-mix(in oklab, white 12%, var(--color-pc-flow));
 }
 
+.path-connect[data-style="cozy"] .pc-legal {
+  position: relative;
+  z-index: 2;
+  margin: 2px 0 0;
+  text-align: center;
+}
+
+.path-connect[data-style="cozy"] .pc-legal a {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 44px;
+  padding: 0 10px;
+  font-size: 0.75rem;
+  font-weight: 600;
+  color: var(--color-pc-muted);
+  text-decoration: underline;
+  text-underline-offset: 3px;
+}
+
+.path-connect[data-style="cozy"] .pc-legal a:hover,
+.path-connect[data-style="cozy"] .pc-legal a:focus-visible {
+  color: var(--color-pc-fg);
+  outline: none;
+}
+
 @media (min-width: 720px) {
   .path-connect[data-style="cozy"] .pc-top {
     grid-template-columns: minmax(0, 1fr) minmax(220px, 300px) auto;

@@ -1134,6 +1134,9 @@ export function PathConnectGame() {
             )}
           </div>
         </footer>
+        <p className="pc-legal">
+          <Link to="/privacy">Privacy Policy</Link>
+        </p>
       </main>
       {interstitialLevel !== null && (
         <InterstitialPlaceholder levelId={interstitialLevel} onClose={finishInterstitial} />
