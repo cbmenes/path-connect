@@ -48,6 +48,20 @@ export function iosRewardedRequest(): RewardAdOptions {
   return { adId: ADMOB_IOS_REWARDED_ID, isTesting: false };
 }
 
+/** Production Android AdMob ids. The application id is also in AndroidManifest.xml. */
+export const ADMOB_ANDROID_APP_ID = "ca-app-pub-6994670649862950~4753875369";
+export const ADMOB_ANDROID_INTERSTITIAL_ID = "ca-app-pub-6994670649862950/9006826040";
+export const ADMOB_ANDROID_REWARDED_ID = "ca-app-pub-6994670649862950/4266790200";
+
+/** Production requests. A testing flag would swap these units for Google's sample ads. */
+export function androidInterstitialRequest(): AdOptions {
+  return { adId: ADMOB_ANDROID_INTERSTITIAL_ID, isTesting: false };
+}
+
+export function androidRewardedRequest(): RewardAdOptions {
+  return { adId: ADMOB_ANDROID_REWARDED_ID, isTesting: false };
+}
+
 export function isIosApp(): boolean {
   if (typeof window === "undefined") return false;
   try {
@@ -57,13 +71,23 @@ export function isIosApp(): boolean {
   }
 }
 
+export function isAndroidApp(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  } catch {
+    return false;
+  }
+}
+
 let starting: Promise<void> | null = null;
 
 /**
  * Starts the Google Mobile Ads SDK once. On iOS the SDK takes its application
- * id from Info.plist (`GADApplicationIdentifier` = `ADMOB_IOS_APP_ID`).
+ * id from Info.plist (`GADApplicationIdentifier` = `ADMOB_IOS_APP_ID`). On
+ * Android it reads `ADMOB_ANDROID_APP_ID` from the manifest.
  */
-export function ensureIosAdMob(): Promise<void> {
+function ensureAdMob(): Promise<void> {
   if (!starting) {
     starting = (async () => {
       try {
@@ -75,6 +99,14 @@ export function ensureIosAdMob(): Promise<void> {
     })();
   }
   return starting;
+}
+
+export function ensureIosAdMob(): Promise<void> {
+  return ensureAdMob();
+}
+
+export function ensureAndroidAdMob(): Promise<void> {
+  return ensureAdMob();
 }
 
 /** Loads and presents the iOS interstitial, then resolves when it closes or cannot play. */
@@ -124,6 +156,52 @@ export async function showIosRewarded(signal: AbortSignal): Promise<"rewarded" |
     await ensureIosAdMob();
     if (signal.aborted) return "dismissed";
     const { adUnitId } = await AdMob.prepareRewardVideoAd(iosRewardedRequest());
+    if (signal.aborted) return "dismissed";
+    await AdMob.showRewardVideoAd({ adId: adUnitId });
+    return signal.aborted ? "dismissed" : "rewarded";
+  } catch (error) {
+    const { message, code } = adError(error);
+    if (code === "REWARDED_AD_CANCELLED" || message.includes("dismissed before earning")) return "dismissed";
+    if (signal.aborted) return "dismissed";
+    return "unavailable";
+  }
+}
+
+/** Loads and presents the Android interstitial, then resolves when it closes or cannot play. */
+export async function showAndroidInterstitial(): Promise<void> {
+  await ensureAndroidAdMob();
+  const request = androidInterstitialRequest();
+  let closed!: () => void;
+  const done = new Promise<void>((resolve) => {
+    closed = resolve;
+  });
+  let settled = false;
+  const finish = () => {
+    if (settled) return;
+    settled = true;
+    closed();
+  };
+  const dismissed = await AdMob.addListener(INTERSTITIAL_DISMISSED, finish);
+  const failed = await AdMob.addListener(INTERSTITIAL_FAILED_TO_SHOW, finish);
+  try {
+    const { adUnitId } = await AdMob.prepareInterstitial(request);
+    await AdMob.showInterstitial({ adId: adUnitId });
+    await done;
+  } catch {
+    finish();
+  } finally {
+    void dismissed.remove();
+    void failed.remove();
+  }
+}
+
+/** Loads and presents the Android rewarded ad. A reward is granted only after the ad completes. */
+export async function showAndroidRewarded(signal: AbortSignal): Promise<"rewarded" | "dismissed" | "unavailable"> {
+  if (signal.aborted) return "dismissed";
+  try {
+    await ensureAndroidAdMob();
+    if (signal.aborted) return "dismissed";
+    const { adUnitId } = await AdMob.prepareRewardVideoAd(androidRewardedRequest());
     if (signal.aborted) return "dismissed";
     await AdMob.showRewardVideoAd({ adId: adUnitId });
     return signal.aborted ? "dismissed" : "rewarded";
