@@ -27,6 +27,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trackDailyPlayed, trackHintUsed, trackLevelComplete, trackLevelStart } from "@/lib/analytics";
+import { ClientMountedBoard } from "@/components/path-connect/client-mounted-board";
+import { deferBoardOnThisClient } from "@/lib/path-connect/android-client-board";
 import {
   EMPTY_STATS,
   dailyLevel,
@@ -176,6 +178,8 @@ export function PathConnectGame() {
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
   const [lesson, setLesson] = useState<1 | 2 | null>(null);
+  // Android only. Web and iOS render the board during hydration.
+  const mountBoardAfterPaint = deferBoardOnThisClient();
   const lessonRef = useRef(lesson);
   lessonRef.current = lesson;
   const [guide, setGuide] = useState(false);
@@ -820,7 +824,8 @@ export function PathConnectGame() {
                 {fed.size} / {nodeTotal}
               </span>
             </div>
-            <p className="pc-hud-stats tabular">
+            {/* Div, not a paragraph: the level control is a button. A button inside a p is invalid HTML, so the WebView rewrites it before hydration and React throws #418, which rebuilds the lighting nodes off their tiles. */}
+            <div className="pc-hud-stats tabular">
               {mode === "daily" ? (
                 <span className="pc-timer" role="timer" aria-label={`Time ${formatClock(elapsed)}`}>
                   <Timer aria-hidden="true" />
@@ -847,7 +852,7 @@ export function PathConnectGame() {
               <span className="text-pc-muted">
                 {moves} {moves === 1 ? "turn" : "turns"}
               </span>
-            </p>
+            </div>
           </div>
           {pickerOpen && mode === "levels" && (
             <LevelPicker
@@ -886,12 +891,11 @@ export function PathConnectGame() {
             level={mode === "daily" ? 8 : levelId}
           />
           <div className="pc-tray">
-          <div
-            ref={boardRef}
-            className="pc-board"
-            role="group"
-            aria-label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
-            style={{ "--pc-cols": level.cols } as CSSProperties}
+          <ClientMountedBoard
+            mountAfterPaint={mountBoardAfterPaint}
+            boardRef={boardRef}
+            label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
+            cols={level.cols}
           >
             {level.tiles.map((tile, index) => {
               const spin = spins[index] ?? tile.initial;
@@ -1016,7 +1020,7 @@ export function PathConnectGame() {
                 <span className="pc-flash pc-flash-late" aria-hidden="true" />
               </>
             )}
-          </div>
+          </ClientMountedBoard>
           </div>
         </div>
 

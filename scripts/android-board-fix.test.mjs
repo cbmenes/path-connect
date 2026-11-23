@@ -9,6 +9,7 @@ import {
   lockWidth,
   overlayMarkersIn,
   patchAndroidIndex,
+  stripPrerenderedBoards,
   tileSize,
 } from "./android-board-fix.mjs";
 
@@ -145,6 +146,22 @@ test("the Android page installs the fit without waiting for a WebView token", ()
   };
   assert.equal(installAndroidBoardFix(win), true);
   assert.equal(created.length, 1);
+});
+
+test("the packaged Android page has no board markup", () => {
+  const html =
+    '<div class="pc-scene pc-board-wrap"><div class="pc-tray"><div class="pc-board" role="group" style="--pc-cols:5"><button class="pc-tile">pipe</button><div class="pc-note">x</div></div></div></div>';
+  const stripped = stripPrerenderedBoards(html);
+  assert.equal(stripped, '<div class="pc-scene pc-board-wrap"><div class="pc-tray"></div></div>');
+  assert.equal(stripped.includes("pc-board\""), false);
+  assert.equal(stripPrerenderedBoards(stripped), stripped);
+  const patched = patchAndroidIndex(`<head></head>${html}`);
+  assert.match(patched, /data-pc-client-board/);
+  assert.match(patched, /window\.__pcClientBoard=true/);
+  assert.equal(patched.includes("<div class=\"pc-board\""), false);
+  assert.equal(patched.includes("<button class=\"pc-tile\">"), false);
+  assert.match(patched, /pc-board-wrap/);
+  assert.equal(patchAndroidIndex(patched), patched);
 });
 
 test("the Android index carries the fit and not the size overlay", () => {

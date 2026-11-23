@@ -84,6 +84,15 @@ tasks.register('verifyNativeWebAssets') {
 }
 preBuild.dependsOn verifyNativeWebAssets
 
+// Capacitor injects safe-area CSS from its plugin sources. Patch that script
+// before compilation so it waits for the document element.
+def repoRoot = rootProject.projectDir.parentFile
+tasks.register('patchSafeAreaInjection', Exec) {
+    workingDir repoRoot
+    commandLine 'node', 'scripts/patch-safe-area.mjs'
+}
+preBuild.dependsOn patchSafeAreaInjection
+
 try {
     def servicesJSON = file('google-services.json')
     if (servicesJSON.text) {

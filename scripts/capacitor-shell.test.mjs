@@ -10,6 +10,9 @@ test("the native shell wraps the static client and leaves the website build alon
   const config = readFileSync(join(root, "capacitor.config.ts"), "utf8");
   const vite = readFileSync(join(root, "vite.config.ts"), "utf8");
   const pkg = JSON.parse(readFileSync(join(root, "package.json"), "utf8"));
+  assert.match(vite, /path:\s*"\/"/);
+  assert.match(vite, /path:\s*"\/privacy"/);
+  assert.equal(/spa:\s*\{/.test(vite), false);
   const progress = readFileSync(join(root, "src/lib/path-connect/progress.ts"), "utf8");
 
   assert.match(config, /appName:\s*"Path Connect"/);

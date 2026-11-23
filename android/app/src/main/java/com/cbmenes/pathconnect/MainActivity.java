@@ -13,8 +13,10 @@ public class MainActivity extends BridgeActivity {
     /**
      * Chrome on the phone honors the page viewport and lets the grid size the
      * tiles. This WebView instead keeps a button's content size, so the pipes
-     * paint over the cells beside them. The script below runs only in this
-     * WebView, on the packaged page.
+     * paint over the cells beside them. Lighting bulbs and lamps are taller
+     * than the tile, so they keep the same inset as the page stylesheet
+     * instead of being stretched to the tile edge. The script below runs only
+     * in this WebView, on the packaged page.
      */
     private static final String BOARD_LAYOUT_SCRIPT = """
         (function (win) {
@@ -27,7 +29,8 @@ public class MainActivity extends BridgeActivity {
             ".pc-board{display:grid!important;width:100%!important;grid-template-columns:repeat(var(--pc-cols,5),minmax(0,1fr))!important}",
             ".pc-board>.pc-tile{-webkit-appearance:none!important;appearance:none!important;display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;height:auto!important;aspect-ratio:1!important;padding:0!important;margin:0!important}",
             ".pc-tile .pc-depth,.pc-tile .pc-spin{position:absolute!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:auto!important;height:auto!important}",
-            ".pc-tile svg{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important}"
+            ".pc-tile svg:not(.pc-lamp):not(.pc-bulb){display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important}",
+            "[data-theme=\\"lights\\"] .pc-tile .pc-lamp,[data-theme=\\"lights\\"] .pc-tile .pc-bulb{display:block!important;width:62%!important;height:auto!important;max-width:62%!important;max-height:78%!important;margin:auto!important}"
           ].join("");
           function styleNode() {
             var node = doc.getElementById("pc-wv-board");

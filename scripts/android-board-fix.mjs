@@ -257,12 +257,67 @@ function scrubOverlay(html) {
   return wipeMarkers(withoutScripts);
 }
 
+/** Blocking flag. It runs before the module so the WebView never hydrates. */
+export const CLIENT_BOARD_SCRIPT =
+  '<script data-pc-client-board>window.__pcClientBoard=true</script>';
+
+/**
+ * The packaged Android page must not include a board element. The client
+ * creates that element after mount, so nothing in this HTML can be hydrated.
+ */
+export function stripPrerenderedBoards(html) {
+  const marker = '<div class="pc-board"';
+  let result = "";
+  let cursor = 0;
+  while (cursor < html.length) {
+    const start = html.indexOf(marker, cursor);
+    if (start < 0) {
+      result += html.slice(cursor);
+      break;
+    }
+    const openEnd = html.indexOf(">", start);
+    if (openEnd < 0) {
+      result += html.slice(cursor);
+      break;
+    }
+    const lower = html.toLowerCase();
+    let depth = 1;
+    let index = openEnd + 1;
+    let closeAt = -1;
+    while (index < html.length && depth > 0) {
+      const nextOpen = lower.indexOf("<div", index);
+      const nextClose = lower.indexOf("</div>", index);
+      if (nextClose < 0) break;
+      if (nextOpen >= 0 && nextOpen < nextClose) {
+        depth += 1;
+        index = nextOpen + 4;
+      } else {
+        depth -= 1;
+        if (depth === 0) closeAt = nextClose;
+        index = nextClose + 6;
+      }
+    }
+    if (closeAt < 0) {
+      result += html.slice(cursor);
+      break;
+    }
+    result += html.slice(cursor, start);
+    cursor = closeAt + "</div>".length;
+  }
+  return result;
+}
+
 export function patchAndroidIndex(html) {
   const tag = androidBoardScript();
   if (overlayMarkersIn(tag).length > 0) {
     throw new Error("The Android board script still contains the size overlay");
   }
-  const without = scrubOverlay(html);
+  let without = stripPrerenderedBoards(scrubOverlay(html));
+  if (!without.includes("data-pc-client-board")) {
+    without = without.includes("<head>")
+      ? without.replace("<head>", `<head>${CLIENT_BOARD_SCRIPT}`)
+      : `${CLIENT_BOARD_SCRIPT}${without}`;
+  }
   const next = without.includes("</head>") ? without.replace("</head>", `${tag}</head>`) : `${tag}${without}`;
   const patched = wipeMarkers(next);
   if (overlayMarkersIn(patched).length > 0) {

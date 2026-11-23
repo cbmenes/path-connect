@@ -180,17 +180,16 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     nativeShell
       ? tanstackStart({
-          spa: {
+          client: { entry: "./client.tsx" },
+          // A static document for iOS and the web shell. Android's client entry
+          // skips hydration and inserts the board after mount.
+          pages: [{ path: "/" }, { path: "/privacy" }],
+          prerender: {
             enabled: true,
-            prerender: {
-              enabled: true,
-              crawlLinks: false,
-              // The default shell name is `_shell.html`. The WebView opens `index.html`.
-              outputPath: "/index",
-            },
+            crawlLinks: false,
           },
         })
-      : tanstackStart(),
+      : tanstackStart({ client: { entry: "./client.tsx" } }),
     // No native-only CSS rewrite. Android must ship the same stylesheet the
     // live site renders. Rewriting dvh and color-mix here made the packaged
     // file diverge, and the app board scrambled while Chrome stayed clean.
