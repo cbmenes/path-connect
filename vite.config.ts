@@ -180,17 +180,17 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     nativeShell
       ? tanstackStart({
-          // A static document for the WebView, with the same first render the
-          // client hydrates. An SPA shell leaves the board out of the HTML, and
-          // hydration then rebuilds it (React #418); on Android that rebuild
-          // drops lighting nodes off their tiles.
+          client: { entry: "./client.tsx" },
+          // A static document for iOS and the web shell. Android's client entry
+          // drops the prerendered tiles before hydration and draws them after
+          // mount, so React error #418 cannot rebuild the lighting nodes.
           pages: [{ path: "/" }, { path: "/privacy" }],
           prerender: {
             enabled: true,
             crawlLinks: false,
           },
         })
-      : tanstackStart(),
+      : tanstackStart({ client: { entry: "./client.tsx" } }),
     // No native-only CSS rewrite. Android must ship the same stylesheet the
     // live site renders. Rewriting dvh and color-mix here made the packaged
     // file diverge, and the app board scrambled while Chrome stayed clean.

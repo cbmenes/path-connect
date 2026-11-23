@@ -22,7 +22,7 @@
     "preview:stop": "node scripts/preview.mjs stop",
     "typecheck": "tsc --noEmit",
     "check:auth": "node scripts/check-auth-invariant.mjs",
-    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/native-origin.test.ts src/lib/path-connect/native-shell.test.ts src/lib/path-connect/legacy-webview.test.ts src/lib/path-connect/logic.test.ts src/lib/path-connect/daily.test.ts src/lib/path-connect/admob.test.ts src/lib/path-connect/remove-ads.test.ts src/lib/analytics.test.ts",
+    "test": "node --test 'scripts/**/*.test.mjs' && node --experimental-strip-types --test src/lib/app-data/app-data.test.ts src/lib/auth/gate-identity.test.ts src/lib/auth/native-origin.test.ts src/lib/path-connect/android-client-board.test.ts src/lib/path-connect/native-shell.test.ts src/lib/path-connect/legacy-webview.test.ts src/lib/path-connect/logic.test.ts src/lib/path-connect/daily.test.ts src/lib/path-connect/admob.test.ts src/lib/path-connect/remove-ads.test.ts src/lib/analytics.test.ts",
     "lint": "eslint .",
     "format": "prettier --write ."
   },

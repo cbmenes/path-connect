@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trackDailyPlayed, trackHintUsed, trackLevelComplete, trackLevelStart } from "@/lib/analytics";
+import { deferBoardOnThisClient } from "@/lib/path-connect/android-client-board";
 import {
   EMPTY_STATS,
   dailyLevel,
@@ -176,6 +177,13 @@ export function PathConnectGame() {
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
   const [lesson, setLesson] = useState<1 | 2 | null>(null);
+  // Android WebView only: the prerendered tiles are removed before hydration,
+  // and this stays false until mount so the first render matches that empty board.
+  const deferBoard = deferBoardOnThisClient();
+  const [boardReady, setBoardReady] = useState(!deferBoard);
+  useEffect(() => {
+    if (deferBoard) setBoardReady(true);
+  }, [deferBoard]);
   const lessonRef = useRef(lesson);
   lessonRef.current = lesson;
   const [guide, setGuide] = useState(false);
@@ -894,7 +902,7 @@ export function PathConnectGame() {
             aria-label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
             style={{ "--pc-cols": level.cols } as CSSProperties}
           >
-            {level.tiles.map((tile, index) => {
+            {boardReady && level.tiles.map((tile, index) => {
               const spin = spins[index] ?? tile.initial;
               const rotation = ((spin % 4) + 4) % 4;
               const { row, col } = rowCol(index, level.cols);
