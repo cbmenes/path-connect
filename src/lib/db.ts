@@ -142,13 +142,7 @@ async function createPgliteSql(): Promise<Sql> {
       import: "default",
       eager: true,
     }) as Record<string, string>;
-    // 0006_reminders.sql — email reminder_sends + profile reminder flags.
-    // 0007_team_pay.sql — Master-only team cleaner pay_type / pay_amount / pay_note.
-    // 0024_sms_opt_in.sql — SMS consent on clients, team profiles, and pending invites.
-    // 0025_sms_consent_status.sql — client consent requested, confirmed, or opted out.
-    // 0026_client_sms_consent_link.sql — client consent token; clear company-requested status.
-    // 0027_client_notices.sql — one reminder, on-my-way, or cancellation notice per visit.
-    // 0028_signup_recovery.sql — one abandoned-signup email per CrewWeek Stripe customer.
+    // 0001_auth.sql — Better Auth identity tables. Path Connect adds no business schema.
     const doneRows = await pg.query<{ name: string }>(
       "select name from _migrations",
     );

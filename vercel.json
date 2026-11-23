@@ -2,15 +2,5 @@
   "$schema": "https://openapi.vercel.sh/vercel.json",
   "framework": null,
   "buildCommand": "npm run build",
-  "outputDirectory": null,
-  "crons": [
-    {
-      "path": "/api/cron/reminders",
-      "schedule": "0 13 * * *"
-    },
-    {
-      "path": "/api/cron/signup-recovery",
-      "schedule": "0 14 * * *"
-    }
-  ]
+  "outputDirectory": null
 }

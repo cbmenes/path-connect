@@ -1,10 +1,10 @@
-/** User-facing product identity. Internal modules and demo emails stay as they are. */
-export const APP_NAME = "CrewWeek";
-export const PUBLIC_SITE_HOST = "getcrewweek.com";
+/** User-facing product identity for Path Connect. */
+export const APP_NAME = "Path Connect";
+export const PUBLIC_SITE_HOST = "path-connect-iota.vercel.app";
 export const PUBLIC_SITE = `https://${PUBLIC_SITE_HOST}`;
-export const APP_HOST_NAME = "crewweek.app";
-export const APP_HOST = `https://${APP_HOST_NAME}`;
-export const SUPPORT_EMAIL = "support@getcrewweek.com";
-export const HELLO_EMAIL = "hello@getcrewweek.com";
+export const APP_HOST_NAME = PUBLIC_SITE_HOST;
+export const APP_HOST = PUBLIC_SITE;
+export const SUPPORT_EMAIL = "pathconnectpuzzle@gmail.com";
+export const HELLO_EMAIL = SUPPORT_EMAIL;
 export const APP_DESCRIPTION =
-  "Calendar, clients, payments, and messages for cleaning business owners — without the chaos.";
+  "Turn the cream tiles and connect every light, sensor, or detector with one copper-colored pipe run.";
