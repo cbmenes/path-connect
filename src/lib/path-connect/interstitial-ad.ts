@@ -1,4 +1,4 @@
-import { isIosApp, showIosInterstitial } from "./admob.ts";
+import { isAndroidApp, isIosApp, showAndroidInterstitial, showIosInterstitial } from "./admob.ts";
 
 /**
  * Swap point for a real interstitial network. `show` runs when the schedule
@@ -18,16 +18,14 @@ export const placeholderInterstitial: InterstitialAd = {
   },
 };
 
-/** iOS requests the live interstitial unit. Everywhere else keeps the stand-in. */
+/** iOS and Android request their live interstitial units. The web build keeps the stand-in. */
 export const interstitialAds: InterstitialAd = {
   get placeholder() {
-    return !isIosApp();
+    return !isIosApp() && !isAndroidApp();
   },
   show(levelId) {
-    if (!isIosApp()) {
-      placeholderInterstitial.show(levelId);
-      return;
-    }
-    return showIosInterstitial();
+    if (isIosApp()) return showIosInterstitial();
+    if (isAndroidApp()) return showAndroidInterstitial();
+    placeholderInterstitial.show(levelId);
   },
 };
