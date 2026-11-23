@@ -1,7 +1,0 @@
-import { createFileRoute, Outlet } from "@tanstack/react-router";
-
-export const Route = createFileRoute("/app/team")({ component: TeamLayout });
-
-function TeamLayout() {
-  return <Outlet />;
-}

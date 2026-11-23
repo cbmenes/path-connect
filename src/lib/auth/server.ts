@@ -36,7 +36,7 @@ import { getCookie } from "@tanstack/react-start/server";
 import { randomBytes } from "node:crypto";
 import { Pool } from "pg";
 import { ensureDbReady, getPglite } from "../db";
-import { APP_HOST, PUBLIC_SITE } from "../brand";
+import { APP_HOST, APP_HOST_NAME, PUBLIC_SITE, PUBLIC_SITE_HOST } from "../brand";
 import { emailAndPasswordEnabled } from "./email-password";
 import { GATE_PROVIDER_ID, gateIdentitySessions } from "./gate-session.server";
 import { GROK_PROVIDERS } from "./providers";
@@ -104,23 +104,15 @@ const LOCAL_DEV_ORIGINS: string[] = [
   "http://127.0.0.1:8080",
   "http://[::1]:8080",
 ];
-// Apex redirects to www on both domains. Cookies are host-only (`__Host-`),
-// so each host that actually serves the app must be trusted on its own.
-const PRODUCTION_ORIGINS: string[] = [
-  PUBLIC_SITE,
-  "https://www.getcrewweek.com",
-  APP_HOST,
-  "https://www.crewweek.app",
-];
+// Cookies are host-only (`__Host-`), so each host that serves the app is trusted on its own.
+const PRODUCTION_ORIGINS: string[] = [PUBLIC_SITE, APP_HOST];
 const baseURL = explicitBaseURL ?? {
   // Include loopback hosts so dynamic baseURL resolves for local email/password
   // (not only the preview wildcard).
   allowedHosts: [
     ...previewAllowedHosts,
-    "getcrewweek.com",
-    "www.getcrewweek.com",
-    "crewweek.app",
-    "www.crewweek.app",
+    PUBLIC_SITE_HOST,
+    APP_HOST_NAME,
     "localhost",
     "127.0.0.1",
     "[::1]",
