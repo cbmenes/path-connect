@@ -1,4 +1,4 @@
-import { isIosApp, showIosRewarded } from "./admob.ts";
+import { isAdMobApp, showAdMobRewarded } from "./admob.ts";
 
 export type AdOutcome = "rewarded" | "dismissed" | "unavailable";
 
@@ -30,14 +30,14 @@ export const placeholderAds: RewardedAdProvider = {
   },
 };
 
-/** iOS requests the live rewarded unit. Everywhere else keeps the stand-in. */
+/** The iOS and Android apps request their live rewarded units. Everywhere else keeps the stand-in. */
 export const rewardedAds: RewardedAdProvider = {
   get placeholder() {
-    return !isIosApp();
+    return !isAdMobApp();
   },
   placeholderSeconds: placeholderAds.placeholderSeconds,
   show(signal) {
-    if (!isIosApp()) return placeholderAds.show(signal);
-    return showIosRewarded(signal);
+    if (!isAdMobApp()) return placeholderAds.show(signal);
+    return showAdMobRewarded(signal);
   },
 };

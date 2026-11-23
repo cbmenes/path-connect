@@ -1,7 +1,7 @@
 import { Capacitor, registerPlugin, type PluginListenerHandle } from "@capacitor/core";
 
 /**
- * Options the iOS AdMob plugin accepts when loading an ad.
+ * Options the AdMob plugin accepts when loading an ad.
  * Kept local so the web build does not import `@capacitor-community/admob`.
  * That package's JavaScript entry fails to resolve during the Android sync build.
  * The native plugin is still installed, and these calls use its `AdMob` bridge.
@@ -39,6 +39,13 @@ export const ADMOB_IOS_INTERSTITIAL_ID = "ca-app-pub-6994670649862950/1637200978
 
 export const ADMOB_IOS_REWARDED_ID = "ca-app-pub-6994670649862950/5666724137";
 
+/** Read by the Android Google Mobile Ads SDK from AndroidManifest.xml (`com.google.android.gms.ads.APPLICATION_ID`). */
+export const ADMOB_ANDROID_APP_ID = "ca-app-pub-6994670649862950~4753875369";
+
+export const ADMOB_ANDROID_INTERSTITIAL_ID = "ca-app-pub-6994670649862950/9006826040";
+
+export const ADMOB_ANDROID_REWARDED_ID = "ca-app-pub-6994670649862950/4266790200";
+
 /** Production requests. A testing flag would swap these units for Google's sample ads. */
 export function iosInterstitialRequest(): AdOptions {
   return { adId: ADMOB_IOS_INTERSTITIAL_ID, isTesting: false };
@@ -46,6 +53,23 @@ export function iosInterstitialRequest(): AdOptions {
 
 export function iosRewardedRequest(): RewardAdOptions {
   return { adId: ADMOB_IOS_REWARDED_ID, isTesting: false };
+}
+
+export function androidInterstitialRequest(): AdOptions {
+  return { adId: ADMOB_ANDROID_INTERSTITIAL_ID, isTesting: false };
+}
+
+export function androidRewardedRequest(): RewardAdOptions {
+  return { adId: ADMOB_ANDROID_REWARDED_ID, isTesting: false };
+}
+
+/** Android uses its own units. Everything else that reaches AdMob is iOS. */
+function interstitialRequest(): AdOptions {
+  return isAndroidApp() ? androidInterstitialRequest() : iosInterstitialRequest();
+}
+
+function rewardedRequest(): RewardAdOptions {
+  return isAndroidApp() ? androidRewardedRequest() : iosRewardedRequest();
 }
 
 export function isIosApp(): boolean {
@@ -57,13 +81,28 @@ export function isIosApp(): boolean {
   }
 }
 
+export function isAndroidApp(): boolean {
+  if (typeof window === "undefined") return false;
+  try {
+    return Capacitor.isNativePlatform() && Capacitor.getPlatform() === "android";
+  } catch {
+    return false;
+  }
+}
+
+/** True in the native iOS or Android app, where real AdMob units play. */
+export function isAdMobApp(): boolean {
+  return isIosApp() || isAndroidApp();
+}
+
 let starting: Promise<void> | null = null;
 
 /**
  * Starts the Google Mobile Ads SDK once. On iOS the SDK takes its application
- * id from Info.plist (`GADApplicationIdentifier` = `ADMOB_IOS_APP_ID`).
+ * id from Info.plist (`GADApplicationIdentifier` = `ADMOB_IOS_APP_ID`), and on
+ * Android from AndroidManifest.xml (`ADMOB_ANDROID_APP_ID`).
  */
-export function ensureIosAdMob(): Promise<void> {
+export function ensureAdMob(): Promise<void> {
   if (!starting) {
     starting = (async () => {
       try {
@@ -77,10 +116,10 @@ export function ensureIosAdMob(): Promise<void> {
   return starting;
 }
 
-/** Loads and presents the iOS interstitial, then resolves when it closes or cannot play. */
-export async function showIosInterstitial(): Promise<void> {
-  await ensureIosAdMob();
-  const request = iosInterstitialRequest();
+/** Loads and presents this platform's interstitial, then resolves when it closes or cannot play. */
+export async function showAdMobInterstitial(): Promise<void> {
+  await ensureAdMob();
+  const request = interstitialRequest();
   let closed!: () => void;
   const done = new Promise<void>((resolve) => {
     closed = resolve;
@@ -117,13 +156,13 @@ function adError(error: unknown): { message: string; code: string } {
   return { message: "", code: "" };
 }
 
-/** Loads and presents the iOS rewarded ad. A reward is granted only after the ad completes. */
-export async function showIosRewarded(signal: AbortSignal): Promise<"rewarded" | "dismissed" | "unavailable"> {
+/** Loads and presents this platform's rewarded ad. A reward is granted only after the ad completes. */
+export async function showAdMobRewarded(signal: AbortSignal): Promise<"rewarded" | "dismissed" | "unavailable"> {
   if (signal.aborted) return "dismissed";
   try {
-    await ensureIosAdMob();
+    await ensureAdMob();
     if (signal.aborted) return "dismissed";
-    const { adUnitId } = await AdMob.prepareRewardVideoAd(iosRewardedRequest());
+    const { adUnitId } = await AdMob.prepareRewardVideoAd(rewardedRequest());
     if (signal.aborted) return "dismissed";
     await AdMob.showRewardVideoAd({ adId: adUnitId });
     return signal.aborted ? "dismissed" : "rewarded";
