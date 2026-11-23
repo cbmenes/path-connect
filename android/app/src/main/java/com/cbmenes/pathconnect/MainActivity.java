@@ -27,7 +27,9 @@ public class MainActivity extends BridgeActivity {
             ".pc-board{display:grid!important;width:100%!important;grid-template-columns:repeat(var(--pc-cols,5),minmax(0,1fr))!important}",
             ".pc-board>.pc-tile{-webkit-appearance:none!important;appearance:none!important;display:block!important;box-sizing:border-box!important;width:100%!important;min-width:0!important;min-height:0!important;max-width:100%!important;height:auto!important;aspect-ratio:1!important;padding:0!important;margin:0!important}",
             ".pc-tile .pc-depth,.pc-tile .pc-spin{position:absolute!important;top:0!important;right:0!important;bottom:0!important;left:0!important;width:auto!important;height:auto!important}",
-            ".pc-tile svg{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important}"
+            ".pc-tile svg{display:block!important;width:100%!important;height:100%!important;max-width:100%!important;max-height:100%!important}",
+            ".pc-tile .pc-mark{position:absolute!important;top:0!important;right:0!important;bottom:0!important;left:0!important;display:grid!important;place-items:center!important}",
+            ".path-connect[data-theme=lights] .pc-tile .pc-plant>svg.pc-lamp,.path-connect[data-theme=lights] .pc-tile .pc-plant>svg.pc-bulb{width:62%!important;height:auto!important;max-width:62%!important;max-height:78%!important;aspect-ratio:auto!important;margin:auto!important}"
           ].join("");
           function styleNode() {
             var node = doc.getElementById("pc-wv-board");
