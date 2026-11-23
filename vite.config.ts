@@ -180,14 +180,14 @@ export default defineConfig(({ command, isPreview }) => ({
     tailwindcss(),
     nativeShell
       ? tanstackStart({
-          spa: {
+          // A static document for the WebView, with the same first render the
+          // client hydrates. An SPA shell leaves the board out of the HTML, and
+          // hydration then rebuilds it (React #418); on Android that rebuild
+          // drops lighting nodes off their tiles.
+          pages: [{ path: "/" }, { path: "/privacy" }],
+          prerender: {
             enabled: true,
-            prerender: {
-              enabled: true,
-              crawlLinks: false,
-              // The default shell name is `_shell.html`. The WebView opens `index.html`.
-              outputPath: "/index",
-            },
+            crawlLinks: false,
           },
         })
       : tanstackStart(),
