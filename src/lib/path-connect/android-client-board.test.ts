@@ -27,8 +27,8 @@ test("only the Android WebView defers the board", () => {
   assert.equal(deferBoardOnThisClient(), false);
 });
 
-test("preparing the Android document removes the prerendered tiles", () => {
-  const boards: Array<{ children: number; replaceChildren: () => void }> = [];
+test("preparing the Android document removes the prerendered board", () => {
+  const boards: Array<{ removed: boolean; remove: () => void }> = [];
   const win = {
     navigator: { userAgent: WEBVIEW },
     document: {
@@ -36,14 +36,21 @@ test("preparing the Android document removes the prerendered tiles", () => {
     },
   } as unknown as Window & { [CLIENT_BOARD_FLAG]?: boolean };
   boards.push({
-    children: 25,
-    replaceChildren() {
-      this.children = 0;
+    removed: false,
+    remove() {
+      this.removed = true;
     },
   });
   assert.equal(prepareAndroidClientBoard(win), true);
   assert.equal(win[CLIENT_BOARD_FLAG], true);
-  assert.equal(boards[0]?.children, 0);
+  assert.equal(boards[0]?.removed, true);
+
+  const flagged = {
+    navigator: { userAgent: "Mozilla/5.0 (Linux; Android 14; Pixel 7) Chrome/120.0.0.0" },
+    document: { querySelectorAll: () => boards },
+    [CLIENT_BOARD_FLAG]: true,
+  } as unknown as Window & { [CLIENT_BOARD_FLAG]?: boolean };
+  assert.equal(prepareAndroidClientBoard(flagged), true);
 
   const browser = {
     navigator: { userAgent: "Mozilla/5.0 Chrome/120.0.0.0" },

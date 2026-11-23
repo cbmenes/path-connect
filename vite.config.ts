@@ -182,8 +182,7 @@ export default defineConfig(({ command, isPreview }) => ({
       ? tanstackStart({
           client: { entry: "./client.tsx" },
           // A static document for iOS and the web shell. Android's client entry
-          // drops the prerendered tiles before hydration and draws them after
-          // mount, so React error #418 cannot rebuild the lighting nodes.
+          // skips hydration and inserts the board after mount.
           pages: [{ path: "/" }, { path: "/privacy" }],
           prerender: {
             enabled: true,

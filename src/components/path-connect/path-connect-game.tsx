@@ -27,6 +27,7 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { trackDailyPlayed, trackHintUsed, trackLevelComplete, trackLevelStart } from "@/lib/analytics";
+import { ClientMountedBoard } from "@/components/path-connect/client-mounted-board";
 import { deferBoardOnThisClient } from "@/lib/path-connect/android-client-board";
 import {
   EMPTY_STATS,
@@ -177,13 +178,8 @@ export function PathConnectGame() {
   const [hint, setHint] = useState<Hint | null>(null);
   const [adStep, setAdStep] = useState<"offer" | "playing" | null>(null);
   const [lesson, setLesson] = useState<1 | 2 | null>(null);
-  // Android WebView only: the prerendered tiles are removed before hydration,
-  // and this stays false until mount so the first render matches that empty board.
-  const deferBoard = deferBoardOnThisClient();
-  const [boardReady, setBoardReady] = useState(!deferBoard);
-  useEffect(() => {
-    if (deferBoard) setBoardReady(true);
-  }, [deferBoard]);
+  // Android only. Web and iOS render the board during hydration.
+  const mountBoardAfterPaint = deferBoardOnThisClient();
   const lessonRef = useRef(lesson);
   lessonRef.current = lesson;
   const [guide, setGuide] = useState(false);
@@ -895,14 +891,13 @@ export function PathConnectGame() {
             level={mode === "daily" ? 8 : levelId}
           />
           <div className="pc-tray">
-          <div
-            ref={boardRef}
-            className="pc-board"
-            role="group"
-            aria-label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
-            style={{ "--pc-cols": level.cols } as CSSProperties}
+          <ClientMountedBoard
+            mountAfterPaint={mountBoardAfterPaint}
+            boardRef={boardRef}
+            label={mode === "daily" ? "Daily board" : `Level ${levelId} board`}
+            cols={level.cols}
           >
-            {boardReady && level.tiles.map((tile, index) => {
+            {level.tiles.map((tile, index) => {
               const spin = spins[index] ?? tile.initial;
               const rotation = ((spin % 4) + 4) % 4;
               const { row, col } = rowCol(index, level.cols);
@@ -1025,7 +1020,7 @@ export function PathConnectGame() {
                 <span className="pc-flash pc-flash-late" aria-hidden="true" />
               </>
             )}
-          </div>
+          </ClientMountedBoard>
           </div>
         </div>
 

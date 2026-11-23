@@ -257,9 +257,13 @@ function scrubOverlay(html) {
   return wipeMarkers(withoutScripts);
 }
 
+/** Blocking flag. It runs before the module so the WebView never hydrates. */
+export const CLIENT_BOARD_SCRIPT =
+  '<script data-pc-client-board>window.__pcClientBoard=true</script>';
+
 /**
- * The packaged Android page must not include the prerendered tiles. The client
- * clears `.pc-board` as well, before hydration, and draws the tiles after mount.
+ * The packaged Android page must not include a board element. The client
+ * creates that element after mount, so nothing in this HTML can be hydrated.
  */
 export function stripPrerenderedBoards(html) {
   const marker = '<div class="pc-board"';
@@ -297,7 +301,7 @@ export function stripPrerenderedBoards(html) {
       result += html.slice(cursor);
       break;
     }
-    result += `${html.slice(cursor, openEnd + 1)}</div>`;
+    result += html.slice(cursor, start);
     cursor = closeAt + "</div>".length;
   }
   return result;
@@ -308,7 +312,12 @@ export function patchAndroidIndex(html) {
   if (overlayMarkersIn(tag).length > 0) {
     throw new Error("The Android board script still contains the size overlay");
   }
-  const without = stripPrerenderedBoards(scrubOverlay(html));
+  let without = stripPrerenderedBoards(scrubOverlay(html));
+  if (!without.includes("data-pc-client-board")) {
+    without = without.includes("<head>")
+      ? without.replace("<head>", `<head>${CLIENT_BOARD_SCRIPT}`)
+      : `${CLIENT_BOARD_SCRIPT}${without}`;
+  }
   const next = without.includes("</head>") ? without.replace("</head>", `${tag}</head>`) : `${tag}${without}`;
   const patched = wipeMarkers(next);
   if (overlayMarkersIn(patched).length > 0) {

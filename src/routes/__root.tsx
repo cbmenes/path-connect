@@ -6,6 +6,7 @@ import { AuthProvider } from "@/lib/auth/provider";
 import { PreviewHostBridge } from "@/components/preview-host-bridge";
 import { installAnalytics, loadAnalyticsScript } from "@/lib/analytics";
 import { APP_DESCRIPTION, APP_NAME } from "@/lib/brand";
+import { deferBoardOnThisClient } from "@/lib/path-connect/android-client-board";
 import { installLegacyWebViewShim } from "@/lib/path-connect/legacy-webview";
 import { applyNativeIosSafeArea } from "@/lib/path-connect/native-shell";
 import appCss from "../styles.css?url";
@@ -47,19 +48,27 @@ function Root() {
     applyNativeIosSafeArea(document, window.location.protocol);
   }, []);
   useEffect(() => installLegacyWebViewShim(window), []);
+  // Android paints into the existing body with createRoot. A second html
+  // element would nest inside that body. Web and iOS still hydrate this shell.
+  const app = (
+    <>
+      <PreviewHostBridge />
+      <AuthProvider>
+        <QueryClientProvider client={queryClient}>
+          <Outlet />
+          <Toaster richColors position="top-center" />
+        </QueryClientProvider>
+      </AuthProvider>
+    </>
+  );
+  if (deferBoardOnThisClient()) return app;
   return (
     <html lang="en" className="antialiased" suppressHydrationWarning>
       <head>
         <HeadContent />
       </head>
       <body>
-        <PreviewHostBridge />
-        <AuthProvider>
-          <QueryClientProvider client={queryClient}>
-            <Outlet />
-            <Toaster richColors position="top-center" />
-          </QueryClientProvider>
-        </AuthProvider>
+        {app}
         <Scripts />
       </body>
     </html>
