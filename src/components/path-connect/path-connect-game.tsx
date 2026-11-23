@@ -820,7 +820,8 @@ export function PathConnectGame() {
                 {fed.size} / {nodeTotal}
               </span>
             </div>
-            <p className="pc-hud-stats tabular">
+            {/* Div, not a paragraph: the level control is a button. A button inside a p is invalid HTML, so the WebView rewrites it before hydration and React throws #418, which rebuilds the lighting nodes off their tiles. */}
+            <div className="pc-hud-stats tabular">
               {mode === "daily" ? (
                 <span className="pc-timer" role="timer" aria-label={`Time ${formatClock(elapsed)}`}>
                   <Timer aria-hidden="true" />
@@ -847,7 +848,7 @@ export function PathConnectGame() {
               <span className="text-pc-muted">
                 {moves} {moves === 1 ? "turn" : "turns"}
               </span>
-            </p>
+            </div>
           </div>
           {pickerOpen && mode === "levels" && (
             <LevelPicker

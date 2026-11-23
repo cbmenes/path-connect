@@ -9,6 +9,12 @@ const activity = readFileSync(
   "utf8",
 );
 
+test("the level control is not a button inside a paragraph", () => {
+  const game = readFileSync(join(root, "src/components/path-connect/path-connect-game.tsx"), "utf8");
+  assert.match(game, /<div className="pc-hud-stats tabular">/);
+  assert.equal(game.includes('<p className="pc-hud-stats'), false);
+});
+
 test("Android keeps lighting nodes inside the tile and still fills the other tile art", () => {
   assert.match(activity, /\.pc-tile svg:not\(\.pc-lamp\):not\(\.pc-bulb\)\{[^}]*width:100%/);
   assert.match(
