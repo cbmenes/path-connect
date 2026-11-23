@@ -1210,6 +1210,21 @@
   height: 76%;
 }
 
+/* Lighting art fills its whole 48×60 viewBox, so size it from the tile box itself:
+   some Android WebViews ignore a percentage height on an SVG grid item and let it grow. */
+.path-connect[data-theme="lights"][data-style="cozy"] .pc-tile .pc-mark {
+  container-type: size;
+}
+
+.path-connect[data-theme="lights"][data-style="cozy"] .pc-tile .pc-lamp,
+.path-connect[data-theme="lights"][data-style="cozy"] .pc-tile .pc-bulb {
+  width: 62%;
+  width: min(62cqw, 62cqh);
+  height: auto;
+  aspect-ratio: 48 / 60;
+  max-width: 62%;
+}
+
 .path-connect[data-style="cozy"] .pc-tile .pc-glyph.is-on {
   filter:
     drop-shadow(0 1.5px 0 color-mix(in oklab, var(--color-pc-shade) 22%, transparent))
